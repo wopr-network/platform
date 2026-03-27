@@ -54,15 +54,14 @@ RUN groupadd -r wopr \
 
 # Production node_modules (full workspace tree for internal package resolution)
 COPY --chown=wopr:wopr --from=deps /app/node_modules ./node_modules
-COPY --chown=wopr:wopr --from=deps /app/platforms/wopr-platform/node_modules ./platforms/wopr-platform/node_modules
+COPY --chown=wopr:wopr --from=deps /app/platforms/wopr-platform/node_modules ./platforms/wopr-platform/node_modules 2>/dev/null || true
 
-# WOPR daemon binary — wrapper script with absolute path
-# (pnpm's .bin scripts use $basedir-relative paths that break outside node_modules)
-# Path corresponds to the "wopr" bin entry in @wopr-network/wopr/package.json -> dist/cli.js
-# Fail at build time if the expected CLI path is missing (catches upstream layout changes).
-RUN test -f /app/node_modules/@wopr-network/wopr/dist/cli.js \
-    || (echo "ERROR: @wopr-network/wopr dist/cli.js not found — update wrapper path in Dockerfile" >&2 && exit 1)
-RUN printf '#!/bin/sh\nexec node /app/node_modules/@wopr-network/wopr/dist/cli.js "$@"\n' > /usr/local/bin/wopr \
+# WOPR sidecar — workspace package, copy built output from build stage
+COPY --chown=wopr:wopr --from=build /app/sidecars/wopr/dist ./wopr-cli/dist
+COPY --chown=wopr:wopr --from=build /app/sidecars/wopr/package.json ./wopr-cli/
+
+# WOPR daemon binary wrapper
+RUN printf '#!/bin/sh\nexec node /app/wopr-cli/dist/cli.js "$@"\n' > /usr/local/bin/wopr \
     && chmod +x /usr/local/bin/wopr
 
 # Compiled output
