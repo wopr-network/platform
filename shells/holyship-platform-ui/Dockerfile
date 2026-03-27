@@ -25,6 +25,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
+COPY --from=pruner /app/shells/holyship-platform-ui/.env* ./shells/holyship-platform-ui/
 ARG NEXT_PUBLIC_API_URL
 ARG API_INTERNAL_URL
 ARG NEXT_PUBLIC_GITHUB_APP_URL

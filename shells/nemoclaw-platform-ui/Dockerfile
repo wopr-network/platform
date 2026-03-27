@@ -25,6 +25,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
+COPY --from=pruner /app/shells/nemoclaw-platform-ui/.env* ./shells/nemoclaw-platform-ui/
 # Brand config is loaded from .env.brand at build time
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN set -a && . ./shells/nemoclaw-platform-ui/.env.brand && set +a && \
