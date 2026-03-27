@@ -14,21 +14,9 @@
     "cli"
   ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
-    "directory": "cli"
-  },
-  "homepage": "https://github.com/paperclipai/paperclip",
-  "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
-  },
   "files": [
     "dist"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "node --input-type=module -e \"import esbuild from 'esbuild'; import config from './esbuild.config.mjs'; await esbuild.build(config);\" && chmod +x dist/index.js",

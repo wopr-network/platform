@@ -30,10 +30,6 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/NVIDIA/NemoClaw.git"
-  },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",

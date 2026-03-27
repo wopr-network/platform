@@ -2,29 +2,9 @@
   "name": "@paperclipai/server",
   "version": "0.3.1",
   "license": "MIT",
-  "homepage": "https://github.com/paperclipai/paperclip",
-  "bugs": {
-    "url": "https://github.com/paperclipai/paperclip/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/paperclipai/paperclip",
-    "directory": "server"
-  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
-  },
-  "publishConfig": {
-    "access": "public",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "import": "./dist/index.js"
-      }
-    },
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts"
   },
   "files": [
     "dist",
@@ -55,7 +35,7 @@
     "@paperclipai/db": "workspace:*",
     "@paperclipai/plugin-sdk": "workspace:*",
     "@paperclipai/shared": "workspace:*",
-    "@wopr-network/provision-server": "^1.0.5",
+    "@wopr-network/provision-server": "workspace:*",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1",
     "better-auth": "1.4.18",

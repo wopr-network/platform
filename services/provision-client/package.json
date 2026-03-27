@@ -3,14 +3,6 @@
   "version": "1.0.0",
   "description": "Platform-side HTTP client and Hono proxy middleware for wopr-provisioned containers",
   "license": "UNLICENSED",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/wopr-network/provision-client.git"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org"
-  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

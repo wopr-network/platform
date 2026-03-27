@@ -43,11 +43,5 @@
     "drizzle-kit": "^0.31.3",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "release": {
-    "extends": "@wopr-network/semantic-release-config"
   }
 }
