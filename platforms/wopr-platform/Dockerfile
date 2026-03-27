@@ -33,7 +33,7 @@ FROM deps AS build
 
 COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
-RUN pnpm --filter @wopr-network/platform-core run build && pnpm --filter @wopr-network/wopr-platform run build
+RUN pnpm --filter @wopr-network/platform-core run build && pnpm --filter @wopr-network/wopr run build && pnpm --filter @wopr-network/wopr-platform run build
 
 # Create self-contained deployment with all dependencies resolved (no workspace links)
 
@@ -57,9 +57,9 @@ RUN groupadd -r wopr \
 
 COPY --chown=wopr:wopr --from=deps /app/node_modules ./node_modules
 
-# WOPR sidecar — workspace package, copy from pruner (full monorepo, not pruned)
-COPY --chown=wopr:wopr --from=pruner /app/sidecars/wopr/dist ./wopr-cli/dist
-COPY --chown=wopr:wopr --from=pruner /app/sidecars/wopr/package.json ./wopr-cli/
+# WOPR sidecar — built in build stage
+COPY --chown=wopr:wopr --from=build /app/sidecars/wopr/dist ./wopr-cli/dist
+COPY --chown=wopr:wopr --from=build /app/sidecars/wopr/package.json ./wopr-cli/
 # WOPR daemon binary wrapper
 RUN printf '#!/bin/sh\nexec node /app/wopr-cli/dist/cli.js "$@"\n' > /usr/local/bin/wopr \
     && chmod +x /usr/local/bin/wopr

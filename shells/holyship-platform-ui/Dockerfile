@@ -43,7 +43,7 @@ ENV NEXT_PUBLIC_BRAND_TAGLINE=${NEXT_PUBLIC_BRAND_TAGLINE}
 ENV NEXT_PUBLIC_BRAND_STORAGE_PREFIX=${NEXT_PUBLIC_BRAND_STORAGE_PREFIX}
 ENV NEXT_PUBLIC_BRAND_HOME_PATH=${NEXT_PUBLIC_BRAND_HOME_PATH}
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm --filter @wopr-network/platform-ui-core run build && pnpm --filter @wopr-network/holyship-platform-ui run build
+RUN pnpm --filter @wopr-network/holyship-platform-ui run build
 
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
