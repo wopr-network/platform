@@ -35,6 +35,9 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/nemoclaw-platform
 
+# Create self-contained deployment with all dependencies resolved (no workspace links)
+RUN pnpm --filter @wopr-network/nemoclaw-platform deploy --prod /app/deployed
+
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
 # ---------------------------------------------------------------------------
@@ -53,15 +56,14 @@ RUN groupadd -r nemoclaw \
     && groupadd -f -g "${DOCKER_GID}" dockersock \
     && usermod -aG dockersock nemoclaw
 
-# Production node_modules (full workspace tree for internal package resolution)
-COPY --chown=nemoclaw:nemoclaw --from=deps /app/node_modules ./node_modules
-COPY --chown=nemoclaw:nemoclaw --from=deps /app/platforms/nemoclaw-platform/node_modules ./platforms/nemoclaw-platform/node_modules
+# Production node_modules (pnpm deploy resolves all workspace:* links)
+COPY --chown=nemoclaw:nemoclaw --from=build /app/deployed/node_modules ./node_modules
 
 # Compiled output
-COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/dist ./dist
+COPY --chown=nemoclaw:nemoclaw --from=build /app/deployed/dist ./dist
 
 # Package manifest (needed by Node for ESM resolution)
-COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/package.json ./
+COPY --chown=nemoclaw:nemoclaw --from=build /app/deployed/package.json ./
 
 # Migration files for schema versioning
 COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/drizzle/ ./drizzle/

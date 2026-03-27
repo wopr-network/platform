@@ -35,6 +35,9 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/wopr-platform
 
+# Create self-contained deployment with all dependencies resolved (no workspace links)
+RUN pnpm --filter @wopr-network/wopr-platform deploy --prod /app/deployed
+
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
 # ---------------------------------------------------------------------------
@@ -53,8 +56,8 @@ RUN groupadd -r wopr \
     && groupadd -f -g "${DOCKER_GID}" dockersock \
     && usermod -aG dockersock wopr
 
-# Production node_modules
-COPY --chown=wopr:wopr --from=deps /app/node_modules ./node_modules
+# Production node_modules (pnpm deploy resolves all workspace:* links)
+COPY --chown=wopr:wopr --from=build /app/deployed/node_modules ./node_modules
 
 # WOPR sidecar — workspace package, copy built output from build stage
 COPY --chown=wopr:wopr --from=build /app/sidecars/wopr/dist ./wopr-cli/dist
@@ -65,10 +68,10 @@ RUN printf '#!/bin/sh\nexec node /app/wopr-cli/dist/cli.js "$@"\n' > /usr/local/
     && chmod +x /usr/local/bin/wopr
 
 # Compiled output
-COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/dist ./dist
+COPY --chown=wopr:wopr --from=build /app/deployed/dist ./dist
 
 # Package manifest (needed by Node for ESM resolution)
-COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/package.json ./
+COPY --chown=wopr:wopr --from=build /app/deployed/package.json ./
 
 # Profile templates loaded at runtime by fleet module
 COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/templates/ ./templates/

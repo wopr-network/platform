@@ -35,6 +35,9 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/holyship
 
+# Create self-contained deployment with all dependencies resolved (no workspace links)
+RUN pnpm --filter @wopr-network/holyship deploy --prod /app/deployed
+
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
 # ---------------------------------------------------------------------------
@@ -46,18 +49,17 @@ WORKDIR /app
 
 RUN groupadd -r holyship && useradd -r -g holyship -m holyship
 
-# Production node_modules (full workspace tree for internal package resolution)
-COPY --chown=holyship:holyship --from=deps /app/node_modules ./node_modules
-COPY --chown=holyship:holyship --from=deps /app/platforms/holyship/node_modules ./platforms/holyship/node_modules
+# Production node_modules (pnpm deploy resolves all workspace:* links)
+COPY --chown=holyship:holyship --from=build /app/deployed/node_modules ./node_modules
 
 # Compiled output
-COPY --chown=holyship:holyship --from=build /app/platforms/holyship/dist ./dist
+COPY --chown=holyship:holyship --from=build /app/deployed/dist ./dist
 
 # Migration files for schema versioning
 COPY --chown=holyship:holyship --from=build /app/platforms/holyship/drizzle/ ./drizzle/
 
 # Package manifest
-COPY --chown=holyship:holyship --from=build /app/platforms/holyship/package.json ./
+COPY --chown=holyship:holyship --from=build /app/deployed/package.json ./
 
 # Gates directory for flow engine gate scripts
 RUN mkdir -p gates /tmp/fleet && chown holyship:holyship gates /tmp/fleet

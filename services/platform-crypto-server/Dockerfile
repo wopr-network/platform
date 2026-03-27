@@ -35,6 +35,9 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/platform-crypto-server
 
+# Create self-contained deployment with all dependencies resolved (no workspace links)
+RUN pnpm --filter @wopr-network/platform-crypto-server deploy --prod /app/deployed
+
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
 # ---------------------------------------------------------------------------
@@ -44,18 +47,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 
 WORKDIR /app
 
-# Production node_modules (full workspace tree for internal package resolution)
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/services/platform-crypto-server/node_modules ./services/platform-crypto-server/node_modules
+# Production node_modules (pnpm deploy resolves all workspace:* links)
+COPY --from=build /app/deployed/node_modules ./node_modules
 
 # Compiled output
-COPY --from=build /app/services/platform-crypto-server/dist ./dist
+COPY --from=build /app/deployed/dist ./dist
 
 # Migration files for schema versioning
 COPY --from=build /app/services/platform-crypto-server/drizzle/ ./drizzle/
 
 # Package manifest
-COPY --from=build /app/services/platform-crypto-server/package.json ./
+COPY --from=build /app/deployed/package.json ./
 
 ENV NODE_ENV=production
 
