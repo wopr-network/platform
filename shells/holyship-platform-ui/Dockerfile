@@ -57,8 +57,8 @@ ENV NODE_ENV=production
 
 # Standalone output mirrors the monorepo structure under /app
 COPY --from=build /app/shells/holyship-platform-ui/.next/standalone ./
-COPY --from=build /app/shells/holyship-platform-ui/.next/static ./app/shells/holyship-platform-ui/.next/static
-COPY --from=build /app/shells/holyship-platform-ui/public ./app/shells/holyship-platform-ui/public
+COPY --from=build /app/shells/holyship-platform-ui/.next/static ./shells/holyship-platform-ui/.next/static
+COPY --from=build /app/shells/holyship-platform-ui/public ./shells/holyship-platform-ui/public
 
 USER holyship
 
@@ -70,4 +70,4 @@ ENV PORT=3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "app/shells/holyship-platform-ui/server.js"]
+CMD ["node", "shells/holyship-platform-ui/server.js"]

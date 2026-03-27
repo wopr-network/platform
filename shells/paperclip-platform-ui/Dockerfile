@@ -43,10 +43,10 @@ RUN groupadd paperclip && useradd -g paperclip -m paperclip
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Standalone output mirrors the monorepo structure under /app
+# Standalone output mirrors the monorepo structure
 COPY --from=build /app/shells/paperclip-platform-ui/.next/standalone ./
-COPY --from=build /app/shells/paperclip-platform-ui/.next/static ./app/shells/paperclip-platform-ui/.next/static
-COPY --from=build /app/shells/paperclip-platform-ui/public ./app/shells/paperclip-platform-ui/public
+COPY --from=build /app/shells/paperclip-platform-ui/.next/static ./shells/paperclip-platform-ui/.next/static
+COPY --from=build /app/shells/paperclip-platform-ui/public ./shells/paperclip-platform-ui/public
 
 USER paperclip
 
@@ -58,4 +58,4 @@ ENV PORT=3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "app/shells/paperclip-platform-ui/server.js"]
+CMD ["node", "shells/paperclip-platform-ui/server.js"]

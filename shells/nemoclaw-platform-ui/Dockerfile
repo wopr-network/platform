@@ -43,8 +43,8 @@ ENV NODE_ENV=production
 
 # Standalone output mirrors the monorepo structure under /app
 COPY --from=build /app/shells/nemoclaw-platform-ui/.next/standalone ./
-COPY --from=build /app/shells/nemoclaw-platform-ui/.next/static ./app/shells/nemoclaw-platform-ui/.next/static
-COPY --from=build /app/shells/nemoclaw-platform-ui/public ./app/shells/nemoclaw-platform-ui/public
+COPY --from=build /app/shells/nemoclaw-platform-ui/.next/static ./shells/nemoclaw-platform-ui/.next/static
+COPY --from=build /app/shells/nemoclaw-platform-ui/public ./shells/nemoclaw-platform-ui/public
 
 USER nemoclaw
 
@@ -56,4 +56,4 @@ ENV PORT=3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "app/shells/nemoclaw-platform-ui/server.js"]
+CMD ["node", "shells/nemoclaw-platform-ui/server.js"]
