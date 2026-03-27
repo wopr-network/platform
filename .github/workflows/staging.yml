@@ -53,8 +53,8 @@ jobs:
           if [ ${#ITEMS[@]} -eq 0 ]; then
             echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
           else
-            # Deduplicate by product name
-            UNIQUE=$(printf '%s\n' "${ITEMS[@]}" | jq -s 'unique_by(.product)')
+            # Deduplicate by product name, compact output (single line)
+            UNIQUE=$(printf '%s\n' "${ITEMS[@]}" | jq -s -c 'unique_by(.product)')
             echo "matrix={\"include\":$UNIQUE}" >> "$GITHUB_OUTPUT"
           fi
 
