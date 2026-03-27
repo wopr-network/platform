@@ -30,7 +30,7 @@ COPY --from=pruner /app/shells/wopr-platform-ui/.env* ./shells/wopr-platform-ui/
 # API URL is derived from hostname at runtime — not baked at build time
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN set -a && . ./shells/wopr-platform-ui/.env.brand && set +a && \
-    pnpm turbo run build --filter=@wopr-network/wopr-platform-ui
+    pnpm --filter @wopr-network/platform-ui-core run build && pnpm --filter @wopr-network/wopr-platform-ui run build
 
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime

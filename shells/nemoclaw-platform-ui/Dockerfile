@@ -29,7 +29,7 @@ COPY --from=pruner /app/shells/nemoclaw-platform-ui/.env* ./shells/nemoclaw-plat
 # Brand config is loaded from .env.brand at build time
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN set -a && . ./shells/nemoclaw-platform-ui/.env.brand && set +a && \
-    pnpm turbo run build --filter=@wopr-network/nemoclaw-platform-ui
+    pnpm --filter @wopr-network/platform-ui-core run build && pnpm --filter @wopr-network/nemoclaw-platform-ui run build
 
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
