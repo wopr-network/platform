@@ -52,9 +52,8 @@ RUN groupadd -r wopr \
     && groupadd -f -g "${DOCKER_GID}" dockersock \
     && usermod -aG dockersock wopr
 
-# Production node_modules (full workspace tree for internal package resolution)
+# Production node_modules
 COPY --chown=wopr:wopr --from=deps /app/node_modules ./node_modules
-COPY --chown=wopr:wopr --from=deps /app/platforms/wopr-platform/node_modules ./platforms/wopr-platform/node_modules 2>/dev/null || true
 
 # WOPR sidecar — workspace package, copy built output from build stage
 COPY --chown=wopr:wopr --from=build /app/sidecars/wopr/dist ./wopr-cli/dist

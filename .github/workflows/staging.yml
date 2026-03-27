@@ -65,6 +65,7 @@ jobs:
     permissions:
       packages: write
     strategy:
+      fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
       max-parallel: 2
     steps:
