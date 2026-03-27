@@ -25,8 +25,10 @@ import {
 import { config as centralConfig } from "../config.js";
 import { eventBus } from "../events.js";
 
-// Re-export the SDK tool helper
-export const tool: typeof sdkTool = sdkTool;
+// Re-export the SDK tool helper — cast to permissive signature to accept
+// handlers without the `extra` second arg (SDK breaking change in newer versions)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const tool: (...args: any[]) => any = sdkTool as any;
 
 // Re-export everything tool modules need
 export {
@@ -294,11 +296,11 @@ export async function withSecurityCheck<T>(
   toolName: string,
   sessionName: string,
   fn: () => Promise<T>,
-): Promise<T | { content: Array<{ type: string; text: string }>; isError: true }> {
+): Promise<T | { content: Array<{ type: "text"; text: string }>; isError: true }> {
   const denied = checkToolPermission(toolName, sessionName);
   if (denied) {
     return {
-      content: [{ type: "text", text: `Access denied: ${denied.reason}` }],
+      content: [{ type: "text" as const, text: `Access denied: ${denied.reason}` }],
       isError: true,
     };
   }

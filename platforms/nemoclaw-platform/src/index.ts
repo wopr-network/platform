@@ -75,7 +75,8 @@ if (container.fleet) {
   setOrgInstanceResolverDeps(profileStore, proxy);
   setFleetRouterDeps({
     pool: container.pool,
-    docker,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- @types/dockerode version mismatch between packages
+    docker: docker as any,
     creditLedger: container.creditLedger,
     profileStore,
     productConfig: container.productConfig,

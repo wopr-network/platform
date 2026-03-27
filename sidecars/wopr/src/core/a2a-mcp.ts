@@ -108,12 +108,14 @@ export function getA2AMcpServer(sessionName: string): ReturnType<typeof createSd
             return accumulateChunks(handlerResult as AsyncIterable<import("../plugin-types/a2a.js").ToolResultChunk>);
           }
           if (typeof handlerResult === "string") {
-            return { content: [{ type: "text", text: handlerResult }] };
+            return { content: [{ type: "text" as const, text: handlerResult }] };
           }
           if (isA2AToolResult(handlerResult)) {
-            return handlerResult;
+            // A2AToolResult uses a wider type union than the SDK expects; cast since
+            // runtime values are always compatible text content objects.
+            return handlerResult as { content: Array<{ type: "text"; text: string }>; isError?: boolean };
           }
-          return { content: [{ type: "text", text: JSON.stringify(handlerResult, null, 2) }] };
+          return { content: [{ type: "text" as const, text: JSON.stringify(handlerResult, null, 2) }] };
         });
       }),
     );

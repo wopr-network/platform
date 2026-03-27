@@ -2,6 +2,7 @@ packages:
   - "core/*"
   - "platforms/*"
   - "sidecars/*"
+  - "sidecars/holyshipper/packages/*"
   - "sidecars/paperclip/*"
   - "sidecars/paperclip/packages/*"
   - "sidecars/paperclip/packages/adapters/*"

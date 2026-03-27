@@ -10,14 +10,14 @@
     "check": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@opencode-ai/sdk": "^1.2.27",
-    "winston": "^3.19.0"
+    "@opencode-ai/sdk": "^1.2.27"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^4.0.18",
     "typescript": "^5.8.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "winston": "^3.19.0"
   },
   "engines": {
     "node": ">=24.0.0"
