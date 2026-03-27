@@ -1,0 +1,112 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`pricing-data > capabilityMeta > matches snapshot 1`] = `
+{
+  "image_gen": {
+    "category": "Image Generation",
+    "icon": "image",
+  },
+  "llm": {
+    "category": "Text Generation",
+    "icon": "bot",
+  },
+  "sms": {
+    "category": "Messaging",
+    "icon": "smartphone",
+  },
+  "stt": {
+    "category": "Voice",
+    "icon": "mic",
+  },
+  "tts": {
+    "category": "Voice",
+    "icon": "mic",
+  },
+}
+`;
+
+exports[`pricing-data > pricingData > matches snapshot 1`] = `
+{
+  "bot_price": {
+    "amount": 5,
+    "period": "month",
+  },
+  "capabilities": [
+    {
+      "category": "Text Generation",
+      "icon": "bot",
+      "models": [
+        {
+          "name": "Claude Sonnet 4.6",
+          "price": 3,
+          "unit": "1M input tokens",
+        },
+        {
+          "name": "Claude Opus 4.6",
+          "price": 15,
+          "unit": "1M input tokens",
+        },
+        {
+          "name": "Gemini 2.5 Pro",
+          "price": 1.25,
+          "unit": "1M input tokens",
+        },
+        {
+          "name": "GPT-4o",
+          "price": 2.5,
+          "unit": "1M input tokens",
+        },
+        {
+          "name": "Kimi K3",
+          "price": 0.8,
+          "unit": "1M input tokens",
+        },
+      ],
+    },
+    {
+      "category": "Voice",
+      "icon": "mic",
+      "models": [
+        {
+          "name": "Text-to-Speech",
+          "price": 0.2,
+          "unit": "1K characters",
+        },
+        {
+          "name": "Speech-to-Text",
+          "price": 0.02,
+          "unit": "minute",
+        },
+      ],
+    },
+    {
+      "category": "Image Generation",
+      "icon": "image",
+      "models": [
+        {
+          "name": "SDXL",
+          "price": 0.03,
+          "unit": "image",
+        },
+        {
+          "name": "Flux",
+          "price": 0.05,
+          "unit": "image",
+        },
+      ],
+    },
+    {
+      "category": "Messaging",
+      "icon": "smartphone",
+      "models": [
+        {
+          "name": "SMS",
+          "price": 0.01,
+          "unit": "message",
+        },
+      ],
+    },
+  ],
+  "signup_credit": 5,
+}
+`;

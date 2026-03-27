@@ -1,0 +1,29 @@
+services:
+  platform-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - platform-api
+    networks:
+      - wopr
+
+  platform-api:
+    image: wopr-network/wopr-platform:latest
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    networks:
+      - wopr
+
+networks:
+  wopr:
+    driver: bridge

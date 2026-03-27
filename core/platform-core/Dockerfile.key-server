@@ -1,0 +1,20 @@
+FROM node:24-alpine AS build
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN corepack enable && pnpm install --frozen-lockfile
+COPY . .
+RUN pnpm build
+
+FROM node:24-alpine
+WORKDIR /app
+RUN addgroup -S crypto && adduser -S crypto -G crypto
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/drizzle ./drizzle
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./
+USER crypto
+
+EXPOSE 3100
+ENV PORT=3100
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -qO- http://localhost:3100/chains || exit 1
+CMD ["node", "dist/billing/crypto/key-server-entry.js"]
