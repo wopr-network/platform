@@ -1,43 +1,41 @@
 # ---------------------------------------------------------------------------
-# Global build arguments
+# Stage 1: Turbo prune — create minimal workspace subset
 # ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS pruner
+
 ARG PNPM_VERSION=10.31.0
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN npm install -g turbo
+
+WORKDIR /app
+COPY . .
+RUN turbo prune @wopr-network/nemoclaw-platform --docker
 
 # ---------------------------------------------------------------------------
-# Stage 1: Install production dependencies
+# Stage 2: Install dependencies from pruned workspace
 # ---------------------------------------------------------------------------
 FROM node:24-bookworm-slim AS deps
 
-ARG PNPM_VERSION
+ARG PNPM_VERSION=10.31.0
 
-# Install pnpm via corepack
+# Build tools for native modules
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
-
-# ---------------------------------------------------------------------------
-# Stage 2: Build TypeScript
-# ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS build
-
-ARG PNPM_VERSION
-
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-
-WORKDIR /app
-
-# Full node_modules (including devDeps) needed for tsc
-COPY package.json pnpm-lock.yaml ./
+COPY --from=pruner /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json ./
-COPY src/ ./src/
-RUN pnpm build
+# ---------------------------------------------------------------------------
+# Stage 3: Build
+# ---------------------------------------------------------------------------
+FROM deps AS build
+
+COPY --from=pruner /app/out/full/ .
+RUN pnpm turbo run build --filter=@wopr-network/nemoclaw-platform
 
 # ---------------------------------------------------------------------------
-# Stage 3: Runtime
+# Stage 4: Runtime
 # ---------------------------------------------------------------------------
 FROM node:24-bookworm-slim AS runtime
 
@@ -54,17 +52,18 @@ RUN groupadd -r nemoclaw \
     && groupadd -f -g "${DOCKER_GID}" dockersock \
     && usermod -aG dockersock nemoclaw
 
-# Production node_modules
+# Production node_modules (full workspace tree for internal package resolution)
 COPY --chown=nemoclaw:nemoclaw --from=deps /app/node_modules ./node_modules
+COPY --chown=nemoclaw:nemoclaw --from=deps /app/platforms/nemoclaw-platform/node_modules ./platforms/nemoclaw-platform/node_modules
 
 # Compiled output
-COPY --chown=nemoclaw:nemoclaw --from=build /app/dist ./dist
+COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/dist ./dist
 
 # Package manifest (needed by Node for ESM resolution)
-COPY --chown=nemoclaw:nemoclaw package.json ./
+COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/package.json ./
 
 # Migration files for schema versioning
-COPY --chown=nemoclaw:nemoclaw drizzle/ ./drizzle/
+COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/drizzle/ ./drizzle/
 
 USER nemoclaw
 

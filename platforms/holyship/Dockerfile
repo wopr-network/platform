@@ -1,43 +1,66 @@
 # ---------------------------------------------------------------------------
-# Stage 1: Install production dependencies
+# Stage 1: Turbo prune — create minimal workspace subset
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS deps
+FROM node:24-bookworm-slim AS pruner
+
+ARG PNPM_VERSION=10.31.0
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN npm install -g turbo
 
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && corepack prepare pnpm@10 --activate
-RUN pnpm install --frozen-lockfile --prod
+COPY . .
+RUN turbo prune @wopr-network/holyship --docker
 
 # ---------------------------------------------------------------------------
-# Stage 2: Build TypeScript
+# Stage 2: Install dependencies from pruned workspace
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS build
+FROM node:24-bookworm-slim AS deps
+
+ARG PNPM_VERSION=10.31.0
+
+# Build tools for native modules
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10 --activate
-COPY package.json pnpm-lock.yaml ./
+COPY --from=pruner /app/out/json/ .
 RUN pnpm install --frozen-lockfile
-COPY tsconfig.json ./
-COPY src/ ./src/
-COPY gates/ ./gates/
-RUN pnpm build
 
 # ---------------------------------------------------------------------------
-# Stage 3: Runtime
+# Stage 3: Build
 # ---------------------------------------------------------------------------
-FROM node:22-alpine AS runtime
+FROM deps AS build
 
-RUN apk add --no-cache curl
+COPY --from=pruner /app/out/full/ .
+RUN pnpm turbo run build --filter=@wopr-network/holyship
+
+# ---------------------------------------------------------------------------
+# Stage 4: Runtime
+# ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-RUN addgroup -S holyship && adduser -S holyship -G holyship
+RUN groupadd -r holyship && useradd -r -g holyship -m holyship
 
+# Production node_modules (full workspace tree for internal package resolution)
 COPY --chown=holyship:holyship --from=deps /app/node_modules ./node_modules
-COPY --chown=holyship:holyship --from=build /app/dist ./dist
-COPY --chown=holyship:holyship drizzle/ ./drizzle/
-COPY --chown=holyship:holyship package.json ./
-RUN mkdir -p gates /tmp/fleet && chown holyship:holyship /tmp/fleet
+COPY --chown=holyship:holyship --from=deps /app/platforms/holyship/node_modules ./platforms/holyship/node_modules
+
+# Compiled output
+COPY --chown=holyship:holyship --from=build /app/platforms/holyship/dist ./dist
+
+# Migration files for schema versioning
+COPY --chown=holyship:holyship --from=build /app/platforms/holyship/drizzle/ ./drizzle/
+
+# Package manifest
+COPY --chown=holyship:holyship --from=build /app/platforms/holyship/package.json ./
+
+# Gates directory for flow engine gate scripts
+RUN mkdir -p gates /tmp/fleet && chown holyship:holyship gates /tmp/fleet
+COPY --chown=holyship:holyship --from=build /app/platforms/holyship/gates/ ./gates/
 
 USER holyship
 

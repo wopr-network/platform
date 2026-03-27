@@ -63,19 +63,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Resolve build context
+      - name: Resolve Dockerfile path
         id: paths
         run: |
           case "${{ matrix.product }}" in
-            wopr-platform)         echo "context=platforms/wopr-platform" >> "$GITHUB_OUTPUT" ;;
-            paperclip-platform)    echo "context=platforms/paperclip-platform" >> "$GITHUB_OUTPUT" ;;
-            nemoclaw-platform)     echo "context=platforms/nemoclaw-platform" >> "$GITHUB_OUTPUT" ;;
-            holyship)              echo "context=platforms/holyship" >> "$GITHUB_OUTPUT" ;;
-            wopr-platform-ui)      echo "context=shells/wopr-platform-ui" >> "$GITHUB_OUTPUT" ;;
-            paperclip-platform-ui) echo "context=shells/paperclip-platform-ui" >> "$GITHUB_OUTPUT" ;;
-            nemoclaw-platform-ui)  echo "context=shells/nemoclaw-platform-ui" >> "$GITHUB_OUTPUT" ;;
-            holyship-platform-ui)  echo "context=shells/holyship-platform-ui" >> "$GITHUB_OUTPUT" ;;
-            platform-crypto-server) echo "context=services/platform-crypto-server" >> "$GITHUB_OUTPUT" ;;
+            wopr-platform)         echo "dockerfile=platforms/wopr-platform/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            paperclip-platform)    echo "dockerfile=platforms/paperclip-platform/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            nemoclaw-platform)     echo "dockerfile=platforms/nemoclaw-platform/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            holyship)              echo "dockerfile=platforms/holyship/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            wopr-platform-ui)      echo "dockerfile=shells/wopr-platform-ui/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            paperclip-platform-ui) echo "dockerfile=shells/paperclip-platform-ui/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            nemoclaw-platform-ui)  echo "dockerfile=shells/nemoclaw-platform-ui/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            holyship-platform-ui)  echo "dockerfile=shells/holyship-platform-ui/Dockerfile" >> "$GITHUB_OUTPUT" ;;
+            platform-crypto-server) echo "dockerfile=services/platform-crypto-server/Dockerfile" >> "$GITHUB_OUTPUT" ;;
           esac
 
       - name: Log in to GHCR
@@ -88,7 +88,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ${{ steps.paths.outputs.context }}
+          context: .
+          file: ${{ steps.paths.outputs.dockerfile }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.product }}:staging

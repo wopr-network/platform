@@ -1,49 +1,41 @@
 # ---------------------------------------------------------------------------
-# Global build arguments
+# Stage 1: Turbo prune — create minimal workspace subset
 # ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS pruner
+
 ARG PNPM_VERSION=10.31.0
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN npm install -g turbo
+
+WORKDIR /app
+COPY . .
+RUN turbo prune @wopr-network/wopr-platform --docker
 
 # ---------------------------------------------------------------------------
-# Stage 1: Install production dependencies
+# Stage 2: Install dependencies from pruned workspace
 # ---------------------------------------------------------------------------
 FROM node:24-bookworm-slim AS deps
 
-ARG PNPM_VERSION
+ARG PNPM_VERSION=10.31.0
 
 # Build tools for native modules (better-sqlite3 in @wopr-network/wopr)
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
-
-# Install pnpm via corepack
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
-
-# ---------------------------------------------------------------------------
-# Stage 2: Build TypeScript
-# ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS build
-
-ARG PNPM_VERSION
-
-# Build tools needed for native modules (better-sqlite3 via @wopr-network/wopr)
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
-
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-
-WORKDIR /app
-
-# Full node_modules (including devDeps) needed for tsc
-COPY package.json pnpm-lock.yaml ./
+COPY --from=pruner /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json ./
-COPY src/ ./src/
-RUN pnpm build
+# ---------------------------------------------------------------------------
+# Stage 3: Build
+# ---------------------------------------------------------------------------
+FROM deps AS build
+
+COPY --from=pruner /app/out/full/ .
+RUN pnpm turbo run build --filter=@wopr-network/wopr-platform
 
 # ---------------------------------------------------------------------------
-# Stage 3: Runtime
+# Stage 4: Runtime
 # ---------------------------------------------------------------------------
 FROM node:24-bookworm-slim AS runtime
 
@@ -60,13 +52,13 @@ RUN groupadd -r wopr \
     && groupadd -f -g "${DOCKER_GID}" dockersock \
     && usermod -aG dockersock wopr
 
-# Production node_modules
+# Production node_modules (full workspace tree for internal package resolution)
 COPY --chown=wopr:wopr --from=deps /app/node_modules ./node_modules
+COPY --chown=wopr:wopr --from=deps /app/platforms/wopr-platform/node_modules ./platforms/wopr-platform/node_modules
 
 # WOPR daemon binary — wrapper script with absolute path
 # (pnpm's .bin scripts use $basedir-relative paths that break outside node_modules)
-# Path corresponds to the "wopr" bin entry in @wopr-network/wopr/package.json → dist/cli.js
-# If the package changes its compiled output path, update this line accordingly.
+# Path corresponds to the "wopr" bin entry in @wopr-network/wopr/package.json -> dist/cli.js
 # Fail at build time if the expected CLI path is missing (catches upstream layout changes).
 RUN test -f /app/node_modules/@wopr-network/wopr/dist/cli.js \
     || (echo "ERROR: @wopr-network/wopr dist/cli.js not found — update wrapper path in Dockerfile" >&2 && exit 1)
@@ -74,16 +66,16 @@ RUN printf '#!/bin/sh\nexec node /app/node_modules/@wopr-network/wopr/dist/cli.j
     && chmod +x /usr/local/bin/wopr
 
 # Compiled output
-COPY --chown=wopr:wopr --from=build /app/dist ./dist
+COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/dist ./dist
 
 # Package manifest (needed by Node for ESM resolution)
-COPY --chown=wopr:wopr package.json ./
+COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/package.json ./
 
 # Profile templates loaded at runtime by fleet module
-COPY --chown=wopr:wopr templates/ ./templates/
+COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/templates/ ./templates/
 
 # Migration files for schema versioning
-COPY --chown=wopr:wopr drizzle/ ./drizzle/
+COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/drizzle/ ./drizzle/
 
 USER wopr
 

@@ -1,56 +1,48 @@
-FROM node:20-alpine AS deps
+# ---------------------------------------------------------------------------
+# Stage 1: Turbo prune — extract only this package + its workspace deps
+# ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS pruner
+ARG PNPM_VERSION=10.31.0
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+RUN npm install -g turbo
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10.31.0 --activate
-COPY package.json pnpm-lock.yaml ./
+COPY . .
+RUN turbo prune @wopr-network/nemoclaw-platform-ui --docker
+
+# ---------------------------------------------------------------------------
+# Stage 2: Install dependencies from pruned lockfile
+# ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS deps
+ARG PNPM_VERSION=10.31.0
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+WORKDIR /app
+COPY --from=pruner /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 
-FROM node:20-alpine AS build
+# ---------------------------------------------------------------------------
+# Stage 3: Build Next.js
+# ---------------------------------------------------------------------------
+FROM deps AS build
+COPY --from=pruner /app/out/full/ .
+# Brand config is loaded from .env.brand at build time
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+RUN set -a && . ./shells/nemoclaw-platform-ui/.env.brand && set +a && \
+    pnpm turbo run build --filter=@wopr-network/nemoclaw-platform-ui
+
+# ---------------------------------------------------------------------------
+# Stage 4: Runtime
+# ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS runtime
+
+RUN groupadd nemoclaw && useradd -g nemoclaw -m nemoclaw
+
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10.31.0 --activate
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-ARG NEXT_PUBLIC_BRAND_DOMAIN
-ARG NEXT_PUBLIC_BRAND_APP_DOMAIN
-ARG NEXT_PUBLIC_BRAND_PRODUCT_NAME
-ARG NEXT_PUBLIC_BRAND_NAME
-ARG NEXT_PUBLIC_BRAND_TAGLINE
-ARG NEXT_PUBLIC_BRAND_EMAIL_SUPPORT
-ARG NEXT_PUBLIC_BRAND_EMAIL_PRIVACY
-ARG NEXT_PUBLIC_BRAND_EMAIL_LEGAL
-ARG NEXT_PUBLIC_BRAND_DEFAULT_IMAGE
-ARG NEXT_PUBLIC_BRAND_STORAGE_PREFIX
-ARG NEXT_PUBLIC_BRAND_COMPANY_LEGAL
-ARG NEXT_PUBLIC_BRAND_HOME_PATH
-ARG NEXT_PUBLIC_BRAND_NAV_ITEMS
-ARG NEXT_PUBLIC_SITE_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
-ENV NEXT_PUBLIC_BRAND_DOMAIN=${NEXT_PUBLIC_BRAND_DOMAIN}
-ENV NEXT_PUBLIC_BRAND_APP_DOMAIN=${NEXT_PUBLIC_BRAND_APP_DOMAIN}
-ENV NEXT_PUBLIC_BRAND_PRODUCT_NAME=${NEXT_PUBLIC_BRAND_PRODUCT_NAME}
-ENV NEXT_PUBLIC_BRAND_NAME=${NEXT_PUBLIC_BRAND_NAME}
-ENV NEXT_PUBLIC_BRAND_TAGLINE=${NEXT_PUBLIC_BRAND_TAGLINE}
-ENV NEXT_PUBLIC_BRAND_EMAIL_SUPPORT=${NEXT_PUBLIC_BRAND_EMAIL_SUPPORT}
-ENV NEXT_PUBLIC_BRAND_EMAIL_PRIVACY=${NEXT_PUBLIC_BRAND_EMAIL_PRIVACY}
-ENV NEXT_PUBLIC_BRAND_EMAIL_LEGAL=${NEXT_PUBLIC_BRAND_EMAIL_LEGAL}
-ENV NEXT_PUBLIC_BRAND_DEFAULT_IMAGE=${NEXT_PUBLIC_BRAND_DEFAULT_IMAGE}
-ENV NEXT_PUBLIC_BRAND_STORAGE_PREFIX=${NEXT_PUBLIC_BRAND_STORAGE_PREFIX}
-ENV NEXT_PUBLIC_BRAND_COMPANY_LEGAL=${NEXT_PUBLIC_BRAND_COMPANY_LEGAL}
-ENV NEXT_PUBLIC_BRAND_HOME_PATH=${NEXT_PUBLIC_BRAND_HOME_PATH}
-ENV NEXT_PUBLIC_BRAND_NAV_ITEMS=${NEXT_PUBLIC_BRAND_NAV_ITEMS}
-ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
-RUN pnpm build
+ENV NODE_ENV=production
 
-FROM node:20-alpine AS runtime
-WORKDIR /app
-
-RUN addgroup -S nemoclaw && adduser -S nemoclaw -G nemoclaw
-
-COPY --from=build /app/.next/standalone ./
-COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
+# Standalone output mirrors the monorepo structure under /app
+COPY --from=build /app/shells/nemoclaw-platform-ui/.next/standalone ./
+COPY --from=build /app/shells/nemoclaw-platform-ui/.next/static ./app/shells/nemoclaw-platform-ui/.next/static
+COPY --from=build /app/shells/nemoclaw-platform-ui/public ./app/shells/nemoclaw-platform-ui/public
 
 USER nemoclaw
 
@@ -58,9 +50,8 @@ EXPOSE 3000
 
 ENV HOSTNAME="0.0.0.0"
 ENV PORT=3000
-ENV NODE_ENV=production
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "server.js"]
+CMD ["node", "app/shells/nemoclaw-platform-ui/server.js"]
