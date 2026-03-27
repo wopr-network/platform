@@ -33,7 +33,8 @@ FROM deps AS build
 
 COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
-RUN pnpm turbo run build --filter=@wopr-network/paperclip-platform
+# Build only what we need — platform-core (dep) then paperclip-platform
+RUN pnpm --filter @wopr-network/platform-core run build && pnpm --filter @wopr-network/paperclip-platform run build
 
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
