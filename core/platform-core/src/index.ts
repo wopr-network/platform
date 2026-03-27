@@ -52,3 +52,4 @@ export * from "./trpc/index.js";
 
 // monorepo staging test
 // staging pipeline e2e test
+// e2e pipeline test with health checks
