@@ -143,6 +143,59 @@ jobs:
           echo "Staging deployed for $PRODUCT"
           DEPLOY
 
+      - name: Health check staging
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          HOST="${{ matrix.host }}"
+          PRODUCT="${{ matrix.product }}"
+          case "$PRODUCT" in
+            wopr)      DIR=/opt/wopr-platform ;;
+            paperclip) DIR=/opt/paperclip-platform ;;
+            holyship)  DIR=/opt/holyship ;;
+            nemoclaw)  DIR=/opt/nemoclaw-platform ;;
+          esac
+          COMPOSE="docker compose -f docker-compose.yml -f docker-compose.staging.yml"
+          # Check staging API
+          echo "Checking staging API..."
+          for i in $(seq 1 20); do
+            STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+              "root@$HOST" "cd $DIR && $COMPOSE exec -T staging-api curl -sf http://localhost:3200/health 2>/dev/null || $COMPOSE exec -T staging-api curl -sf http://localhost:3100/health 2>/dev/null" || true)
+            if [ -n "$STATUS" ]; then
+              echo "✓ $PRODUCT staging API healthy"
+              break
+            fi
+            # Check for crash loop
+            STATE=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+              "root@$HOST" "cd $DIR && $COMPOSE ps staging-api --format '{{.State}}'" 2>/dev/null || true)
+            if echo "$STATE" | grep -qi "restarting"; then
+              echo "::error::$PRODUCT staging API crash-looping"
+              ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$HOST" "cd $DIR && $COMPOSE logs staging-api --tail 10" || true
+              exit 1
+            fi
+            echo "  Waiting for API... ($i/20)"
+            sleep 5
+          done
+          # Check staging UI
+          echo "Checking staging UI..."
+          for i in $(seq 1 15); do
+            UI_OK=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+              "root@$HOST" "cd $DIR && $COMPOSE exec -T staging-ui node -e \"require('http').get('http://localhost:3000/', r => { process.exit(r.statusCode === 200 ? 0 : 1) })\" 2>/dev/null && echo OK" || true)
+            if [ "$UI_OK" = "OK" ]; then
+              echo "✓ $PRODUCT staging UI healthy"
+              break
+            fi
+            STATE=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+              "root@$HOST" "cd $DIR && $COMPOSE ps staging-ui --format '{{.State}}'" 2>/dev/null || true)
+            if echo "$STATE" | grep -qi "restarting"; then
+              echo "::error::$PRODUCT staging UI crash-looping"
+              ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$HOST" "cd $DIR && $COMPOSE logs staging-ui --tail 10" || true
+              exit 1
+            fi
+            echo "  Waiting for UI... ($i/15)"
+            sleep 5
+          done
+
       - name: Summary
         run: |
           echo "## Staging build & deploy" >> "$GITHUB_STEP_SUMMARY"
