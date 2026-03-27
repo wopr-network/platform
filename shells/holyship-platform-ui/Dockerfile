@@ -41,7 +41,7 @@ ENV NEXT_PUBLIC_BRAND_DOMAIN=${NEXT_PUBLIC_BRAND_DOMAIN}
 ENV NEXT_PUBLIC_BRAND_TAGLINE=${NEXT_PUBLIC_BRAND_TAGLINE}
 ENV NEXT_PUBLIC_BRAND_STORAGE_PREFIX=${NEXT_PUBLIC_BRAND_STORAGE_PREFIX}
 ENV NEXT_PUBLIC_BRAND_HOME_PATH=${NEXT_PUBLIC_BRAND_HOME_PATH}
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm turbo run build --filter=@wopr-network/holyship-platform-ui
 
 # ---------------------------------------------------------------------------

@@ -27,7 +27,7 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
 # Brand config is loaded from .env.brand at build time
 # API URL is derived from hostname at runtime — not baked at build time
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN set -a && . ./shells/wopr-platform-ui/.env.brand && set +a && \
     pnpm turbo run build --filter=@wopr-network/wopr-platform-ui
 

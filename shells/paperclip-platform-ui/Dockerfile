@@ -29,7 +29,7 @@ COPY --from=pruner /app/tooling ./tooling
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 # API URL derived from hostname at runtime — no build-time baking
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm turbo run build --filter=@wopr-network/paperclip-platform-ui
 
 # ---------------------------------------------------------------------------
