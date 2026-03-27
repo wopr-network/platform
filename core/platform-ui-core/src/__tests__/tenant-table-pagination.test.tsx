@@ -54,9 +54,7 @@ describe("TenantTable pagination", () => {
     render(<TenantTable />);
 
     await screen.findByText("user0@test.com");
-    expect(mockGetUsersList).toHaveBeenCalledWith(
-      expect.objectContaining({ offset: 0, limit: 25 }),
-    );
+    expect(mockGetUsersList).toHaveBeenCalledWith(expect.objectContaining({ offset: 0, limit: 25 }));
   });
 
   it("clicking Next requests offset 25 (not 50)", async () => {
@@ -70,9 +68,7 @@ describe("TenantTable pagination", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
 
     await screen.findByText("user25@test.com");
-    expect(mockGetUsersList).toHaveBeenLastCalledWith(
-      expect.objectContaining({ offset: 25, limit: 25 }),
-    );
+    expect(mockGetUsersList).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 25, limit: 25 }));
   });
 
   it("shows correct range text on page 2", async () => {

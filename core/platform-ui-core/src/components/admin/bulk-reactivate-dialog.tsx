@@ -19,13 +19,7 @@ interface BulkReactivateDialogProps {
   isLoading?: boolean;
 }
 
-function BulkReactivateDialog({
-  open,
-  onOpenChange,
-  selectedCount,
-  onConfirm,
-  isLoading,
-}: BulkReactivateDialogProps) {
+function BulkReactivateDialog({ open, onOpenChange, selectedCount, onConfirm, isLoading }: BulkReactivateDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">

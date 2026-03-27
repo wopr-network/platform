@@ -36,9 +36,7 @@ export function VpsInfoPanel({ botId }: VpsPanelProps) {
       <Card className="border-destructive/30">
         <CardContent className="flex items-center gap-2 py-4">
           <Server className="size-5 text-destructive" />
-          <p className="text-sm text-destructive">
-            Failed to load VPS info. Please try again later.
-          </p>
+          <p className="text-sm text-destructive">Failed to load VPS info. Please try again later.</p>
         </CardContent>
       </Card>
     );
@@ -111,20 +109,14 @@ export function VpsInfoPanel({ botId }: VpsPanelProps) {
                 onClick={handleCopy}
                 title="Copy SSH command"
               >
-                {copied ? (
-                  <CheckCircle className="size-4 text-terminal" />
-                ) : (
-                  <Copy className="size-4" />
-                )}
+                {copied ? <CheckCircle className="size-4 text-terminal" /> : <Copy className="size-4" />}
               </Button>
             </div>
           </div>
         )}
 
         {!vps.sshConnectionString && vps.status === "active" && (
-          <p className="text-sm text-muted-foreground">
-            SSH access is being provisioned. Check back shortly.
-          </p>
+          <p className="text-sm text-muted-foreground">SSH access is being provisioned. Check back shortly.</p>
         )}
       </CardContent>
     </Card>

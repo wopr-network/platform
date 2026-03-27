@@ -6,23 +6,12 @@ import { AmbientDot } from "./ambient-dot";
 import { ChatPanel } from "./chat-panel";
 
 export function ChatWidget() {
-  const {
-    messages,
-    mode,
-    isConnected,
-    isTyping,
-    hasUnread,
-    expand,
-    collapse,
-    fullscreen,
-    sendMessage,
-  } = useChatContext();
+  const { messages, mode, isConnected, isTyping, hasUnread, expand, collapse, fullscreen, sendMessage } =
+    useChatContext();
 
   return (
     <>
-      <AnimatePresence>
-        {mode === "collapsed" && <AmbientDot hasUnread={hasUnread} onClick={expand} />}
-      </AnimatePresence>
+      <AnimatePresence>{mode === "collapsed" && <AmbientDot hasUnread={hasUnread} onClick={expand} />}</AnimatePresence>
       <AnimatePresence>
         {(mode === "expanded" || mode === "fullscreen") && (
           <ChatPanel

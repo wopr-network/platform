@@ -3,22 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AuditLogResponse } from "@/lib/api";
 import { fetchAuditLog } from "@/lib/api";
@@ -82,9 +69,7 @@ export default function ActivityPage() {
       const reqId = ++requestIdRef.current;
       try {
         const since =
-          dateRange === "all"
-            ? undefined
-            : new Date(Date.now() - Number(dateRange) * 86400000).toISOString();
+          dateRange === "all" ? undefined : new Date(Date.now() - Number(dateRange) * 86400000).toISOString();
         const result = await fetchAuditLog({
           limit: PAGE_SIZE,
           offset: newOffset,
@@ -134,9 +119,7 @@ export default function ActivityPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>Events</CardTitle>
-              <CardDescription>
-                {data ? `${data.total} total events` : "Loading..."}
-              </CardDescription>
+              <CardDescription>{data ? `${data.total} total events` : "Loading..."}</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Select value={dateRange} onValueChange={setDateRange}>
@@ -213,27 +196,18 @@ export default function ActivityPage() {
                   </TableHeader>
                   <TableBody>
                     {events.map((event) => (
-                      <TableRow
-                        key={event.id}
-                        className="hover:bg-accent/50 transition-colors duration-150"
-                      >
+                      <TableRow key={event.id} className="hover:bg-accent/50 transition-colors duration-150">
                         <TableCell className="w-[100px]">
                           <Tooltip>
                             <TooltipTrigger className="text-xs text-muted-foreground">
                               {relativeTime(event.createdAt)}
                             </TooltipTrigger>
-                            <TooltipContent>
-                              {new Date(event.createdAt).toLocaleString()}
-                            </TooltipContent>
+                            <TooltipContent>{new Date(event.createdAt).toLocaleString()}</TooltipContent>
                           </Tooltip>
                         </TableCell>
-                        <TableCell className="font-medium text-foreground">
-                          {humanAction(event.action)}
-                        </TableCell>
+                        <TableCell className="font-medium text-foreground">{humanAction(event.action)}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          <span className="text-xs uppercase tracking-wide">
-                            {event.resourceType}
-                          </span>{" "}
+                          <span className="text-xs uppercase tracking-wide">{event.resourceType}</span>{" "}
                           {event.resourceName ?? event.resourceId}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">

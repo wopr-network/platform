@@ -8,14 +8,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   blockAffiliateFingerprint,
   type FingerprintCluster,
@@ -89,25 +82,14 @@ function SuppressionFeed() {
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Referrer
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Referred
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Signals
-              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Referrer</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Referred</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Signals</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Phase</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">When</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody
-            className={cn(
-              "transition-opacity duration-150",
-              loading && events.length > 0 && "opacity-60",
-            )}
-          >
+          <TableBody className={cn("transition-opacity duration-150", loading && events.length > 0 && "opacity-60")}>
             {loading && events.length === 0 ? (
               Array.from({ length: 5 }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows
@@ -142,9 +124,7 @@ function SuppressionFeed() {
               events.map((e) => (
                 <TableRow key={e.id} className="h-10 hover:bg-secondary/50">
                   <TableCell className="font-mono text-sm cursor-pointer hover:text-terminal hover:underline">
-                    <Link href={`/admin/tenants?search=${e.referrerTenantId}`}>
-                      {e.referrerTenantId}
-                    </Link>
+                    <Link href={`/admin/tenants?search=${e.referrerTenantId}`}>{e.referrerTenantId}</Link>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{e.referredTenantId}</TableCell>
                   <TableCell>
@@ -227,24 +207,13 @@ function VelocityPanel() {
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Referrer
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                30d Payouts
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                30d Total
-              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Referrer</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">30d Payouts</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">30d Total</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Status</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody
-            className={cn(
-              "transition-opacity duration-150",
-              loading && referrers.length > 0 && "opacity-60",
-            )}
-          >
+          <TableBody className={cn("transition-opacity duration-150", loading && referrers.length > 0 && "opacity-60")}>
             {loading && referrers.length === 0 ? (
               Array.from({ length: 3 }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows
@@ -279,22 +248,13 @@ function VelocityPanel() {
                 const atCap = payoutRatio >= 1 || creditRatio >= 1;
                 const nearCap = !atCap && (payoutRatio >= 0.8 || creditRatio >= 0.8);
 
-                const countColor = atCap
-                  ? "text-red-400"
-                  : nearCap
-                    ? "text-amber-400"
-                    : "text-terminal";
+                const countColor = atCap ? "text-red-400" : nearCap ? "text-amber-400" : "text-terminal";
                 const rowBg = atCap ? "bg-red-500/5" : nearCap ? "bg-amber-500/5" : "";
 
                 return (
-                  <TableRow
-                    key={r.referrerTenantId}
-                    className={cn("h-10 hover:bg-secondary/50", rowBg)}
-                  >
+                  <TableRow key={r.referrerTenantId} className={cn("h-10 hover:bg-secondary/50", rowBg)}>
                     <TableCell className="font-mono text-sm cursor-pointer hover:text-terminal hover:underline">
-                      <Link href={`/admin/tenants?search=${r.referrerTenantId}`}>
-                        {r.referrerTenantId}
-                      </Link>
+                      <Link href={`/admin/tenants?search=${r.referrerTenantId}`}>{r.referrerTenantId}</Link>
                     </TableCell>
                     <TableCell className={cn("font-mono text-sm", countColor)}>
                       {r.payoutCount30d} / {CAP_REFERRALS}
@@ -304,9 +264,7 @@ function VelocityPanel() {
                     </TableCell>
                     <TableCell>
                       {atCap && (
-                        <Badge className="bg-red-500/15 text-red-400 border border-red-500/20 text-xs">
-                          AT CAP
-                        </Badge>
+                        <Badge className="bg-red-500/15 text-red-400 border border-red-500/20 text-xs">AT CAP</Badge>
                       )}
                       {nearCap && (
                         <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/20 text-xs">
@@ -314,9 +272,7 @@ function VelocityPanel() {
                         </Badge>
                       )}
                       {!atCap && !nearCap && (
-                        <Badge className="bg-terminal/15 text-terminal border border-terminal/20 text-xs">
-                          NORMAL
-                        </Badge>
+                        <Badge className="bg-terminal/15 text-terminal border border-terminal/20 text-xs">NORMAL</Badge>
                       )}
                     </TableCell>
                   </TableRow>
@@ -373,31 +329,18 @@ function FingerprintPanel() {
     <div className="space-y-3">
       <div>
         <h2 className="text-lg font-semibold text-foreground">Same-Card Clusters</h2>
-        <p className="text-xs text-muted-foreground">
-          Accounts sharing the same Stripe card fingerprint
-        </p>
+        <p className="text-xs text-muted-foreground">Accounts sharing the same Stripe card fingerprint</p>
       </div>
       <div className="rounded-sm border border-terminal/10">
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Fingerprint
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Accounts
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Actions
-              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Fingerprint</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Accounts</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody
-            className={cn(
-              "transition-opacity duration-150",
-              loading && clusters.length > 0 && "opacity-60",
-            )}
-          >
+          <TableBody className={cn("transition-opacity duration-150", loading && clusters.length > 0 && "opacity-60")}>
             {loading && clusters.length === 0 ? (
               Array.from({ length: 3 }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows
@@ -417,18 +360,13 @@ function FingerprintPanel() {
                     &gt; No same-card clusters detected
                     <span className="animate-ellipsis" />
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    All payment fingerprints map to unique accounts
-                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">All payment fingerprints map to unique accounts</p>
                 </TableCell>
               </TableRow>
             ) : (
               clusters.map((c) => (
                 <TableRow key={c.stripeFingerprint} className="h-10 hover:bg-secondary/50">
-                  <TableCell
-                    className="font-mono text-sm text-muted-foreground"
-                    title={c.stripeFingerprint}
-                  >
+                  <TableCell className="font-mono text-sm text-muted-foreground" title={c.stripeFingerprint}>
                     {c.stripeFingerprint.substring(0, 10)}...
                   </TableCell>
                   <TableCell>
@@ -465,15 +403,9 @@ function FingerprintPanel() {
                             disabled={blockingFingerprint === c.stripeFingerprint}
                             onClick={() => handleBlock(c.stripeFingerprint)}
                           >
-                            {blockingFingerprint === c.stripeFingerprint
-                              ? "Blocking..."
-                              : "Confirm Block?"}
+                            {blockingFingerprint === c.stripeFingerprint ? "Blocking..." : "Confirm Block?"}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setConfirmingFingerprint(null)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => setConfirmingFingerprint(null)}>
                             Cancel
                           </Button>
                         </>
@@ -543,8 +475,7 @@ export function AffiliateDashboard() {
           AFFILIATE OPS
         </h1>
         <p className="text-sm text-muted-foreground font-mono mt-1">
-          {summary.suppressions} suppressions | {summary.nearCap} referrers near cap |{" "}
-          {summary.clusters} card clusters
+          {summary.suppressions} suppressions | {summary.nearCap} referrers near cap | {summary.clusters} card clusters
         </p>
       </div>
 

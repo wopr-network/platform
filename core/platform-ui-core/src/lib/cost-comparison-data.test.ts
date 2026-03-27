@@ -41,9 +41,7 @@ describe("buildCostComparison", () => {
   });
 
   it("accepts superpowers in the second argument", () => {
-    const superItem = DIY_COSTS.find((c) =>
-      ["image-gen", "video-gen", "voice"].includes(c.capabilityId),
-    );
+    const superItem = DIY_COSTS.find((c) => ["image-gen", "video-gen", "voice"].includes(c.capabilityId));
     if (!superItem) return;
 
     const result = buildCostComparison([], [superItem.capabilityId]);

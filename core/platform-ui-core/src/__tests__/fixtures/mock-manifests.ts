@@ -13,10 +13,8 @@ const data = require("./mock-manifests-data") as {
   CHANNEL_MANIFESTS_FIXTURE: ChannelManifest[];
 };
 
-export const MARKETPLACE_TEST_PLUGINS: Array<Record<string, unknown>> =
-  data.MARKETPLACE_TEST_PLUGINS;
-export const INSTALL_FLOW_TEST_PLUGINS: Array<Record<string, unknown>> =
-  data.INSTALL_FLOW_TEST_PLUGINS;
+export const MARKETPLACE_TEST_PLUGINS: Array<Record<string, unknown>> = data.MARKETPLACE_TEST_PLUGINS;
+export const INSTALL_FLOW_TEST_PLUGINS: Array<Record<string, unknown>> = data.INSTALL_FLOW_TEST_PLUGINS;
 export const findManifest: (id: string) => Record<string, unknown> = data.findManifest;
 export const DISCORD_MANIFEST: ChannelManifest = data.DISCORD_MANIFEST;
 export const TELEGRAM_MANIFEST: ChannelManifest = data.TELEGRAM_MANIFEST;

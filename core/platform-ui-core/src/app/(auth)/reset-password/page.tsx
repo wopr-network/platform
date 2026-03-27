@@ -6,14 +6,7 @@ import { type FormEvent, Suspense, useState } from "react";
 import { AuthError } from "@/components/auth/auth-error";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
@@ -148,10 +141,7 @@ function ResetPasswordForm() {
           </form>
         </CardContent>
         <CardFooter className="justify-center">
-          <Link
-            href="/login"
-            className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal"
-          >
+          <Link href="/login" className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal">
             Back to sign in
           </Link>
         </CardFooter>

@@ -153,9 +153,7 @@ export function ResourcesTab({ botId }: { botId: string }) {
                   <span>{tier.cpu}</span>
                 </div>
                 <div className="text-sm font-medium">
-                  {tier.dailyCost === 0
-                    ? "Included"
-                    : `+${tier.dailyCost} credits/day (${tier.monthlyCost})`}
+                  {tier.dailyCost === 0 ? "Included" : `+${tier.dailyCost} credits/day (${tier.monthlyCost})`}
                 </div>
                 {!isCurrent && (
                   <Button
@@ -163,11 +161,7 @@ export function ResourcesTab({ botId }: { botId: string }) {
                     variant={tier.key === "standard" ? "outline" : "default"}
                     onClick={() => setConfirmTier(tier)}
                   >
-                    {currentTier === null
-                      ? "Select"
-                      : tierIndex < currentTierIndex
-                        ? "Downgrade"
-                        : "Upgrade"}
+                    {currentTier === null ? "Select" : tierIndex < currentTierIndex ? "Downgrade" : "Upgrade"}
                   </Button>
                 )}
               </CardContent>

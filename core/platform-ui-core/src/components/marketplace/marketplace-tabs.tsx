@@ -38,10 +38,7 @@ export function MarketplaceTabs({ selected, onSelect, counts }: MarketplaceTabsP
             )}
             <Badge
               variant={isSelected ? "default" : "outline"}
-              className={cn(
-                "relative cursor-pointer text-xs font-medium transition-colors",
-                isSelected && "shadow-sm",
-              )}
+              className={cn("relative cursor-pointer text-xs font-medium transition-colors", isSelected && "shadow-sm")}
             >
               {tab.label}
               {count > 0 && <span className="ml-1 opacity-60">{count}</span>}

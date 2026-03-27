@@ -49,9 +49,7 @@ describe("CreditBalance", () => {
   });
 
   it("applies destructive color when balance <= 2", async () => {
-    const { container } = render(
-      <CreditBalance data={{ balance: 1.5, dailyBurn: 1.5, runway: 1 }} />,
-    );
+    const { container } = render(<CreditBalance data={{ balance: 1.5, dailyBurn: 1.5, runway: 1 }} />);
     await waitFor(() => {
       const balanceEl = container.querySelector(".text-4xl");
       expect(balanceEl?.className).toContain("text-destructive");
@@ -59,9 +57,7 @@ describe("CreditBalance", () => {
   });
 
   it("applies destructive color when runway <= 1", async () => {
-    const { container } = render(
-      <CreditBalance data={{ balance: 50, dailyBurn: 50, runway: 1 }} />,
-    );
+    const { container } = render(<CreditBalance data={{ balance: 50, dailyBurn: 50, runway: 1 }} />);
     await waitFor(() => {
       const balanceEl = container.querySelector(".text-4xl");
       expect(balanceEl?.className).toContain("text-destructive");
@@ -77,9 +73,7 @@ describe("CreditBalance", () => {
   });
 
   it("applies amber color when runway <= 7", async () => {
-    const { container } = render(
-      <CreditBalance data={{ balance: 50, dailyBurn: 10, runway: 5 }} />,
-    );
+    const { container } = render(<CreditBalance data={{ balance: 50, dailyBurn: 10, runway: 5 }} />);
     await waitFor(() => {
       const balanceEl = container.querySelector(".text-4xl");
       expect(balanceEl?.className).toContain("text-amber-500");
@@ -87,9 +81,7 @@ describe("CreditBalance", () => {
   });
 
   it("applies emerald color for healthy balance", async () => {
-    const { container } = render(
-      <CreditBalance data={{ balance: 100, dailyBurn: 5, runway: 20 }} />,
-    );
+    const { container } = render(<CreditBalance data={{ balance: 100, dailyBurn: 5, runway: 20 }} />);
     await waitFor(() => {
       const balanceEl = container.querySelector(".text-4xl");
       expect(balanceEl?.className).toContain("text-emerald-500");

@@ -24,10 +24,7 @@ describe("usePluginSetupChat sendMessage stale closure", () => {
       result.current.sendMessage("hello");
     });
 
-    expect(apiFetch).toHaveBeenCalledWith(
-      "/chat/setup/message",
-      expect.objectContaining({ method: "POST" }),
-    );
+    expect(apiFetch).toHaveBeenCalledWith("/chat/setup/message", expect.objectContaining({ method: "POST" }));
     const firstCall = (apiFetch as ReturnType<typeof vi.fn>).mock.calls[0][1] as { body: string };
     const firstBody = JSON.parse(firstCall.body) as Record<string, unknown>;
     expect(firstBody.pluginId).toBe("plugin-A");

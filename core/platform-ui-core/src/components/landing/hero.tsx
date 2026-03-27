@@ -18,10 +18,7 @@ export function Hero() {
       />
 
       {/* Radial glow pulse */}
-      <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        aria-hidden="true"
-      >
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
         <div className="animate-gentle-pulse h-[600px] w-[600px] rounded-full bg-terminal/5 blur-[120px]" />
       </div>
 
@@ -34,8 +31,7 @@ export function Hero() {
         </h1>
 
         <p className="mt-8 max-w-2xl text-lg text-muted-foreground md:text-xl">
-          A $5/month supercomputer that runs your business. No really. We know because we run ours
-          on one.
+          A $5/month supercomputer that runs your business. No really. We know because we run ours on one.
         </p>
 
         <div className="mt-12 flex flex-col items-center gap-4 sm:flex-row">
@@ -44,9 +40,7 @@ export function Hero() {
           </Button>
         </div>
 
-        <span className="mt-4 text-sm text-muted-foreground">
-          Starting at $5/month. Less than Netflix.
-        </span>
+        <span className="mt-4 text-sm text-muted-foreground">Starting at $5/month. Less than Netflix.</span>
       </div>
     </section>
   );

@@ -238,9 +238,7 @@ describe("Plans page", () => {
     render(<PlansPage />);
 
     expect(await screen.findByText("Bring Your Own Keys")).toBeInTheDocument();
-    expect(
-      screen.getAllByText(/Platform never touches your inference/).length,
-    ).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Platform never touches your inference/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("links to full pricing page", async () => {
@@ -310,9 +308,7 @@ describe("Usage page", () => {
 
     expect(await screen.findByText("Anthropic")).toBeInTheDocument();
     expect(screen.getByText("OpenAI")).toBeInTheDocument();
-    expect(
-      screen.getByText((_, element) => element?.textContent === "~$23.40"),
-    ).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.textContent === "~$23.40")).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.textContent === "~$8.12")).toBeInTheDocument();
     expect(screen.getByText(/Platform does not charge for inference/)).toBeInTheDocument();
   });

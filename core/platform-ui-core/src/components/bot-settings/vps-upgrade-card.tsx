@@ -68,8 +68,7 @@ export function VpsUpgradeCard({ botId }: VpsUpgradeCardProps) {
           </Badge>
         </div>
         <CardDescription>
-          Get a dedicated persistent container with fixed monthly pricing — no per-credit billing
-          for compute.
+          Get a dedicated persistent container with fixed monthly pricing — no per-credit billing for compute.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -97,8 +96,8 @@ export function VpsUpgradeCard({ botId }: VpsUpgradeCardProps) {
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <p className="text-xs text-muted-foreground">
-          Your bot will experience brief downtime during the container upgrade. You will be
-          redirected to Stripe Checkout to complete the subscription.
+          Your bot will experience brief downtime during the container upgrade. You will be redirected to Stripe
+          Checkout to complete the subscription.
         </p>
 
         <Button onClick={handleUpgrade} disabled={loading} className="w-full sm:w-auto">

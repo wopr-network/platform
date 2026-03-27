@@ -10,9 +10,7 @@ export default function DashboardNotFound() {
         <CardHeader>
           <div className="flex items-center gap-3">
             <TerminalIcon className="size-5 text-terminal" />
-            <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
-              system error
-            </span>
+            <span className="text-sm font-medium uppercase tracking-widest text-muted-foreground">system error</span>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -22,8 +20,7 @@ export default function DashboardNotFound() {
             <span className="animate-ellipsis" />
           </p>
           <p className="text-sm text-muted-foreground">
-            The requested page does not exist or has been moved. Check the URL or navigate back to
-            the dashboard.
+            The requested page does not exist or has been moved. Check the URL or navigate back to the dashboard.
           </p>
         </CardContent>
         <CardFooter className="gap-3">

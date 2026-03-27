@@ -83,14 +83,9 @@ export function useChat(): UseChatReturn {
           setMessages((prev) => {
             const existing = prev.find((m) => m.id === msgId);
             if (existing) {
-              return prev.map((m) =>
-                m.id === msgId ? { ...m, content: m.content + data.delta } : m,
-              );
+              return prev.map((m) => (m.id === msgId ? { ...m, content: m.content + data.delta } : m));
             }
-            return [
-              ...prev,
-              { id: msgId, role: "bot" as const, content: data.delta, timestamp: Date.now() },
-            ];
+            return [...prev, { id: msgId, role: "bot" as const, content: data.delta, timestamp: Date.now() }];
           });
         } else if (data.type === "tool_call") {
           window.dispatchEvent(

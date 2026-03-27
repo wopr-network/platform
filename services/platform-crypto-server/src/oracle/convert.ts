@@ -24,17 +24,17 @@ const MICROS_PER_CENT = 10_000n;
  * Integer math only. No floating point.
  */
 export function centsToNative(amountCents: number, priceMicros: number, decimals: number): bigint {
-	if (!Number.isInteger(amountCents) || amountCents <= 0) {
-		throw new Error(`amountCents must be a positive integer, got ${amountCents}`);
-	}
-	if (!Number.isInteger(priceMicros) || priceMicros <= 0) {
-		throw new Error(`priceMicros must be a positive integer, got ${priceMicros}`);
-	}
-	if (!Number.isInteger(decimals) || decimals < 0) {
-		throw new Error(`decimals must be a non-negative integer, got ${decimals}`);
-	}
-	// Convert amountCents to microdollars to match priceMicros units
-	return (BigInt(amountCents) * MICROS_PER_CENT * 10n ** BigInt(decimals)) / BigInt(priceMicros);
+  if (!Number.isInteger(amountCents) || amountCents <= 0) {
+    throw new Error(`amountCents must be a positive integer, got ${amountCents}`);
+  }
+  if (!Number.isInteger(priceMicros) || priceMicros <= 0) {
+    throw new Error(`priceMicros must be a positive integer, got ${priceMicros}`);
+  }
+  if (!Number.isInteger(decimals) || decimals < 0) {
+    throw new Error(`decimals must be a non-negative integer, got ${decimals}`);
+  }
+  // Convert amountCents to microdollars to match priceMicros units
+  return (BigInt(amountCents) * MICROS_PER_CENT * 10n ** BigInt(decimals)) / BigInt(priceMicros);
 }
 
 /**
@@ -45,9 +45,9 @@ export function centsToNative(amountCents: number, priceMicros: number, decimals
  * Integer math only.
  */
 export function nativeToCents(rawAmount: bigint, priceMicros: number, decimals: number): number {
-	if (rawAmount < 0n) throw new Error("rawAmount must be non-negative");
-	if (!Number.isInteger(priceMicros) || priceMicros <= 0) {
-		throw new Error(`priceMicros must be a positive integer, got ${priceMicros}`);
-	}
-	return Number((rawAmount * BigInt(priceMicros)) / (MICROS_PER_CENT * 10n ** BigInt(decimals)));
+  if (rawAmount < 0n) throw new Error("rawAmount must be non-negative");
+  if (!Number.isInteger(priceMicros) || priceMicros <= 0) {
+    throw new Error(`priceMicros must be a positive integer, got ${priceMicros}`);
+  }
+  return Number((rawAmount * BigInt(priceMicros)) / (MICROS_PER_CENT * 10n ** BigInt(decimals)));
 }

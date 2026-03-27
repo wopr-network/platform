@@ -14,10 +14,7 @@ function useCountUp(target: number, duration = 1200) {
       return;
     }
     // Respect prefers-reduced-motion: skip animation, set immediately
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setValue(target);
       return;
     }
@@ -79,9 +76,7 @@ export function DividendStats() {
       {error && <p className="col-span-full text-center text-sm text-red-500">{error}</p>}
       <Card className="border-terminal/30">
         <CardContent className="flex flex-col items-center gap-1 py-6 text-center">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
-            Today&apos;s community pool
-          </p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Today&apos;s community pool</p>
           <p className="text-3xl font-bold text-terminal sm:text-4xl" data-testid="pool-amount">
             {loaded && pool > 0 ? formatDollars(animatedPool) : "--"}
           </p>
@@ -90,9 +85,7 @@ export function DividendStats() {
 
       <Card className="border-terminal/30">
         <CardContent className="flex flex-col items-center gap-1 py-6 text-center">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
-            Active users in pool
-          </p>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Active users in pool</p>
           <p className="text-3xl font-bold text-terminal sm:text-4xl" data-testid="active-users">
             {loaded && users > 0 ? Math.round(animatedUsers).toLocaleString() : "--"}
           </p>
@@ -101,13 +94,8 @@ export function DividendStats() {
 
       <Card className="border-terminal/30">
         <CardContent className="flex flex-col items-center gap-1 py-6 text-center">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">
-            Your projected daily dividend
-          </p>
-          <p
-            className="text-3xl font-bold text-terminal sm:text-4xl"
-            data-testid="projected-dividend"
-          >
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">Your projected daily dividend</p>
+          <p className="text-3xl font-bold text-terminal sm:text-4xl" data-testid="projected-dividend">
             {loaded && dividend > 0 ? `~${formatCreditStandard(animatedDividend)}` : "--"}
           </p>
         </CardContent>

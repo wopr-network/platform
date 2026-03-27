@@ -18,16 +18,12 @@ export default function PlansPage() {
 
       <Card className="border-terminal shadow-[0_0_12px_rgba(0,255,65,0.15)]">
         <CardHeader className="text-center">
-          <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">
-            {productName()}
-          </CardTitle>
+          <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">{productName()}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4 text-center">
           <p className="text-5xl font-bold text-terminal">
             ${pricingData.bot_price.amount}
-            <span className="text-xl font-normal text-muted-foreground">
-              /{pricingData.bot_price.period}
-            </span>
+            <span className="text-xl font-normal text-muted-foreground">/{pricingData.bot_price.period}</span>
           </p>
           <p className="text-muted-foreground">per bot</p>
           <ul className="space-y-2 text-sm">
@@ -38,9 +34,7 @@ export default function PlansPage() {
               </li>
             ))}
           </ul>
-          <p className="text-xs text-muted-foreground">
-            Usage is billed from credits at transparent per-use rates.
-          </p>
+          <p className="text-xs text-muted-foreground">Usage is billed from credits at transparent per-use rates.</p>
           <Button variant="outline" size="sm" asChild>
             <Link href="/pricing">View full pricing</Link>
           </Button>

@@ -34,6 +34,7 @@ import type { PluginHealthCheckResult } from "./plugin-types/plugin.js";
 // Import InjectionSource for use within this file
 import type { InjectionSource as _InjectionSource } from "./security/types.js";
 import type { StorageApi } from "./storage/api/plugin-storage.js";
+
 // Re-export PluginHealthCheckResult so downstream consumers can import it from src/types.ts
 export type { PluginHealthCheckResult };
 

@@ -155,9 +155,7 @@ export default function CreateOrgWizard() {
             >
               <DialogHeader>
                 <DialogTitle>Confirm</DialogTitle>
-                <DialogDescription>
-                  You{"'"}ll be the admin. You can invite members after setup.
-                </DialogDescription>
+                <DialogDescription>You{"'"}ll be the admin. You can invite members after setup.</DialogDescription>
               </DialogHeader>
               <div className="mt-4 space-y-3">
                 <div className="rounded-md border px-4 py-3 text-sm">
@@ -165,8 +163,7 @@ export default function CreateOrgWizard() {
                     <span className="text-muted-foreground">Name:</span> <strong>{orgName}</strong>
                   </p>
                   <p>
-                    <span className="text-muted-foreground">Slug:</span>{" "}
-                    <code className="text-xs">{slug}</code>
+                    <span className="text-muted-foreground">Slug:</span> <code className="text-xs">{slug}</code>
                   </p>
                 </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}

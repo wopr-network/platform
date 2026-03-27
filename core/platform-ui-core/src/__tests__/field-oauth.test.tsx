@@ -61,9 +61,7 @@ describe("FieldOAuth", () => {
   });
 
   it("shows error prop message", () => {
-    render(
-      <FieldOAuth field={slackOAuthField} value="" onChange={vi.fn()} error="Token is required" />,
-    );
+    render(<FieldOAuth field={slackOAuthField} value="" onChange={vi.fn()} error="Token is required" />);
     expect(screen.getByText("Token is required")).toBeInTheDocument();
   });
 
@@ -90,9 +88,7 @@ describe("FieldOAuth", () => {
     fireEvent.click(screen.getByRole("button", { name: "Authorize" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Popup blocked. Please allow popups for this site and try again."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Popup blocked. Please allow popups for this site and try again.")).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });

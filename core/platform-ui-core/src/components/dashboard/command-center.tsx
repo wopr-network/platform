@@ -9,19 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFleetSSE } from "@/hooks/use-fleet-sse";
 import { usePaginationParams } from "@/hooks/use-pagination-params";
-import type {
-  ActivityEvent,
-  BotStatusResponse,
-  DividendWalletStats,
-  FleetInstance,
-  FleetResources,
-} from "@/lib/api";
-import {
-  getActivityFeed,
-  getDividendStats,
-  getFleetResources,
-  mapBotStatusToFleetInstance,
-} from "@/lib/api";
+import type { ActivityEvent, BotStatusResponse, DividendWalletStats, FleetInstance, FleetResources } from "@/lib/api";
+import { getActivityFeed, getDividendStats, getFleetResources, mapBotStatusToFleetInstance } from "@/lib/api";
 import { productName } from "@/lib/brand-config";
 import { toUserMessage } from "@/lib/errors";
 import { formatRelativeTime } from "@/lib/format";
@@ -32,9 +21,7 @@ import { cn } from "@/lib/utils";
 function computeFleetStats(instances: FleetInstance[], resources: FleetResources | null) {
   const running = instances.filter((i) => i.status === "running").length;
   const stopped = instances.filter((i) => i.status === "stopped").length;
-  const degraded = instances.filter(
-    (i) => i.health === "degraded" || i.health === "unhealthy",
-  ).length;
+  const degraded = instances.filter((i) => i.health === "degraded" || i.health === "unhealthy").length;
   const totalCpu = resources?.totalCpuPercent ?? 0;
   const totalMemory = resources?.totalMemoryMb ?? 0;
   const memoryCapacity = resources?.memoryCapacityMb ?? 2048;
@@ -236,12 +223,7 @@ export function CommandCenter() {
           className="flex items-center justify-between rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
         >
           <span>{error}</span>
-          <Button
-            data-onboarding-id="dashboard.retry"
-            variant="ghost"
-            size="sm"
-            onClick={() => loadNonFleet()}
-          >
+          <Button data-onboarding-id="dashboard.retry" variant="ghost" size="sm" onClick={() => loadNonFleet()}>
             Retry
           </Button>
         </div>
@@ -249,10 +231,7 @@ export function CommandCenter() {
 
       {/* Fleet Summary Cards */}
       <motion.div
-        className={cn(
-          "grid gap-4 sm:grid-cols-2",
-          dividendStats ? "lg:grid-cols-5" : "lg:grid-cols-4",
-        )}
+        className={cn("grid gap-4 sm:grid-cols-2", dividendStats ? "lg:grid-cols-5" : "lg:grid-cols-4")}
         variants={staggerContainer}
         initial="hidden"
         animate="show"
@@ -268,9 +247,7 @@ export function CommandCenter() {
               <p className="mt-2 text-3xl font-bold tabular-nums" data-testid="running-count">
                 {loading ? "--" : <CountUp value={stats.running} />}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {stats.running === 1 ? "instance" : "instances"}
-              </p>
+              <p className="text-xs text-muted-foreground">{stats.running === 1 ? "instance" : "instances"}</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -286,9 +263,7 @@ export function CommandCenter() {
               <p className="mt-2 text-3xl font-bold tabular-nums" data-testid="stopped-count">
                 {loading ? "--" : <CountUp value={stats.stopped} />}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {stats.stopped === 1 ? "instance" : "instances"}
-              </p>
+              <p className="text-xs text-muted-foreground">{stats.stopped === 1 ? "instance" : "instances"}</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -308,9 +283,7 @@ export function CommandCenter() {
               <p className="mt-2 text-3xl font-bold tabular-nums" data-testid="degraded-count">
                 {loading ? "--" : <CountUp value={stats.degraded} />}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {stats.degraded > 0 ? "need attention" : "all clear"}
-              </p>
+              <p className="text-xs text-muted-foreground">{stats.degraded > 0 ? "need attention" : "all clear"}</p>
             </CardContent>
           </Card>
         </motion.div>
@@ -349,9 +322,7 @@ export function CommandCenter() {
                       className="h-full rounded-full bg-primary"
                       initial={{ width: "0%" }}
                       animate={{
-                        width: loading
-                          ? "0%"
-                          : `${Math.min(100, (stats.totalMemory / stats.memoryCapacity) * 100)}%`,
+                        width: loading ? "0%" : `${Math.min(100, (stats.totalMemory / stats.memoryCapacity) * 100)}%`,
                       }}
                       transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
                     />
@@ -372,10 +343,7 @@ export function CommandCenter() {
                   <p className="text-sm text-muted-foreground">Today&apos;s Dividend</p>
                   <TrendingUpIcon className="size-4 text-terminal" />
                 </div>
-                <p
-                  className="mt-2 text-3xl font-bold tabular-nums text-terminal"
-                  data-testid="dividend-amount"
-                >
+                <p className="mt-2 text-3xl font-bold tabular-nums text-terminal" data-testid="dividend-amount">
                   {loading ? "--" : formatCreditStandard((dividendStats?.perUserCents ?? 0) / 100)}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -407,9 +375,7 @@ export function CommandCenter() {
           ) : activity.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-8 text-center">
               <p className="font-mono text-sm text-terminal">&gt; STANDING BY</p>
-              <p className="font-mono text-xs text-muted-foreground">
-                NO EVENTS LOGGED. AWAITING ACTIVITY.
-              </p>
+              <p className="font-mono text-xs text-muted-foreground">NO EVENTS LOGGED. AWAITING ACTIVITY.</p>
             </div>
           ) : (
             <motion.div
@@ -475,11 +441,7 @@ export function CommandCenter() {
             <motion.div
               className="h-full rounded-sm border border-dashed border-terminal/20"
               animate={{
-                borderColor: [
-                  "hsl(var(--terminal) / 0.2)",
-                  "hsl(var(--terminal) / 0.5)",
-                  "hsl(var(--terminal) / 0.2)",
-                ],
+                borderColor: ["hsl(var(--terminal) / 0.2)", "hsl(var(--terminal) / 0.5)", "hsl(var(--terminal) / 0.2)"],
               }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
@@ -497,9 +459,7 @@ export function CommandCenter() {
                     <Plus size={24} />
                   </motion.div>
                   <p className="font-semibold">Add another {productName()}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Name it. Teach it. Give it superpowers.
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">Name it. Teach it. Give it superpowers.</p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -511,16 +471,10 @@ export function CommandCenter() {
       {fleetTotal > FLEET_PAGE_SIZE && (
         <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
           <span>
-            Showing {fleetStart + 1}-{Math.min(fleetStart + FLEET_PAGE_SIZE, fleetTotal)} of{" "}
-            {fleetTotal}
+            Showing {fleetStart + 1}-{Math.min(fleetStart + FLEET_PAGE_SIZE, fleetTotal)} of {fleetTotal}
           </span>
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={fleetPage <= 1}
-              onClick={() => setFleetPage(fleetPage - 1)}
-            >
+            <Button variant="ghost" size="xs" disabled={fleetPage <= 1} onClick={() => setFleetPage(fleetPage - 1)}>
               Previous
             </Button>
             <Button

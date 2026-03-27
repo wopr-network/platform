@@ -1,14 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Use vi.hoisted so mock fns are available inside vi.mock factory (which gets hoisted)
-const { mockListInstances, mockGetInstance, mockCreateInstance, mockControlInstance } = vi.hoisted(
-  () => ({
-    mockListInstances: vi.fn(),
-    mockGetInstance: vi.fn(),
-    mockCreateInstance: vi.fn(),
-    mockControlInstance: vi.fn(),
-  }),
-);
+const { mockListInstances, mockGetInstance, mockCreateInstance, mockControlInstance } = vi.hoisted(() => ({
+  mockListInstances: vi.fn(),
+  mockGetInstance: vi.fn(),
+  mockCreateInstance: vi.fn(),
+  mockControlInstance: vi.fn(),
+}));
 
 vi.mock("@/lib/trpc", () => ({
   trpcVanilla: {
@@ -66,13 +64,7 @@ vi.mock("@/lib/tenant-context", () => ({
   getActiveTenantId: vi.fn(() => "tenant-123"),
 }));
 
-import {
-  controlInstance,
-  createInstance,
-  deployInstance,
-  getInstance,
-  listInstances,
-} from "@/lib/api";
+import { controlInstance, createInstance, deployInstance, getInstance, listInstances } from "@/lib/api";
 
 describe("listInstances", () => {
   afterEach(() => {
@@ -315,9 +307,7 @@ describe("deployInstance", () => {
 
     await deployInstance({ name: "EnvBot", env: { FOO: "bar" } });
 
-    expect(mockCreateInstance).toHaveBeenCalledWith(
-      expect.objectContaining({ env: { FOO: "bar" } }),
-    );
+    expect(mockCreateInstance).toHaveBeenCalledWith(expect.objectContaining({ env: { FOO: "bar" } }));
   });
 
   it("defaults description to empty string", async () => {

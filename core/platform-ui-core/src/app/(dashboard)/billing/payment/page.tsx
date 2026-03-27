@@ -1,13 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  CreditCardIcon,
-  DownloadIcon,
-  ExternalLinkIcon,
-  LockIcon,
-  ShieldCheckIcon,
-} from "lucide-react";
+import { CreditCardIcon, DownloadIcon, ExternalLinkIcon, LockIcon, ShieldCheckIcon } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { AddPaymentMethodDialog } from "@/components/billing/add-payment-method-dialog";
 import { ByokCallout } from "@/components/billing/byok-callout";
@@ -19,21 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { BillingInfo, Invoice } from "@/lib/api";
-import {
-  getBillingInfo,
-  removePaymentMethod,
-  setDefaultPaymentMethod,
-  updateBillingEmail,
-} from "@/lib/api";
+import { getBillingInfo, removePaymentMethod, setDefaultPaymentMethod, updateBillingEmail } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { brandName } from "@/lib/brand-config";
 import { formatCreditStandard } from "@/lib/format-credit";
@@ -236,9 +218,7 @@ export default function PaymentPage() {
     <div className="max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Payment</h1>
-        <p className="text-sm text-muted-foreground">
-          Manage your payment methods and view billing history
-        </p>
+        <p className="text-sm text-muted-foreground">Manage your payment methods and view billing history</p>
       </div>
 
       <ByokCallout compact />
@@ -247,9 +227,7 @@ export default function PaymentPage() {
       <Card>
         <CardHeader>
           <CardTitle>Payment Methods</CardTitle>
-          <CardDescription>
-            Cards on file for {brandName()} platform charges (not AI provider costs)
-          </CardDescription>
+          <CardDescription>Cards on file for {brandName()} platform charges (not AI provider costs)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {info.paymentMethods.length === 0 ? (
@@ -257,13 +235,9 @@ export default function PaymentPage() {
           ) : (
             <div className="space-y-3">
               {info.paymentMethods.map((pm) => {
-                const brandClass =
-                  BRAND_STYLES[pm.brand.toLowerCase()] ?? "bg-muted text-muted-foreground";
+                const brandClass = BRAND_STYLES[pm.brand.toLowerCase()] ?? "bg-muted text-muted-foreground";
                 return (
-                  <div
-                    key={pm.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
+                  <div key={pm.id} className="flex items-center justify-between rounded-md border p-3">
                     <div className="flex items-center gap-3">
                       <div
                         className={cn(
@@ -322,11 +296,7 @@ export default function PaymentPage() {
           <Button variant="outline" onClick={() => setShowAddPayment(true)}>
             Add payment method
           </Button>
-          <AddPaymentMethodDialog
-            open={showAddPayment}
-            onOpenChange={setShowAddPayment}
-            onSuccess={load}
-          />
+          <AddPaymentMethodDialog open={showAddPayment} onOpenChange={setShowAddPayment} onSuccess={load} />
           <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <LockIcon className="size-3" />
@@ -375,18 +345,13 @@ export default function PaymentPage() {
         <Card>
           <CardHeader>
             <CardTitle>Org Payment Methods</CardTitle>
-            <CardDescription>
-              Cards on file for org-level charges ({orgContext.orgName})
-            </CardDescription>
+            <CardDescription>Cards on file for org-level charges ({orgContext.orgName})</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {orgLoading ? (
               <div className="space-y-3">
                 {["sk-org-a", "sk-org-b"].map((skId) => (
-                  <div
-                    key={skId}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
+                  <div key={skId} className="flex items-center justify-between rounded-md border p-3">
                     <Skeleton className="h-4 w-40" />
                     <Skeleton className="h-8 w-16" />
                   </div>
@@ -397,17 +362,11 @@ export default function PaymentPage() {
             ) : (
               <div className="space-y-3">
                 {orgPaymentMethods.map((pm) => (
-                  <div
-                    key={pm.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
+                  <div key={pm.id} className="flex items-center justify-between rounded-md border p-3">
                     <p className="text-sm font-medium font-mono">
                       **** {pm.last4}
                       {pm.isDefault && (
-                        <Badge
-                          variant="outline"
-                          className="ml-2 border-primary/25 text-primary text-xs"
-                        >
+                        <Badge variant="outline" className="ml-2 border-primary/25 text-primary text-xs">
                           Default
                         </Badge>
                       )}
@@ -455,10 +414,7 @@ export default function PaymentPage() {
             {orgLoading ? (
               <div className="space-y-3">
                 {["sk-oinv-a", "sk-oinv-b"].map((skId) => (
-                  <div
-                    key={skId}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
+                  <div key={skId} className="flex items-center justify-between rounded-md border p-3">
                     <Skeleton className="h-4 w-32" />
                     <Skeleton className="h-4 w-20" />
                   </div>
@@ -503,11 +459,7 @@ export default function PaymentPage() {
                         <TableCell>
                           {invoice.downloadUrl ? (
                             <Button variant="ghost" size="sm" asChild>
-                              <a
-                                href={invoice.downloadUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
+                              <a href={invoice.downloadUrl} target="_blank" rel="noopener noreferrer">
                                 <DownloadIcon className="mr-1 size-3" />
                                 Download PDF
                               </a>
@@ -536,9 +488,7 @@ export default function PaymentPage() {
       {/* Billing History */}
       <div>
         <h2 className="text-lg font-semibold">Billing History</h2>
-        <p className="mb-4 text-sm text-muted-foreground">
-          Past invoices for {brandName()} platform services
-        </p>
+        <p className="mb-4 text-sm text-muted-foreground">Past invoices for {brandName()} platform services</p>
       </div>
 
       {info.invoices.length === 0 ? (
@@ -643,9 +593,7 @@ function InvoiceRow({
                 className="overflow-hidden"
               >
                 <div className="bg-muted/50 p-4">
-                  <p className="mb-2 text-xs font-semibold text-muted-foreground">
-                    Hosted Usage Line Items
-                  </p>
+                  <p className="mb-2 text-xs font-semibold text-muted-foreground">Hosted Usage Line Items</p>
                   <div className="space-y-1 text-xs">
                     {invoice.hostedLineItems?.map((item, i) => (
                       <div key={`${invoice.id}-item-${i}`} className="flex justify-between">

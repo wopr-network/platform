@@ -61,17 +61,14 @@ function BulkSuspendDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShieldBan className="size-5 text-amber-500" />
-            <span className="text-amber-500">Suspend</span>{" "}
-            <span className="font-semibold">{selectedCount}</span> accounts
+            <span className="text-amber-500">Suspend</span> <span className="font-semibold">{selectedCount}</span>{" "}
+            accounts
           </DialogTitle>
-          <DialogDescription>
-            Suspended accounts will immediately lose platform access.
-          </DialogDescription>
+          <DialogDescription>Suspended accounts will immediately lose platform access.</DialogDescription>
         </DialogHeader>
 
         <Banner variant="warning">
-          This will immediately prevent these accounts from using the platform. Users will be locked
-          out.
+          This will immediately prevent these accounts from using the platform. Users will be locked out.
         </Banner>
 
         <div className="flex flex-col gap-4">
@@ -113,11 +110,7 @@ function BulkSuspendDialog({
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleConfirm}
-            disabled={!reason.trim() || isLoading}
-          >
+          <Button variant="destructive" onClick={handleConfirm} disabled={!reason.trim() || isLoading}>
             Suspend {selectedCount} accounts
           </Button>
         </DialogFooter>

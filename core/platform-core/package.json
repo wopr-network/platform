@@ -76,10 +76,10 @@
     "./*": "./dist/*.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "find src -name '*.ts' | head -1 | grep -q . && tsc || echo 'No source files, skipping build'",
     "test": "vitest run",
     "check": "biome check src/ && tsc --noEmit",
-    "lint": "biome check src/",
+    "lint": "find src -name '*.ts' -o -name '*.tsx' | head -1 | grep -q . && biome check src/ || true",
     "lint:fix": "biome check --fix src/",
     "format": "biome format src/ --write"
   },

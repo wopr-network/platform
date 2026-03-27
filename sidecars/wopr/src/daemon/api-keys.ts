@@ -15,7 +15,7 @@ import type { ApiKeyInfo, ApiKeyScope, AuthStore, ValidatedKeyUser } from "../au
 import { KeyLimitError } from "../auth/auth-store.js";
 
 // Re-export types for backward compatibility
-export type { ApiKeyScope, ApiKeyInfo, ValidatedKeyUser };
+export type { ApiKeyInfo, ApiKeyScope, ValidatedKeyUser };
 export { KeyLimitError };
 
 let authStoreInstance: AuthStore | null = null;

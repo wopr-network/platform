@@ -52,13 +52,12 @@ export function SuspendDialog({ open, onOpenChange, user, onComplete }: SuspendD
           <DialogDescription>
             {isSuspended ? (
               <>
-                Reactivate <span className="font-mono text-terminal">{user.email}</span>? Their bots
-                will resume.
+                Reactivate <span className="font-mono text-terminal">{user.email}</span>? Their bots will resume.
               </>
             ) : (
               <>
-                Suspend <span className="font-mono text-terminal">{user.email}</span>? Their running
-                bots will be paused immediately.
+                Suspend <span className="font-mono text-terminal">{user.email}</span>? Their running bots will be paused
+                immediately.
               </>
             )}
           </DialogDescription>
@@ -83,13 +82,7 @@ export function SuspendDialog({ open, onOpenChange, user, onComplete }: SuspendD
             disabled={(!isSuspended && !reason.trim()) || submitting}
             onClick={handleConfirm}
           >
-            {submitting
-              ? isSuspended
-                ? "Reactivating..."
-                : "Suspending..."
-              : isSuspended
-                ? "Reactivate"
-                : "Suspend"}
+            {submitting ? (isSuspended ? "Reactivating..." : "Suspending...") : isSuspended ? "Reactivate" : "Suspend"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -30,9 +30,7 @@ export const metadata: Metadata = {
     title: `${brand.productName} — AI Agent Platform`,
     description: `${brand.tagline} ${brand.price ? `${brand.price}.` : ""} ${brand.domain}`,
     url: SITE_URL,
-    images: [
-      { url: "/og", width: 1200, height: 630, alt: `${brand.productName} — AI Agent Platform` },
-    ],
+    images: [{ url: "/og", width: 1200, height: 630, alt: `${brand.productName} — AI Agent Platform` }],
   },
   twitter: {
     card: "summary_large_image",
@@ -66,13 +64,7 @@ export default async function RootLayout({
       <head>{nonce && <meta property="csp-nonce" content={nonce} />}</head>
       <body className={`${jetbrainsMono.variable} antialiased`}>
         <MotionConfig nonce={nonce}>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem
-            disableTransitionOnChange
-            nonce={nonce}
-          >
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange nonce={nonce}>
             <TRPCProvider initialTenantId={initialTenantId}>
               {children}
               <Toaster

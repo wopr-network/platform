@@ -23,9 +23,7 @@ describe("VpsUpgradeCard", () => {
 
   it("displays the description", () => {
     render(<VpsUpgradeCard botId="bot-1" />);
-    expect(
-      screen.getByText(/dedicated persistent container with fixed monthly pricing/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/dedicated persistent container with fixed monthly pricing/)).toBeInTheDocument();
   });
 
   it("lists all VPS features", () => {

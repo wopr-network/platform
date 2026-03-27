@@ -6,13 +6,7 @@ import { useEffect, useRef } from "react";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatMessage } from "@/components/chat/chat-message";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ChatMessage as ChatMessageType } from "@/lib/chat/types";
 
 interface SetupChatPanelProps {
@@ -73,9 +67,7 @@ export function SetupChatPanel({
         {/* Messages area */}
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {messages.length === 0 && !isConnected && (
-            <p className="font-mono text-sm text-terminal/60 animate-pulse">
-              &gt; Initializing setup...
-            </p>
+            <p className="font-mono text-sm text-terminal/60 animate-pulse">&gt; Initializing setup...</p>
           )}
 
           <AnimatePresence initial={false}>
@@ -94,19 +86,13 @@ export function SetupChatPanel({
               >
                 {msg.role === "bot" ? (
                   <div className="flex gap-2">
-                    <span className="mt-0.5 font-mono text-sm text-terminal/40 select-none">
-                      &gt;
-                    </span>
+                    <span className="mt-0.5 font-mono text-sm text-terminal/40 select-none">&gt;</span>
                     <p className="font-mono text-sm leading-relaxed text-terminal">{msg.content}</p>
                   </div>
                 ) : msg.role === "event" ? (
                   <div className="flex gap-2">
-                    <span className="mt-0.5 font-mono text-sm text-destructive/60 select-none">
-                      !
-                    </span>
-                    <p className="font-mono text-sm leading-relaxed text-destructive">
-                      {msg.content}
-                    </p>
+                    <span className="mt-0.5 font-mono text-sm text-destructive/60 select-none">!</span>
+                    <p className="font-mono text-sm leading-relaxed text-destructive">{msg.content}</p>
                   </div>
                 ) : (
                   <ChatMessage message={msg} />
@@ -150,9 +136,7 @@ export function SetupChatPanel({
                 className="flex flex-col items-center justify-center gap-2 py-4"
               >
                 <CheckCircle2 className="h-8 w-8 text-terminal" />
-                <span className="font-mono text-sm uppercase tracking-wider text-terminal">
-                  Setup complete
-                </span>
+                <span className="font-mono text-sm uppercase tracking-wider text-terminal">Setup complete</span>
               </motion.div>
             )}
           </AnimatePresence>

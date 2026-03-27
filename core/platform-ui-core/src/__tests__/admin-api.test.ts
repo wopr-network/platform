@@ -48,12 +48,7 @@ import {
   getAffiliateVelocity,
 } from "@/lib/admin-affiliate-api";
 
-import {
-  getCacheStats,
-  getDailyCost,
-  getPageCost,
-  getSessionCost,
-} from "@/lib/admin-inference-api";
+import { getCacheStats, getDailyCost, getPageCost, getSessionCost } from "@/lib/admin-inference-api";
 
 beforeEach(() => {
   vi.clearAllMocks();

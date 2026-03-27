@@ -61,10 +61,7 @@ describe("listInstances uses tRPC", () => {
     const result = await listInstances();
 
     expect(mockListInstances).toHaveBeenCalled();
-    expect(fetchSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining("/fleet/"),
-      expect.anything(),
-    );
+    expect(fetchSpy).not.toHaveBeenCalledWith(expect.stringContaining("/fleet/"), expect.anything());
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("bot-1");
     expect(result[0].status).toBe("running");
@@ -187,10 +184,7 @@ describe("getInstanceLogs uses tRPC", () => {
 
   it("calls trpcVanilla.fleet.getInstanceLogs.query", async () => {
     mockGetInstanceLogs.mockResolvedValueOnce({
-      logs: [
-        "2026-02-20T10:00:00Z [INFO] Bot started",
-        "2026-02-20T10:00:01Z [ERROR] Connection failed",
-      ],
+      logs: ["2026-02-20T10:00:00Z [INFO] Bot started", "2026-02-20T10:00:01Z [ERROR] Connection failed"],
     });
 
     const { getInstanceLogs } = await import("@/lib/api");

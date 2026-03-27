@@ -5,20 +5,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useTenant } from "@/lib/tenant-context";
 import { trpc } from "@/lib/trpc";
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => {
-  const label =
-    i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`;
+  const label = i === 0 ? "12:00 AM" : i < 12 ? `${i}:00 AM` : i === 12 ? "12:00 PM" : `${i - 12}:00 PM`;
   return { value: String(i), label };
 });
 
@@ -26,10 +19,7 @@ export function UpdateSettingsCard() {
   const { activeTenantId: tenantId } = useTenant();
   const [saving, setSaving] = useState(false);
 
-  const configQuery = trpc.fleetUpdateConfig.getUpdateConfig.useQuery(
-    { tenantId },
-    { enabled: !!tenantId },
-  );
+  const configQuery = trpc.fleetUpdateConfig.getUpdateConfig.useQuery({ tenantId }, { enabled: !!tenantId });
 
   const setConfigMutation = trpc.fleetUpdateConfig.setUpdateConfig.useMutation();
 
@@ -82,8 +72,8 @@ export function UpdateSettingsCard() {
           Auto-Update Settings
         </CardTitle>
         <CardDescription>
-          Control how your fleet receives updates. Auto mode applies updates during your preferred
-          maintenance window. Manual mode shows an update badge — you choose when to apply.
+          Control how your fleet receives updates. Auto mode applies updates during your preferred maintenance window.
+          Manual mode shows an update badge — you choose when to apply.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -129,15 +119,9 @@ export function UpdateSettingsCard() {
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     Maintenance Window
                   </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Preferred hour for applying updates (UTC)
-                  </p>
+                  <p className="text-sm text-muted-foreground">Preferred hour for applying updates (UTC)</p>
                 </div>
-                <Select
-                  value={String(preferredHourUtc)}
-                  onValueChange={handleHourChange}
-                  disabled={saving}
-                >
+                <Select value={String(preferredHourUtc)} onValueChange={handleHourChange} disabled={saving}>
                   <SelectTrigger className="w-[140px]">
                     <SelectValue />
                   </SelectTrigger>

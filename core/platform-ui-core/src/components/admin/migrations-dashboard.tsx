@@ -1,29 +1,13 @@
 "use client";
 
-import {
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  Database,
-  History,
-  Loader2,
-  RotateCcw,
-  Search,
-} from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, Database, History, Loader2, RotateCcw, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { MigrationRecord, MigrationRestoreRecord, MigrationSnapshot } from "@/lib/admin-api";
 import {
@@ -85,10 +69,7 @@ function StatusBadge({ status }: { status: string }) {
       );
     default:
       return (
-        <Badge
-          variant="secondary"
-          className="bg-muted text-muted-foreground inline-flex items-center gap-1"
-        >
+        <Badge variant="secondary" className="bg-muted text-muted-foreground inline-flex items-center gap-1">
           <Clock className="h-3 w-3" />
           pending
         </Badge>
@@ -133,9 +114,7 @@ function MigrationsList({ migrations }: { migrations: MigrationRecord[] }) {
                 <TableCell className="text-xs text-muted-foreground tabular-nums">
                   {fmtDuration(m.duration_ms)}
                 </TableCell>
-                <TableCell className="text-xs text-red-400 max-w-xs truncate">
-                  {m.error ?? "—"}
-                </TableCell>
+                <TableCell className="text-xs text-red-400 max-w-xs truncate">{m.error ?? "—"}</TableCell>
               </TableRow>
             ))
           )}
@@ -161,10 +140,7 @@ function SnapshotBrowser({ tenantId }: SnapshotBrowserProps) {
     if (!tenantId) return;
     setLoading(true);
     try {
-      const [snaps, hist] = await Promise.all([
-        getMigrationSnapshots(tenantId),
-        getMigrationRestoreHistory(tenantId),
-      ]);
+      const [snaps, hist] = await Promise.all([getMigrationSnapshots(tenantId), getMigrationRestoreHistory(tenantId)]);
       setSnapshots(snaps);
       setHistory(hist);
     } catch (err) {
@@ -179,10 +155,7 @@ function SnapshotBrowser({ tenantId }: SnapshotBrowserProps) {
   }, [load]);
 
   async function handleRestore(snapshotId: string, snapshotName: string) {
-    if (
-      !confirm(`Restore snapshot "${snapshotName}" for tenant ${tenantId}? This cannot be undone.`)
-    )
-      return;
+    if (!confirm(`Restore snapshot "${snapshotName}" for tenant ${tenantId}? This cannot be undone.`)) return;
     setRestoring(snapshotId);
     try {
       await restoreMigrationSnapshot(tenantId, snapshotId);
@@ -297,9 +270,7 @@ function SnapshotBrowser({ tenantId }: SnapshotBrowserProps) {
                     <TableCell className="text-xs text-muted-foreground">
                       {new Date(r.restored_at).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-xs text-red-400 max-w-xs truncate">
-                      {r.error ?? "—"}
-                    </TableCell>
+                    <TableCell className="text-xs text-red-400 max-w-xs truncate">{r.error ?? "—"}</TableCell>
                   </TableRow>
                 ))
               )}
@@ -343,9 +314,7 @@ export function MigrationsDashboard() {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold">Migrations</h1>
-        <p className="text-muted-foreground text-sm">
-          Platform migration status and per-tenant snapshot management
-        </p>
+        <p className="text-muted-foreground text-sm">Platform migration status and per-tenant snapshot management</p>
       </div>
 
       <Tabs defaultValue="migrations">
@@ -392,9 +361,7 @@ export function MigrationsDashboard() {
           ) : (
             <div className="rounded-lg border border-border border-dashed py-16 text-center">
               <Database className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Enter a tenant ID to browse snapshots.
-              </p>
+              <p className="text-sm text-muted-foreground">Enter a tenant ID to browse snapshots.</p>
             </div>
           )}
         </TabsContent>

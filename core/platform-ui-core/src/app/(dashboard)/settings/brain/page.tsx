@@ -118,11 +118,7 @@ export default function BrainSettingsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-40 items-center justify-center text-muted-foreground">
-        Loading model settings...
-      </div>
-    );
+    return <div className="flex h-40 items-center justify-center text-muted-foreground">Loading model settings...</div>;
   }
 
   const currentModel = allModels.find((m) => m.id === selection?.modelId);
@@ -166,10 +162,7 @@ export default function BrainSettingsPage() {
                 <p className="font-medium">{currentModel.name}</p>
                 <p className="text-sm text-muted-foreground">{currentModel.description}</p>
                 <div className="mt-2 flex items-center gap-2">
-                  <Badge
-                    variant={categoryBadgeVariant(currentModel.category)}
-                    className="text-[10px]"
-                  >
+                  <Badge variant={categoryBadgeVariant(currentModel.category)} className="text-[10px]">
                     {currentModel.category}
                   </Badge>
                   <span className="text-xs text-muted-foreground">{currentModel.provider}</span>
@@ -183,18 +176,10 @@ export default function BrainSettingsPage() {
 
       {/* View mode toggle */}
       <div className="flex gap-2">
-        <Button
-          variant={viewMode === "models" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setViewMode("models")}
-        >
+        <Button variant={viewMode === "models" ? "default" : "outline"} size="sm" onClick={() => setViewMode("models")}>
           Pick a model (Hosted)
         </Button>
-        <Button
-          variant={viewMode === "byok" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setViewMode("byok")}
-        >
+        <Button variant={viewMode === "byok" ? "default" : "outline"} size="sm" onClick={() => setViewMode("byok")}>
           Bring Your Own Key
         </Button>
       </div>
@@ -294,10 +279,7 @@ export default function BrainSettingsPage() {
                       <CardContent>
                         <p className="text-xs text-muted-foreground">{model.description}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-1">
-                          <Badge
-                            variant={categoryBadgeVariant(model.category)}
-                            className="text-[10px]"
-                          >
+                          <Badge variant={categoryBadgeVariant(model.category)} className="text-[10px]">
                             {model.category}
                           </Badge>
                           <span className="text-xs text-muted-foreground">{model.provider}</span>
@@ -318,8 +300,8 @@ export default function BrainSettingsPage() {
       {viewMode === "byok" && (
         <div className="space-y-6">
           <p className="text-sm text-muted-foreground">
-            Bring your own provider key and bypass credits. {productName()} takes nothing when using
-            BYOK providers -- you pay the provider directly.
+            Bring your own provider key and bypass credits. {productName()} takes nothing when using BYOK providers --
+            you pay the provider directly.
           </p>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -328,9 +310,7 @@ export default function BrainSettingsPage() {
                 key={provider.id}
                 className={cn(
                   "transition-all",
-                  byokProvider === provider.id
-                    ? "border-primary bg-primary/5"
-                    : "hover:border-primary/30",
+                  byokProvider === provider.id ? "border-primary bg-primary/5" : "hover:border-primary/30",
                 )}
               >
                 <CardHeader>
@@ -352,9 +332,7 @@ export default function BrainSettingsPage() {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() =>
-                      setByokProvider(byokProvider === provider.id ? null : provider.id)
-                    }
+                    onClick={() => setByokProvider(byokProvider === provider.id ? null : provider.id)}
                   >
                     {byokProvider === provider.id ? "Cancel" : "Add key"}
                   </Button>

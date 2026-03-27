@@ -49,9 +49,7 @@ export function AccountSwitcher() {
       <DropdownMenu>
         <DropdownMenuTrigger className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground outline-none focus-visible:ring-1 focus-visible:ring-sidebar-ring">
           <TenantAvatar tenant={activeTenant} />
-          <span className="flex-1 truncate text-left text-sidebar-foreground">
-            {activeTenant.name}
-          </span>
+          <span className="flex-1 truncate text-left text-sidebar-foreground">{activeTenant.name}</span>
           <span className="text-[10px] font-medium uppercase tracking-widest text-terminal-dim/60">
             {activeTenant.type === "org" ? "ORG" : "PERSONAL"}
           </span>
@@ -70,9 +68,7 @@ export function AccountSwitcher() {
             >
               <TenantAvatar tenant={tenant} />
               <span className="flex-1 truncate text-sm">{tenant.name}</span>
-              {tenant.id === activeTenantId && (
-                <CheckIcon className="size-4 shrink-0 text-terminal" />
-              )}
+              {tenant.id === activeTenantId && <CheckIcon className="size-4 shrink-0 text-terminal" />}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>

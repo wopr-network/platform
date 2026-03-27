@@ -24,34 +24,13 @@ function renderField(
 ) {
   switch (field.setupFlow) {
     case "oauth":
-      return (
-        <FieldOAuth key={field.key} field={field} value={value} onChange={onChange} error={error} />
-      );
+      return <FieldOAuth key={field.key} field={field} value={value} onChange={onChange} error={error} />;
     case "qr":
-      return (
-        <FieldQR
-          key={field.key}
-          field={field}
-          value={value}
-          onChange={onChange}
-          error={error}
-          botId={botId}
-        />
-      );
+      return <FieldQR key={field.key} field={field} value={value} onChange={onChange} error={error} botId={botId} />;
     case "interactive":
-      return (
-        <FieldInteractive
-          key={field.key}
-          field={field}
-          value={value}
-          onChange={onChange}
-          error={error}
-        />
-      );
+      return <FieldInteractive key={field.key} field={field} value={value} onChange={onChange} error={error} />;
     default:
-      return (
-        <FieldPaste key={field.key} field={field} value={value} onChange={onChange} error={error} />
-      );
+      return <FieldPaste key={field.key} field={field} value={value} onChange={onChange} error={error} />;
   }
 }
 
@@ -93,9 +72,7 @@ export function StepRenderer({ step, values, errors, onChange, botId }: StepRend
 
       {hasFields && (
         <div className="space-y-4">
-          {step.fields.map((field) =>
-            renderField(field, values[field.key] || "", onChange, errors[field.key], botId),
-          )}
+          {step.fields.map((field) => renderField(field, values[field.key] || "", onChange, errors[field.key], botId))}
         </div>
       )}
     </div>

@@ -136,8 +136,7 @@ export function PortfolioChart({ onMilestoneRef, onFadeStartRef }: PortfolioChar
   // Wire milestone ref
   useEffect(() => {
     if (onMilestoneRef && "current" in onMilestoneRef) {
-      (onMilestoneRef as React.MutableRefObject<((label: string) => void) | null>).current =
-        handleMilestone;
+      (onMilestoneRef as React.MutableRefObject<((label: string) => void) | null>).current = handleMilestone;
     }
     return () => {
       if (onMilestoneRef && "current" in onMilestoneRef) {
@@ -222,15 +221,12 @@ export function PortfolioChart({ onMilestoneRef, onFadeStartRef }: PortfolioChar
       // Smooth the viewport anchor — EMA tracks trend, not raw noise
       // Faster at start (less history), slower as chart matures
       const emaAlpha = Math.max(0.02, 0.15 - s.milestoneCount * 0.002);
-      s.smoothedValue =
-        s.count < 2 ? s.value : s.smoothedValue * (1 - emaAlpha) + s.value * emaAlpha;
+      s.smoothedValue = s.count < 2 ? s.value : s.smoothedValue * (1 - emaAlpha) + s.value * emaAlpha;
 
       // Viewport — zooms in gently early, then zooms WAY out as milestones accumulate
       const yRange = 30 + s.milestoneCount * 8;
       const xSpan =
-        s.milestoneCount < 30
-          ? Math.max(300, 500 - s.milestoneCount * 4)
-          : 380 + (s.milestoneCount - 30) * 150;
+        s.milestoneCount < 30 ? Math.max(300, 500 - s.milestoneCount * 4) : 380 + (s.milestoneCount - 30) * 150;
       const xRight = s.t;
       const xLeft = s.t - xSpan;
 
@@ -274,8 +270,7 @@ export function PortfolioChart({ onMilestoneRef, onFadeStartRef }: PortfolioChar
 
       // End-of-sequence fade: triggered when terminal enters final-typing.
       const FADE_DURATION = 2000; // ms
-      const lineAlpha =
-        s.fadeStartTime < 0 ? 1 : Math.max(0, 1 - (now - s.fadeStartTime) / FADE_DURATION);
+      const lineAlpha = s.fadeStartTime < 0 ? 1 : Math.max(0, 1 - (now - s.fadeStartTime) / FADE_DURATION);
 
       if (lineAlpha > 0.01) {
         // Layer 1: Bloom

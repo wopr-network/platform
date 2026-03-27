@@ -15,9 +15,7 @@ function CtaBlock({ className }: { className?: string }) {
       <Button variant="terminal" size="lg" asChild>
         <Link href="/signup">Start for free</Link>
       </Button>
-      <span className="mt-4 font-mono text-xs text-terminal/40">
-        Your {productName()} is waiting.
-      </span>
+      <span className="mt-4 font-mono text-xs text-terminal/40">Your {productName()} is waiting.</span>
     </div>
   );
 }

@@ -134,9 +134,7 @@ export function BuyCreditsPanel() {
           </p>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Credit purchases are not available at this time.
-          </p>
+          <p className="text-sm text-muted-foreground">Credit purchases are not available at this time.</p>
         </CardContent>
       </Card>
     );
@@ -146,9 +144,7 @@ export function BuyCreditsPanel() {
     <Card>
       <CardHeader>
         <CardTitle>Buy Credits</CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Every purchase resets your 7-day dividend window
-        </p>
+        <p className="text-xs text-muted-foreground">Every purchase resets your 7-day dividend window</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
@@ -169,19 +165,13 @@ export function BuyCreditsPanel() {
             >
               <span className="text-lg font-bold">{tier.label}</span>
               {tier.bonusPercent > 0 && (
-                <Badge className="bg-primary/15 text-primary border-primary/25 text-xs">
-                  +{tier.bonusPercent}%
-                </Badge>
+                <Badge className="bg-primary/15 text-primary border-primary/25 text-xs">+{tier.bonusPercent}%</Badge>
               )}
             </motion.button>
           ))}
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button
-          onClick={handleCheckout}
-          disabled={selected === null || loading}
-          className="w-full sm:w-auto"
-        >
+        <Button onClick={handleCheckout} disabled={selected === null || loading} className="w-full sm:w-auto">
           {loading ? "Redirecting..." : "Buy credits"}
         </Button>
       </CardContent>

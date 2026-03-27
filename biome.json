@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -31,20 +31,33 @@
       },
       "suspicious": {
         "noExplicitAny": "warn",
-        "noConsole": "warn"
+        "noConsole": "warn",
+        "noArrayIndexKey": "warn"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "warn"
       },
       "style": {
         "useConst": "error",
         "noNonNullAssertion": "warn"
-      },
-      "nursery": {
-        "noTsIgnoreComment": "error"
+      }
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
       }
     }
   },
   "css": {
     "linter": { "enabled": true },
-    "formatter": { "enabled": true }
+    "formatter": { "enabled": true },
+    "parser": {
+      "cssModules": true,
+      "tailwindDirectives": true
+    }
   },
   "overrides": [
     {

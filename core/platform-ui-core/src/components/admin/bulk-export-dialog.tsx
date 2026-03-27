@@ -14,13 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 
 type ExportFieldKey =
@@ -55,13 +49,7 @@ interface BulkExportDialogProps {
   isLoading?: boolean;
 }
 
-function BulkExportDialog({
-  open,
-  onOpenChange,
-  selectedCount,
-  onConfirm,
-  isLoading,
-}: BulkExportDialogProps) {
+function BulkExportDialog({ open, onOpenChange, selectedCount, onConfirm, isLoading }: BulkExportDialogProps) {
   const [enabledFields, setEnabledFields] = useState<Set<ExportFieldKey>>(
     new Set(["account_info", "credit_balance", "monthly_products", "lifetime_spend", "last_seen"]),
   );
@@ -85,15 +73,7 @@ function BulkExportDialog({
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
-      setEnabledFields(
-        new Set([
-          "account_info",
-          "credit_balance",
-          "monthly_products",
-          "lifetime_spend",
-          "last_seen",
-        ]),
-      );
+      setEnabledFields(new Set(["account_info", "credit_balance", "monthly_products", "lifetime_spend", "last_seen"]));
     }
     onOpenChange(next);
   };
@@ -125,9 +105,7 @@ function BulkExportDialog({
                 <Label htmlFor={`export-${field.key}`} className="cursor-pointer">
                   {field.label}
                 </Label>
-                {field.description && (
-                  <span className="text-xs text-muted-foreground">{field.description}</span>
-                )}
+                {field.description && <span className="text-xs text-muted-foreground">{field.description}</span>}
               </div>
             </div>
           ))}
@@ -170,11 +148,7 @@ function BulkExportDialog({
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Cancel
           </Button>
-          <Button
-            variant="terminal"
-            onClick={handleConfirm}
-            disabled={enabledFields.size === 0 || isLoading}
-          >
+          <Button variant="terminal" onClick={handleConfirm} disabled={enabledFields.size === 0 || isLoading}>
             <Download className="size-4" />
             Generate export
             <ArrowRight className="size-4" />
@@ -185,5 +159,5 @@ function BulkExportDialog({
   );
 }
 
-export { BulkExportDialog };
 export type { ExportFieldKey };
+export { BulkExportDialog };

@@ -86,9 +86,7 @@ const pluginManifestSchema = z.object({
   configSchema: z.array(configSchemaFieldSchema).default([]),
   setup: z.array(setupStepSchema).default([]),
   installCount: z.number().default(0),
-  changelog: z
-    .array(z.object({ version: z.string(), date: z.string(), notes: z.string() }))
-    .default([]),
+  changelog: z.array(z.object({ version: z.string(), date: z.string(), notes: z.string() })).default([]),
   connectionTest: z.object({ label: z.string(), endpoint: z.string() }).optional(),
   superpowerHeadline: z.string().optional(),
   superpowerTagline: z.string().optional(),
@@ -273,9 +271,7 @@ export async function installPlugin(
 }
 
 /** Fetch installed plugins for a bot, with enabled state. */
-export async function listInstalledPlugins(
-  botId: string,
-): Promise<{ pluginId: string; enabled: boolean }[]> {
+export async function listInstalledPlugins(botId: string): Promise<{ pluginId: string; enabled: boolean }[]> {
   const data = await fleetFetch<{
     botId: string;
     plugins: { pluginId: string; enabled: boolean }[];
@@ -284,11 +280,7 @@ export async function listInstalledPlugins(
 }
 
 /** Toggle a plugin's enabled state on a bot. */
-export async function togglePluginEnabled(
-  botId: string,
-  pluginId: string,
-  enabled: boolean,
-): Promise<void> {
+export async function togglePluginEnabled(botId: string, pluginId: string, enabled: boolean): Promise<void> {
   await fleetFetch(`/bots/${botId}/plugins/${pluginId}`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),

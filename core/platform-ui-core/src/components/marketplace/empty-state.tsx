@@ -31,16 +31,12 @@ export function MarketplaceEmptyState({ hasSearch, searchTerm }: EmptyStateProps
       {hasSearch ? (
         <>
           <p className="text-lg font-medium">No results for &ldquo;{searchTerm}&rdquo;</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Try a different search term or browse by category.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Try a different search term or browse by category.</p>
         </>
       ) : (
         <>
           <p className="text-lg font-medium">Your {productName()} could do more...</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add plugins to give your bot superpowers.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">Add plugins to give your bot superpowers.</p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             {suggestedPlugins.map((p) => (
               <Link

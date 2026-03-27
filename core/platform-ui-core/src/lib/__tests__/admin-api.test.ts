@@ -167,9 +167,7 @@ describe("getTenantNotes", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("unwraps notes array from response", async () => {
-    const notes = [
-      { id: "n-1", tenant_id: "t-1", admin_user: "admin", content: "Note", created_at: 1000 },
-    ];
+    const notes = [{ id: "n-1", tenant_id: "t-1", admin_user: "admin", content: "Note", created_at: 1000 }];
     mockNotesListQuery.mockResolvedValue({ notes });
 
     const result = await getTenantNotes("t-1");

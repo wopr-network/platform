@@ -1,10 +1,4 @@
-import {
-  controlInstance,
-  createInstance,
-  getInstanceHealth,
-  getInstanceLogs,
-  listInstances,
-} from "@/lib/api";
+import { controlInstance, createInstance, getInstanceHealth, getInstanceLogs, listInstances } from "@/lib/api";
 import { installPlugin } from "@/lib/bot-settings-data";
 import { brandName, eventName, getBrandConfig, productName } from "@/lib/brand-config";
 import { listMarketplacePlugins } from "@/lib/marketplace-data";
@@ -324,8 +318,7 @@ export function getChatWebMCPTools(): ModelContextTool[] {
     },
     {
       name: "setup.begin",
-      description:
-        "Begin conversational setup for a plugin. Bot receives plugin ID and config schema.",
+      description: "Begin conversational setup for a plugin. Bot receives plugin ID and config schema.",
       inputSchema: {
         type: "object",
         properties: {

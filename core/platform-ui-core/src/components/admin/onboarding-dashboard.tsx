@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  BookOpen,
-  CheckCircle2,
-  Clock,
-  Edit2,
-  Plus,
-  Save,
-  TrendingUp,
-  Users,
-  X,
-} from "lucide-react";
+import { BookOpen, CheckCircle2, Clock, Edit2, Plus, Save, TrendingUp, Users, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -20,11 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { OnboardingFunnelStats, OnboardingScript } from "@/lib/admin-api";
-import {
-  getOnboardingFunnelStats,
-  getOnboardingScripts,
-  saveOnboardingScript,
-} from "@/lib/admin-api";
+import { getOnboardingFunnelStats, getOnboardingScripts, saveOnboardingScript } from "@/lib/admin-api";
 import { toUserMessage } from "@/lib/errors";
 
 // ---- Utilities ----
@@ -82,16 +68,8 @@ function FunnelView({ stats }: { stats: OnboardingFunnelStats }) {
           value={stats.total_completed.toLocaleString()}
           sub={fmtPct(stats.overall_completion_rate)}
         />
-        <StatCard
-          icon={TrendingUp}
-          label="Completion Rate"
-          value={fmtPct(stats.overall_completion_rate)}
-        />
-        <StatCard
-          icon={Clock}
-          label="Time to First Bot"
-          value={fmtMs(stats.time_to_first_bot_ms)}
-        />
+        <StatCard icon={TrendingUp} label="Completion Rate" value={fmtPct(stats.overall_completion_rate)} />
+        <StatCard icon={Clock} label="Time to First Bot" value={fmtMs(stats.time_to_first_bot_ms)} />
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden">
@@ -100,14 +78,10 @@ function FunnelView({ stats }: { stats: OnboardingFunnelStats }) {
             <tr className="border-b border-border bg-muted/40 text-left">
               <th className="px-4 py-2.5 font-medium text-muted-foreground">Step</th>
               <th className="px-4 py-2.5 font-medium text-muted-foreground text-right">Started</th>
-              <th className="px-4 py-2.5 font-medium text-muted-foreground text-right">
-                Completed
-              </th>
+              <th className="px-4 py-2.5 font-medium text-muted-foreground text-right">Completed</th>
               <th className="px-4 py-2.5 font-medium text-muted-foreground text-right">Dropped</th>
               <th className="px-4 py-2.5 font-medium text-muted-foreground text-right">Rate</th>
-              <th className="px-4 py-2.5 font-medium text-muted-foreground text-right">
-                Avg Duration
-              </th>
+              <th className="px-4 py-2.5 font-medium text-muted-foreground text-right">Avg Duration</th>
               <th className="px-4 py-2.5 font-medium text-muted-foreground">Funnel</th>
             </tr>
           </thead>
@@ -125,17 +99,13 @@ function FunnelView({ stats }: { stats: OnboardingFunnelStats }) {
                   className="border-b border-border last:border-b-0 hover:bg-muted/20 transition-colors"
                 >
                   <td className="px-4 py-3 font-medium">{step.label}</td>
-                  <td className="px-4 py-3 text-right tabular-nums">
-                    {step.started.toLocaleString()}
-                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">{step.started.toLocaleString()}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-green-400">
                     {step.completed.toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-red-400">
                     {step.dropped.toLocaleString()}
-                    {idx > 0 && dropPct > 0 && (
-                      <span className="text-xs text-muted-foreground ml-1">({dropPct}%)</span>
-                    )}
+                    {idx > 0 && dropPct > 0 && <span className="text-xs text-muted-foreground ml-1">({dropPct}%)</span>}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums">
                     <Badge
@@ -156,10 +126,7 @@ function FunnelView({ stats }: { stats: OnboardingFunnelStats }) {
                   </td>
                   <td className="px-4 py-3 w-32">
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-terminal/70 transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-full rounded-full bg-terminal/70 transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </td>
                 </tr>
@@ -213,11 +180,7 @@ function ScriptEditor({ scripts, onSaved }: ScriptEditorProps) {
     }
     setSaving(true);
     try {
-      const saved = await saveOnboardingScript(
-        editing && selected ? selected.id : null,
-        name.trim(),
-        content,
-      );
+      const saved = await saveOnboardingScript(editing && selected ? selected.id : null, name.trim(), content);
       onSaved(saved);
       setEditing(false);
       setSelected(saved);
@@ -268,9 +231,7 @@ function ScriptEditor({ scripts, onSaved }: ScriptEditorProps) {
           New Script
         </Button>
       </div>
-      {scripts.length === 0 && (
-        <p className="text-sm text-muted-foreground py-4 text-center">No scripts yet.</p>
-      )}
+      {scripts.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">No scripts yet.</p>}
       <div className="space-y-2">
         {scripts.map((s) => (
           <button
@@ -284,10 +245,7 @@ function ScriptEditor({ scripts, onSaved }: ScriptEditorProps) {
                 <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="text-sm font-medium">{s.name}</span>
                 {s.active && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-green-500/15 text-green-400 border-green-500/20 text-xs"
-                  >
+                  <Badge variant="secondary" className="bg-green-500/15 text-green-400 border-green-500/20 text-xs">
                     active
                   </Badge>
                 )}
@@ -332,10 +290,7 @@ export function OnboardingDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [funnelStats, scriptList] = await Promise.all([
-        getOnboardingFunnelStats(days),
-        getOnboardingScripts(),
-      ]);
+      const [funnelStats, scriptList] = await Promise.all([getOnboardingFunnelStats(days), getOnboardingScripts()]);
       setStats(funnelStats);
       setScripts(scriptList);
     } catch (err) {
@@ -370,12 +325,7 @@ export function OnboardingDashboard() {
         </div>
         <div className="flex gap-1">
           {[7, 30, 90].map((d) => (
-            <Button
-              key={d}
-              size="sm"
-              variant={days === d ? "secondary" : "outline"}
-              onClick={() => setDays(d)}
-            >
+            <Button key={d} size="sm" variant={days === d ? "secondary" : "outline"} onClick={() => setDays(d)}>
               {d}d
             </Button>
           ))}

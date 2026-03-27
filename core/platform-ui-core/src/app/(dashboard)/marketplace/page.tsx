@@ -104,10 +104,7 @@ export default function MarketplacePage() {
   }
 
   // Superpower plugins
-  const superpowers = useMemo(
-    () => plugins.filter((p) => p.marketplaceTab === "superpower"),
-    [plugins],
-  );
+  const superpowers = useMemo(() => plugins.filter((p) => p.marketplaceTab === "superpower"), [plugins]);
 
   // Category counts for current tab
   const categoryCounts = useMemo(() => {
@@ -199,18 +196,14 @@ export default function MarketplacePage() {
     <>
       {/* First-visit cinematic overlay */}
       <AnimatePresence>
-        {showFirstVisit && (
-          <FirstVisitHero superpowers={superpowers} onDismiss={handleDismissFirstVisit} />
-        )}
+        {showFirstVisit && <FirstVisitHero superpowers={superpowers} onDismiss={handleDismissFirstVisit} />}
       </AnimatePresence>
 
       <div className="p-6 space-y-6">
         {/* Page header */}
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Browse Superpowers</h1>
-          <p className="text-sm text-muted-foreground">
-            Give your {productName()} abilities it was born to have.
-          </p>
+          <p className="text-sm text-muted-foreground">Give your {productName()} abilities it was born to have.</p>
         </div>
 
         {/* Featured hero section — hidden during search */}
@@ -231,11 +224,7 @@ export default function MarketplacePage() {
         />
 
         {activeTab !== "superpower" && (
-          <CategoryFilter
-            selected={selectedCategory}
-            onSelect={setSelectedCategory}
-            counts={categoryCounts}
-          />
+          <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} counts={categoryCounts} />
         )}
 
         {/* Plugin grid */}
@@ -245,19 +234,9 @@ export default function MarketplacePage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((plugin, i) =>
               activeTab === "superpower" ? (
-                <SuperpowerCard
-                  key={plugin.id}
-                  plugin={plugin}
-                  index={i}
-                  installed={installedIds.has(plugin.id)}
-                />
+                <SuperpowerCard key={plugin.id} plugin={plugin} index={i} installed={installedIds.has(plugin.id)} />
               ) : (
-                <PluginCard
-                  key={plugin.id}
-                  plugin={plugin}
-                  index={i}
-                  installed={installedIds.has(plugin.id)}
-                />
+                <PluginCard key={plugin.id} plugin={plugin} index={i} installed={installedIds.has(plugin.id)} />
               ),
             )}
           </div>

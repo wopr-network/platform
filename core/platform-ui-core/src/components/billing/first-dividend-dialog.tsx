@@ -93,8 +93,8 @@ export function FirstDividendDialog({ todayAmountCents }: FirstDividendDialogPro
               <span className="font-mono tabular-nums">{formatCreditStandard(animatedAmount)}</span>
             </DialogTitle>
             <DialogDescription>
-              This is your community dividend &mdash; a share of the platform&apos;s daily margin,
-              distributed equally to all active users. Stay active to keep earning.
+              This is your community dividend &mdash; a share of the platform&apos;s daily margin, distributed equally
+              to all active users. Stay active to keep earning.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="justify-center sm:justify-center">

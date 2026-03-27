@@ -67,14 +67,11 @@ export interface PostmortemInput {
 // --- API calls ---
 
 export async function classifyIncidentSeverity(signals: SeveritySignals): Promise<SeverityResult> {
-  const result = await apiFetch<{ success: boolean; error?: string } & SeverityResult>(
-    "/admin/incidents/severity",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(signals),
-    },
-  );
+  const result = await apiFetch<{ success: boolean; error?: string } & SeverityResult>("/admin/incidents/severity", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(signals),
+  });
   if (!result.success) throw new Error(result.error ?? "Request failed");
   return result;
 }
@@ -91,9 +88,7 @@ export async function getResponseProcedure(severity: IncidentSeverity): Promise<
   return result.procedure;
 }
 
-export async function getCommunicationTemplates(
-  context: CommunicateContext,
-): Promise<CommunicationTemplates> {
+export async function getCommunicationTemplates(context: CommunicateContext): Promise<CommunicationTemplates> {
   const result = await apiFetch<{
     success: boolean;
     templates: CommunicationTemplates;
@@ -108,14 +103,11 @@ export async function getCommunicationTemplates(
 }
 
 export async function generatePostmortem(input: PostmortemInput): Promise<string> {
-  const result = await apiFetch<{ success: boolean; report: string; error?: string }>(
-    "/admin/incidents/postmortem",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    },
-  );
+  const result = await apiFetch<{ success: boolean; report: string; error?: string }>("/admin/incidents/postmortem", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
   if (!result.success) throw new Error(result.error ?? "Request failed");
   return result.report;
 }

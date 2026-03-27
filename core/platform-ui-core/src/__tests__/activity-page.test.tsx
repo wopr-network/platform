@@ -120,9 +120,7 @@ describe("ActivityPage", () => {
     // Wait for debounce (300ms) + API call
     await vi.waitFor(
       () => {
-        expect(mockFetchAuditLog).toHaveBeenLastCalledWith(
-          expect.objectContaining({ search: "billing", offset: 0 }),
-        );
+        expect(mockFetchAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({ search: "billing", offset: 0 }));
       },
       { timeout: 1000 },
     );
@@ -160,9 +158,7 @@ describe("ActivityPage", () => {
     });
     await user.click(screen.getByRole("button", { name: "Next" }));
 
-    expect(mockFetchAuditLog).toHaveBeenLastCalledWith(
-      expect.objectContaining({ offset: 50, limit: 50 }),
-    );
+    expect(mockFetchAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 50, limit: 50 }));
   });
 
   it("calls fetchAuditLog with correct params", async () => {

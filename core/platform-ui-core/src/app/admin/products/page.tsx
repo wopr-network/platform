@@ -215,10 +215,7 @@ export default function AdminProductsPage() {
         </TabsContent>
 
         <TabsContent value="features">
-          <FeaturesForm
-            initial={config.features ?? DEFAULT_FEATURES}
-            onSave={mutateProductConfig}
-          />
+          <FeaturesForm initial={config.features ?? DEFAULT_FEATURES} onSave={mutateProductConfig} />
         </TabsContent>
 
         <TabsContent value="fleet">
