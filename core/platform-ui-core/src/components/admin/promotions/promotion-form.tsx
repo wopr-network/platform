@@ -8,7 +8,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toUserMessage } from "@/lib/errors";
 import type { Promotion, PromotionType, UserSegment, ValueType } from "@/lib/promotions-types";
@@ -45,15 +51,21 @@ export function PromotionForm({ initialData }: PromotionFormProps) {
   const [endsAt, setEndsAt] = useState(initialData?.endsAt ?? "");
 
   // Eligibility
-  const [firstPurchaseOnly, setFirstPurchaseOnly] = useState(initialData?.firstPurchaseOnly ?? false);
+  const [firstPurchaseOnly, setFirstPurchaseOnly] = useState(
+    initialData?.firstPurchaseOnly ?? false,
+  );
   const [minPurchaseCents, setMinPurchaseCents] = useState(initialData?.minPurchaseCents ?? 0);
   const [userSegment, setUserSegment] = useState<UserSegment>(initialData?.userSegment ?? "all");
 
   // Limits
-  const [unlimited, setUnlimited] = useState(initialData ? initialData.totalUseLimit === null : true);
+  const [unlimited, setUnlimited] = useState(
+    initialData ? initialData.totalUseLimit === null : true,
+  );
   const [totalUseLimit, setTotalUseLimit] = useState(initialData?.totalUseLimit ?? 1000);
   const [perUserLimit, setPerUserLimit] = useState(initialData?.perUserLimit ?? 1);
-  const [noBudgetCap, setNoBudgetCap] = useState(initialData ? initialData.budgetCap === null : true);
+  const [noBudgetCap, setNoBudgetCap] = useState(
+    initialData ? initialData.budgetCap === null : true,
+  );
   const [budgetCap, setBudgetCap] = useState(initialData?.budgetCap ?? 0);
 
   // Coupon
@@ -166,7 +178,11 @@ export function PromotionForm({ initialData }: PromotionFormProps) {
           <CardTitle className="text-sm">Value</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <RadioGroup value={valueType} onValueChange={(v) => setValueType(v as ValueType)} className="flex gap-4">
+          <RadioGroup
+            value={valueType}
+            onValueChange={(v) => setValueType(v as ValueType)}
+            className="flex gap-4"
+          >
             <div className="flex items-center gap-2">
               <RadioGroupItem value="flat_credits" id="vt-flat" />
               <Label htmlFor="vt-flat" className="text-sm cursor-pointer">
@@ -233,13 +249,22 @@ export function PromotionForm({ initialData }: PromotionFormProps) {
             </div>
           )}
           <div className="flex items-center gap-2">
-            <Checkbox id="no-expiry" checked={noExpiry} onCheckedChange={(v) => setNoExpiry(v === true)} />
+            <Checkbox
+              id="no-expiry"
+              checked={noExpiry}
+              onCheckedChange={(v) => setNoExpiry(v === true)}
+            />
             <Label htmlFor="no-expiry">No expiry</Label>
           </div>
           {!noExpiry && (
             <div>
               <Label htmlFor="promo-ends">End date</Label>
-              <Input id="promo-ends" type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+              <Input
+                id="promo-ends"
+                type="datetime-local"
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+              />
             </div>
           )}
         </CardContent>
@@ -303,7 +328,11 @@ export function PromotionForm({ initialData }: PromotionFormProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-2">
-            <Checkbox id="unlimited" checked={unlimited} onCheckedChange={(v) => setUnlimited(v === true)} />
+            <Checkbox
+              id="unlimited"
+              checked={unlimited}
+              onCheckedChange={(v) => setUnlimited(v === true)}
+            />
             <Label htmlFor="unlimited">Unlimited uses</Label>
           </div>
           {!unlimited && (
@@ -329,7 +358,11 @@ export function PromotionForm({ initialData }: PromotionFormProps) {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Checkbox id="no-budget-cap" checked={noBudgetCap} onCheckedChange={(v) => setNoBudgetCap(v === true)} />
+            <Checkbox
+              id="no-budget-cap"
+              checked={noBudgetCap}
+              onCheckedChange={(v) => setNoBudgetCap(v === true)}
+            />
             <Label htmlFor="no-budget-cap">No budget cap</Label>
           </div>
           {!noBudgetCap && (

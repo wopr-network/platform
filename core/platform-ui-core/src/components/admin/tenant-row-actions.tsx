@@ -42,12 +42,18 @@ export function TenantRowActions({ user, onAction }: TenantRowActionsProps) {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {user.status === "active" ? (
-            <DropdownMenuItem onClick={() => setSuspendOpen(true)} className="text-amber-500 focus:text-amber-500">
+            <DropdownMenuItem
+              onClick={() => setSuspendOpen(true)}
+              className="text-amber-500 focus:text-amber-500"
+            >
               <ShieldBan className="size-4" />
               Suspend
             </DropdownMenuItem>
           ) : user.status === "suspended" ? (
-            <DropdownMenuItem onClick={() => setSuspendOpen(true)} className="text-terminal focus:text-terminal">
+            <DropdownMenuItem
+              onClick={() => setSuspendOpen(true)}
+              className="text-terminal focus:text-terminal"
+            >
               <ShieldCheck className="size-4" />
               Reactivate
             </DropdownMenuItem>
@@ -55,8 +61,18 @@ export function TenantRowActions({ user, onAction }: TenantRowActionsProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <SuspendDialog open={suspendOpen} onOpenChange={setSuspendOpen} user={user} onComplete={onAction} />
-      <GrantCreditsDialog open={grantOpen} onOpenChange={setGrantOpen} user={user} onComplete={onAction} />
+      <SuspendDialog
+        open={suspendOpen}
+        onOpenChange={setSuspendOpen}
+        user={user}
+        onComplete={onAction}
+      />
+      <GrantCreditsDialog
+        open={grantOpen}
+        onOpenChange={setGrantOpen}
+        user={user}
+        onComplete={onAction}
+      />
     </>
   );
 }

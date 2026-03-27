@@ -22,8 +22,11 @@ export interface OrgMemberUsageRow {
 export async function getOrgCreditBalance(_orgId: string): Promise<OrgCreditBalance> {
   const res = await trpcVanilla.billing.creditsBalance.query({});
   return {
-    balance: (res?.balance_credits ?? (res as { balance_cents?: number })?.balance_cents ?? 0) / 100,
-    dailyBurn: (res?.daily_burn_credits ?? (res as { daily_burn_cents?: number })?.daily_burn_cents ?? 0) / 100,
+    balance:
+      (res?.balance_credits ?? (res as { balance_cents?: number })?.balance_cents ?? 0) / 100,
+    dailyBurn:
+      (res?.daily_burn_credits ?? (res as { daily_burn_cents?: number })?.daily_burn_cents ?? 0) /
+      100,
     runway: (res as { runway_days?: number | null })?.runway_days ?? null,
   };
 }
@@ -63,15 +66,26 @@ export async function getOrgBillingInfo(_orgId: string) {
   }
 }
 
-export async function createOrgTopupCheckout(orgId: string, priceId: string, successUrl: string, cancelUrl: string) {
+export async function createOrgTopupCheckout(
+  orgId: string,
+  priceId: string,
+  successUrl: string,
+  cancelUrl: string,
+) {
   return trpcVanilla.org.orgTopupCheckout.mutate({ orgId, priceId, successUrl, cancelUrl });
 }
 
-export async function removeOrgPaymentMethod(orgId: string, paymentMethodId: string): Promise<{ removed: boolean }> {
+export async function removeOrgPaymentMethod(
+  orgId: string,
+  paymentMethodId: string,
+): Promise<{ removed: boolean }> {
   return trpcVanilla.org.orgRemovePaymentMethod.mutate({ orgId, paymentMethodId });
 }
 
-export async function setOrgDefaultPaymentMethod(orgId: string, paymentMethodId: string): Promise<void> {
+export async function setOrgDefaultPaymentMethod(
+  orgId: string,
+  paymentMethodId: string,
+): Promise<void> {
   await trpcVanilla.org.orgSetDefaultPaymentMethod.mutate({ orgId, paymentMethodId });
 }
 

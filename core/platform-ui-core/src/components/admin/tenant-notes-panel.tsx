@@ -120,7 +120,9 @@ export function TenantNotesPanel({ tenantId }: TenantNotesPanelProps) {
             <div key={note.id} className="px-4 py-3 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground">{note.admin_user}</span>
-                <span className="text-xs text-muted-foreground">{relativeTime(note.created_at)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {relativeTime(note.created_at)}
+                </span>
               </div>
               <p className="text-sm whitespace-pre-wrap">{note.content}</p>
             </div>

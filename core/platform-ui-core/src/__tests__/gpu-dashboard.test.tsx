@@ -6,7 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // ---- Mock framer-motion ----
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: HTMLAttributes<HTMLDivElement>) => (
+      <div {...props}>{children}</div>
+    ),
   },
 }));
 
@@ -223,7 +225,9 @@ describe("GpuDashboard", () => {
     await userEvent.click(screen.getByRole("button", { name: /^Provision$/ }));
 
     await waitFor(() => {
-      expect(mockProvisionGpuNode).toHaveBeenCalledWith(expect.objectContaining({ name: "fresh-gpu" }));
+      expect(mockProvisionGpuNode).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "fresh-gpu" }),
+      );
     });
     await waitFor(() => {
       expect(mockToast.success).toHaveBeenCalledWith(expect.stringContaining("fresh-gpu"));

@@ -79,7 +79,13 @@ describe("BulkActionsBar", () => {
   it("fires onReactivate when Reactivate clicked", async () => {
     const user = userEvent.setup();
     const onReactivate = vi.fn();
-    render(<BulkActionsBar {...defaultProps} hasSuspendedInSelection={true} onReactivate={onReactivate} />);
+    render(
+      <BulkActionsBar
+        {...defaultProps}
+        hasSuspendedInSelection={true}
+        onReactivate={onReactivate}
+      />,
+    );
     await user.click(screen.getByText("Reactivate"));
     expect(onReactivate).toHaveBeenCalledOnce();
   });

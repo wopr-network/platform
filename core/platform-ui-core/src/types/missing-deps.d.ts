@@ -42,7 +42,10 @@ declare module "node:path" {
 // ---------------------------------------------------------------------------
 declare module "node:fs" {
   export function readFileSync(path: string, encoding: BufferEncoding): string;
-  export function readFileSync(path: string, options: { encoding: BufferEncoding; flag?: string }): string;
+  export function readFileSync(
+    path: string,
+    options: { encoding: BufferEncoding; flag?: string },
+  ): string;
   export function readFileSync(path: string): Buffer;
   export function existsSync(path: string): boolean;
   export function writeFileSync(
@@ -150,5 +153,8 @@ declare module "node:child_process" {
     kill(signal?: string): boolean;
   }
   export function spawn(command: string, args?: string[], options?: SpawnOptions): ChildProcess;
-  export function execSync(command: string, options?: { encoding?: BufferEncoding; cwd?: string }): string | Buffer;
+  export function execSync(
+    command: string,
+    options?: { encoding?: BufferEncoding; cwd?: string },
+  ): string | Buffer;
 }

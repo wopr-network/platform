@@ -36,12 +36,18 @@
     "viem": "^2.30.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.9",
+    "@biomejs/biome": "^2.4.8",
     "@scure/bip39": "^2.0.1",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.15.4",
     "drizzle-kit": "^0.31.3",
     "typescript": "^6.0.2",
     "vitest": "^4.1.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "release": {
+    "extends": "@wopr-network/semantic-release-config"
   }
 }

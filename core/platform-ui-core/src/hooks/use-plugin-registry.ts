@@ -29,14 +29,14 @@ import {
 
 // Re-export types so consumers only need one import source
 export type {
-  ByokProvider,
-  ModelOption,
-  OnboardingConfigField,
-  Personality,
-  PluginCategory,
   PluginOption,
-  Preset,
+  PluginCategory,
   Superpower,
+  Personality,
+  Preset,
+  ModelOption,
+  ByokProvider,
+  OnboardingConfigField,
 };
 
 /**
@@ -102,7 +102,11 @@ export interface PluginRegistry {
     selectedPlugins: string[],
   ) => OnboardingConfigField[];
   /** Resolve plugin dependencies */
-  resolveDependencies: (selectedChannels: string[], selectedProviders: string[], selectedPlugins: string[]) => string[];
+  resolveDependencies: (
+    selectedChannels: string[],
+    selectedProviders: string[],
+    selectedPlugins: string[],
+  ) => string[];
   /** Validate a single config field value */
   validateField: (field: OnboardingConfigField, value: string) => string | null;
 }
@@ -220,7 +224,9 @@ export function usePluginRegistry(): PluginRegistry {
       pluginOptions,
       getAllPlugins: () => [...channels, ...providers, ...categories.flatMap((c) => c.plugins)],
       getPluginById: (id: string) =>
-        [...channels, ...providers, ...categories.flatMap((c) => c.plugins)].find((p) => p.id === id),
+        [...channels, ...providers, ...categories.flatMap((c) => c.plugins)].find(
+          (p) => p.id === id,
+        ),
       collectConfigFields,
       resolveDependencies,
       validateField,

@@ -21,7 +21,9 @@ describe("BulkGrantDialog", () => {
   it("confirm button is disabled when amount is 0", () => {
     render(<BulkGrantDialog {...defaultProps} />);
     const buttons = screen.getAllByRole("button");
-    const confirmBtn = buttons.find((b) => b.textContent?.includes("Grant") && b.textContent?.includes("="));
+    const confirmBtn = buttons.find(
+      (b) => b.textContent?.includes("Grant") && b.textContent?.includes("="),
+    );
     expect(confirmBtn).toBeDisabled();
   });
 
@@ -30,7 +32,9 @@ describe("BulkGrantDialog", () => {
     render(<BulkGrantDialog {...defaultProps} />);
     await user.type(screen.getByLabelText("Amount per tenant"), "5");
     const buttons = screen.getAllByRole("button");
-    const confirmBtn = buttons.find((b) => b.textContent?.includes("Grant") && b.textContent?.includes("="));
+    const confirmBtn = buttons.find(
+      (b) => b.textContent?.includes("Grant") && b.textContent?.includes("="),
+    );
     expect(confirmBtn).toBeDisabled();
   });
 

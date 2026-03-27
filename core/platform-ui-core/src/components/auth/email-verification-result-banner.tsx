@@ -53,7 +53,9 @@ export function EmailVerificationResultBanner() {
   return (
     <Banner variant="destructive" role="alert">
       <XCircle className="size-4 shrink-0" />
-      <span className="flex-1">Email verification failed. Please try again or contact support.</span>
+      <span className="flex-1">
+        Email verification failed. Please try again or contact support.
+      </span>
       <Button
         variant="ghost"
         size="xs"

@@ -38,7 +38,13 @@ async function deriveXpubFromMnemonic(mnemonic: string, coinType: number): Promi
   return xpub;
 }
 
-function MnemonicDeriveSection({ chain, onXpubDerived }: { chain: string; onXpubDerived: (xpub: string) => void }) {
+function MnemonicDeriveSection({
+  chain,
+  onXpubDerived,
+}: {
+  chain: string;
+  onXpubDerived: (xpub: string) => void;
+}) {
   const [mnemonic, setMnemonic] = useState("");
   const [deriving, setDeriving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +72,9 @@ function MnemonicDeriveSection({ chain, onXpubDerived }: { chain: string; onXpub
   if (derived) {
     return (
       <div className="col-span-2 rounded-md border border-green-500/30 bg-green-500/5 p-3">
-        <p className="text-xs text-green-500">xpub derived and set. Mnemonic was cleared from memory.</p>
+        <p className="text-xs text-green-500">
+          xpub derived and set. Mnemonic was cleared from memory.
+        </p>
       </div>
     );
   }
@@ -90,7 +98,13 @@ function MnemonicDeriveSection({ chain, onXpubDerived }: { chain: string; onXpub
         spellCheck={false}
       />
       {error && <p className="text-xs text-destructive">{error}</p>}
-      <Button type="button" variant="outline" size="sm" onClick={handleDerive} disabled={deriving || !mnemonic.trim()}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleDerive}
+        disabled={deriving || !mnemonic.trim()}
+      >
         {deriving ? "Deriving..." : "Derive xpub"}
       </Button>
     </div>
@@ -234,7 +248,9 @@ function AddMethodForm({ onSaved }: { onSaved: () => void }) {
           />
         </label>
         <label className="col-span-2 space-y-1">
-          <span className="text-xs text-muted-foreground">Oracle Address (Chainlink feed — empty for stablecoins)</span>
+          <span className="text-xs text-muted-foreground">
+            Oracle Address (Chainlink feed — empty for stablecoins)
+          </span>
           <input
             className="w-full rounded-md border bg-background px-3 py-1.5 text-sm font-mono"
             placeholder="0x..."
@@ -244,7 +260,10 @@ function AddMethodForm({ onSaved }: { onSaved: () => void }) {
         </label>
 
         {/* --- xpub: paste directly or derive from mnemonic --- */}
-        <MnemonicDeriveSection chain={form.chain} onXpubDerived={(xpub) => setForm((f) => ({ ...f, xpub }))} />
+        <MnemonicDeriveSection
+          chain={form.chain}
+          onXpubDerived={(xpub) => setForm((f) => ({ ...f, xpub }))}
+        />
         <label className="col-span-2 space-y-1">
           <span className="text-xs text-muted-foreground">
             xpub (auto-filled from mnemonic above, or paste directly)
@@ -353,19 +372,29 @@ export default function AdminPaymentMethodsPage() {
                       <td className="py-2 pr-4 font-mono text-xs">
                         {m.contractAddress ? `${m.contractAddress.slice(0, 10)}...` : "—"}
                       </td>
-                      <td className="py-2 pr-4 font-mono text-xs">{m.xpub ? `${m.xpub.slice(0, 12)}...` : "—"}</td>
-                      <td className="py-2 pr-4 font-mono text-xs">{m.rpcUrl ? `${m.rpcUrl.slice(0, 20)}...` : "—"}</td>
+                      <td className="py-2 pr-4 font-mono text-xs">
+                        {m.xpub ? `${m.xpub.slice(0, 12)}...` : "—"}
+                      </td>
+                      <td className="py-2 pr-4 font-mono text-xs">
+                        {m.rpcUrl ? `${m.rpcUrl.slice(0, 20)}...` : "—"}
+                      </td>
                       <td className="py-2 pr-4">
                         <span
                           className={
-                            m.enabled ? "text-xs font-medium text-green-500" : "text-xs font-medium text-red-500"
+                            m.enabled
+                              ? "text-xs font-medium text-green-500"
+                              : "text-xs font-medium text-red-500"
                           }
                         >
                           {m.enabled ? "Enabled" : "Disabled"}
                         </span>
                       </td>
                       <td className="py-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleToggle(m.id, !m.enabled)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggle(m.id, !m.enabled)}
+                        >
                           {m.enabled ? "Disable" : "Enable"}
                         </Button>
                       </td>

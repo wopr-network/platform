@@ -3,7 +3,9 @@ import { logger } from "@/lib/logger";
 
 const log = logger("middleware");
 
-const apiOrigin = process.env.NEXT_PUBLIC_API_URL ? new URL(process.env.NEXT_PUBLIC_API_URL).origin : "";
+const apiOrigin = process.env.NEXT_PUBLIC_API_URL
+  ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
+  : "";
 
 const isSecureOrigin = process.env.NODE_ENV === "production";
 
@@ -82,7 +84,8 @@ const CSRF_EXEMPT_PATHS = new Set([
 // Server-side API URL for session validation (not baked in at build time).
 // INTERNAL_API_URL is set to the Docker-internal hostname (e.g. http://platform-api:3100).
 // Falls back to NEXT_PUBLIC_API_URL (baked in) which works when not behind a reverse proxy.
-const PLATFORM_BASE_URL = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const PLATFORM_BASE_URL =
+  process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /**
  * Validate that a state-changing request originates from this application.
@@ -129,7 +132,8 @@ export function validateCsrfOrigin(request: NextRequest): boolean {
  */
 async function getSessionRole(request: NextRequest): Promise<string | null> {
   const sessionCookie =
-    request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
+    request.cookies.get("better-auth.session_token") ??
+    request.cookies.get("__Secure-better-auth.session_token");
 
   if (!sessionCookie?.value.trim()) return null;
 
@@ -191,9 +195,11 @@ export default async function middleware(request: NextRequest) {
   // See: wopr-platform/src/auth/better-auth.ts advanced.cookies.session_token.attributes.domain
   if (pathname === "/") {
     const sessionToken =
-      request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
+      request.cookies.get("better-auth.session_token") ??
+      request.cookies.get("__Secure-better-auth.session_token");
     if (sessionToken?.value.trim()) {
-      const appDomain = process.env.NEXT_PUBLIC_BRAND_APP_DOMAIN || process.env.NEXT_PUBLIC_APP_DOMAIN;
+      const appDomain =
+        process.env.NEXT_PUBLIC_BRAND_APP_DOMAIN || process.env.NEXT_PUBLIC_APP_DOMAIN;
       if (appDomain && !host.startsWith("app.")) {
         // On marketing domain — redirect to the app subdomain
         return withCsp(NextResponse.redirect(new URL(`https://${appDomain}/marketplace`)));
@@ -208,7 +214,8 @@ export default async function middleware(request: NextRequest) {
   // Unauthenticated users fall through to the session check below (→ /login).
   if (pathname.startsWith("/admin")) {
     const sessionCookie =
-      request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
+      request.cookies.get("better-auth.session_token") ??
+      request.cookies.get("__Secure-better-auth.session_token");
     if (sessionCookie?.value.trim()) {
       const role = await getSessionRole(request);
       if (role !== "platform_admin") {
@@ -241,7 +248,8 @@ export default async function middleware(request: NextRequest) {
   // front-end itself (cookie-based). Automation/SDK/CLI clients should use the platform
   // API directly (wopr-platform), which issues and validates Bearer tokens independently.
   const sessionToken =
-    request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
+    request.cookies.get("better-auth.session_token") ??
+    request.cookies.get("__Secure-better-auth.session_token");
 
   if (!sessionToken || !sessionToken.value.trim()) {
     const loginUrl = new URL("/login", request.url);

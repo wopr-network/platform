@@ -6,7 +6,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useImageStatus } from "@/hooks/use-image-status";
 import type { BotStatusResponse, FleetInstance, HealthStatus } from "@/lib/api";
@@ -143,7 +149,8 @@ export function FleetHealth() {
 
   const filtered = sorted.filter((inst) => {
     if (statusFilter === "healthy") return inst.health === "healthy";
-    if (statusFilter === "attention") return inst.health === "degraded" || inst.health === "unhealthy";
+    if (statusFilter === "attention")
+      return inst.health === "degraded" || inst.health === "unhealthy";
     return true;
   });
 
@@ -208,7 +215,9 @@ export function FleetHealth() {
         <div className="flex flex-col gap-3 border-b border-terminal/20 pb-4 sm:flex-row sm:items-center sm:gap-6">
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold tabular-nums font-mono">{instances.length}</span>
-            <span className="text-sm text-muted-foreground">{instances.length === 1 ? "instance" : "instances"}</span>
+            <span className="text-sm text-muted-foreground">
+              {instances.length === 1 ? "instance" : "instances"}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm font-mono">
@@ -274,14 +283,18 @@ export function FleetHealth() {
         </Button>
 
         {lastUpdated && (
-          <span className="text-xs text-muted-foreground font-mono">Updated {formatRelativeTime(lastUpdated)}</span>
+          <span className="text-xs text-muted-foreground font-mono">
+            Updated {formatRelativeTime(lastUpdated)}
+          </span>
         )}
       </div>
 
       {/* Instance Grid */}
       {filtered.length === 0 && instances.length === 0 ? (
         <div className="rounded-sm border border-terminal/20 bg-terminal/5 px-6 py-12 text-center font-mono">
-          <p className="text-terminal">&gt; FLEET EMPTY. NO {productName().toUpperCase()} UNITS DEPLOYED.</p>
+          <p className="text-terminal">
+            &gt; FLEET EMPTY. NO {productName().toUpperCase()} UNITS DEPLOYED.
+          </p>
           <Link
             href="/instances/new"
             className="mt-4 inline-block text-sm text-muted-foreground underline underline-offset-4 hover:text-terminal"

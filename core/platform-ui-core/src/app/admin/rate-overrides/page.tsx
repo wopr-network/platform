@@ -6,10 +6,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { toUserMessage } from "@/lib/errors";
 import type { AdapterRateOverride, RateOverrideStatus } from "@/lib/promotions-types";
@@ -20,7 +33,14 @@ import { cn } from "@/lib/utils";
 // Constants
 // ---------------------------------------------------------------------------
 
-const ADAPTER_IDS = ["nano-banana", "elevenlabs", "deepgram", "openrouter", "replicate", "gemini"] as const;
+const ADAPTER_IDS = [
+  "nano-banana",
+  "elevenlabs",
+  "deepgram",
+  "openrouter",
+  "replicate",
+  "gemini",
+] as const;
 
 const STATUS_COLORS: Record<RateOverrideStatus, string> = {
   active: "bg-terminal/15 text-terminal border border-terminal/20",
@@ -30,7 +50,8 @@ const STATUS_COLORS: Record<RateOverrideStatus, string> = {
 };
 
 function formatWindow(startsAt: string, endsAt: string | null): string {
-  const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const fmt = (d: string) =>
+    new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   if (!endsAt) return `${fmt(startsAt)} — no end`;
   return `${fmt(startsAt)} — ${fmt(endsAt)}`;
 }
@@ -160,7 +181,9 @@ export default function RateOverridesPage() {
                   value={formDiscount}
                   onChange={(e) => setFormDiscount(Number(e.target.value))}
                 />
-                <p className="text-xs text-muted-foreground mt-1">100% = free for users — platform absorbs full cost</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  100% = free for users — platform absorbs full cost
+                </p>
               </div>
               <div>
                 <Label htmlFor="ro-starts">Starts At</Label>
@@ -182,10 +205,19 @@ export default function RateOverridesPage() {
               </div>
               <div>
                 <Label htmlFor="ro-notes">Notes</Label>
-                <Textarea id="ro-notes" value={formNotes} onChange={(e) => setFormNotes(e.target.value)} rows={2} />
+                <Textarea
+                  id="ro-notes"
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  rows={2}
+                />
               </div>
               {formError && <p className="text-sm text-destructive">{formError}</p>}
-              <Button onClick={handleCreate} disabled={creating || !formName || !formStartsAt} className="w-full">
+              <Button
+                onClick={handleCreate}
+                disabled={creating || !formName || !formStartsAt}
+                className="w-full"
+              >
                 {creating ? "Creating..." : "Create Override"}
               </Button>
             </div>
@@ -225,13 +257,17 @@ export default function RateOverridesPage() {
                 <TableCell className="font-mono text-xs">{o.adapterId}</TableCell>
                 <TableCell className="font-medium">{o.name}</TableCell>
                 <TableCell className="text-right tabular-nums">{o.discountPercent}%</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{formatWindow(o.startsAt, o.endsAt)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatWindow(o.startsAt, o.endsAt)}
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className={cn("text-xs", STATUS_COLORS[o.status])}>
                     {o.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{o.createdBy ?? "—"}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {o.createdBy ?? "—"}
+                </TableCell>
                 <TableCell>
                   {o.status !== "cancelled" && o.status !== "expired" && (
                     <Button

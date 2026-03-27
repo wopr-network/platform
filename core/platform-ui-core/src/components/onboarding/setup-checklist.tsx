@@ -60,13 +60,18 @@ const SUPERPOWER_TO_CAPABILITY: Record<string, string> = {
   "text-gen": "text-gen",
 };
 
-function resolveSuperpowerStatuses(selectedIds: string[], capabilities: CapabilitySetting[]): SuperpowerStatus[] {
+function resolveSuperpowerStatuses(
+  selectedIds: string[],
+  capabilities: CapabilitySetting[],
+): SuperpowerStatus[] {
   return selectedIds.map((id) => {
     const sp = superpowers.find((s) => s.id === id);
     const capName = SUPERPOWER_TO_CAPABILITY[id];
     const cap = capName ? capabilities.find((c) => c.capability === capName) : undefined;
 
-    const ready = cap ? cap.mode === "hosted" || (cap.mode === "byok" && cap.keyStatus === "valid") : !sp?.requiresKey;
+    const ready = cap
+      ? cap.mode === "hosted" || (cap.mode === "byok" && cap.keyStatus === "valid")
+      : !sp?.requiresKey;
 
     return {
       id,
@@ -85,7 +90,9 @@ export function SetupChecklist() {
   const [creditBalance, setCreditBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasInstances, setHasInstances] = useState(false);
-  const [connectedChannels, setConnectedChannels] = useState<Map<string, ChannelInfo["status"]>>(new Map());
+  const [connectedChannels, setConnectedChannels] = useState<Map<string, ChannelInfo["status"]>>(
+    new Map(),
+  );
   const [capabilities, setCapabilities] = useState<CapabilitySetting[]>([]);
   const [allChannels, setAllChannels] = useState<PluginOption[]>(channelPlugins);
 
@@ -99,12 +106,13 @@ export function SetupChecklist() {
 
     async function load() {
       try {
-        const [instancesResult, creditsResult, capabilitiesResult, marketplaceResult] = await Promise.allSettled([
-          listInstances(),
-          getCreditBalance(),
-          listCapabilities(),
-          listMarketplacePlugins(),
-        ]);
+        const [instancesResult, creditsResult, capabilitiesResult, marketplaceResult] =
+          await Promise.allSettled([
+            listInstances(),
+            getCreditBalance(),
+            listCapabilities(),
+            listMarketplacePlugins(),
+          ]);
         if (cancelled) return;
 
         if (instancesResult.status === "fulfilled") {
@@ -126,7 +134,9 @@ export function SetupChecklist() {
 
           // Fetch channel connection status for each instance
           const channelMap = new Map<string, ChannelInfo["status"]>();
-          const channelFetches = instances.map((inst) => listChannels(inst.id).catch(() => [] as ChannelInfo[]));
+          const channelFetches = instances.map((inst) =>
+            listChannels(inst.id).catch(() => [] as ChannelInfo[]),
+          );
           const channelResults = await Promise.all(channelFetches);
           if (!cancelled) {
             for (const channelList of channelResults) {
@@ -213,7 +223,12 @@ export function SetupChecklist() {
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Let&apos;s get your {productName()} running</CardTitle>
-          <Button data-onboarding-id="dashboard.checklist.dismiss" variant="ghost" size="xs" onClick={handleDismiss}>
+          <Button
+            data-onboarding-id="dashboard.checklist.dismiss"
+            variant="ghost"
+            size="xs"
+            onClick={handleDismiss}
+          >
             Dismiss
           </Button>
         </div>
@@ -222,12 +237,20 @@ export function SetupChecklist() {
         {/* Channels */}
         {channels.length > 0 && (
           <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Channels</h3>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Channels
+            </h3>
             <div className="space-y-1.5">
               {channels.map((ch) => (
-                <div key={ch.id} className="flex items-center justify-between rounded-sm px-3 py-2 text-sm">
+                <div
+                  key={ch.id}
+                  className="flex items-center justify-between rounded-sm px-3 py-2 text-sm"
+                >
                   <div className="flex items-center gap-2">
-                    <span className="inline-block size-2 rounded-full" style={{ backgroundColor: ch.color }} />
+                    <span
+                      className="inline-block size-2 rounded-full"
+                      style={{ backgroundColor: ch.color }}
+                    />
                     <span className="font-medium">{ch.name}</span>
                   </div>
                   {ch.ready ? (
@@ -252,12 +275,20 @@ export function SetupChecklist() {
         {/* Superpowers */}
         {powers.length > 0 && (
           <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Superpowers</h3>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Superpowers
+            </h3>
             <div className="space-y-1.5">
               {powers.map((sp) => (
-                <div key={sp.id} className="flex items-center justify-between rounded-sm px-3 py-2 text-sm">
+                <div
+                  key={sp.id}
+                  className="flex items-center justify-between rounded-sm px-3 py-2 text-sm"
+                >
                   <div className="flex items-center gap-2">
-                    <span className="inline-block size-2 rounded-full" style={{ backgroundColor: sp.color }} />
+                    <span
+                      className="inline-block size-2 rounded-full"
+                      style={{ backgroundColor: sp.color }}
+                    />
                     <span className="font-medium">{sp.name}</span>
                   </div>
                   {sp.ready ? (
@@ -281,7 +312,9 @@ export function SetupChecklist() {
 
         {/* Credits */}
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Credits</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Credits
+          </h3>
           <div className="flex items-center gap-2 rounded-sm px-3 py-2 text-sm">
             <span className="font-medium">Balance</span>
             <Badge variant="secondary">{creditBalance ?? "$0.00"}</Badge>

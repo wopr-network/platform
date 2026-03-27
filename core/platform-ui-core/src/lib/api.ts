@@ -234,7 +234,11 @@ export function parseChannelsFromEnv(env: Record<string, string> | undefined): s
 export function parsePluginsFromEnv(env: Record<string, string> | undefined): PluginInfo[] {
   if (!env) return [];
   const ids = new Set<string>();
-  for (const key of [envKey("PLUGINS_OTHER"), envKey("PLUGINS_VOICE"), envKey("PLUGINS_PROVIDERS")]) {
+  for (const key of [
+    envKey("PLUGINS_OTHER"),
+    envKey("PLUGINS_VOICE"),
+    envKey("PLUGINS_PROVIDERS"),
+  ]) {
     const raw = env[key];
     if (raw) {
       for (const id of raw
@@ -447,7 +451,10 @@ export async function listChannels(botId: string): Promise<ChannelInfo[]> {
   return fleetFetch<ChannelInfo[]>(`/bots/${botId}/channels`);
 }
 
-export async function controlInstance(id: string, action: "start" | "stop" | "restart" | "destroy"): Promise<void> {
+export async function controlInstance(
+  id: string,
+  action: "start" | "stop" | "restart" | "destroy",
+): Promise<void> {
   await trpcVanilla.fleet.controlInstance.mutate({ id, action });
 }
 
@@ -483,7 +490,10 @@ export async function getInstanceSecretKeys(id: string): Promise<string[]> {
 }
 
 /** PUT /fleet/bots/:id/secrets — Write secret values. */
-export async function updateInstanceSecrets(id: string, secrets: Record<string, string>): Promise<void> {
+export async function updateInstanceSecrets(
+  id: string,
+  secrets: Record<string, string>,
+): Promise<void> {
   await fleetFetch(`/bots/${id}/secrets`, {
     method: "PUT",
     body: JSON.stringify({ secrets }),
@@ -491,7 +501,11 @@ export async function updateInstanceSecrets(id: string, secrets: Record<string, 
 }
 
 /** Toggle a plugin's enabled/disabled state on a bot instance. */
-export async function toggleInstancePlugin(botId: string, pluginId: string, enabled: boolean): Promise<void> {
+export async function toggleInstancePlugin(
+  botId: string,
+  pluginId: string,
+  enabled: boolean,
+): Promise<void> {
   await fleetFetch(`/bots/${botId}/plugins/${pluginId}`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),
@@ -808,7 +822,9 @@ export async function getProfile(): Promise<UserProfile> {
   return apiFetch<UserProfile>("/settings/profile");
 }
 
-export async function updateProfile(data: Partial<Pick<UserProfile, "name" | "email">>): Promise<UserProfile> {
+export async function updateProfile(
+  data: Partial<Pick<UserProfile, "name" | "email">>,
+): Promise<UserProfile> {
   // NOTE: add tRPC procedure
   return apiFetch<UserProfile>("/settings/profile", {
     method: "PATCH",
@@ -838,7 +854,10 @@ export async function uploadAvatar(file: File): Promise<UserProfile> {
   return res.json() as Promise<UserProfile>;
 }
 
-export async function changePassword(data: { currentPassword: string; newPassword: string }): Promise<void> {
+export async function changePassword(data: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
   // NOTE: add tRPC procedure
   await apiFetch("/settings/profile/password", { method: "POST", body: JSON.stringify(data) });
 }
@@ -953,7 +972,9 @@ export async function createSecret(data: {
 
 // NOTE: migrate to tRPC when secrets router is extended
 /** POST /settings/secrets/:id/rotate — Rotate a secret. */
-export async function rotateSecret(id: string): Promise<{ secret: SecretSummary; plaintextValue: string }> {
+export async function rotateSecret(
+  id: string,
+): Promise<{ secret: SecretSummary; plaintextValue: string }> {
   return apiFetch<{ secret: SecretSummary; plaintextValue: string }>(
     `/settings/secrets/${encodeURIComponent(id)}/rotate`,
     { method: "POST" },
@@ -1291,7 +1312,9 @@ export async function getCreditHistory(_cursor?: string): Promise<CreditHistoryR
       type: mapTransactionType(e.type ?? ""),
       description: e.reason ?? "",
       amount: (e.amount_cents ?? 0) / 100,
-      createdAt: e.created_at ? new Date(e.created_at * 1000).toISOString() : new Date().toISOString(),
+      createdAt: e.created_at
+        ? new Date(e.created_at * 1000).toISOString()
+        : new Date().toISOString(),
     })),
     nextCursor: null, // NOTE(WOP-687): implement cursor-based pagination
   };
@@ -1387,11 +1410,16 @@ export async function adminListPaymentMethods(): Promise<PaymentMethodAdmin[]> {
   return trpcVanilla.billing.adminListPaymentMethods.query(undefined);
 }
 
-export async function adminUpsertPaymentMethod(method: PaymentMethodAdmin): Promise<{ ok: boolean }> {
+export async function adminUpsertPaymentMethod(
+  method: PaymentMethodAdmin,
+): Promise<{ ok: boolean }> {
   return trpcVanilla.billing.adminUpsertPaymentMethod.mutate(method);
 }
 
-export async function adminTogglePaymentMethod(id: string, enabled: boolean): Promise<{ ok: boolean }> {
+export async function adminTogglePaymentMethod(
+  id: string,
+  enabled: boolean,
+): Promise<{ ok: boolean }> {
   return trpcVanilla.billing.adminTogglePaymentMethod.mutate({ id, enabled });
 }
 
@@ -1651,7 +1679,9 @@ export async function validateDeepgramKey(key: string): Promise<KeyValidationRes
   const { testProviderKey: testProviderKeyViaTrpc } = await import("./settings-api");
   try {
     const result = await testProviderKeyViaTrpc("transcription", key);
-    return result.valid ? { valid: true } : { valid: false, message: "Invalid API key. Please check and try again." };
+    return result.valid
+      ? { valid: true }
+      : { valid: false, message: "Invalid API key. Please check and try again." };
   } catch (e) {
     log.warn("Key validation request failed", e);
     return { valid: false, message: "Could not validate key. Please try again." };
@@ -1659,7 +1689,9 @@ export async function validateDeepgramKey(key: string): Promise<KeyValidationRes
 }
 
 export async function validateElevenLabsKey(key: string): Promise<KeyValidationResult> {
-  const { testProviderKey, saveProviderKey: saveProviderKeyViaTrpc } = await import("./settings-api");
+  const { testProviderKey, saveProviderKey: saveProviderKeyViaTrpc } = await import(
+    "./settings-api"
+  );
   try {
     const result = await testProviderKey("elevenlabs", key);
     if (result.valid) {
@@ -1746,17 +1778,21 @@ export async function createSnapshot(
   instanceId: string,
   name?: string,
 ): Promise<{ snapshot: Snapshot; estimatedMonthlyCost: string }> {
-  return apiFetch<{ snapshot: Snapshot; estimatedMonthlyCost: string }>(`/bots/${instanceId}/snapshots`, {
-    method: "POST",
-    body: JSON.stringify(name ? { name } : {}),
-  });
+  return apiFetch<{ snapshot: Snapshot; estimatedMonthlyCost: string }>(
+    `/bots/${instanceId}/snapshots`,
+    {
+      method: "POST",
+      body: JSON.stringify(name ? { name } : {}),
+    },
+  );
 }
 
 /** Restore an instance from a snapshot. Uses the /instances/ route. */
 export async function restoreSnapshot(instanceId: string, snapshotId: string): Promise<void> {
-  await apiFetch<{ ok: boolean; restored: string }>(`/instances/${instanceId}/snapshots/${snapshotId}/restore`, {
-    method: "POST",
-  });
+  await apiFetch<{ ok: boolean; restored: string }>(
+    `/instances/${instanceId}/snapshots/${snapshotId}/restore`,
+    { method: "POST" },
+  );
 }
 
 /** Delete a snapshot. Backend returns 204 no content. */
@@ -1820,9 +1856,10 @@ export async function listFriends(instanceId: string): Promise<Friend[]> {
 }
 
 export async function listDiscoveredBots(instanceId: string): Promise<DiscoveredBot[]> {
-  const data = await apiFetch<{ discovered: DiscoveredBot[] }>(`/instances/${instanceId}/friends/discovered`, {
-    method: "GET",
-  });
+  const data = await apiFetch<{ discovered: DiscoveredBot[] }>(
+    `/instances/${instanceId}/friends/discovered`,
+    { method: "GET" },
+  );
   return data.discovered;
 }
 
@@ -1834,9 +1871,10 @@ export async function sendFriendRequest(instanceId: string, targetBotId: string)
 }
 
 export async function listFriendRequests(instanceId: string): Promise<FriendRequest[]> {
-  const data = await apiFetch<{ requests: FriendRequest[] }>(`/instances/${instanceId}/friends/requests`, {
-    method: "GET",
-  });
+  const data = await apiFetch<{ requests: FriendRequest[] }>(
+    `/instances/${instanceId}/friends/requests`,
+    { method: "GET" },
+  );
   return data.requests;
 }
 
@@ -1875,7 +1913,10 @@ export async function getAutoAcceptConfig(instanceId: string): Promise<AutoAccep
   });
 }
 
-export async function updateAutoAcceptConfig(instanceId: string, config: AutoAcceptConfig): Promise<void> {
+export async function updateAutoAcceptConfig(
+  instanceId: string,
+  config: AutoAcceptConfig,
+): Promise<void> {
   await apiFetch<{ ok: boolean }>(`/instances/${instanceId}/friends/auto-accept`, {
     method: "PUT",
     body: JSON.stringify(config),
@@ -1899,7 +1940,10 @@ export interface LoginHistoryResponse {
   hasMore: boolean;
 }
 
-export async function fetchLoginHistory(params: { limit?: number; offset?: number }): Promise<LoginHistoryResponse> {
+export async function fetchLoginHistory(params: {
+  limit?: number;
+  offset?: number;
+}): Promise<LoginHistoryResponse> {
   const query = new URLSearchParams();
   if (params.limit != null) query.set("limit", String(params.limit));
   if (params.offset != null) query.set("offset", String(params.offset));
@@ -1967,7 +2011,11 @@ export interface VpsUpgradeResult {
 }
 
 /** Initiate a VPS upgrade for a bot. Returns the raw Response for status inspection (409, 402). */
-export async function upgradeToVps(botId: string, successUrl: string, cancelUrl: string): Promise<Response> {
+export async function upgradeToVps(
+  botId: string,
+  successUrl: string,
+  cancelUrl: string,
+): Promise<Response> {
   return apiFetchRaw(`/fleet/bots/${botId}/upgrade-to-vps`, {
     method: "POST",
     body: JSON.stringify({ successUrl, cancelUrl }),

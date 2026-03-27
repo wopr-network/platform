@@ -56,7 +56,9 @@ describe("AuditLogTable pagination", () => {
     render(<AuditLogTable />);
 
     await screen.findByText("Bot 0");
-    expect(mockFetchAuditLog).toHaveBeenCalledWith(expect.objectContaining({ offset: 0, limit: 50 }));
+    expect(mockFetchAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ offset: 0, limit: 50 }),
+    );
   });
 
   it("clicking Next requests offset 50 (page 2)", async () => {
@@ -77,7 +79,9 @@ describe("AuditLogTable pagination", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByText("Bot 50");
 
-    expect(mockFetchAuditLog).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 50, limit: 50 }));
+    expect(mockFetchAuditLog).toHaveBeenLastCalledWith(
+      expect.objectContaining({ offset: 50, limit: 50 }),
+    );
   });
 
   it("disables Next when hasMore is false", async () => {

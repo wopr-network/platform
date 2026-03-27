@@ -6,11 +6,24 @@ import { z } from "zod";
 import { CapabilityProviderPicker } from "@/components/capability/CapabilityResolver";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useCapabilityMeta } from "@/hooks/use-capability-meta";
@@ -130,7 +143,12 @@ export function InstallWizard({ plugin, onComplete, onCancel }: InstallWizardPro
 
   // Auto-skip conflicts phase if no conflicts and not loading
   useEffect(() => {
-    if (currentPhase === "conflicts" && conflicts.length === 0 && !conflictsLoading && !conflictsError) {
+    if (
+      currentPhase === "conflicts" &&
+      conflicts.length === 0 &&
+      !conflictsLoading &&
+      !conflictsError
+    ) {
       setCurrentPhaseIndex((i) => i + 1);
     }
   }, [currentPhase, conflicts, conflictsLoading, conflictsError]);
@@ -141,7 +159,8 @@ export function InstallWizard({ plugin, onComplete, onCancel }: InstallWizardPro
   const stepsBeforeSetup = phases.filter(
     (p) => p !== "setup" && p !== "complete" && phases.indexOf(p) < currentPhaseIndex,
   ).length;
-  const totalSteps = phases.filter((p) => p !== "setup" && p !== "complete").length + setupSteps.length + 1;
+  const totalSteps =
+    phases.filter((p) => p !== "setup" && p !== "complete").length + setupSteps.length + 1;
   const currentStepNumber =
     currentPhase === "setup"
       ? stepsBeforeSetup + setupStepIndex + 1
@@ -199,7 +218,9 @@ export function InstallWizard({ plugin, onComplete, onCancel }: InstallWizardPro
       } else {
         // Object-level errors (refinements, superRefine, union discriminants) have empty path.
         // Collect under _form so they render in a general error area.
-        stepErrors._form = stepErrors._form ? `${stepErrors._form}. ${issue.message}` : issue.message;
+        stepErrors._form = stepErrors._form
+          ? `${stepErrors._form}. ${issue.message}`
+          : issue.message;
       }
     }
     setErrors(stepErrors);
@@ -326,7 +347,9 @@ export function InstallWizard({ plugin, onComplete, onCancel }: InstallWizardPro
             error={conflictsError}
             plugin={plugin}
             overrides={primaryOverrides}
-            onChoose={(capability, pluginId) => setPrimaryOverrides((prev) => ({ ...prev, [capability]: pluginId }))}
+            onChoose={(capability, pluginId) =>
+              setPrimaryOverrides((prev) => ({ ...prev, [capability]: pluginId }))
+            }
           />
         )}
         {currentPhase === "providers" && (
@@ -337,7 +360,12 @@ export function InstallWizard({ plugin, onComplete, onCancel }: InstallWizardPro
           />
         )}
         {currentPhase === "setup" && currentSetupStep && (
-          <SetupStepForm step={currentSetupStep} values={values} errors={errors} onChange={handleChange} />
+          <SetupStepForm
+            step={currentSetupStep}
+            values={values}
+            errors={errors}
+            onChange={handleChange}
+          />
         )}
         {currentPhase === "complete" && (
           <div className="py-4 text-center">
@@ -345,7 +373,9 @@ export function InstallWizard({ plugin, onComplete, onCancel }: InstallWizardPro
               <span className="text-2xl text-emerald-500">&#10003;</span>
             </div>
             <p className="font-medium">Plugin installed successfully</p>
-            <p className="mt-1 text-sm text-muted-foreground">{plugin.name} is now active on your instance.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {plugin.name} is now active on your instance.
+            </p>
           </div>
         )}
       </CardContent>
@@ -353,16 +383,28 @@ export function InstallWizard({ plugin, onComplete, onCancel }: InstallWizardPro
       <CardFooter className="flex justify-between">
         <div>
           {isFirstStep ? (
-            <Button data-onboarding-id="marketplace.wizard.cancel" variant="ghost" onClick={onCancel}>
+            <Button
+              data-onboarding-id="marketplace.wizard.cancel"
+              variant="ghost"
+              onClick={onCancel}
+            >
               Cancel
             </Button>
           ) : (
-            <Button data-onboarding-id="marketplace.wizard.back" variant="ghost" onClick={handleBack}>
+            <Button
+              data-onboarding-id="marketplace.wizard.back"
+              variant="ghost"
+              onClick={handleBack}
+            >
               Back
             </Button>
           )}
         </div>
-        <Button data-onboarding-id="marketplace.wizard.continue" onClick={handleNext} disabled={isContinueDisabled}>
+        <Button
+          data-onboarding-id="marketplace.wizard.continue"
+          onClick={handleNext}
+          disabled={isContinueDisabled}
+        >
           {currentPhase === "complete" ? "Done" : "Continue"}
         </Button>
       </CardFooter>
@@ -429,7 +471,9 @@ function BotSelector({
           onClick={() => onSelect(bot.id)}
           className={cn(
             "w-full rounded-lg border p-3 text-left h-auto transition-colors hover:bg-transparent",
-            selectedBotId === bot.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50",
+            selectedBotId === bot.id
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50",
           )}
         >
           <div className="flex items-center justify-between">
@@ -491,7 +535,9 @@ function RequirementsCheck({ plugin, botId }: { plugin: PluginManifest; botId: s
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-muted-foreground">This plugin requires the following dependencies:</p>
+      <p className="text-sm text-muted-foreground">
+        This plugin requires the following dependencies:
+      </p>
       {isLoading ? (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">Checking installed plugins...</p>
@@ -512,14 +558,18 @@ function RequirementsCheck({ plugin, botId }: { plugin: PluginManifest; botId: s
               <Badge variant="outline" className="text-[10px]">
                 {req.id}
               </Badge>
-              {req.status === "missing" && <span className="text-xs text-destructive">Not installed</span>}
+              {req.status === "missing" && (
+                <span className="text-xs text-destructive">Not installed</span>
+              )}
             </li>
           ))}
         </ul>
       )}
       {!isLoading && results.some((r) => r.status === "missing") && (
         <div className="mt-3 rounded-sm border border-destructive/25 bg-destructive/5 p-3">
-          <p className="text-sm text-destructive">Install the missing dependencies before continuing.</p>
+          <p className="text-sm text-destructive">
+            Install the missing dependencies before continuing.
+          </p>
         </div>
       )}
       {plugin.install.length > 0 && (
@@ -558,7 +608,9 @@ function SetupStepForm({
             Open external link
           </a>
         )}
-        {!step.instruction && !step.externalUrl && <p className="text-sm text-muted-foreground">{step.description}</p>}
+        {!step.instruction && !step.externalUrl && (
+          <p className="text-sm text-muted-foreground">{step.description}</p>
+        )}
       </div>
     );
   }
@@ -627,8 +679,8 @@ function CapabilityConflicts({
       <div className="rounded-sm border border-amber-500/25 bg-amber-500/5 p-3">
         <p className="text-sm font-medium text-amber-500">Capability Conflict Detected</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {plugin.name} provides capabilities already provided by installed plugins. Choose which plugin should be the
-          primary provider for each.
+          {plugin.name} provides capabilities already provided by installed plugins. Choose which
+          plugin should be the primary provider for each.
         </p>
       </div>
       {conflicts.map((conflict) => {
@@ -637,7 +689,10 @@ function CapabilityConflicts({
         return (
           <div key={conflict.capability} className="rounded-sm border p-4">
             <div className="mb-3 flex items-center gap-2">
-              <Badge variant="outline" className={cn("text-[10px]", capColor.bg, capColor.text, capColor.border)}>
+              <Badge
+                variant="outline"
+                className={cn("text-[10px]", capColor.bg, capColor.text, capColor.border)}
+              >
                 {conflict.capability}
               </Badge>
               <span className="text-sm text-muted-foreground">provided by both plugins</span>
@@ -685,7 +740,9 @@ function ConfigFieldInput({
       <div className="flex items-center justify-between">
         <div>
           <Label>{field.label}</Label>
-          {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+          {field.description && (
+            <p className="text-xs text-muted-foreground">{field.description}</p>
+          )}
         </div>
         <Switch
           checked={value === true || value === "true"}

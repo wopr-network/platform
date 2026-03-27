@@ -25,7 +25,10 @@ export const DIY_COSTS: DiyCostItem[] = [
     .map((s) => ({ capabilityId: s.id, ...s.diyCostData })),
 ];
 
-export function buildCostComparison(selectedChannels: string[], selectedSuperpowers: string[]): CostComparisonSummary {
+export function buildCostComparison(
+  selectedChannels: string[],
+  selectedSuperpowers: string[],
+): CostComparisonSummary {
   const selectedIds = new Set([...selectedChannels, ...selectedSuperpowers]);
   const items = DIY_COSTS.filter((c) => selectedIds.has(c.capabilityId));
 

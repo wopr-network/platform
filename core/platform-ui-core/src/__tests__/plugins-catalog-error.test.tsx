@@ -118,7 +118,9 @@ describe("plugins catalog error state", () => {
     };
 
     // First call fails, second succeeds
-    mockListMarketplacePlugins.mockRejectedValueOnce(new Error("Network error")).mockResolvedValueOnce([catalogPlugin]);
+    mockListMarketplacePlugins
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce([catalogPlugin]);
 
     render(<PluginsPage />);
 
@@ -182,7 +184,9 @@ describe("plugins catalog error state", () => {
     };
 
     // First call fails, second succeeds
-    mockListMarketplacePlugins.mockRejectedValueOnce(new Error("Network error")).mockResolvedValueOnce([catalogPlugin]);
+    mockListMarketplacePlugins
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce([catalogPlugin]);
 
     render(<PluginsPage />);
 

@@ -16,7 +16,12 @@ vi.mock("@/lib/trpc", () => ({
   },
 }));
 
-import { getActiveTenantId, setServerTenantId, TenantProvider, useTenant } from "@/lib/tenant-context";
+import {
+  getActiveTenantId,
+  setServerTenantId,
+  TenantProvider,
+  useTenant,
+} from "@/lib/tenant-context";
 
 function createWrapper(initialTenantId?: string) {
   const queryClient = new QueryClient({

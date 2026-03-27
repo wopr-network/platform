@@ -122,7 +122,10 @@ describe("apiFetch (via getProfile)", () => {
     const { getProfile } = await import("@/lib/api");
     await getProfile();
 
-    expect(mockFetch).toHaveBeenCalledWith("https://test-api.local/api/settings/profile", expect.any(Object));
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://test-api.local/api/settings/profile",
+      expect.any(Object),
+    );
   });
 
   it("throws on network failure", async () => {

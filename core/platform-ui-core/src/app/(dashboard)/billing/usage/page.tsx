@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ByokCallout } from "@/components/billing/byok-callout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -221,7 +231,9 @@ export default function UsagePage() {
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total spend this period</span>
-                <span className="font-medium tabular-nums">{formatCreditStandard(summary.totalSpend)}</span>
+                <span className="font-medium tabular-nums">
+                  {formatCreditStandard(summary.totalSpend)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Included credit</span>
@@ -242,11 +254,24 @@ export default function UsagePage() {
       <Card>
         <CardHeader>
           <CardTitle>Platform Usage</CardTitle>
-          <CardDescription>Your {brandName()} orchestration usage this billing period</CardDescription>
+          <CardDescription>
+            Your {brandName()} orchestration usage this billing period
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <UsageMeter label="Instances" current={usage.instancesRunning} cap={usage.instanceCap} unit="" />
-          <UsageMeter label="Storage" current={usage.storageUsedGb} cap={usage.storageCapGb} unit="GB" decimals={1} />
+          <UsageMeter
+            label="Instances"
+            current={usage.instancesRunning}
+            cap={usage.instanceCap}
+            unit=""
+          />
+          <UsageMeter
+            label="Storage"
+            current={usage.storageUsedGb}
+            cap={usage.storageCapGb}
+            unit="GB"
+            decimals={1}
+          />
           <div className="space-y-1.5">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">API calls</span>
@@ -266,7 +291,10 @@ export default function UsagePage() {
           <CardContent className="space-y-4">
             {hostedUsage.capabilities.length > 0 && (
               <div className="w-full">
-                <ResponsiveContainer width="100%" height={hostedUsage.capabilities.length * 40 + 20}>
+                <ResponsiveContainer
+                  width="100%"
+                  height={hostedUsage.capabilities.length * 40 + 20}
+                >
                   <BarChart
                     data={hostedUsage.capabilities.map((cap) => ({
                       label: CAPABILITY_LABELS[cap.capability] ?? cap.label,
@@ -306,7 +334,9 @@ export default function UsagePage() {
             <div className="space-y-2">
               {hostedUsage.capabilities.map((cap) => (
                 <div key={cap.capability} className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{CAPABILITY_LABELS[cap.capability] ?? cap.label}</span>
+                  <span className="font-medium">
+                    {CAPABILITY_LABELS[cap.capability] ?? cap.label}
+                  </span>
                   <div className="flex items-center gap-4 text-muted-foreground">
                     <span>
                       {cap.units.toLocaleString()} {cap.unitLabel}
@@ -354,7 +384,11 @@ export default function UsagePage() {
               <Label htmlFor="cost-tracker-toggle" className="text-sm text-muted-foreground">
                 {showCostTracker ? "On" : "Off"}
               </Label>
-              <Switch id="cost-tracker-toggle" checked={showCostTracker} onCheckedChange={setShowCostTracker} />
+              <Switch
+                id="cost-tracker-toggle"
+                checked={showCostTracker}
+                onCheckedChange={setShowCostTracker}
+              />
             </div>
           </div>
         </CardHeader>
@@ -370,7 +404,8 @@ export default function UsagePage() {
                   <span className="font-medium">{cost.provider}</span>
                   <div className="flex items-center gap-4 text-muted-foreground">
                     <span>
-                      {(cost.inputTokens / 1000).toFixed(0)}k in / {(cost.outputTokens / 1000).toFixed(0)}k out
+                      {(cost.inputTokens / 1000).toFixed(0)}k in /{" "}
+                      {(cost.outputTokens / 1000).toFixed(0)}k out
                     </span>
                     <span className="font-medium text-foreground min-w-[7rem]">
                       ~<CreditDetailed value={cost.estimatedCost} />
@@ -380,7 +415,8 @@ export default function UsagePage() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              These are your direct costs with your providers — {brandName()} does not charge for inference.
+              These are your direct costs with your providers — {brandName()} does not charge for
+              inference.
             </p>
           </CardContent>
         )}
@@ -393,7 +429,9 @@ export default function UsagePage() {
             <div className="flex items-center justify-between">
               <div className="space-y-1">
                 <CardTitle>Spending Controls</CardTitle>
-                <CardDescription>Set alerts and hard caps to manage your hosted AI spend</CardDescription>
+                <CardDescription>
+                  Set alerts and hard caps to manage your hosted AI spend
+                </CardDescription>
               </div>
               <div className="flex items-center gap-2">
                 <Label htmlFor="spending-controls-toggle" className="text-sm text-muted-foreground">
@@ -465,61 +503,63 @@ export default function UsagePage() {
               {/* Per-capability limits */}
               <div className="space-y-3">
                 <h4 className="text-sm font-semibold">Per-Capability Limits</h4>
-                {(Object.entries(CAPABILITY_LABELS) as [HostedCapability, string][]).map(([cap, label]) => (
-                  <div key={cap} className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">{label}</p>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Input
-                        type="number"
-                        min={0}
-                        step={1}
-                        placeholder="Alert at $/mo"
-                        aria-label={`${label} alert limit`}
-                        value={spendingLimits.perCapability[cap]?.alertAt ?? ""}
-                        onChange={(e) => {
-                          const existing = spendingLimits.perCapability[cap] ?? {
-                            alertAt: null,
-                            hardCap: null,
-                          };
-                          setSpendingLimits({
-                            ...spendingLimits,
-                            perCapability: {
-                              ...spendingLimits.perCapability,
-                              [cap]: {
-                                ...existing,
-                                alertAt: e.target.value ? Number(e.target.value) : null,
+                {(Object.entries(CAPABILITY_LABELS) as [HostedCapability, string][]).map(
+                  ([cap, label]) => (
+                    <div key={cap} className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="Alert at $/mo"
+                          aria-label={`${label} alert limit`}
+                          value={spendingLimits.perCapability[cap]?.alertAt ?? ""}
+                          onChange={(e) => {
+                            const existing = spendingLimits.perCapability[cap] ?? {
+                              alertAt: null,
+                              hardCap: null,
+                            };
+                            setSpendingLimits({
+                              ...spendingLimits,
+                              perCapability: {
+                                ...spendingLimits.perCapability,
+                                [cap]: {
+                                  ...existing,
+                                  alertAt: e.target.value ? Number(e.target.value) : null,
+                                },
                               },
-                            },
-                          });
-                        }}
-                      />
-                      <Input
-                        type="number"
-                        min={0}
-                        step={1}
-                        placeholder="Hard cap $/mo"
-                        aria-label={`${label} hard cap`}
-                        value={spendingLimits.perCapability[cap]?.hardCap ?? ""}
-                        onChange={(e) => {
-                          const existing = spendingLimits.perCapability[cap] ?? {
-                            alertAt: null,
-                            hardCap: null,
-                          };
-                          setSpendingLimits({
-                            ...spendingLimits,
-                            perCapability: {
-                              ...spendingLimits.perCapability,
-                              [cap]: {
-                                ...existing,
-                                hardCap: e.target.value ? Number(e.target.value) : null,
+                            });
+                          }}
+                        />
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          placeholder="Hard cap $/mo"
+                          aria-label={`${label} hard cap`}
+                          value={spendingLimits.perCapability[cap]?.hardCap ?? ""}
+                          onChange={(e) => {
+                            const existing = spendingLimits.perCapability[cap] ?? {
+                              alertAt: null,
+                              hardCap: null,
+                            };
+                            setSpendingLimits({
+                              ...spendingLimits,
+                              perCapability: {
+                                ...spendingLimits.perCapability,
+                                [cap]: {
+                                  ...existing,
+                                  hardCap: e.target.value ? Number(e.target.value) : null,
+                                },
                               },
-                            },
-                          });
-                        }}
-                      />
+                            });
+                          }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ),
+                )}
               </div>
 
               {limitsMsg && <p className="text-sm text-muted-foreground">{limitsMsg}</p>}

@@ -115,7 +115,13 @@ export function TransactionHistory() {
         <CardContent>
           <div className="flex h-20 flex-col items-center justify-center gap-2 text-muted-foreground">
             <p>{error}</p>
-            <Button type="button" variant="link" size="sm" onClick={loadInitial} className="h-auto p-0">
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={loadInitial}
+              className="h-auto p-0"
+            >
               Retry
             </Button>
           </div>
@@ -179,7 +185,12 @@ export function TransactionHistory() {
                           </div>
                         </div>
                       </div>
-                      <span className={cn("font-mono font-medium", isPositive ? "text-emerald-500" : "text-red-500")}>
+                      <span
+                        className={cn(
+                          "font-mono font-medium",
+                          isPositive ? "text-emerald-500" : "text-red-500",
+                        )}
+                      >
                         {isPositive ? "+" : "-"}
                         {formatCreditStandard(Math.abs(tx.amount))}
                       </span>

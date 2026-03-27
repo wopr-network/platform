@@ -109,11 +109,19 @@ export async function reactivateTenant(tenantId: string): Promise<void> {
   await trpcVanilla.admin.reactivateTenant.mutate({ tenantId });
 }
 
-export async function grantCredits(tenantId: string, amount_cents: number, reason: string): Promise<void> {
+export async function grantCredits(
+  tenantId: string,
+  amount_cents: number,
+  reason: string,
+): Promise<void> {
   await trpcVanilla.admin.creditsGrant.mutate({ tenantId, amount_cents, reason });
 }
 
-export async function refundCredits(tenantId: string, amount_cents: number, reason: string): Promise<void> {
+export async function refundCredits(
+  tenantId: string,
+  amount_cents: number,
+  reason: string,
+): Promise<void> {
   await trpcVanilla.admin.creditsRefund.mutate({ tenantId, amount_cents, reason });
 }
 
@@ -148,7 +156,10 @@ export async function getTransactions(
   return trpcVanilla.admin.creditsTransactions.query({ tenantId, ...filters });
 }
 
-export async function getTenantUsageByCapability(tenantId: string, days = 30): Promise<UsageSummary[]> {
+export async function getTenantUsageByCapability(
+  tenantId: string,
+  days = 30,
+): Promise<UsageSummary[]> {
   const result = await trpcVanilla.admin.tenantUsageByCapability.query({ tenantId, days });
   return result.usage;
 }
@@ -161,7 +172,11 @@ export async function getUsersList(params?: {
   return trpcVanilla.admin.usersList.query(params ?? {});
 }
 
-export async function bulkGrantCredits(tenantIds: string[], amountCents: number, reason: string): Promise<void> {
+export async function bulkGrantCredits(
+  tenantIds: string[],
+  amountCents: number,
+  reason: string,
+): Promise<void> {
   await trpcVanilla.admin.bulkGrant.mutate({ tenantIds, amountCents, reason });
 }
 
@@ -295,11 +310,16 @@ export async function getMigrationSnapshots(tenantId: string): Promise<Migration
   return result.snapshots;
 }
 
-export async function restoreMigrationSnapshot(tenantId: string, snapshotId: string): Promise<void> {
+export async function restoreMigrationSnapshot(
+  tenantId: string,
+  snapshotId: string,
+): Promise<void> {
   await trpcVanilla.admin.migrationRestore.mutate({ tenantId, snapshotId });
 }
 
-export async function getMigrationRestoreHistory(tenantId: string): Promise<MigrationRestoreRecord[]> {
+export async function getMigrationRestoreHistory(
+  tenantId: string,
+): Promise<MigrationRestoreRecord[]> {
   const result = await trpcVanilla.admin.migrationRestoreHistory.query({ tenantId });
   return result.history;
 }

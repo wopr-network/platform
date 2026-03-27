@@ -11,7 +11,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { AutoAcceptConfig, DiscoveredBot, Friend, FriendRequest } from "@/lib/api";
 import {
   acceptFriendRequest,
@@ -136,12 +143,16 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
     setActionError(null);
     const updated = current.includes(cap) ? current.filter((c) => c !== cap) : [...current, cap];
     // Optimistic update
-    setFriends((prev) => prev.map((f) => (f.id === friendId ? { ...f, sharedCapabilities: updated } : f)));
+    setFriends((prev) =>
+      prev.map((f) => (f.id === friendId ? { ...f, sharedCapabilities: updated } : f)),
+    );
     try {
       await updateFriendCapabilities(instanceId, friendId, updated);
     } catch (err) {
       // Rollback
-      setFriends((prev) => prev.map((f) => (f.id === friendId ? { ...f, sharedCapabilities: current } : f)));
+      setFriends((prev) =>
+        prev.map((f) => (f.id === friendId ? { ...f, sharedCapabilities: current } : f)),
+      );
       setActionError(toUserMessage(err, "Failed to update capabilities"));
     }
   }
@@ -185,7 +196,12 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
     return (
       <div className="space-y-6">
         {Array.from({ length: 4 }, (_, i) => `friends-sk-${i}`).map((skId, i) => (
-          <motion.div key={skId} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.05 }}>
+          <motion.div
+            key={skId}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: i * 0.05 }}
+          >
             <Skeleton className="h-24 w-full rounded-sm" />
           </motion.div>
         ))}
@@ -195,7 +211,9 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
 
   if (error) {
     return (
-      <div className="rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>
+      <div className="rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+        {error}
+      </div>
     );
   }
 
@@ -251,7 +269,9 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                           transition={{ duration: 0.15 }}
                           className="transition-colors hover:bg-muted/50 even:bg-muted/20 border-b last:border-b-0"
                         >
-                          <TableCell className="font-medium text-sm text-foreground">{friend.name}</TableCell>
+                          <TableCell className="font-medium text-sm text-foreground">
+                            {friend.name}
+                          </TableCell>
                           <TableCell>
                             <FriendStatusBadge status={friend.status} />
                           </TableCell>
@@ -265,7 +285,13 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                                     key={cap}
                                     variant="outline"
                                     className="rounded-sm border-terminal/20 bg-terminal/5 text-terminal-dim text-xs px-1.5 py-0.5 cursor-pointer hover:bg-terminal/10 transition-colors duration-150"
-                                    onClick={() => handleToggleCapability(friend.id, friend.sharedCapabilities, cap)}
+                                    onClick={() =>
+                                      handleToggleCapability(
+                                        friend.id,
+                                        friend.sharedCapabilities,
+                                        cap,
+                                      )
+                                    }
                                   >
                                     {cap} <X className="ml-0.5 size-3 inline" />
                                   </Badge>
@@ -273,7 +299,9 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                               )}
                               <CapabilityAddPopover
                                 existing={friend.sharedCapabilities}
-                                onAdd={(cap) => handleToggleCapability(friend.id, friend.sharedCapabilities, cap)}
+                                onAdd={(cap) =>
+                                  handleToggleCapability(friend.id, friend.sharedCapabilities, cap)
+                                }
                               />
                             </div>
                           </TableCell>
@@ -339,7 +367,9 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                               transition={{ duration: 0.15 }}
                               className="transition-colors hover:bg-muted/50 border-l-2 border-l-terminal border-b last:border-b-0"
                             >
-                              <TableCell className="font-medium text-sm text-foreground">{req.fromName}</TableCell>
+                              <TableCell className="font-medium text-sm text-foreground">
+                                {req.fromName}
+                              </TableCell>
                               <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                                 {formatRelativeTime(req.createdAt)}
                               </TableCell>
@@ -399,7 +429,9 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                               transition={{ duration: 0.15 }}
                               className="transition-colors hover:bg-muted/50 opacity-80 border-b last:border-b-0"
                             >
-                              <TableCell className="font-medium text-sm text-foreground">{req.toName}</TableCell>
+                              <TableCell className="font-medium text-sm text-foreground">
+                                {req.toName}
+                              </TableCell>
                               <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                                 {formatRelativeTime(req.createdAt)}
                               </TableCell>
@@ -442,13 +474,15 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
               <div className="flex flex-col items-center justify-center py-8 gap-3">
                 <Radio className="size-12 text-muted-foreground/50" />
                 <p className="text-sm text-muted-foreground italic">
-                  No bots discovered on the network. Your bot may need to be online to discover peers.
+                  No bots discovered on the network. Your bot may need to be online to discover
+                  peers.
                 </p>
               </div>
             ) : (
               <div className="rounded-sm border">
                 <div className="px-3 py-1.5 border-b text-xs text-muted-foreground">
-                  Showing {discovered.length} bot{discovered.length !== 1 ? "s" : ""} on your local network
+                  Showing {discovered.length} bot{discovered.length !== 1 ? "s" : ""} on your local
+                  network
                 </div>
                 <Table>
                   <TableHeader>
@@ -460,8 +494,13 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                   </TableHeader>
                   <TableBody>
                     {discovered.map((bot) => (
-                      <TableRow key={bot.id} className="transition-colors hover:bg-terminal/5 even:bg-muted/20">
-                        <TableCell className="font-medium text-sm text-foreground">{bot.name}</TableCell>
+                      <TableRow
+                        key={bot.id}
+                        className="transition-colors hover:bg-terminal/5 even:bg-muted/20"
+                      >
+                        <TableCell className="font-medium text-sm text-foreground">
+                          {bot.name}
+                        </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <div className="flex flex-wrap gap-1">
                             {bot.capabilities.map((cap) => (
@@ -477,7 +516,12 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                         </TableCell>
                         <TableCell className="text-right">
                           {sendingTo === bot.id ? (
-                            <Button size="sm" variant="ghost" className="text-muted-foreground" disabled>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-muted-foreground"
+                              disabled
+                            >
                               <Loader2 className="size-3.5 animate-spin md:mr-1" />
                               <span className="hidden md:inline">Pending...</span>
                             </Button>
@@ -541,7 +585,10 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                   >
                     <div className="bg-secondary rounded-sm p-4 mt-3 space-y-3">
                       <div className="space-y-1">
-                        <label htmlFor="cap-rules" className="text-xs font-medium text-muted-foreground">
+                        <label
+                          htmlFor="cap-rules"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
                           Required capabilities (comma-separated)
                         </label>
                         <Input
@@ -554,7 +601,10 @@ export function FriendsTab({ instanceId }: { instanceId: string }) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <label htmlFor="max-friends" className="text-xs font-medium text-muted-foreground">
+                        <label
+                          htmlFor="max-friends"
+                          className="text-xs font-medium text-muted-foreground"
+                        >
                           Max friends
                         </label>
                         <Input
@@ -608,7 +658,13 @@ function FriendStatusBadge({ status }: { status: "online" | "offline" | "unknown
   );
 }
 
-function CapabilityAddPopover({ existing, onAdd }: { existing: string[]; onAdd: (cap: string) => void }) {
+function CapabilityAddPopover({
+  existing,
+  onAdd,
+}: {
+  existing: string[];
+  onAdd: (cap: string) => void;
+}) {
   const [value, setValue] = useState("");
 
   function handleAdd() {

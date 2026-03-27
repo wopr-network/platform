@@ -8,8 +8,12 @@ vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
   ),
-  LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid="line-chart">{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="bar-chart">{children}</div>,
+  LineChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
+  BarChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="bar-chart">{children}</div>
+  ),
   Line: () => <div data-testid="line" />,
   Bar: () => <div data-testid="bar" />,
   XAxis: () => <div data-testid="x-axis" />,
@@ -113,7 +117,9 @@ vi.mock("@/lib/api", () => ({
         memoryMb: 256,
       },
     ],
-    tokenUsage: [{ provider: "anthropic", inputTokens: 125000, outputTokens: 89000, totalCost: 4.28 }],
+    tokenUsage: [
+      { provider: "anthropic", inputTokens: 125000, outputTokens: 89000, totalCost: 4.28 },
+    ],
     pluginEvents: [{ plugin: "memory", count: 340 }],
   }),
   getImageStatus: vi.fn().mockResolvedValue({
@@ -122,16 +128,19 @@ vi.mock("@/lib/api", () => ({
     updateAvailable: false,
   }),
   pullImageUpdate: vi.fn().mockResolvedValue(undefined),
-  mapBotStatusToFleetInstance: vi.fn((bot: { id: string; name: string; state: string; health: string | null }) => ({
-    id: bot.id,
-    name: bot.name,
-    status: bot.state === "running" ? "running" : "stopped",
-    health: bot.health === "healthy" ? "healthy" : bot.health === "degraded" ? "degraded" : "degraded",
-    uptime: 86400,
-    pluginCount: 2,
-    sessionCount: bot.health === "healthy" ? 2 : 0,
-    provider: bot.health === "healthy" ? "anthropic" : "openai",
-  })),
+  mapBotStatusToFleetInstance: vi.fn(
+    (bot: { id: string; name: string; state: string; health: string | null }) => ({
+      id: bot.id,
+      name: bot.name,
+      status: bot.state === "running" ? "running" : "stopped",
+      health:
+        bot.health === "healthy" ? "healthy" : bot.health === "degraded" ? "degraded" : "degraded",
+      uptime: 86400,
+      pluginCount: 2,
+      sessionCount: bot.health === "healthy" ? 2 : 0,
+      provider: bot.health === "healthy" ? "anthropic" : "openai",
+    }),
+  ),
 }));
 
 vi.mock("framer-motion", () => ({
@@ -206,15 +215,17 @@ describe("HealthOverview", () => {
   it("recovers from error on retry", async () => {
     const user = userEvent.setup();
     const { getInstanceHealth } = await import("@/lib/api");
-    vi.mocked(getInstanceHealth).mockRejectedValueOnce(new Error("Network error")).mockResolvedValueOnce({
-      status: "healthy",
-      uptime: 86400,
-      activeSessions: 2,
-      totalSessions: 47,
-      plugins: [],
-      providers: [],
-      history: [],
-    });
+    vi.mocked(getInstanceHealth)
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce({
+        status: "healthy",
+        uptime: 86400,
+        activeSessions: 2,
+        totalSessions: 47,
+        plugins: [],
+        providers: [],
+        history: [],
+      });
 
     render(<HealthOverview instanceId="inst-001" />);
     await waitFor(() => {
@@ -366,7 +377,9 @@ describe("MetricsDashboard", () => {
             memoryMb: 256,
           },
         ],
-        tokenUsage: [{ provider: "anthropic", inputTokens: 125000, outputTokens: 89000, totalCost: 4.28 }],
+        tokenUsage: [
+          { provider: "anthropic", inputTokens: 125000, outputTokens: 89000, totalCost: 4.28 },
+        ],
         pluginEvents: [{ plugin: "memory", count: 340 }],
       });
 

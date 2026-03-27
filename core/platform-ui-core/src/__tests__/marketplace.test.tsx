@@ -33,7 +33,11 @@ vi.mock("next/navigation", () => ({
 
 // --- Mock next/link ---
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
+  default: ({
+    children,
+    href,
+    ...props
+  }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
     <a href={href} {...props}>
       {children}
     </a>
@@ -303,7 +307,9 @@ describe("PluginDetailPage", () => {
 
   it("renders plugin detail page with manifest info", async () => {
     mockParams.plugin = "discord";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     // Wait for loading
@@ -315,7 +321,9 @@ describe("PluginDetailPage", () => {
 
   it("shows not found for invalid plugin id", async () => {
     mockParams.plugin = "nonexistent-plugin";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     expect(await screen.findByText("Plugin not found.")).toBeInTheDocument();
@@ -323,7 +331,9 @@ describe("PluginDetailPage", () => {
 
   it("shows hosted adapter info for eligible plugins", async () => {
     mockParams.plugin = "semantic-memory";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("A Bot That Never Forgets");
@@ -334,7 +344,9 @@ describe("PluginDetailPage", () => {
 
   it("shows requirements for plugins with dependencies", async () => {
     mockParams.plugin = "meeting-transcriber";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Fire Your Secretary");
@@ -344,7 +356,9 @@ describe("PluginDetailPage", () => {
   it("opens install wizard when Install button is clicked", async () => {
     const user = userEvent.setup();
     mockParams.plugin = "webhooks";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Webhooks");
@@ -357,7 +371,9 @@ describe("PluginDetailPage", () => {
 
   it("shows changelog entries", async () => {
     mockParams.plugin = "discord";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Discord");
@@ -373,7 +389,9 @@ describe("PluginDetailPage", () => {
 
   it("shows configuration schema", async () => {
     mockParams.plugin = "discord";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Discord");
@@ -387,7 +405,9 @@ describe("PluginDetailPage", () => {
 });
 
 describe("InstallWizard", () => {
-  const mockBots = [{ id: "00000000-0000-4000-8000-000000000001", name: "My Bot", state: "running" }];
+  const mockBots = [
+    { id: "00000000-0000-4000-8000-000000000001", name: "My Bot", state: "running" },
+  ];
 
   beforeEach(() => {
     // Mock fetch for listBots so the wizard doesn't hang on network calls
@@ -438,7 +458,9 @@ describe("InstallWizard", () => {
 
     // First phase is bot-select — wait for bots to load and select one
     const user = userEvent.setup();
-    expect(await screen.findByText("Select which bot to install this plugin on")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Select which bot to install this plugin on"),
+    ).toBeInTheDocument();
 
     // Wait for bots to load
     const botButton = await screen.findByText("My Bot");
@@ -455,7 +477,9 @@ describe("InstallWizard", () => {
 
     // Should now show provider selector
     expect(
-      screen.getByText("Some capabilities can be provided by Platform Hosted services. Choose for each:"),
+      screen.getByText(
+        "Some capabilities can be provided by Platform Hosted services. Choose for each:",
+      ),
     ).toBeInTheDocument();
     expect(screen.getByText("LLM")).toBeInTheDocument();
     expect(screen.getByText("STT")).toBeInTheDocument();

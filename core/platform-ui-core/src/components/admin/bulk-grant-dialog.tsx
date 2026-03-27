@@ -25,7 +25,13 @@ interface BulkGrantDialogProps {
   isLoading?: boolean;
 }
 
-function BulkGrantDialog({ open, onOpenChange, selectedCount, onConfirm, isLoading }: BulkGrantDialogProps) {
+function BulkGrantDialog({
+  open,
+  onOpenChange,
+  selectedCount,
+  onConfirm,
+  isLoading,
+}: BulkGrantDialogProps) {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [notifyByEmail, setNotifyByEmail] = useState(false);
@@ -60,16 +66,21 @@ function BulkGrantDialog({ open, onOpenChange, selectedCount, onConfirm, isLoadi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Gift className="size-5 text-terminal" />
-            Grant credits to <span className="text-terminal font-semibold">{selectedCount}</span> tenants
+            Grant credits to <span className="text-terminal font-semibold">{selectedCount}</span>{" "}
+            tenants
           </DialogTitle>
-          <DialogDescription>Grant a fixed amount to each selected tenant account.</DialogDescription>
+          <DialogDescription>
+            Grant a fixed amount to each selected tenant account.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div className="space-y-2">
             <Label htmlFor="grant-amount">Amount per tenant</Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                $
+              </span>
               <Input
                 id="grant-amount"
                 type="number"

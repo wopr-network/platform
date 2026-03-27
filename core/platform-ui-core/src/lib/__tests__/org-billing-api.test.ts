@@ -193,7 +193,9 @@ describe("createOrgTopupCheckout", () => {
 
   it("propagates tRPC errors", async () => {
     mockOrgTopupCheckoutMutate.mockRejectedValue(new Error("Invalid price"));
-    await expect(createOrgTopupCheckout("org-1", "bad-price", "http://s", "http://c")).rejects.toThrow("Invalid price");
+    await expect(
+      createOrgTopupCheckout("org-1", "bad-price", "http://s", "http://c"),
+    ).rejects.toThrow("Invalid price");
   });
 });
 

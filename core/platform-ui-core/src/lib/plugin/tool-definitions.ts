@@ -232,7 +232,8 @@ export function getPlatformUIToolDefinitions(): ToolDefinition[] {
     // Plugin setup tools
     {
       name: "setup.begin",
-      description: "Begin conversational setup for a plugin. Bot receives plugin ID and config schema.",
+      description:
+        "Begin conversational setup for a plugin. Bot receives plugin ID and config schema.",
       inputSchema: {
         type: "object",
         properties: {

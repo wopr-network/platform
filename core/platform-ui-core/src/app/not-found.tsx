@@ -12,7 +12,9 @@ export default function NotFound() {
           <div className="flex items-center gap-3">
             <SearchXIcon aria-hidden="true" className="size-6 text-muted-foreground" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{brandName()}</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {brandName()}
+              </p>
               <CardTitle className="text-xl">404</CardTitle>
             </div>
           </div>

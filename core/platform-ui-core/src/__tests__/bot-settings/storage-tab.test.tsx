@@ -72,7 +72,9 @@ describe("StorageTab", () => {
   it("shows billing explanation text", async () => {
     render(<StorageTab botId="bot-1" />);
     await waitFor(() => {
-      expect(screen.getByText(/Storage costs are billed daily from your credit balance/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Storage costs are billed daily from your credit balance/),
+      ).toBeInTheDocument();
     });
   });
 });

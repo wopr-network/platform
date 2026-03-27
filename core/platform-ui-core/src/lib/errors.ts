@@ -42,7 +42,10 @@ export class NetworkError extends AppError {
  * Extract a user-friendly message from any thrown value.
  * Use in catch blocks: `setError(toUserMessage(err))`
  */
-export function toUserMessage(err: unknown, fallback = "Something went wrong. Please try again."): string {
+export function toUserMessage(
+  err: unknown,
+  fallback = "Something went wrong. Please try again.",
+): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   return fallback;

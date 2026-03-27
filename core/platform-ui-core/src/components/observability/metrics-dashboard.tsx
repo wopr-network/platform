@@ -2,7 +2,17 @@
 
 import { AlertTriangleIcon, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -182,7 +192,10 @@ export function MetricsDashboard({ instanceId }: { instanceId: string }) {
             </ResponsiveContainer>
             <div className="mt-3 space-y-1">
               {metrics.tokenUsage.map((t) => (
-                <div key={t.provider} className="flex justify-between text-xs text-muted-foreground">
+                <div
+                  key={t.provider}
+                  className="flex justify-between text-xs text-muted-foreground"
+                >
                   <span className="capitalize">{t.provider}</span>
                   <span className="font-medium text-foreground">${t.totalCost.toFixed(2)}</span>
                 </div>

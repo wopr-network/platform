@@ -109,16 +109,18 @@ vi.mock("@/lib/trpc", () => ({
 }));
 
 vi.mock("@/lib/api", () => ({
-  mapBotStatusToFleetInstance: vi.fn((bot: { id: string; name: string; state: string; health: string | null }) => ({
-    id: bot.id,
-    name: bot.name,
-    status: bot.state === "running" ? "running" : "stopped",
-    health: bot.health === "healthy" ? "healthy" : "degraded",
-    uptime: bot.id === "inst-001" ? 86400 : null,
-    pluginCount: bot.id === "inst-001" ? 2 : bot.id === "inst-002" ? 1 : 3,
-    sessionCount: bot.id === "inst-001" ? 5 : 0,
-    provider: bot.id === "inst-001" ? "anthropic" : "openai",
-  })),
+  mapBotStatusToFleetInstance: vi.fn(
+    (bot: { id: string; name: string; state: string; health: string | null }) => ({
+      id: bot.id,
+      name: bot.name,
+      status: bot.state === "running" ? "running" : "stopped",
+      health: bot.health === "healthy" ? "healthy" : "degraded",
+      uptime: bot.id === "inst-001" ? 86400 : null,
+      pluginCount: bot.id === "inst-001" ? 2 : bot.id === "inst-002" ? 1 : 3,
+      sessionCount: bot.id === "inst-001" ? 5 : 0,
+      provider: bot.id === "inst-001" ? "anthropic" : "openai",
+    }),
+  ),
   getActivityFeed: vi.fn().mockResolvedValue([
     {
       id: "evt-1",

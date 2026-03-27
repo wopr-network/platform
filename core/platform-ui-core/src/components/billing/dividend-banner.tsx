@@ -46,7 +46,9 @@ export function DividendBanner({ todayAmountCents, stats }: DividendBannerProps)
                 </span>{" "}
                 today.
               </p>
-              <p className="text-sm text-muted-foreground">Community dividend from the daily pool</p>
+              <p className="text-sm text-muted-foreground">
+                Community dividend from the daily pool
+              </p>
             </div>
           </div>
         </motion.div>

@@ -5,9 +5,22 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { trpc } from "@/lib/trpc";
 
 /* ------------------------------------------------------------------ */
@@ -108,7 +121,11 @@ function RolloutStatusCard() {
               disabled={forceRolloutMutation.isPending || isRolling}
               className="font-mono text-xs ml-auto"
             >
-              {forceRolloutMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Rocket size={12} />}
+              {forceRolloutMutation.isPending ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Rocket size={12} />
+              )}
               Force Rollout
             </Button>
           </div>
@@ -122,7 +139,13 @@ function RolloutStatusCard() {
 /*  Tenant Config Row                                                  */
 /* ------------------------------------------------------------------ */
 
-function TenantConfigRow({ config, onModeChanged }: { config: TenantConfig; onModeChanged: () => void }) {
+function TenantConfigRow({
+  config,
+  onModeChanged,
+}: {
+  config: TenantConfig;
+  onModeChanged: () => void;
+}) {
   const setConfigMutation = trpc.adminFleetUpdate.setTenantConfig.useMutation({
     onSuccess: () => {
       toast.success(`Tenant ${config.tenantId} config updated.`);
@@ -146,7 +169,11 @@ function TenantConfigRow({ config, onModeChanged }: { config: TenantConfig; onMo
         <code className="text-xs text-muted-foreground">{config.tenantId}</code>
       </TableCell>
       <TableCell>
-        <Select value={config.mode} onValueChange={handleModeChange} disabled={setConfigMutation.isPending}>
+        <Select
+          value={config.mode}
+          onValueChange={handleModeChange}
+          disabled={setConfigMutation.isPending}
+        >
           <SelectTrigger className="h-7 w-28 text-xs">
             <SelectValue />
           </SelectTrigger>
@@ -166,7 +193,9 @@ function TenantConfigRow({ config, onModeChanged }: { config: TenantConfig; onMo
         </span>
       </TableCell>
       <TableCell>
-        <span className="text-xs text-muted-foreground">{new Date(config.updatedAt).toLocaleDateString()}</span>
+        <span className="text-xs text-muted-foreground">
+          {new Date(config.updatedAt).toLocaleDateString()}
+        </span>
       </TableCell>
     </TableRow>
   );
@@ -208,7 +237,9 @@ export function FleetUpdatesClient() {
       {/* Tenant Configs Table */}
       <div className="mx-6 bg-card border border-border rounded-sm">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">Tenant Update Configs</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            Tenant Update Configs
+          </div>
           <Button
             type="button"
             variant="ghost"
@@ -242,20 +273,29 @@ export function FleetUpdatesClient() {
                 <TableRow className="bg-muted/40">
                   <TableHead className="text-xs uppercase tracking-wider">Tenant ID</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider">Mode</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider">Preferred Hour (UTC)</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider">
+                    Preferred Hour (UTC)
+                  </TableHead>
                   <TableHead className="text-xs uppercase tracking-wider">Last Updated</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {configs.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-sm font-mono">
+                    <TableCell
+                      colSpan={4}
+                      className="text-center text-muted-foreground py-8 text-sm font-mono"
+                    >
                       &gt; No tenant configs found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   configs.map((cfg) => (
-                    <TenantConfigRow key={cfg.tenantId} config={cfg} onModeChanged={handleConfigChanged} />
+                    <TenantConfigRow
+                      key={cfg.tenantId}
+                      config={cfg}
+                      onModeChanged={handleConfigChanged}
+                    />
                   ))
                 )}
               </TableBody>

@@ -53,7 +53,10 @@ describe("apiFetch", () => {
     await apiFetch("/v1/test");
 
     expect(mockFetch).toHaveBeenCalledOnce();
-    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    const [url, init] = mockFetch.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ];
     expect(url).toBe("http://localhost:3001/api/v1/test");
     expect(init.credentials).toBe("include");
     expect(init.headers["Content-Type"]).toBe("application/json");
@@ -71,7 +74,10 @@ describe("apiFetch", () => {
     const { apiFetch } = await import("@/lib/api");
     await apiFetch("/v1/bots");
 
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    const [, init] = mockFetch.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ];
     expect(init.headers["x-tenant-id"]).toBe("tenant-abc");
   });
 
@@ -87,7 +93,10 @@ describe("apiFetch", () => {
     const { apiFetch } = await import("@/lib/api");
     await apiFetch("/v1/bots");
 
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    const [, init] = mockFetch.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ];
     expect(init.headers["x-tenant-id"]).toBeUndefined();
   });
 
@@ -161,7 +170,10 @@ describe("apiFetch", () => {
       body: JSON.stringify({ name: "test" }),
     });
 
-    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit & { headers: Record<string, string> }];
+    const [, init] = mockFetch.mock.calls[0] as [
+      string,
+      RequestInit & { headers: Record<string, string> },
+    ];
     expect(init.method).toBe("POST");
     expect(init.headers["X-Custom"]).toBe("value");
     expect(init.headers["Content-Type"]).toBe("application/json");

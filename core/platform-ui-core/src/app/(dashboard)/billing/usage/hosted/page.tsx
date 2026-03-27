@@ -8,9 +8,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CreditDetailed } from "@/components/ui/credit-detailed";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { HostedCapability, HostedUsageEvent } from "@/lib/api";
 import { getHostedUsageEvents } from "@/lib/api";
 import { formatCreditDetailed, formatCreditStandard } from "@/lib/format-credit";
@@ -217,11 +230,13 @@ export default function HostedUsageDetailPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All capabilities</SelectItem>
-                  {(Object.entries(CAPABILITY_LABELS) as [HostedCapability, string][]).map(([cap, label]) => (
-                    <SelectItem key={cap} value={cap}>
-                      {label}
-                    </SelectItem>
-                  ))}
+                  {(Object.entries(CAPABILITY_LABELS) as [HostedCapability, string][]).map(
+                    ([cap, label]) => (
+                      <SelectItem key={cap} value={cap}>
+                        {label}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
               <Button variant="outline" size="sm" onClick={handleExportCsv}>
@@ -309,7 +324,9 @@ export default function HostedUsageDetailPage() {
                         })}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{CAPABILITY_LABELS[event.capability] ?? event.capability}</Badge>
+                        <Badge variant="outline">
+                          {CAPABILITY_LABELS[event.capability] ?? event.capability}
+                        </Badge>
                       </TableCell>
                       <TableCell>{event.provider}</TableCell>
                       <TableCell className="text-right">

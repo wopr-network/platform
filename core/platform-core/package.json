@@ -76,10 +76,10 @@
     "./*": "./dist/*.js"
   },
   "scripts": {
-    "build": "find src -name '*.ts' | head -1 | grep -q . && tsc || echo 'No source files, skipping build'",
+    "build": "tsc",
     "test": "vitest run",
     "check": "biome check src/ && tsc --noEmit",
-    "lint": "find src -name '*.ts' -o -name '*.tsx' | head -1 | grep -q . && biome check src/ || true",
+    "lint": "biome check src/",
     "lint:fix": "biome check --fix src/",
     "format": "biome format src/ --write"
   },
@@ -98,8 +98,8 @@
   },
   "devDependencies": {
     "@aws-sdk/client-ses": "^3.1014.0",
-    "@biomejs/biome": "^2.4.9",
-    "@electric-sql/pglite": "^0.4.2",
+    "@biomejs/biome": "^2.4.6",
+    "@electric-sql/pglite": "^0.3.16",
     "@sentry/node": "^10.43.0",
     "@trpc/server": "^11.12.0",
     "@types/dockerode": "^4.0.1",
@@ -108,7 +108,8 @@
     "@types/pg": "^8.18.0",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.0.18",
-    "better-auth": "^1.5.6",
+    "@wopr-network/semantic-release-config": "^1.0.0",
+    "better-auth": "^1.5.4",
     "drizzle-kit": "^0.31.9",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.12.7",
@@ -121,6 +122,13 @@
     "vitest": "^4.0.18",
     "winston": "^3.19.0",
     "zod": "^4.3.6"
+  },
+  "release": {
+    "extends": "@wopr-network/semantic-release-config"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wopr-network/platform-core.git"
   },
   "packageManager": "pnpm@10.31.0",
   "dependencies": {

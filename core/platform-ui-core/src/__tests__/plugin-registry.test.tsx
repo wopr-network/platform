@@ -192,7 +192,10 @@ describe("usePluginRegistry", () => {
   it("provides derived pluginOptions from all categories", async () => {
     const { result } = renderHook(() => usePluginRegistry());
     await waitFor(() => expect(result.current.categoriesLoaded).toBe(true));
-    const totalCategoryPlugins = result.current.categories.reduce((sum, cat) => sum + cat.plugins.length, 0);
+    const totalCategoryPlugins = result.current.categories.reduce(
+      (sum, cat) => sum + cat.plugins.length,
+      0,
+    );
     expect(result.current.pluginOptions.length).toBe(totalCategoryPlugins);
   });
 
@@ -411,8 +414,13 @@ describe("usePluginRegistry", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const all = result.current.getAllPlugins();
-    const categoryPluginCount = result.current.categories.reduce((sum, cat) => sum + cat.plugins.length, 0);
-    expect(all.length).toBe(result.current.channels.length + result.current.providers.length + categoryPluginCount);
+    const categoryPluginCount = result.current.categories.reduce(
+      (sum, cat) => sum + cat.plugins.length,
+      0,
+    );
+    expect(all.length).toBe(
+      result.current.channels.length + result.current.providers.length + categoryPluginCount,
+    );
   });
 
   it("collectConfigFields returns config fields for selected channels", async () => {

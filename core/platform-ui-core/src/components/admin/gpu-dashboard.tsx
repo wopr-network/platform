@@ -73,7 +73,9 @@ function KpiCard({ label, value, subtext, valueClassName, loading, index }: KpiC
       {loading ? (
         <div className="h-8 w-24 bg-muted animate-pulse rounded-sm" />
       ) : (
-        <div className={cn("text-2xl font-bold tabular-nums", valueClassName ?? "text-foreground")}>{value}</div>
+        <div className={cn("text-2xl font-bold tabular-nums", valueClassName ?? "text-foreground")}>
+          {value}
+        </div>
       )}
       {subtext && <div className="text-xs text-muted-foreground mt-1">{subtext}</div>}
     </motion.div>
@@ -120,7 +122,9 @@ function ProvisionForm({ regions, sizes, onProvision, onCancel }: ProvisionFormP
       transition={{ duration: 0.2 }}
       className="mx-6 mb-4 bg-card border border-terminal/20 rounded-sm p-4"
     >
-      <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Provision New GPU Node</div>
+      <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
+        Provision New GPU Node
+      </div>
       <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-3 items-end">
         <div>
           <label htmlFor="gpu-name" className="text-xs text-muted-foreground block mb-1">
@@ -139,7 +143,12 @@ function ProvisionForm({ regions, sizes, onProvision, onCancel }: ProvisionFormP
           <label htmlFor="gpu-region" className="text-xs text-muted-foreground block mb-1">
             Region
           </label>
-          <select id="gpu-region" className={inputCls} value={region} onChange={(e) => setRegion(e.target.value)}>
+          <select
+            id="gpu-region"
+            className={inputCls}
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+          >
             {regions.map((r) => (
               <option key={r.slug} value={r.slug} disabled={!r.available}>
                 {r.name}
@@ -151,7 +160,12 @@ function ProvisionForm({ regions, sizes, onProvision, onCancel }: ProvisionFormP
           <label htmlFor="gpu-size" className="text-xs text-muted-foreground block mb-1">
             Size
           </label>
-          <select id="gpu-size" className={inputCls} value={size} onChange={(e) => setSize(e.target.value)}>
+          <select
+            id="gpu-size"
+            className={inputCls}
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+          >
             {sizes.map((s) => (
               <option key={s.slug} value={s.slug}>
                 {s.name} — ${s.priceMonthly}/mo
@@ -188,7 +202,11 @@ export function GpuDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [nodeList, regionList, sizeList] = await Promise.all([listGpuNodes(), listGpuRegions(), listGpuSizes()]);
+      const [nodeList, regionList, sizeList] = await Promise.all([
+        listGpuNodes(),
+        listGpuRegions(),
+        listGpuSizes(),
+      ]);
       setNodes(nodeList);
       setRegions(regionList);
       setSizes(sizeList);
@@ -251,13 +269,18 @@ export function GpuDashboard() {
   // KPI computations
   const runningNodes = nodes.filter((n) => n.status === "running");
   const errorNodes = nodes.filter((n) => n.status === "error");
-  const utilizationValues = runningNodes.filter((n) => n.utilization != null).map((n) => n.utilization as number);
+  const utilizationValues = runningNodes
+    .filter((n) => n.utilization != null)
+    .map((n) => n.utilization as number);
   const avgUtilization =
-    utilizationValues.length > 0 ? utilizationValues.reduce((a, b) => a + b, 0) / utilizationValues.length : null;
+    utilizationValues.length > 0
+      ? utilizationValues.reduce((a, b) => a + b, 0) / utilizationValues.length
+      : null;
   const tempValues = runningNodes
     .filter((n) => n.temperatureCelsius != null)
     .map((n) => n.temperatureCelsius as number);
-  const avgTemp = tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
+  const avgTemp =
+    tempValues.length > 0 ? tempValues.reduce((a, b) => a + b, 0) / tempValues.length : null;
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
@@ -278,7 +301,12 @@ export function GpuDashboard() {
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
             Refresh
           </Button>
-          <Button type="button" size="xs" onClick={() => setShowProvision((v) => !v)} className="font-mono">
+          <Button
+            type="button"
+            size="xs"
+            onClick={() => setShowProvision((v) => !v)}
+            className="font-mono"
+          >
             <Zap size={12} />
             Provision Node
           </Button>
@@ -295,7 +323,12 @@ export function GpuDashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 px-6">
-        <KpiCard index={0} label="Total Nodes" value={loading ? "" : String(nodes.length)} loading={loading} />
+        <KpiCard
+          index={0}
+          label="Total Nodes"
+          value={loading ? "" : String(nodes.length)}
+          loading={loading}
+        />
         <KpiCard
           index={1}
           label="Running"
@@ -307,7 +340,9 @@ export function GpuDashboard() {
           index={2}
           label="Avg Utilization"
           value={loading ? "" : avgUtilization != null ? `${avgUtilization.toFixed(1)}%` : "—"}
-          valueClassName={avgUtilization != null && avgUtilization > 85 ? "text-amber-400" : "text-foreground"}
+          valueClassName={
+            avgUtilization != null && avgUtilization > 85 ? "text-amber-400" : "text-foreground"
+          }
           subtext="running nodes"
           loading={loading}
         />
@@ -345,7 +380,9 @@ export function GpuDashboard() {
         className="mx-6 bg-card border border-border rounded-sm"
       >
         <div className="px-4 py-3 border-b border-border">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground">GPU Inventory</div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            GPU Inventory
+          </div>
         </div>
 
         {loading ? (
@@ -362,7 +399,9 @@ export function GpuDashboard() {
             ))}
           </div>
         ) : nodes.length === 0 ? (
-          <div className="text-center text-muted-foreground text-xs py-12">No GPU nodes provisioned</div>
+          <div className="text-center text-muted-foreground text-xs py-12">
+            No GPU nodes provisioned
+          </div>
         ) : (
           <>
             {/* Table header */}
@@ -400,7 +439,9 @@ export function GpuDashboard() {
                   <div
                     className={cn(
                       "w-24 text-right tabular-nums text-sm",
-                      node.utilization != null && node.utilization > 85 ? "text-amber-400" : "text-foreground",
+                      node.utilization != null && node.utilization > 85
+                        ? "text-amber-400"
+                        : "text-foreground",
                     )}
                   >
                     {node.utilization != null ? `${node.utilization}%` : "—"}
@@ -418,7 +459,9 @@ export function GpuDashboard() {
                     {node.temperatureCelsius != null ? `${node.temperatureCelsius}°C` : "—"}
                   </div>
                   <div className="flex-1 text-right tabular-nums text-sm text-muted-foreground">
-                    {vramPct != null ? `${vramPct} (${node.memoryUsedMib} / ${node.memoryTotalMib} MiB)` : "—"}
+                    {vramPct != null
+                      ? `${vramPct} (${node.memoryUsedMib} / ${node.memoryTotalMib} MiB)`
+                      : "—"}
                   </div>
                   <div className="w-28 flex justify-end gap-1">
                     <Button
@@ -452,19 +495,25 @@ export function GpuDashboard() {
 
       {/* Allocation — stubbed */}
       <div className="mx-6 bg-card border border-border rounded-sm p-4">
-        <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Allocation / Tenant Mapping</div>
+        <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+          Allocation / Tenant Mapping
+        </div>
         <p className="text-xs text-muted-foreground">
-          Tenant-to-GPU allocation endpoints are not yet available. This section will display which bots and tenants are
-          assigned to each GPU node once the backend implements the allocation API.
+          Tenant-to-GPU allocation endpoints are not yet available. This section will display which
+          bots and tenants are assigned to each GPU node once the backend implements the allocation
+          API.
         </p>
       </div>
 
       {/* Configuration — stubbed */}
       <div className="mx-6 mb-6 bg-card border border-border rounded-sm p-4">
-        <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">GPU Configuration</div>
+        <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+          GPU Configuration
+        </div>
         <p className="text-xs text-muted-foreground">
-          GPU capability enable/disable and allocation limit configuration endpoints are not yet available. This section
-          will provide controls once the backend exposes the configuration API.
+          GPU capability enable/disable and allocation limit configuration endpoints are not yet
+          available. This section will provide controls once the backend exposes the configuration
+          API.
         </p>
       </div>
 

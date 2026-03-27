@@ -5,12 +5,6 @@ const isSecureOrigin =
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  typescript: {
-    // "Type cannot be named" errors are pnpm monorepo artifacts —
-    // deep dependency .d.ts paths aren't portable across hoisted node_modules.
-    // The standalone repo builds clean; these are not real type errors.
-    ignoreBuildErrors: true,
-  },
   headers: async () => [
     {
       source: "/:path*",

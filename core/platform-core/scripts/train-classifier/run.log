@@ -1,0 +1,45 @@
+/home/tsavo/platform-core/scripts/train-classifier/train.py:256: UserWarning: # 'dynamic_axes' is not recommended when dynamo=True, and may lead to 'torch._dynamo.exc.UserError: Constraints violated.' Supply the 'dynamic_shapes' argument instead if export is unsuccessful.
+  torch.onnx.export(
+W0325 02:05:38.333000 89574 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_compat.py:133] Setting ONNX exporter to use operator set version 18 because the requested opset_version 17 is a lower version than we have implementations for. Automatic version conversion will be performed, which may not be successful at converting to the requested version. If version conversion is unsuccessful, the opset version of the exported model will be kept at 18. Please consider setting opset_version >=18 to leverage latest ONNX features
+W0325 02:05:38.761000 89574 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_registration.py:110] torchvision is not installed. Skipping torchvision::nms
+W0325 02:05:38.761000 89574 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_registration.py:110] torchvision is not installed. Skipping torchvision::roi_align
+W0325 02:05:38.761000 89574 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_registration.py:110] torchvision is not installed. Skipping torchvision::roi_pool
+/home/linuxbrew/.linuxbrew/opt/python@3.14/lib/python3.14/copyreg.py:104: FutureWarning: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+  return cls.__new__(cls, *args)
+The model version conversion is not supported by the onnxscript version converter and fallback is enabled. The model will be converted using the onnx C API (target version: 17).
+Device: cuda
+Loaded 46378 samples from cache
+Channel weights: user=1.0, assistant=1.2
+Normalization: l2
+Embeddings shape: (46378, 9216)
+Embedding dimension: 9216
+Model parameters: 5,054,401
+
+=== PHASE 1: PROBE (5 epochs) ===
+Epoch 1/10 — loss: 0.0426, val MAE: 0.1306
+Epoch 2/10 — loss: 0.0251, val MAE: 0.1036
+Epoch 3/10 — loss: 0.0178, val MAE: 0.0997
+Epoch 4/10 — loss: 0.0135, val MAE: 0.0786
+Epoch 5/10 — loss: 0.0104, val MAE: 0.0746
+
+Probe: first_half=0.1171, second_half=0.0843, improvement=28.03%
+PROMISING: 28.03% improvement. Full training.
+
+=== PHASE 2: FULL TRAINING (5 more epochs) ===
+Epoch 6/10 — loss: 0.0082, val MAE: 0.0598
+Epoch 7/10 — loss: 0.0065, val MAE: 0.0540
+Epoch 8/10 — loss: 0.0053, val MAE: 0.0483
+Epoch 9/10 — loss: 0.0046, val MAE: 0.0452
+Epoch 10/10 — loss: 0.0041, val MAE: 0.0433
+
+Best val MAE: 0.0433
+[torch.onnx] Obtain model graph for `ComplexityHead([...]` with `torch.export.export(..., strict=False)`...
+[torch.onnx] Obtain model graph for `ComplexityHead([...]` with `torch.export.export(..., strict=False)`... ✅
+[torch.onnx] Run decompositions...
+[torch.onnx] Run decompositions... ✅
+[torch.onnx] Translate the graph into ONNX...
+[torch.onnx] Translate the graph into ONNX... ✅
+[torch.onnx] Optimize the ONNX graph...
+[torch.onnx] Optimize the ONNX graph... ✅
+Exported: /tmp/autoresearch-model.onnx
+Checksum: /tmp/autoresearch-model.sha256 (12ca44e5ac43332e...)

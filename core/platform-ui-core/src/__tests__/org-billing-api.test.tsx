@@ -56,7 +56,12 @@ describe("org-billing-api", () => {
   });
 
   it("createOrgTopupCheckout returns checkout URL", async () => {
-    const result = await createOrgTopupCheckout("org-1", "price_1", "https://ok.com", "https://cancel.com");
+    const result = await createOrgTopupCheckout(
+      "org-1",
+      "price_1",
+      "https://ok.com",
+      "https://cancel.com",
+    );
     expect(result.url).toContain("stripe.com");
   });
 });

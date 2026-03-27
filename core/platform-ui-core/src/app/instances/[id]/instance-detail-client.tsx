@@ -1,6 +1,16 @@
 "use client";
 
-import { ArrowDownToLine, ArrowLeft, Check, Loader2, Lock, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowLeft,
+  Check,
+  Loader2,
+  Lock,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -34,7 +44,14 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useImageStatus } from "@/hooks/use-image-status";
@@ -92,7 +109,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
   const [secretsStatus, setSecretsStatus] = useState<"idle" | "saved" | "error">("idle");
   const [secretsError, setSecretsError] = useState<string | null>(null);
   const nextSecretId = useRef(0);
-  const [newSecretRows, setNewSecretRows] = useState<{ id: number; key: string; value: string }[]>([]);
+  const [newSecretRows, setNewSecretRows] = useState<{ id: number; key: string; value: string }[]>(
+    [],
+  );
   const secretsLoaded = useRef(false);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
@@ -235,7 +254,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
       }
     }
     // Check for new rows whose key duplicates an existing secret key.
-    const duplicates = newSecretRows.map((row) => row.key.trim()).filter((k) => k && secretKeys.includes(k));
+    const duplicates = newSecretRows
+      .map((row) => row.key.trim())
+      .filter((k) => k && secretKeys.includes(k));
     if (duplicates.length > 0) {
       setSecretsStatus("error");
       setSecretsError(
@@ -391,7 +412,11 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 disabled={renameSaving}
                 aria-label="Confirm rename"
               >
-                {renameSaving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                {renameSaving ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Check className="size-4" />
+                )}
               </Button>
               <Button
                 variant="ghost"
@@ -408,10 +433,12 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
               {instance.name}
               <span
                 className={cn("size-2 rounded-full", {
-                  "bg-emerald-500 animate-[pulse-dot_2s_ease-in-out_infinite]": instance.status === "running",
+                  "bg-emerald-500 animate-[pulse-dot_2s_ease-in-out_infinite]":
+                    instance.status === "running",
                   "bg-zinc-400": instance.status === "stopped",
                   "bg-yellow-500": instance.status === "degraded",
-                  "bg-red-500 animate-[pulse-dot_0.8s_ease-in-out_infinite]": instance.status === "error",
+                  "bg-red-500 animate-[pulse-dot_0.8s_ease-in-out_infinite]":
+                    instance.status === "error",
                 })}
               />
               <Button
@@ -429,9 +456,14 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
           )}
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <StatusBadge status={instance.status} />
-            {imageStatusError && <span className="text-xs text-destructive">{imageStatusError}</span>}
+            {imageStatusError && (
+              <span className="text-xs text-destructive">{imageStatusError}</span>
+            )}
             {updateAvailable && (
-              <Badge variant="outline" className="gap-1.5 bg-amber-500/15 text-amber-500 border-amber-500/25">
+              <Badge
+                variant="outline"
+                className="gap-1.5 bg-amber-500/15 text-amber-500 border-amber-500/25"
+              >
                 <span
                   className={cn(
                     "size-1.5 rounded-full bg-amber-500",
@@ -570,7 +602,10 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 </TableHeader>
                 <TableBody>
                   {instance.plugins.map((plugin) => (
-                    <TableRow key={plugin.id} className="transition-colors hover:bg-muted/50 even:bg-muted/20">
+                    <TableRow
+                      key={plugin.id}
+                      className="transition-colors hover:bg-muted/50 even:bg-muted/20"
+                    >
                       <TableCell className="font-medium">{plugin.name}</TableCell>
                       <TableCell className="text-muted-foreground">{plugin.version}</TableCell>
                       <TableCell>
@@ -614,7 +649,10 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 </TableHeader>
                 <TableBody>
                   {instance.channelDetails.map((ch) => (
-                    <TableRow key={ch.id} className="transition-colors hover:bg-muted/50 even:bg-muted/20">
+                    <TableRow
+                      key={ch.id}
+                      className="transition-colors hover:bg-muted/50 even:bg-muted/20"
+                    >
                       <TableCell className="font-medium">{ch.name}</TableCell>
                       <TableCell className="text-muted-foreground">{ch.type}</TableCell>
                       <TableCell>
@@ -651,7 +689,10 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 </TableHeader>
                 <TableBody>
                   {instance.sessions.map((sess) => (
-                    <TableRow key={sess.id} className="transition-colors hover:bg-muted/50 even:bg-muted/20">
+                    <TableRow
+                      key={sess.id}
+                      className="transition-colors hover:bg-muted/50 even:bg-muted/20"
+                    >
                       <TableCell className="font-mono text-sm">{sess.id}</TableCell>
                       <TableCell>{sess.userId}</TableCell>
                       <TableCell>{sess.messageCount}</TableCell>
@@ -709,7 +750,10 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 </TableHeader>
                 <TableBody>
                   {snapshots.map((snap) => (
-                    <TableRow key={snap.id} className="transition-colors hover:bg-muted/50 even:bg-muted/20">
+                    <TableRow
+                      key={snap.id}
+                      className="transition-colors hover:bg-muted/50 even:bg-muted/20"
+                    >
                       <TableCell className="font-medium">
                         {snap.name ?? <span className="text-muted-foreground italic">unnamed</span>}
                       </TableCell>
@@ -723,10 +767,18 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button size="sm" variant="outline" onClick={() => setConfirmRestore(snap)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmRestore(snap)}
+                          >
                             Restore
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => setConfirmDelete(snap)}>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => setConfirmDelete(snap)}
+                          >
                             Delete
                           </Button>
                         </div>
@@ -751,7 +803,11 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 {confirmRestore ? new Date(confirmRestore.createdAt).toLocaleString() : ""}.
               </p>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setConfirmRestore(null)} disabled={restoring}>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmRestore(null)}
+                  disabled={restoring}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -775,7 +831,11 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmDelete(null)}
+                  disabled={deleting}
+                >
                   Cancel
                 </Button>
                 <Button
@@ -817,9 +877,15 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
           </div>
           <div className="flex items-center justify-end gap-3">
             {saving && <span className="text-sm text-muted-foreground">Saving...</span>}
-            {configStatus === "saved" && !saving && <span className="text-sm text-emerald-500">Config saved</span>}
-            {configStatus === "invalid" && <span className="text-sm text-red-500">Invalid JSON</span>}
-            {configStatus === "error" && configError && <span className="text-sm text-red-500">{configError}</span>}
+            {configStatus === "saved" && !saving && (
+              <span className="text-sm text-emerald-500">Config saved</span>
+            )}
+            {configStatus === "invalid" && (
+              <span className="text-sm text-red-500">Invalid JSON</span>
+            )}
+            {configStatus === "error" && configError && (
+              <span className="text-sm text-red-500">{configError}</span>
+            )}
             <Button
               disabled={saving || configStatus === "invalid"}
               onClick={async () => {
@@ -840,7 +906,10 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                 try {
                   const env: Record<string, string> = {};
                   for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-                    if (v === null || (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean")) {
+                    if (
+                      v === null ||
+                      (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean")
+                    ) {
                       throw new Error(`Value for key "${k}" must be a string, number, or boolean`);
                     }
                     env[k] = String(v);
@@ -865,7 +934,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium">Secrets</h3>
-                <p className="text-xs text-muted-foreground">Write-only. Stored values are never displayed.</p>
+                <p className="text-xs text-muted-foreground">
+                  Write-only. Stored values are never displayed.
+                </p>
               </div>
               <Button
                 size="sm"
@@ -918,7 +989,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                             type="password"
                             placeholder="Enter new value..."
                             value={secretValues[key] ?? ""}
-                            onChange={(e) => setSecretValues((prev) => ({ ...prev, [key]: e.target.value }))}
+                            onChange={(e) =>
+                              setSecretValues((prev) => ({ ...prev, [key]: e.target.value }))
+                            }
                             className="font-mono text-sm bg-transparent border-border focus:ring-terminal/50 focus:border-terminal/50"
                           />
                         </TableCell>
@@ -933,7 +1006,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                             value={row.key}
                             onChange={(e) =>
                               setNewSecretRows((prev) =>
-                                prev.map((r) => (r.id === row.id ? { ...r, key: e.target.value } : r)),
+                                prev.map((r) =>
+                                  r.id === row.id ? { ...r, key: e.target.value } : r,
+                                ),
                               )
                             }
                             className="font-mono text-sm bg-transparent"
@@ -946,7 +1021,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                             value={row.value}
                             onChange={(e) =>
                               setNewSecretRows((prev) =>
-                                prev.map((r) => (r.id === row.id ? { ...r, value: e.target.value } : r)),
+                                prev.map((r) =>
+                                  r.id === row.id ? { ...r, value: e.target.value } : r,
+                                ),
                               )
                             }
                             className="font-mono text-sm bg-transparent"
@@ -956,7 +1033,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => setNewSecretRows((prev) => prev.filter((r) => r.id !== row.id))}
+                            onClick={() =>
+                              setNewSecretRows((prev) => prev.filter((r) => r.id !== row.id))
+                            }
                           >
                             <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
                           </Button>
@@ -999,8 +1078,9 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
           <DialogHeader>
             <DialogTitle>Destroy {instance.name} permanently?</DialogTitle>
             <DialogDescription>
-              This action is permanent and cannot be undone. The instance and all its data will be destroyed. Type{" "}
-              <strong className="text-foreground">{instance.name}</strong> to confirm.
+              This action is permanent and cannot be undone. The instance and all its data will be
+              destroyed. Type <strong className="text-foreground">{instance.name}</strong> to
+              confirm.
             </DialogDescription>
           </DialogHeader>
 
@@ -1081,7 +1161,9 @@ function MetricCard({
   return (
     <Card className="py-4">
       <CardHeader className="pb-1">
-        <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</CardTitle>
+        <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {title}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2">

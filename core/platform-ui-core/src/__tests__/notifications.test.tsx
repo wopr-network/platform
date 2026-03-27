@@ -32,7 +32,8 @@ const DEFAULT_PREFS: NotificationPreferences = {
 };
 
 const mockGetPrefs = vi.fn<() => Promise<NotificationPreferences>>();
-const mockUpdatePrefs = vi.fn<(p: Partial<NotificationPreferences>) => Promise<NotificationPreferences>>();
+const mockUpdatePrefs =
+  vi.fn<(p: Partial<NotificationPreferences>) => Promise<NotificationPreferences>>();
 
 vi.mock("@/lib/settings-api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/settings-api")>();
@@ -59,7 +60,9 @@ describe("Notifications page - toggle behavior", () => {
     mockUpdatePrefs.mockResolvedValue({ ...DEFAULT_PREFS, billing_low_balance: false });
 
     const user = userEvent.setup();
-    const { default: NotificationsPage } = await import("../app/(dashboard)/settings/notifications/page");
+    const { default: NotificationsPage } = await import(
+      "../app/(dashboard)/settings/notifications/page"
+    );
     render(<NotificationsPage />);
 
     const toggle = await screen.findByRole("switch", { name: "Low balance alerts" });
@@ -87,7 +90,9 @@ describe("Notifications page - toggle behavior", () => {
     mockUpdatePrefs.mockReturnValueOnce(pending);
 
     const user = userEvent.setup();
-    const { default: NotificationsPage } = await import("../app/(dashboard)/settings/notifications/page");
+    const { default: NotificationsPage } = await import(
+      "../app/(dashboard)/settings/notifications/page"
+    );
     render(<NotificationsPage />);
 
     const toggle = await screen.findByRole("switch", { name: "Low balance alerts" });
@@ -106,7 +111,9 @@ describe("Notifications page - toggle behavior", () => {
     mockUpdatePrefs.mockRejectedValueOnce(new Error("Network error"));
 
     const user = userEvent.setup();
-    const { default: NotificationsPage } = await import("../app/(dashboard)/settings/notifications/page");
+    const { default: NotificationsPage } = await import(
+      "../app/(dashboard)/settings/notifications/page"
+    );
     render(<NotificationsPage />);
 
     const toggle = await screen.findByRole("switch", { name: "Low balance alerts" });

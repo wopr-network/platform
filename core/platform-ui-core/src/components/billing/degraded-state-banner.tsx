@@ -38,7 +38,9 @@ export function DegradedStateBanner() {
       <Banner variant="warning" role="alert">
         <span className="flex-1">
           ACTION REQUIRED —{" "}
-          {days !== null ? `${days} day${days === 1 ? "" : "s"} to resolve` : "resolve soon to avoid suspension"}
+          {days !== null
+            ? `${days} day${days === 1 ? "" : "s"} to resolve`
+            : "resolve soon to avoid suspension"}
           {reason ? ` (${reason})` : ""}
         </span>
         <Link href="/billing" className="font-semibold underline underline-offset-4">

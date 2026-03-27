@@ -11,7 +11,9 @@ describe("next.config headers", () => {
     expect(headers).toHaveLength(1);
     expect(headers[0].source).toBe("/:path*");
 
-    const headerMap = new Map(headers[0].headers.map((h: { key: string; value: string }) => [h.key, h.value]));
+    const headerMap = new Map(
+      headers[0].headers.map((h: { key: string; value: string }) => [h.key, h.value]),
+    );
     expect(headerMap.get("X-Frame-Options")).toBe("DENY");
     expect(headerMap.get("X-Content-Type-Options")).toBe("nosniff");
     // CSP is now set exclusively by middleware (nonce-based), not next.config.ts

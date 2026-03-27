@@ -53,7 +53,10 @@ export function StepSuperpowers({
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <div className="inline-block font-mono text-xs tracking-[0.3em] text-terminal uppercase" aria-hidden="true">
+        <div
+          className="inline-block font-mono text-xs tracking-[0.3em] text-terminal uppercase"
+          aria-hidden="true"
+        >
           STEP {stepNumber} {"//"} {stepCode}
         </div>
         <h2 className="text-2xl font-bold tracking-tight">Give your {productName()} superpowers</h2>

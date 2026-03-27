@@ -16,7 +16,12 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import type { AutoAcceptConfig, DiscoveredBot, Friend, FriendRequest } from "@/lib/api";
-import { getAutoAcceptConfig, listDiscoveredBots, listFriendRequests, listFriends } from "@/lib/api";
+import {
+  getAutoAcceptConfig,
+  listDiscoveredBots,
+  listFriendRequests,
+  listFriends,
+} from "@/lib/api";
 import { FriendsTab } from "./friends-tab";
 
 const mockListFriends = listFriends as ReturnType<typeof vi.fn>;
@@ -83,7 +88,9 @@ describe("FriendsTab", () => {
 
     render(<FriendsTab instanceId={INSTANCE_ID} />);
     await waitFor(() => {
-      expect(screen.getByText("No friends yet. Discover bots on the network below.")).toBeInTheDocument();
+      expect(
+        screen.getByText("No friends yet. Discover bots on the network below."),
+      ).toBeInTheDocument();
     });
   });
 

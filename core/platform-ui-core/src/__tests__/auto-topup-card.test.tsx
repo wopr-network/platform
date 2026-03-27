@@ -12,7 +12,9 @@ const { mockGetAutoTopupSettings, mockUpdateAutoTopupSettings } = vi.hoisted(() 
 // Mock framer-motion to prevent animation issues in JSDOM
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    ),
   },
 }));
 
@@ -161,7 +163,9 @@ describe("AutoTopupCard", () => {
     const { AutoTopupCard } = await import("../components/billing/auto-topup-card");
     render(<AutoTopupCard />);
 
-    expect(await screen.findByText("Add a payment method to enable auto-topup.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Add a payment method to enable auto-topup."),
+    ).toBeInTheDocument();
   });
 
   it("shows error state with retry on fetch failure", async () => {
@@ -225,7 +229,9 @@ describe("AutoTopupCard", () => {
     render(<AutoTopupCard />);
 
     expect(
-      await screen.findByText("Tip: scheduled top-ups keep you in the dividend pool automatically."),
+      await screen.findByText(
+        "Tip: scheduled top-ups keep you in the dividend pool automatically.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -235,7 +241,9 @@ describe("AutoTopupCard", () => {
     render(<AutoTopupCard />);
 
     expect(
-      await screen.findByText("Tip: scheduled top-ups keep you in the dividend pool for 7 days each month."),
+      await screen.findByText(
+        "Tip: scheduled top-ups keep you in the dividend pool for 7 days each month.",
+      ),
     ).toBeInTheDocument();
   });
 

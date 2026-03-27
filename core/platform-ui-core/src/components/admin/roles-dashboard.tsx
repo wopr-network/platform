@@ -6,9 +6,22 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { AdminRole, UserRoleAssignment } from "@/lib/admin-api";
 import { assignRole, getRolesList, revokeRole } from "@/lib/admin-api";
 import { toUserMessage } from "@/lib/errors";
@@ -73,7 +86,10 @@ function RoleRow({ assignment, onChanged }: RoleRowProps) {
         <code className="text-xs text-muted-foreground">{assignment.tenant_id}</code>
       </TableCell>
       <TableCell>
-        <Badge variant="secondary" className={`${roleBadgeClass(assignment.role)} inline-flex items-center gap-1`}>
+        <Badge
+          variant="secondary"
+          className={`${roleBadgeClass(assignment.role)} inline-flex items-center gap-1`}
+        >
           <RoleIcon role={assignment.role} />
           {assignment.role}
         </Badge>
@@ -118,7 +134,9 @@ function RoleCatalog({ roles }: { roles: AdminRole[] }) {
                 </Badge>
                 {role.is_system && <span className="text-xs text-muted-foreground">(system)</span>}
               </div>
-              {role.description && <p className="text-xs text-muted-foreground">{role.description}</p>}
+              {role.description && (
+                <p className="text-xs text-muted-foreground">{role.description}</p>
+              )}
             </div>
           </div>
         ))}
@@ -155,7 +173,9 @@ export function RolesDashboard() {
 
   function handleRoleChanged(userId: string, tenantId: string, newRole: string) {
     setAssignments((prev) =>
-      prev.map((a) => (a.user_id === userId && a.tenant_id === tenantId ? { ...a, role: newRole } : a)),
+      prev.map((a) =>
+        a.user_id === userId && a.tenant_id === tenantId ? { ...a, role: newRole } : a,
+      ),
     );
   }
 
@@ -227,13 +247,20 @@ export function RolesDashboard() {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground py-8 text-sm">
+                      <TableCell
+                        colSpan={5}
+                        className="text-center text-muted-foreground py-8 text-sm"
+                      >
                         No users found.
                       </TableCell>
                     </TableRow>
                   ) : (
                     filtered.map((a) => (
-                      <RoleRow key={`${a.user_id}-${a.tenant_id}`} assignment={a} onChanged={handleRoleChanged} />
+                      <RoleRow
+                        key={`${a.user_id}-${a.tenant_id}`}
+                        assignment={a}
+                        onChanged={handleRoleChanged}
+                      />
                     ))
                   )}
                 </TableBody>

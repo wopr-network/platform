@@ -46,7 +46,9 @@ vi.mock("@/lib/marketplace-data", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
+  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
 import type { CapabilitySetting, ChannelInfo } from "@/lib/api";
@@ -252,9 +254,13 @@ describe("SetupChecklist", () => {
     mockGetCreditBalance.mockResolvedValue({ balance: 0, dailyBurn: 0, runway: null });
     mockListChannels.mockImplementation((botId: string) => {
       if (botId === "inst-001") {
-        return Promise.resolve([{ id: "ch-1", name: "discord-general", type: "discord", status: "disconnected" }]);
+        return Promise.resolve([
+          { id: "ch-1", name: "discord-general", type: "discord", status: "disconnected" },
+        ]);
       }
-      return Promise.resolve([{ id: "ch-2", name: "discord-other", type: "discord", status: "connected" }]);
+      return Promise.resolve([
+        { id: "ch-2", name: "discord-other", type: "discord", status: "connected" },
+      ]);
     });
     mockListCapabilities.mockResolvedValue([]);
 

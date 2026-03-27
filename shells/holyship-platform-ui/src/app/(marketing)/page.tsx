@@ -3,12 +3,12 @@
 import { FadeIn, Hero, Recognition } from "@/components/landing";
 
 export default function Home() {
-  return (
-    <>
-      <Hero />
-      <FadeIn>
-        <Recognition />
-      </FadeIn>
-    </>
-  );
+	return (
+		<>
+			<Hero />
+			<FadeIn>
+				<Recognition />
+			</FadeIn>
+		</>
+	);
 }

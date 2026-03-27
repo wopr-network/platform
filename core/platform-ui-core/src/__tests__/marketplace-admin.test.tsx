@@ -113,7 +113,9 @@ describe("admin-marketplace-api", () => {
       const { updatePlugin } = await import("../lib/admin-marketplace-api");
       mockUpdatePlugin.mockRejectedValue(new Error("tRPC unavailable"));
 
-      await expect(updatePlugin({ id: "discord", notes: "fallback note" })).rejects.toThrow("tRPC unavailable");
+      await expect(updatePlugin({ id: "discord", notes: "fallback note" })).rejects.toThrow(
+        "tRPC unavailable",
+      );
     });
   });
 
@@ -141,7 +143,9 @@ describe("admin-marketplace-api", () => {
       const { addPluginByNpm } = await import("../lib/admin-marketplace-api");
       mockAddPlugin.mockRejectedValue(new Error("tRPC unavailable"));
 
-      await expect(addPluginByNpm({ npm_package: "@wopr-network/plugin-test" })).rejects.toThrow("tRPC unavailable");
+      await expect(addPluginByNpm({ npm_package: "@wopr-network/plugin-test" })).rejects.toThrow(
+        "tRPC unavailable",
+      );
     });
   });
 });

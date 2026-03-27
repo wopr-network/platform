@@ -98,7 +98,9 @@ describe("togglePlugin race condition", () => {
     vi.clearAllMocks();
     mockListInstalledPlugins.mockResolvedValue([{ pluginId: "plugin-1", enabled: true }]);
     // Make togglePluginEnabled slow so we can test in-flight guard
-    mockTogglePluginEnabled.mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 500)));
+    mockTogglePluginEnabled.mockImplementation(
+      () => new Promise((resolve) => setTimeout(resolve, 500)),
+    );
   });
 
   it("blocks a second toggle while the first is in flight (stale closure exposes race)", async () => {

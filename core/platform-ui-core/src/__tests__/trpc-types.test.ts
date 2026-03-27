@@ -70,7 +70,9 @@ describe("trpc-types AppRouter contract", () => {
     type _CheckActivate = Assert<"activate" extends keyof Promos ? true : false>;
     type _CheckPause = Assert<"pause" extends keyof Promos ? true : false>;
     type _CheckCancel = Assert<"cancel" extends keyof Promos ? true : false>;
-    type _CheckGenerateCouponBatch = Assert<"generateCouponBatch" extends keyof Promos ? true : false>;
+    type _CheckGenerateCouponBatch = Assert<
+      "generateCouponBatch" extends keyof Promos ? true : false
+    >;
     // Runtime assertion is intentionally trivial — the real gate is tsc --noEmit
     // which fails if any Assert<...> type above resolves to `false`.
     expect(true).toBe(true);
@@ -80,7 +82,9 @@ describe("trpc-types AppRouter contract", () => {
     type Caps = AppRouter["_def"]["record"]["capabilities"];
     type _CheckStoreKey = Assert<"storeKey" extends keyof Caps ? true : false>;
     type _CheckTestKey = Assert<"testKey" extends keyof Caps ? true : false>;
-    type _CheckListCapabilitySettings = Assert<"listCapabilitySettings" extends keyof Caps ? true : false>;
+    type _CheckListCapabilitySettings = Assert<
+      "listCapabilitySettings" extends keyof Caps ? true : false
+    >;
     type _CheckListCapabilityMeta = Assert<"listCapabilityMeta" extends keyof Caps ? true : false>;
     // Runtime assertion is intentionally trivial — the real gate is tsc --noEmit
     // which fails if any Assert<...> type above resolves to `false`.

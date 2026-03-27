@@ -64,7 +64,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <head>{nonce && <meta property="csp-nonce" content={nonce} />}</head>
       <body className={`${jetbrainsMono.variable} antialiased`}>
         <MotionConfig nonce={nonce}>
-          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange nonce={nonce}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+            nonce={nonce}
+          >
             <TRPCProvider>
               {children}
               <Toaster theme="dark" richColors />

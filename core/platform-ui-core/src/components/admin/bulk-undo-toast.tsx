@@ -59,7 +59,8 @@ function BulkUndoToast({
 
   const progressPercent = (remainingMs / windowMs) * 100;
 
-  const barColor = remainingMs > 180_000 ? "bg-terminal" : remainingMs > 60_000 ? "bg-amber-500" : "bg-red-500";
+  const barColor =
+    remainingMs > 180_000 ? "bg-terminal" : remainingMs > 60_000 ? "bg-amber-500" : "bg-red-500";
 
   return (
     <AnimatePresence>

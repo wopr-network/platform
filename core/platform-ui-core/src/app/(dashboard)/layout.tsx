@@ -79,7 +79,11 @@ export default function DashboardLayout({
                 <MenuIcon className="size-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-64 bg-sidebar text-sidebar-foreground p-0" aria-label="Navigation">
+            <SheetContent
+              side="left"
+              className="w-64 bg-sidebar text-sidebar-foreground p-0"
+              aria-label="Navigation"
+            >
               <SidebarContent onNavigate={() => setSheetOpen(false)} />
             </SheetContent>
           </Sheet>

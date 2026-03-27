@@ -111,7 +111,9 @@ describe("updateNotificationPreferences", () => {
 
   it("propagates tRPC errors", async () => {
     mockUpdateNotificationPreferencesMutate.mockRejectedValue(new Error("Forbidden"));
-    await expect(updateNotificationPreferences({ billing_receipts: true })).rejects.toThrow("Forbidden");
+    await expect(updateNotificationPreferences({ billing_receipts: true })).rejects.toThrow(
+      "Forbidden",
+    );
   });
 });
 

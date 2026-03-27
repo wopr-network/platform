@@ -24,8 +24,12 @@ vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="responsive-container">{children}</div>
   ),
-  LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid="line-chart">{children}</div>,
-  BarChart: ({ children }: { children: React.ReactNode }) => <div data-testid="bar-chart">{children}</div>,
+  LineChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  ),
+  BarChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="bar-chart">{children}</div>
+  ),
   Line: () => <div data-testid="line" />,
   Bar: () => <div data-testid="bar" />,
   XAxis: () => <div data-testid="x-axis" />,
@@ -52,7 +56,9 @@ vi.mock("lucide-react", () => ({
 // metrics-dashboard.tsx can be imported without @/ alias issues.
 // The Skeleton mock exposes data-testid="skeleton" for stable querying.
 vi.mock("@core/components/ui/skeleton", () => ({
-  Skeleton: ({ className }: { className?: string }) => <div data-testid="skeleton" className={className} />,
+  Skeleton: ({ className }: { className?: string }) => (
+    <div data-testid="skeleton" className={className} />
+  ),
 }));
 
 vi.mock("@core/components/ui/button", () => ({
@@ -119,7 +125,9 @@ describe("LogsViewer", () => {
 
     await waitFor(() => {
       expect(screen.queryByText("No logs match the current filters.")).not.toBeNull();
-      expect(screen.queryByText("Try broadening your search or changing the level filter.")).not.toBeNull();
+      expect(
+        screen.queryByText("Try broadening your search or changing the level filter."),
+      ).not.toBeNull();
       // Entry count shows 0 entries
       expect(screen.queryByText("(0 entries)")).not.toBeNull();
     });

@@ -8,7 +8,13 @@ import { logger } from "@/lib/logger";
 
 const log = logger("error-boundary:instances");
 
-export default function InstancesError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function InstancesError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   const [showDetails, setShowDetails] = useState(false);
   const isDev = process.env.NODE_ENV === "development";
 
@@ -26,7 +32,9 @@ export default function InstancesError({ error, reset }: { error: Error & { dige
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-muted-foreground">Failed to load instance data. The API may be temporarily unavailable.</p>
+          <p className="text-muted-foreground">
+            Failed to load instance data. The API may be temporarily unavailable.
+          </p>
           {isDev && (
             <Button
               type="button"

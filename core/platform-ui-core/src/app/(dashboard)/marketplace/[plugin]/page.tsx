@@ -156,9 +156,16 @@ export default function PluginDetailPage() {
     setInstallError(null);
     try {
       const providerChoices = (config._providerChoices as Record<string, string>) ?? {};
-      const primaryProviderOverrides = (config._primaryProviderOverrides as Record<string, string>) ?? undefined;
+      const primaryProviderOverrides =
+        (config._primaryProviderOverrides as Record<string, string>) ?? undefined;
       const { _providerChoices: _, _primaryProviderOverrides: __, ...pluginConfig } = config;
-      const result = await installPlugin(plugin.id, botId, pluginConfig, providerChoices, primaryProviderOverrides);
+      const result = await installPlugin(
+        plugin.id,
+        botId,
+        pluginConfig,
+        providerChoices,
+        primaryProviderOverrides,
+      );
       if (!result.dispatched) {
         if (result.dispatchError === "bot_not_deployed") {
           toast.warning("Bot isn't running — plugin will activate on next start");
@@ -223,7 +230,11 @@ export default function PluginDetailPage() {
   if (installing) {
     return (
       <div className="mx-auto max-w-xl p-6">
-        <InstallWizard plugin={plugin} onComplete={handleInstallComplete} onCancel={() => setInstalling(false)} />
+        <InstallWizard
+          plugin={plugin}
+          onComplete={handleInstallComplete}
+          onCancel={() => setInstalling(false)}
+        />
       </div>
     );
   }
@@ -308,7 +319,12 @@ export default function PluginDetailPage() {
 
       {/* Outcome bullets */}
       {plugin.superpowerOutcomes && plugin.superpowerOutcomes.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="space-y-2">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-2"
+        >
           <h2 className="text-base font-bold">What she can do</h2>
           <ul className="space-y-2">
             {plugin.superpowerOutcomes.map((outcome) => (
@@ -331,13 +347,19 @@ export default function PluginDetailPage() {
         {plugin.capabilities.map((cap) => {
           const color = getCapabilityColor(cap);
           return (
-            <Badge key={cap} variant="outline" className={`${color.bg} ${color.text} ${color.border}`}>
+            <Badge
+              key={cap}
+              variant="outline"
+              className={`${color.bg} ${color.text} ${color.border}`}
+            >
               {cap}
             </Badge>
           );
         })}
         {hostedAvailable && (
-          <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25">{brandName()} Hosted</Badge>
+          <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/25">
+            {brandName()} Hosted
+          </Badge>
         )}
       </motion.div>
 
@@ -386,12 +408,17 @@ export default function PluginDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{brandName()} Hosted Options</CardTitle>
-                <CardDescription>Capabilities available as managed services -- no keys needed.</CardDescription>
+                <CardDescription>
+                  Capabilities available as managed services -- no keys needed.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-3">
                   {hostedAdapters.map((adapter) => (
-                    <li key={adapter.capability} className="flex items-center justify-between rounded-lg border p-3">
+                    <li
+                      key={adapter.capability}
+                      className="flex items-center justify-between rounded-lg border p-3"
+                    >
                       <div>
                         <p className="text-sm font-medium">{adapter.label}</p>
                         <p className="text-xs text-muted-foreground">{adapter.description}</p>
@@ -443,12 +470,15 @@ export default function PluginDetailPage() {
             <CardHeader>
               <CardTitle className="text-base">Configuration Schema</CardTitle>
               <CardDescription>
-                Fields auto-generated from the plugin manifest. These will be filled during installation.
+                Fields auto-generated from the plugin manifest. These will be filled during
+                installation.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {plugin.configSchema.length === 0 ? (
-                <p className="text-sm text-muted-foreground">This plugin has no configuration fields.</p>
+                <p className="text-sm text-muted-foreground">
+                  This plugin has no configuration fields.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {plugin.configSchema.map((field) => (
@@ -459,17 +489,25 @@ export default function PluginDetailPage() {
                           {field.type}
                         </Badge>
                         {field.required && (
-                          <Badge variant="outline" className="text-[10px] border-red-500/25 text-red-500">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-red-500/25 text-red-500"
+                          >
                             required
                           </Badge>
                         )}
                         {field.secret && (
-                          <Badge variant="outline" className="text-[10px] border-yellow-500/25 text-yellow-500">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] border-yellow-500/25 text-yellow-500"
+                          >
                             secret
                           </Badge>
                         )}
                       </div>
-                      {field.description && <p className="mt-1 text-xs text-muted-foreground">{field.description}</p>}
+                      {field.description && (
+                        <p className="mt-1 text-xs text-muted-foreground">{field.description}</p>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -6,7 +6,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { AutoTopupInterval, AutoTopupSettings } from "@/lib/api";
@@ -67,7 +73,10 @@ export function AutoTopupCard() {
     load();
   }, [load]);
 
-  async function save(update: Parameters<typeof updateAutoTopupSettings>[0], prevSettings: AutoTopupSettings) {
+  async function save(
+    update: Parameters<typeof updateAutoTopupSettings>[0],
+    prevSettings: AutoTopupSettings,
+  ) {
     setSaving(true);
     setError(null);
     try {

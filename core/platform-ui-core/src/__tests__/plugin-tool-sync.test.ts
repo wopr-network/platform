@@ -51,7 +51,9 @@ describe("tool definitions stay in sync with handlers", () => {
     const handlerNames = new Set(handlerTools.map((t) => t.name));
 
     for (const def of getPlatformUIToolDefinitions()) {
-      expect(handlerNames.has(def.name), `Definition "${def.name}" has no matching handler`).toBe(true);
+      expect(handlerNames.has(def.name), `Definition "${def.name}" has no matching handler`).toBe(
+        true,
+      );
     }
   });
 });

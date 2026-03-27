@@ -33,7 +33,10 @@ export async function getAffiliateSuppressions(
   return trpcVanilla.admin.affiliateSuppressions.query({ limit, offset });
 }
 
-export async function getAffiliateVelocity(capReferrals = 20, capCredits = 20000): Promise<VelocityReferrer[]> {
+export async function getAffiliateVelocity(
+  capReferrals = 20,
+  capCredits = 20000,
+): Promise<VelocityReferrer[]> {
   return trpcVanilla.admin.affiliateVelocity.query({ capReferrals, capCredits });
 }
 
@@ -41,6 +44,8 @@ export async function getAffiliateFingerprintClusters(): Promise<FingerprintClus
   return trpcVanilla.admin.affiliateFingerprintClusters.query(undefined);
 }
 
-export async function blockAffiliateFingerprint(fingerprint: string): Promise<{ success: boolean }> {
+export async function blockAffiliateFingerprint(
+  fingerprint: string,
+): Promise<{ success: boolean }> {
   return trpcVanilla.admin.affiliateBlockFingerprint.mutate({ fingerprint });
 }

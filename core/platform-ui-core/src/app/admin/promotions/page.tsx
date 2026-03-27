@@ -11,9 +11,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { toUserMessage } from "@/lib/errors";
 import type { Promotion, PromotionStatus, PromotionType } from "@/lib/promotions-types";
 import { trpcVanilla } from "@/lib/trpc";
@@ -40,7 +53,8 @@ const TYPE_LABELS: Record<PromotionType, string> = {
 };
 
 function formatWindow(startsAt: string | null, endsAt: string | null): string {
-  const fmt = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const fmt = (d: string) =>
+    new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   if (!startsAt) return "Immediate";
   if (!endsAt) return `${fmt(startsAt)} — no end`;
   return `${fmt(startsAt)} — ${fmt(endsAt)}`;
@@ -154,7 +168,9 @@ export default function PromotionsListPage() {
           ))}
         </div>
       ) : promotions.length === 0 ? (
-        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">No promotions found.</div>
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+          No promotions found.
+        </div>
       ) : (
         <Table>
           <TableHeader>
@@ -177,16 +193,22 @@ export default function PromotionsListPage() {
                     {p.name}
                   </Link>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{TYPE_LABELS[p.type]}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {TYPE_LABELS[p.type]}
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary" className={cn("text-xs", STATUS_COLORS[p.status])}>
                     {p.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{formatWindow(p.startsAt, p.endsAt)}</TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {formatWindow(p.startsAt, p.endsAt)}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {p.totalUses}
-                  {p.totalUseLimit !== null && <span className="text-muted-foreground">/{p.totalUseLimit}</span>}
+                  {p.totalUseLimit !== null && (
+                    <span className="text-muted-foreground">/{p.totalUseLimit}</span>
+                  )}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-terminal">
                   {formatCreditCount(p.totalCreditsGranted)}
@@ -208,7 +230,9 @@ export default function PromotionsListPage() {
                           View Detail
                         </Link>
                       </DropdownMenuItem>
-                      {(p.status === "draft" || p.status === "scheduled" || p.status === "paused") && (
+                      {(p.status === "draft" ||
+                        p.status === "scheduled" ||
+                        p.status === "paused") && (
                         <DropdownMenuItem onClick={() => handleAction(p.id, "activate")}>
                           <Play className="h-4 w-4 mr-2" />
                           Activate
@@ -221,7 +245,10 @@ export default function PromotionsListPage() {
                         </DropdownMenuItem>
                       )}
                       {p.status !== "cancelled" && p.status !== "expired" && (
-                        <DropdownMenuItem onClick={() => handleAction(p.id, "cancel")} className="text-destructive">
+                        <DropdownMenuItem
+                          onClick={() => handleAction(p.id, "cancel")}
+                          className="text-destructive"
+                        >
                           <XCircle className="h-4 w-4 mr-2" />
                           Cancel
                         </DropdownMenuItem>

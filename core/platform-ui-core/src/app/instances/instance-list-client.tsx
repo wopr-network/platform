@@ -33,9 +33,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useImageStatus } from "@/hooks/use-image-status";
 import type { BotStatusResponse, Instance, InstanceStatus } from "@/lib/api";
 import {
@@ -152,7 +165,10 @@ export function InstanceListClient() {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as InstanceStatus | "all")}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => setStatusFilter(v as InstanceStatus | "all")}
+        >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
@@ -252,12 +268,17 @@ export function InstanceListClient() {
               {filtered.map((inst) => (
                 <TableRow
                   key={inst.id}
-                  className={cn("border-l-2 border-transparent transition-colors", "hover:bg-muted/50", {
-                    "border-l-emerald-500/30 hover:border-l-emerald-500": inst.status === "running",
-                    "hover:border-l-zinc-500": inst.status === "stopped",
-                    "hover:border-l-yellow-500": inst.status === "degraded",
-                    "hover:border-l-red-500": inst.status === "error",
-                  })}
+                  className={cn(
+                    "border-l-2 border-transparent transition-colors",
+                    "hover:bg-muted/50",
+                    {
+                      "border-l-emerald-500/30 hover:border-l-emerald-500":
+                        inst.status === "running",
+                      "hover:border-l-zinc-500": inst.status === "stopped",
+                      "hover:border-l-yellow-500": inst.status === "degraded",
+                      "hover:border-l-red-500": inst.status === "error",
+                    },
+                  )}
                 >
                   <TableCell>
                     <Link href={`/instances/${inst.id}`} className="font-medium hover:underline">
@@ -267,11 +288,17 @@ export function InstanceListClient() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <StatusBadge status={inst.status} />
-                      <InstanceUpdateBadge instanceId={inst.id} instanceName={inst.name} onUpdated={refetch} />
+                      <InstanceUpdateBadge
+                        instanceId={inst.id}
+                        instanceName={inst.name}
+                        onUpdated={refetch}
+                      />
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{inst.provider}</TableCell>
-                  <TableCell className="text-muted-foreground">{formatUptime(inst.uptime)}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatUptime(inst.uptime)}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{inst.plugins.length}</TableCell>
                   <TableCell>
                     <InstanceRowActions
@@ -306,8 +333,9 @@ export function InstanceListClient() {
           <DialogHeader>
             <DialogTitle>Destroy {destroyTarget?.name} permanently?</DialogTitle>
             <DialogDescription>
-              This action is permanent and cannot be undone. The instance and all its data will be destroyed. Type{" "}
-              <strong className="text-foreground">{destroyTarget?.name}</strong> to confirm.
+              This action is permanent and cannot be undone. The instance and all its data will be
+              destroyed. Type <strong className="text-foreground">{destroyTarget?.name}</strong> to
+              confirm.
             </DialogDescription>
           </DialogHeader>
 
@@ -371,7 +399,8 @@ export function InstanceListClient() {
           <DialogHeader>
             <DialogTitle>Rename instance</DialogTitle>
             <DialogDescription>
-              Enter a new name for <strong className="text-foreground">{renameTarget?.name}</strong>.
+              Enter a new name for <strong className="text-foreground">{renameTarget?.name}</strong>
+              .
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -380,7 +409,12 @@ export function InstanceListClient() {
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && renameValue.trim() && renameValue.trim() !== renameTarget?.name) handleRename();
+              if (
+                e.key === "Enter" &&
+                renameValue.trim() &&
+                renameValue.trim() !== renameTarget?.name
+              )
+                handleRename();
             }}
             disabled={renameLoading}
           />
@@ -397,7 +431,9 @@ export function InstanceListClient() {
               Cancel
             </Button>
             <Button
-              disabled={renameLoading || !renameValue.trim() || renameValue.trim() === renameTarget?.name}
+              disabled={
+                renameLoading || !renameValue.trim() || renameValue.trim() === renameTarget?.name
+              }
               onClick={handleRename}
               aria-label="Save"
             >
@@ -458,8 +494,16 @@ export function InstanceRowActions({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {updateAvailable && (
-            <DropdownMenuItem className="text-amber-500" onClick={() => setConfirmPull(true)} disabled={pulling}>
-              {pulling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ArrowDownToLine className="mr-2 size-4" />}
+            <DropdownMenuItem
+              className="text-amber-500"
+              onClick={() => setConfirmPull(true)}
+              disabled={pulling}
+            >
+              {pulling ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <ArrowDownToLine className="mr-2 size-4" />
+              )}
               {pulling ? "Pulling..." : "Pull Update"}
             </DropdownMenuItem>
           )}
@@ -469,7 +513,9 @@ export function InstanceRowActions({
           {(inst.status === "running" || inst.status === "degraded") && (
             <>
               <DropdownMenuItem onClick={() => onAction(inst.id, "stop")}>Stop</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAction(inst.id, "restart")}>Restart</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onAction(inst.id, "restart")}>
+                Restart
+              </DropdownMenuItem>
             </>
           )}
           <DropdownMenuSeparator />
@@ -513,7 +559,10 @@ function InstanceUpdateBadge({
   onUpdated?: () => void;
 }) {
   const { updateAvailable } = useImageStatus(instanceId);
-  const { data: changelog } = trpc.fleet.getChangelog.useQuery({ instanceId }, { enabled: updateAvailable });
+  const { data: changelog } = trpc.fleet.getChangelog.useQuery(
+    { instanceId },
+    { enabled: updateAvailable },
+  );
 
   if (!updateAvailable) return null;
 

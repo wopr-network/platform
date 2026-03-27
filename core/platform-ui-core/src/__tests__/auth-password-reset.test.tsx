@@ -26,8 +26,12 @@ vi.mock("better-auth/react", () => ({
 
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
-    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <p {...props}>{children}</p>,
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    ),
+    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <p {...props}>{children}</p>
+    ),
   },
 }));
 
@@ -146,8 +150,12 @@ describe("Reset password page", () => {
   beforeEach(() => {
     mockFetch = vi.fn();
     mockPush.mockClear();
-    vi.mocked(useRouter).mockReturnValue({ push: mockPush } as unknown as ReturnType<typeof useRouter>);
-    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams() as ReturnType<typeof useSearchParams>);
+    vi.mocked(useRouter).mockReturnValue({ push: mockPush } as unknown as ReturnType<
+      typeof useRouter
+    >);
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams() as ReturnType<typeof useSearchParams>,
+    );
   });
 
   it("shows access denied when no token is present", async () => {
@@ -338,7 +346,9 @@ describe("Reset password page", () => {
     await user.click(screen.getByRole("button", { name: "Reset password" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Password must contain at least one uppercase letter")).toBeInTheDocument();
+      expect(
+        screen.getByText("Password must contain at least one uppercase letter"),
+      ).toBeInTheDocument();
     });
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -356,7 +366,9 @@ describe("Reset password page", () => {
     await user.click(screen.getByRole("button", { name: "Reset password" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Password must contain at least one lowercase letter")).toBeInTheDocument();
+      expect(
+        screen.getByText("Password must contain at least one lowercase letter"),
+      ).toBeInTheDocument();
     });
     expect(mockFetch).not.toHaveBeenCalled();
   });
@@ -392,7 +404,9 @@ describe("Reset password page", () => {
     await user.click(screen.getByRole("button", { name: "Reset password" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Password must contain at least one special character")).toBeInTheDocument();
+      expect(
+        screen.getByText("Password must contain at least one special character"),
+      ).toBeInTheDocument();
     });
     expect(mockFetch).not.toHaveBeenCalled();
   });

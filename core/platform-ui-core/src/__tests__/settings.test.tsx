@@ -200,10 +200,14 @@ vi.mock("@/lib/api", async (importOriginal) => {
     saveProviderKey: vi.fn().mockResolvedValue({ ok: true, id: "test-id", provider: "openai" }),
     updateProviderModel: vi.fn().mockResolvedValue(undefined),
     listApiKeys: vi.fn().mockResolvedValue(MOCK_API_KEYS),
-    createApiKey: vi.fn().mockResolvedValue({ key: MOCK_API_KEYS[0], secret: "platform_test_secret" }),
+    createApiKey: vi
+      .fn()
+      .mockResolvedValue({ key: MOCK_API_KEYS[0], secret: "platform_test_secret" }),
     revokeApiKey: vi.fn().mockResolvedValue(undefined),
     getBillingUsage: vi.fn().mockResolvedValue(MOCK_BILLING_USAGE),
-    createBillingPortalSession: vi.fn().mockResolvedValue({ url: "https://billing.stripe.com/session/test" }),
+    createBillingPortalSession: vi
+      .fn()
+      .mockResolvedValue({ url: "https://billing.stripe.com/session/test" }),
     storeTenantKey: vi.fn().mockResolvedValue({
       provider: "anthropic",
       hasKey: true,
@@ -266,7 +270,9 @@ vi.mock("@/lib/org-api", () => ({
   revokeInvite: vi.fn().mockResolvedValue(undefined),
   removeMember: vi.fn().mockResolvedValue(undefined),
   transferOwnership: vi.fn().mockResolvedValue(undefined),
-  createOrganization: vi.fn().mockResolvedValue({ id: "org-new", name: "Test Org", slug: "test-org" }),
+  createOrganization: vi
+    .fn()
+    .mockResolvedValue({ id: "org-new", name: "Test Org", slug: "test-org" }),
 }));
 
 // Mock @/lib/auth-client for OAuth account linking
@@ -448,7 +454,9 @@ describe("Providers page - billing gate", () => {
     await user.click(hostedRadio);
 
     // Dialog opens — wait for billing check to complete
-    expect(await screen.findByText(/Enable Platform Hosted for Text Generation/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Enable Platform Hosted for Text Generation/),
+    ).toBeInTheDocument();
     // With a payment method on file, the Enable Hosted button should appear
     expect(await screen.findByRole("button", { name: "Enable Hosted" })).toBeInTheDocument();
   });
@@ -870,7 +878,9 @@ describe("Notifications page - no team language", () => {
       fleet_updates: true,
     });
 
-    const { default: NotificationsPage } = await import("../app/(dashboard)/settings/notifications/page");
+    const { default: NotificationsPage } = await import(
+      "../app/(dashboard)/settings/notifications/page"
+    );
     render(<NotificationsPage />);
 
     await screen.findByText("Notifications");

@@ -17,7 +17,10 @@ const STATUS_LABELS: Record<HealthStatus, string> = {
   unhealthy: "Down",
 };
 
-const BANNER_CONFIG: Record<HealthStatus, { text: string; border: string; bg: string; textColor: string }> = {
+const BANNER_CONFIG: Record<
+  HealthStatus,
+  { text: string; border: string; bg: string; textColor: string }
+> = {
   healthy: {
     text: "> ALL SYSTEMS OPERATIONAL",
     border: "border-terminal/20",
@@ -93,7 +96,9 @@ export function StatusPage() {
     <div className="mx-auto max-w-2xl px-6 py-16">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Platform Status</h1>
-        <p className="text-sm text-muted-foreground">Real-time health of the {brandName()} platform.</p>
+        <p className="text-sm text-muted-foreground">
+          Real-time health of the {brandName()} platform.
+        </p>
       </div>
 
       <div className="mt-8 space-y-6">
@@ -111,7 +116,9 @@ export function StatusPage() {
             <div className="flex items-center gap-3">
               <XCircle className="size-5 shrink-0 text-red-500" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-red-500">Unable to reach the {brandName()} platform</p>
+                <p className="text-sm font-medium text-red-500">
+                  Unable to reach the {brandName()} platform
+                </p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   The health endpoint is not responding. The platform may be experiencing an outage.
                 </p>
@@ -129,7 +136,14 @@ export function StatusPage() {
             {(() => {
               const cfg = BANNER_CONFIG[health.status];
               return (
-                <div className={cn("rounded-sm border px-4 py-2 text-sm font-mono", cfg.border, cfg.bg, cfg.textColor)}>
+                <div
+                  className={cn(
+                    "rounded-sm border px-4 py-2 text-sm font-mono",
+                    cfg.border,
+                    cfg.bg,
+                    cfg.textColor,
+                  )}
+                >
                   {cfg.text}
                 </div>
               );
@@ -146,7 +160,9 @@ export function StatusPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       {svc.latencyMs !== null && (
-                        <span className="text-xs font-mono text-muted-foreground">{svc.latencyMs}ms</span>
+                        <span className="text-xs font-mono text-muted-foreground">
+                          {svc.latencyMs}ms
+                        </span>
                       )}
                       <div className="flex items-center gap-1.5">
                         <StatusIcon status={svc.status} />
@@ -174,7 +190,13 @@ export function StatusPage() {
               </div>
               <div className="flex items-center gap-2">
                 {lastChecked && <span>checked {lastChecked.toLocaleTimeString()}</span>}
-                <Button variant="ghost" size="sm" className="h-6 px-2" onClick={load} disabled={refreshing}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2"
+                  onClick={load}
+                  disabled={refreshing}
+                >
                   <RefreshCw className={cn("size-3", refreshing && "animate-spin")} />
                 </Button>
               </div>

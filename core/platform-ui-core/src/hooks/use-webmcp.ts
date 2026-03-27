@@ -17,7 +17,10 @@ export function useWebMCP(): void {
   const registeredRef = useRef(false);
   const router = useRouter();
 
-  const confirm = useCallback((message: string): Promise<boolean> => Promise.resolve(window.confirm(message)), []);
+  const confirm = useCallback(
+    (message: string): Promise<boolean> => Promise.resolve(window.confirm(message)),
+    [],
+  );
 
   useEffect(() => {
     const isAuthenticated = session?.user != null;

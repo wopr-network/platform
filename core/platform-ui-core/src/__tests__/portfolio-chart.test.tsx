@@ -7,7 +7,9 @@ describe("PortfolioChart", () => {
   it("renders a canvas element", () => {
     const milestoneRef = createRef<((label: string) => void) | null>();
     const fadeStartRef = createRef<(() => void) | null>();
-    const { container } = render(<PortfolioChart onMilestoneRef={milestoneRef} onFadeStartRef={fadeStartRef} />);
+    const { container } = render(
+      <PortfolioChart onMilestoneRef={milestoneRef} onFadeStartRef={fadeStartRef} />,
+    );
     const canvas = container.querySelector("canvas");
     expect(canvas).toBeInTheDocument();
   });
@@ -15,6 +17,8 @@ describe("PortfolioChart", () => {
   it("renders without crashing when refs are provided", () => {
     const milestoneRef = createRef<((label: string) => void) | null>();
     const fadeStartRef = createRef<(() => void) | null>();
-    expect(() => render(<PortfolioChart onMilestoneRef={milestoneRef} onFadeStartRef={fadeStartRef} />)).not.toThrow();
+    expect(() =>
+      render(<PortfolioChart onMilestoneRef={milestoneRef} onFadeStartRef={fadeStartRef} />),
+    ).not.toThrow();
   });
 });

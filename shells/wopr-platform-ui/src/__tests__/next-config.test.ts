@@ -10,7 +10,9 @@ describe("next.config.ts headers()", () => {
   it("should not apply CSP to all routes via /:path*", async () => {
     const entries = await nextConfig.headers?.();
     const allRoutesEntry = entries?.find((e: { source: string }) => e.source === "/:path*");
-    const cspOnAllRoutes = allRoutesEntry?.headers.find((h: { key: string }) => h.key === "Content-Security-Policy");
+    const cspOnAllRoutes = allRoutesEntry?.headers.find(
+      (h: { key: string }) => h.key === "Content-Security-Policy",
+    );
     expect(cspOnAllRoutes).toBeUndefined();
   });
 

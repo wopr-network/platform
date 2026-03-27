@@ -9,7 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { usePluginRegistry } from "@/hooks/use-plugin-registry";
 import { createInstance } from "@/lib/api";
@@ -72,7 +78,9 @@ export function CreateInstanceClient() {
   }
 
   function toggleChannel(ch: string) {
-    setSelectedChannels((prev) => (prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]));
+    setSelectedChannels((prev) =>
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch],
+    );
   }
 
   function togglePlugin(p: string) {
@@ -136,10 +144,14 @@ export function CreateInstanceClient() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          Your instance <span className="font-medium text-terminal">&ldquo;{name}&rdquo;</span> has been created
-          successfully.
+          Your instance <span className="font-medium text-terminal">&ldquo;{name}&rdquo;</span> has
+          been created successfully.
         </motion.p>
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
           <Button variant="terminal" asChild>
             <Link href="/instances">Back to Instances</Link>
           </Button>
@@ -167,7 +179,9 @@ export function CreateInstanceClient() {
     >
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Create Instance</h1>
-        <p className="text-sm text-muted-foreground">Launch a new {productName()} bot. Pick a preset or go custom.</p>
+        <p className="text-sm text-muted-foreground">
+          Launch a new {productName()} bot. Pick a preset or go custom.
+        </p>
       </div>
 
       {/* Instance Name (required, above presets) */}
@@ -197,7 +211,9 @@ export function CreateInstanceClient() {
       {/* Preset (optional) */}
       <div className="space-y-3">
         <div>
-          <div className="font-mono text-xs uppercase tracking-[0.3em] text-terminal/60">QUICK START</div>
+          <div className="font-mono text-xs uppercase tracking-[0.3em] text-terminal/60">
+            QUICK START
+          </div>
           <h2 className="text-sm font-medium text-muted-foreground">
             Select a preset to auto-fill, or skip to configure manually
           </h2>
@@ -214,7 +230,8 @@ export function CreateInstanceClient() {
                 className={cn(
                   "relative cursor-pointer transition-all hover:border-terminal/40 hover:shadow-[0_0_8px_rgba(0,255,65,0.15)]",
                   "border-l-2",
-                  selectedPreset === preset.id && "border-terminal bg-terminal/5 shadow-[0_0_12px_rgba(0,255,65,0.2)]",
+                  selectedPreset === preset.id &&
+                    "border-terminal bg-terminal/5 shadow-[0_0_12px_rgba(0,255,65,0.2)]",
                 )}
                 style={{
                   borderLeftColor: PRESET_ACCENT_COLORS[preset.id] ?? "transparent",
@@ -271,8 +288,12 @@ export function CreateInstanceClient() {
       {/* Configuration */}
       <div className="space-y-4">
         <div>
-          <div className="font-mono text-xs uppercase tracking-[0.3em] text-terminal/60">CONFIGURATION</div>
-          <h2 className="text-sm font-medium text-muted-foreground">Fine-tune your instance settings</h2>
+          <div className="font-mono text-xs uppercase tracking-[0.3em] text-terminal/60">
+            CONFIGURATION
+          </div>
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Fine-tune your instance settings
+          </h2>
         </div>
 
         <div className="space-y-2">

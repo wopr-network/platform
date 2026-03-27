@@ -16,7 +16,10 @@ export function SuspensionBanner() {
 
   const load = useCallback(async () => {
     try {
-      const [data, summaryData] = await Promise.all([getCreditBalance(), getBillingUsageSummary().catch(() => null)]);
+      const [data, summaryData] = await Promise.all([
+        getCreditBalance(),
+        getBillingUsageSummary().catch(() => null),
+      ]);
       setBalance(data.balance);
       setRunway(data.runway);
       setSummary(summaryData);
@@ -37,7 +40,9 @@ export function SuspensionBanner() {
       <LowBalanceBanner balance={balance} runway={runway} global />
       {summary && summary.amountDue > 0 && (
         <Banner variant="warning" role="alert">
-          <span className="flex-1">{formatCreditStandard(summary.amountDue)} due this billing period</span>
+          <span className="flex-1">
+            {formatCreditStandard(summary.amountDue)} due this billing period
+          </span>
           <Link href="/billing/usage" className="font-semibold underline underline-offset-4">
             View usage
           </Link>

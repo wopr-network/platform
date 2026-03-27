@@ -11,7 +11,11 @@ interface ResendVerificationButtonProps {
   className?: string;
 }
 
-export function ResendVerificationButton({ email, variant = "terminal", className }: ResendVerificationButtonProps) {
+export function ResendVerificationButton({
+  email,
+  variant = "terminal",
+  className,
+}: ResendVerificationButtonProps) {
   const [cooldown, setCooldown] = useState(0);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -57,7 +61,11 @@ export function ResendVerificationButton({ email, variant = "terminal", classNam
     }
   }, [email, cooldown, sending]);
 
-  const buttonText = sending ? "Sending..." : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email";
+  const buttonText = sending
+    ? "Sending..."
+    : cooldown > 0
+      ? `Resend in ${cooldown}s`
+      : "Resend verification email";
 
   return (
     <div className="flex flex-col gap-1">

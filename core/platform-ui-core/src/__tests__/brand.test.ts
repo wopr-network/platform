@@ -78,7 +78,15 @@ describe("Brand Bible", () => {
 
   describe("Emotional arc", () => {
     it("defines feelings for all major page types", () => {
-      const pages = ["landing", "onboarding", "dashboard", "marketplace", "billing", "settings", "fleet"] as const;
+      const pages = [
+        "landing",
+        "onboarding",
+        "dashboard",
+        "marketplace",
+        "billing",
+        "settings",
+        "fleet",
+      ] as const;
       for (const page of pages) {
         expect(typeof emotionalArc[page].feel).toBe("string");
         expect(typeof emotionalArc[page].job).toBe("string");
@@ -234,12 +242,16 @@ describe("Brand Bible", () => {
     });
 
     it("includes product name usage examples", () => {
-      const hasNameExample = copyExamples.some((e) => e.do.includes("Platform") || e.rule.includes("Platform"));
+      const hasNameExample = copyExamples.some(
+        (e) => e.do.includes("Platform") || e.rule.includes("Platform"),
+      );
       expect(hasNameExample).toBe(true);
     });
 
     it("includes supercomputer angle", () => {
-      const hasSupercomputer = copyExamples.some((e) => e.do.toLowerCase().includes("supercomputer"));
+      const hasSupercomputer = copyExamples.some((e) =>
+        e.do.toLowerCase().includes("supercomputer"),
+      );
       expect(hasSupercomputer).toBe(true);
     });
   });
@@ -292,7 +304,15 @@ describe("Brand Bible", () => {
 
   describe("Copy frameworks", () => {
     it("defines frameworks for all page types", () => {
-      const pages = ["landing", "onboarding", "dashboard", "marketplace", "billing", "settings", "empty"] as const;
+      const pages = [
+        "landing",
+        "onboarding",
+        "dashboard",
+        "marketplace",
+        "billing",
+        "settings",
+        "empty",
+      ] as const;
       for (const page of pages) {
         expect(typeof copyFrameworks[page].headline).toBe("string");
       }

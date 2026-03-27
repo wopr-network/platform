@@ -28,7 +28,9 @@ export default function ChangesetDetailError({
           <CardTitle>Changeset Error</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
-          <p className="text-sm text-muted-foreground">Something went wrong while loading this changeset.</p>
+          <p className="text-sm text-muted-foreground">
+            Something went wrong while loading this changeset.
+          </p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={reset}>
               Retry
@@ -39,7 +41,9 @@ export default function ChangesetDetailError({
           </div>
           {process.env.NODE_ENV === "development" && (
             <details className="mt-4 text-left">
-              <summary className="cursor-pointer text-xs text-muted-foreground">Error details</summary>
+              <summary className="cursor-pointer text-xs text-muted-foreground">
+                Error details
+              </summary>
               <pre className="mt-2 overflow-auto rounded bg-muted p-2 text-xs">
                 {error.message}
                 {error.stack && `\n\n${error.stack}`}

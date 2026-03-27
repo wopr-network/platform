@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toUserMessage } from "@/lib/errors";
 
 interface FleetConfig {
@@ -118,7 +124,10 @@ export function FleetForm({ initial, onSave }: FleetFormProps) {
 
           <div className="space-y-1.5">
             <Label htmlFor="fleet-placementStrategy">Placement Strategy</Label>
-            <Select value={form.placementStrategy} onValueChange={(v) => setStr("placementStrategy", v)}>
+            <Select
+              value={form.placementStrategy}
+              onValueChange={(v) => setStr("placementStrategy", v)}
+            >
               <SelectTrigger id="fleet-placementStrategy">
                 <SelectValue placeholder="Select strategy" />
               </SelectTrigger>

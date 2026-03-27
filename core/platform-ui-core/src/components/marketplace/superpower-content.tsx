@@ -61,7 +61,9 @@ const mdComponents = {
   em: ({ children }: ComponentPropsWithoutRef<"em">) => (
     <em className="text-lg text-muted-foreground not-italic font-light">{children}</em>
   ),
-  ul: ({ children }: ComponentPropsWithoutRef<"ul">) => <ul className="space-y-2 ml-1">{children}</ul>,
+  ul: ({ children }: ComponentPropsWithoutRef<"ul">) => (
+    <ul className="space-y-2 ml-1">{children}</ul>
+  ),
   li: ({ children }: ComponentPropsWithoutRef<"li">) => (
     <li className="flex items-start gap-2 text-sm leading-relaxed">
       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />

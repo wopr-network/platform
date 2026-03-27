@@ -7,7 +7,13 @@ import { logger } from "@/lib/logger";
 
 const log = logger("global-error");
 
-export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   const [showDetails, setShowDetails] = useState(false);
   const isDev = process.env.NODE_ENV === "development";
 
@@ -37,7 +43,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               <div className="flex items-center gap-3">
                 <AlertTriangleIcon className="size-6 text-red-500" />
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">{brandName()}</p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-neutral-500">
+                    {brandName()}
+                  </p>
                   <h1 className="text-xl font-semibold text-neutral-100">Something went wrong</h1>
                 </div>
               </div>

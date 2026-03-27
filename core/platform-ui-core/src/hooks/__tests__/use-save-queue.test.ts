@@ -74,7 +74,10 @@ describe("useSaveQueue", () => {
   });
 
   it("sets error on save failure and clears it on next successful save", async () => {
-    const saveFn = vi.fn().mockRejectedValueOnce(new Error("network error")).mockResolvedValueOnce(undefined);
+    const saveFn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("network error"))
+      .mockResolvedValueOnce(undefined);
 
     const { result } = renderHook(() => useSaveQueue(saveFn));
 
@@ -99,7 +102,10 @@ describe("useSaveQueue", () => {
       resolveSecond = resolve;
     });
 
-    const saveFn = vi.fn().mockRejectedValueOnce(new Error("oops")).mockReturnValueOnce(secondPromise);
+    const saveFn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("oops"))
+      .mockReturnValueOnce(secondPromise);
 
     const { result } = renderHook(() => useSaveQueue(saveFn));
 

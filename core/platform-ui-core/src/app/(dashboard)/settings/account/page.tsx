@@ -105,7 +105,12 @@ export default function AccountPage() {
                 {usage.instancesRunning} of {usage.instanceCap} instances used
               </span>
             </div>
-            <Button variant="terminal" size="sm" onClick={handleManageBilling} disabled={portalLoading}>
+            <Button
+              variant="terminal"
+              size="sm"
+              onClick={handleManageBilling}
+              disabled={portalLoading}
+            >
               {portalLoading ? "Redirecting..." : "Manage Billing"}
             </Button>
           </CardContent>

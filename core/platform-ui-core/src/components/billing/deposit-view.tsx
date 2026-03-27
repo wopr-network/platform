@@ -33,7 +33,11 @@ export function DepositView({ checkout, status, onBack }: DepositViewProps) {
 
   return (
     <div className="space-y-4 text-center">
-      <button type="button" onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground self-start">
+      <button
+        type="button"
+        onClick={onBack}
+        className="text-sm text-muted-foreground hover:text-foreground self-start"
+      >
         &larr; Back
       </button>
       <p className="text-sm text-muted-foreground">Send exactly</p>
@@ -41,7 +45,10 @@ export function DepositView({ checkout, status, onBack }: DepositViewProps) {
       <p className="text-xs text-muted-foreground">
         on {checkout.chain} &middot; ${checkout.amountUsd.toFixed(2)} USD
       </p>
-      <div className="mx-auto w-fit rounded-lg border border-border bg-background p-3" aria-hidden="true">
+      <div
+        className="mx-auto w-fit rounded-lg border border-border bg-background p-3"
+        aria-hidden="true"
+      >
         <QRCodeSVG
           value={checkout.depositAddress}
           size={140}
@@ -52,7 +59,11 @@ export function DepositView({ checkout, status, onBack }: DepositViewProps) {
       <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
         <code className="flex-1 truncate text-xs font-mono">{checkout.depositAddress}</code>
         <Button variant="ghost" size="sm" onClick={handleCopy} aria-label="Copy address">
-          {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <Copy className="h-3.5 w-3.5" />
+          )}
         </Button>
       </div>
       <div className="flex items-center justify-center gap-2 rounded-lg border border-border p-2">

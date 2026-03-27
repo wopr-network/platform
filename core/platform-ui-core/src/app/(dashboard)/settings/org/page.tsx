@@ -19,10 +19,23 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useIsAdminOrOwner } from "@/hooks/use-my-org-role";
 import type { Organization, OrgMember } from "@/lib/api";
 import {
@@ -218,7 +231,12 @@ export default function OrgPage() {
             <form onSubmit={handleSave} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="org-name">Organization name</Label>
-                <Input id="org-name" value={orgName} onChange={(e) => setOrgName(e.target.value)} required />
+                <Input
+                  id="org-name"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  required
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="org-slug">Slug</Label>
@@ -266,7 +284,12 @@ export default function OrgPage() {
                       Saved
                     </motion.span>
                   ) : (
-                    <motion.span key="save" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <motion.span
+                      key="save"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
                       {saving ? "Saving..." : "Save changes"}
                     </motion.span>
                   )}
@@ -362,8 +385,14 @@ export default function OrgPage() {
                           currentRole={member.role}
                           onChangeRole={(role) => handleChangeRole(member.userId, role)}
                         />
-                        <TransferDialog memberName={member.name} onTransfer={() => handleTransfer(member.userId)} />
-                        <RemoveMemberDialog memberName={member.name} onRemove={() => handleRemove(member.userId)} />
+                        <TransferDialog
+                          memberName={member.name}
+                          onTransfer={() => handleTransfer(member.userId)}
+                        />
+                        <RemoveMemberDialog
+                          memberName={member.name}
+                          onRemove={() => handleRemove(member.userId)}
+                        />
                       </div>
                     )}
                   </TableCell>
@@ -398,7 +427,9 @@ export default function OrgPage() {
                   <TableRow key={invite.id}>
                     <TableCell className="font-medium">{invite.email}</TableCell>
                     <TableCell>
-                      <Badge variant={invite.role === "admin" ? "default" : "outline"}>{invite.role}</Badge>
+                      <Badge variant={invite.role === "admin" ? "default" : "outline"}>
+                        {invite.role}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(invite.expiresAt).toLocaleDateString("en-US", {
@@ -523,7 +554,13 @@ function InviteDialog({ orgId, onInvited }: { orgId: string; onInvited: () => vo
   );
 }
 
-function RemoveMemberDialog({ memberName, onRemove }: { memberName: string; onRemove: () => void }) {
+function RemoveMemberDialog({
+  memberName,
+  onRemove,
+}: {
+  memberName: string;
+  onRemove: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -537,8 +574,8 @@ function RemoveMemberDialog({ memberName, onRemove }: { memberName: string; onRe
         <DialogHeader>
           <DialogTitle>Remove Member</DialogTitle>
           <DialogDescription>
-            Are you sure you want to remove <strong>{memberName}</strong> from the organization? They will lose access
-            immediately.
+            Are you sure you want to remove <strong>{memberName}</strong> from the organization?
+            They will lose access immediately.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -560,7 +597,13 @@ function RemoveMemberDialog({ memberName, onRemove }: { memberName: string; onRe
   );
 }
 
-function TransferDialog({ memberName, onTransfer }: { memberName: string; onTransfer: () => void }) {
+function TransferDialog({
+  memberName,
+  onTransfer,
+}: {
+  memberName: string;
+  onTransfer: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -574,8 +617,8 @@ function TransferDialog({ memberName, onTransfer }: { memberName: string; onTran
         <DialogHeader>
           <DialogTitle>Transfer Ownership</DialogTitle>
           <DialogDescription>
-            Transfer organization ownership to <strong>{memberName}</strong>? You will become an admin. This action
-            cannot be undone.
+            Transfer organization ownership to <strong>{memberName}</strong>? You will become an
+            admin. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

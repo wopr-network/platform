@@ -70,7 +70,11 @@ export async function addPluginByNpm(req: AddPluginRequest): Promise<AdminPlugin
 }
 
 export async function reorderPlugins(orderedIds: string[]): Promise<void> {
-  await Promise.all(orderedIds.map((id, i) => trpcVanilla.adminMarketplace.updatePlugin.mutate({ id, sort_order: i })));
+  await Promise.all(
+    orderedIds.map((id, i) =>
+      trpcVanilla.adminMarketplace.updatePlugin.mutate({ id, sort_order: i }),
+    ),
+  );
 }
 
 export async function deletePlugin(id: string): Promise<void> {

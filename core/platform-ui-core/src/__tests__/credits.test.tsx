@@ -148,7 +148,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
         bonusPercent: 10,
       },
     ]),
-    createCreditCheckout: vi.fn().mockResolvedValue({ checkoutUrl: "https://checkout.stripe.com/test" }),
+    createCreditCheckout: vi
+      .fn()
+      .mockResolvedValue({ checkoutUrl: "https://checkout.stripe.com/test" }),
     getAutoTopupSettings: vi.fn().mockResolvedValue({
       usageBased: { enabled: false, thresholdCents: 500, topupAmountCents: 2000 },
       scheduled: { enabled: false, amountCents: 2000, interval: "weekly", nextChargeDate: null },
@@ -232,7 +234,9 @@ describe("Credits page", () => {
     const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
     render(<CreditsPage />);
 
-    expect(await screen.findByRole("button", { name: "Load more" }, { timeout: 5000 })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Load more" }, { timeout: 5000 }),
+    ).toBeInTheDocument();
   });
 
   it("loads next page of transactions on load more click", async () => {

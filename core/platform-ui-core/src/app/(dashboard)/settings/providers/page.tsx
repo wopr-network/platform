@@ -21,10 +21,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCapabilityMeta } from "@/hooks/use-capability-meta";
-import type { CapabilityMetaEntry, CapabilityMode, CapabilityName, CapabilitySetting, ProviderKey } from "@/lib/api";
+import type {
+  CapabilityMetaEntry,
+  CapabilityMode,
+  CapabilityName,
+  CapabilitySetting,
+  ProviderKey,
+} from "@/lib/api";
 import {
   getBillingInfo,
   getCreditBalance,
@@ -35,7 +47,11 @@ import {
   updateProviderModel,
 } from "@/lib/api";
 import { brandName } from "@/lib/brand-config";
-import { listCapabilities, testProviderKey as testCapabilityViaTrpc, updateCapability } from "@/lib/settings-api";
+import {
+  listCapabilities,
+  testProviderKey as testCapabilityViaTrpc,
+  updateCapability,
+} from "@/lib/settings-api";
 import { cn } from "@/lib/utils";
 
 // --- Helpers ---
@@ -177,7 +193,10 @@ export default function ProvidersPage() {
       setTestCapResult((prev) => ({ ...prev, [capability]: "fail" }));
     }
     setTestingCap(null);
-    testCapResultTimer.current = setTimeout(() => setTestCapResult((prev) => ({ ...prev, [capability]: null })), 2000);
+    testCapResultTimer.current = setTimeout(
+      () => setTestCapResult((prev) => ({ ...prev, [capability]: null })),
+      2000,
+    );
   }
 
   async function handleTest(id: string) {
@@ -195,7 +214,10 @@ export default function ProvidersPage() {
     const provs = await listProviderKeys();
     setProviders(provs);
     setTesting(null);
-    testResultTimer.current = setTimeout(() => setTestResult((prev) => ({ ...prev, [id]: null })), 2000);
+    testResultTimer.current = setTimeout(
+      () => setTestResult((prev) => ({ ...prev, [id]: null })),
+      2000,
+    );
   }
 
   async function handleRemove(id: string, providerName: string) {
@@ -257,7 +279,8 @@ export default function ProvidersPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Provider Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Choose {brandName()} Hosted or Bring Your Own Key for each capability. Changes take effect immediately.
+          Choose {brandName()} Hosted or Bring Your Own Key for each capability. Changes take effect
+          immediately.
         </p>
       </div>
 
@@ -306,7 +329,10 @@ export default function ProvidersPage() {
                   <RadioGroupItem value="hosted" id={`mode-${capName}-hosted`} className="mt-1" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <Label htmlFor={`mode-${capName}-hosted`} className="text-sm font-medium cursor-pointer">
+                      <Label
+                        htmlFor={`mode-${capName}-hosted`}
+                        className="text-sm font-medium cursor-pointer"
+                      >
                         {brandName()} Hosted
                       </Label>
                       <Badge variant="outline">{meta.pricing}</Badge>
@@ -324,10 +350,15 @@ export default function ProvidersPage() {
                 >
                   <RadioGroupItem value="byok" id={`mode-${capName}-byok`} className="mt-1" />
                   <div className="flex-1">
-                    <Label htmlFor={`mode-${capName}-byok`} className="text-sm font-medium cursor-pointer">
+                    <Label
+                      htmlFor={`mode-${capName}-byok`}
+                      className="text-sm font-medium cursor-pointer"
+                    >
                       Bring Your Own Key
                     </Label>
-                    {cap?.provider && <span className="ml-2 text-xs text-muted-foreground">({cap.provider})</span>}
+                    {cap?.provider && (
+                      <span className="ml-2 text-xs text-muted-foreground">({cap.provider})</span>
+                    )}
                   </div>
                 </div>
               </RadioGroup>
@@ -344,15 +375,21 @@ export default function ProvidersPage() {
                       {cap?.maskedKey && (
                         <div className="flex items-center gap-2">
                           <code className="text-xs text-muted-foreground">{cap.maskedKey}</code>
-                          {cap.keyStatus && <Badge variant={keyStatusVariant(cap.keyStatus)}>{cap.keyStatus}</Badge>}
+                          {cap.keyStatus && (
+                            <Badge variant={keyStatusVariant(cap.keyStatus)}>{cap.keyStatus}</Badge>
+                          )}
                         </div>
                       )}
                       <div className="flex gap-2">
                         <Input
                           type="password"
-                          placeholder={cap?.maskedKey ? "Enter new key to replace" : "Enter your API key"}
+                          placeholder={
+                            cap?.maskedKey ? "Enter new key to replace" : "Enter your API key"
+                          }
                           value={byokKey}
-                          onChange={(e) => setByokKeys((prev) => ({ ...prev, [capName]: e.target.value }))}
+                          onChange={(e) =>
+                            setByokKeys((prev) => ({ ...prev, [capName]: e.target.value }))
+                          }
                           className="flex-1"
                           aria-label={`${meta.label} API key`}
                         />
@@ -396,7 +433,11 @@ export default function ProvidersPage() {
                         >
                           <AnimatePresence mode="wait">
                             {isTesting ? (
-                              <motion.span key="testing" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                              <motion.span
+                                key="testing"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                              >
                                 Testing...
                               </motion.span>
                             ) : capTestResult === "success" ? (
@@ -420,7 +461,11 @@ export default function ProvidersPage() {
                                 Failed
                               </motion.span>
                             ) : (
-                              <motion.span key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                              <motion.span
+                                key="idle"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                              >
                                 Test Key
                               </motion.span>
                             )}
@@ -449,7 +494,8 @@ export default function ProvidersPage() {
       <div className="border-t pt-8">
         <h2 className="text-xl font-bold tracking-tight">Provider Keys</h2>
         <p className="text-sm text-muted-foreground">
-          Manage your BYOK API keys directly. Keys are stored securely and never leave your environment.
+          Manage your BYOK API keys directly. Keys are stored securely and never leave your
+          environment.
         </p>
       </div>
 
@@ -470,7 +516,9 @@ export default function ProvidersPage() {
                 <CardTitle>{provider.provider}</CardTitle>
               </div>
               <Badge variant={providerKeyStatusVariant(provider.status)}>
-                {provider.status === "unchecked" && !provider.maskedKey ? "Not configured" : provider.status}
+                {provider.status === "unchecked" && !provider.maskedKey
+                  ? "Not configured"
+                  : provider.status}
               </Badge>
             </div>
             {provider.maskedKey && (
@@ -485,7 +533,10 @@ export default function ProvidersPage() {
               <>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor={`model-${provider.id}`}>Default model</Label>
-                  <Select value={provider.defaultModel ?? ""} onValueChange={(v) => handleModelChange(provider.id, v)}>
+                  <Select
+                    value={provider.defaultModel ?? ""}
+                    onValueChange={(v) => handleModelChange(provider.id, v)}
+                  >
                     <SelectTrigger id={`model-${provider.id}`} className="w-full">
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
@@ -507,7 +558,11 @@ export default function ProvidersPage() {
                   >
                     <AnimatePresence mode="wait">
                       {testing === provider.id ? (
-                        <motion.span key="testing" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                        <motion.span
+                          key="testing"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                        >
                           Testing...
                         </motion.span>
                       ) : testResult[provider.id] === "success" ? (
@@ -601,8 +656,8 @@ function BillingGateDialog({
               Enable {brandName()} Hosted for {meta.label}?
             </DialogTitle>
             <DialogDescription>
-              {brandName()} Hosted for {meta.label.toLowerCase()} costs {meta.pricing}. This will be billed to your
-              payment method on file.
+              {brandName()} Hosted for {meta.label.toLowerCase()} costs {meta.pricing}. This will be
+              billed to your payment method on file.
             </DialogDescription>
           </DialogHeader>
 
@@ -755,7 +810,9 @@ function RotateKeyDialog({ provider, onSaved }: { provider: ProviderKey; onSaved
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Rotate {provider.provider} Key</DialogTitle>
-          <DialogDescription>Paste your new API key. The old key will be replaced after validation.</DialogDescription>
+          <DialogDescription>
+            Paste your new API key. The old key will be replaced after validation.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">

@@ -10,7 +10,12 @@ interface BulkSelectAllBannerProps {
   onSelectAllMatching: () => void;
 }
 
-function BulkSelectAllBanner({ visible, pageCount, totalMatching, onSelectAllMatching }: BulkSelectAllBannerProps) {
+function BulkSelectAllBanner({
+  visible,
+  pageCount,
+  totalMatching,
+  onSelectAllMatching,
+}: BulkSelectAllBannerProps) {
   return (
     <AnimatePresence>
       {visible && (

@@ -140,7 +140,10 @@ describe("useFleetSSE", () => {
     rerender({ cb: second });
 
     act(() => {
-      latestES().emit("fleet", JSON.stringify({ type: "bot.stopped", botId: "bot-2", timestamp: "t" }));
+      latestES().emit(
+        "fleet",
+        JSON.stringify({ type: "bot.stopped", botId: "bot-2", timestamp: "t" }),
+      );
     });
 
     expect(first).not.toHaveBeenCalled();

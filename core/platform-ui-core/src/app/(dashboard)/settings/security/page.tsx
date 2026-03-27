@@ -1,7 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckIcon, CopyIcon, DownloadIcon, MonitorIcon, SmartphoneIcon, TabletIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CopyIcon,
+  DownloadIcon,
+  MonitorIcon,
+  SmartphoneIcon,
+  TabletIcon,
+} from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +25,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { LoginAttempt, LoginHistoryResponse } from "@/lib/api";
 import { fetchLoginHistory } from "@/lib/api";
@@ -91,7 +105,11 @@ function StepIndicator({ currentStep, steps }: { currentStep: number; steps: str
     <div className="flex items-center justify-center gap-0 px-4 py-2">
       {steps.map((label, i) => (
         <div key={label} className="flex items-center">
-          {i > 0 && <div className={`h-px w-8 sm:w-12 ${i <= currentStep ? "bg-terminal/40" : "bg-border"}`} />}
+          {i > 0 && (
+            <div
+              className={`h-px w-8 sm:w-12 ${i <= currentStep ? "bg-terminal/40" : "bg-border"}`}
+            />
+          )}
           <div className="flex flex-col items-center gap-1">
             <div
               className={`flex size-8 items-center justify-center rounded-full text-xs font-medium transition-colors ${
@@ -104,7 +122,9 @@ function StepIndicator({ currentStep, steps }: { currentStep: number; steps: str
             >
               {i < currentStep ? <CheckIcon className="size-4" /> : i + 1}
             </div>
-            <span className={`text-xs ${i === currentStep ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+            <span
+              className={`text-xs ${i === currentStep ? "font-medium text-foreground" : "text-muted-foreground"}`}
+            >
               {label}
             </span>
           </div>
@@ -165,7 +185,9 @@ function TwoFactorSection() {
   }, []);
 
   useEffect(() => {
-    setEnabled(Boolean((profileData as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled));
+    setEnabled(
+      Boolean((profileData as { twoFactorEnabled?: boolean } | undefined)?.twoFactorEnabled),
+    );
   }, [profileData]);
 
   function handleStartEnable() {
@@ -325,7 +347,9 @@ function TwoFactorSection() {
             <>
               <div className="flex items-center gap-2">
                 <span className="size-2 rounded-full bg-terminal animate-pulse" />
-                <span className="text-sm font-medium text-terminal">Two-factor authentication is active</span>
+                <span className="text-sm font-medium text-terminal">
+                  Two-factor authentication is active
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" onClick={() => setDisableOpen(true)}>
@@ -345,17 +369,23 @@ function TwoFactorSection() {
                 </Button>
               </div>
               {codesRemaining <= 2 && (
-                <p className="text-xs text-chart-3">{codesRemaining} of 8 recovery codes remaining</p>
+                <p className="text-xs text-chart-3">
+                  {codesRemaining} of 8 recovery codes remaining
+                </p>
               )}
               {codesRemaining > 2 && (
-                <p className="text-xs text-muted-foreground">{codesRemaining} of 8 recovery codes remaining</p>
+                <p className="text-xs text-muted-foreground">
+                  {codesRemaining} of 8 recovery codes remaining
+                </p>
               )}
             </>
           ) : (
             <>
               <div className="flex items-center gap-2">
                 <span className="size-2 rounded-full bg-chart-3" />
-                <span className="text-sm font-medium text-chart-3">Two-factor authentication is not enabled</span>
+                <span className="text-sm font-medium text-chart-3">
+                  Two-factor authentication is not enabled
+                </span>
               </div>
               <Button variant="terminal" onClick={handleStartEnable}>
                 Enable 2FA
@@ -368,13 +398,17 @@ function TwoFactorSection() {
       {/* Enable 2FA Dialog */}
       <Dialog open={enableOpen} onOpenChange={setEnableOpen}>
         <DialogContent className="max-w-md">
-          {enableStep >= 0 && <StepIndicator currentStep={enableStep} steps={["Scan", "Verify", "Backup"]} />}
+          {enableStep >= 0 && (
+            <StepIndicator currentStep={enableStep} steps={["Scan", "Verify", "Backup"]} />
+          )}
 
           {enableStep === -1 && (
             <>
               <DialogHeader>
                 <DialogTitle>Confirm your password</DialogTitle>
-                <DialogDescription>Enter your password to set up two-factor authentication</DialogDescription>
+                <DialogDescription>
+                  Enter your password to set up two-factor authentication
+                </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col items-center gap-3">
                 <Input
@@ -423,7 +457,8 @@ function TwoFactorSection() {
               <DialogHeader>
                 <DialogTitle>Set up authenticator</DialogTitle>
                 <DialogDescription>
-                  Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password)
+                  Scan this QR code with your authenticator app (Google Authenticator, Authy,
+                  1Password)
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col items-center gap-4">
@@ -432,12 +467,18 @@ function TwoFactorSection() {
                   <QRCodeSVG value={totpUri} size={192} />
                 </div>
                 <div className="w-full space-y-2">
-                  <p className="text-xs text-muted-foreground">Can&apos;t scan? Enter this key manually:</p>
+                  <p className="text-xs text-muted-foreground">
+                    Can&apos;t scan? Enter this key manually:
+                  </p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 rounded-sm bg-muted px-3 py-2 text-xs font-mono tracking-widest">
                       {totpSecret}
                     </code>
-                    <Button variant="ghost" size="icon-sm" onClick={() => copyToClipboard(totpSecret)}>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => copyToClipboard(totpSecret)}
+                    >
                       <CopyIcon className="size-4" />
                     </Button>
                   </div>
@@ -455,7 +496,9 @@ function TwoFactorSection() {
             <>
               <DialogHeader>
                 <DialogTitle>Verify your code</DialogTitle>
-                <DialogDescription>Enter the 6-digit code from your authenticator app</DialogDescription>
+                <DialogDescription>
+                  Enter the 6-digit code from your authenticator app
+                </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col items-center gap-3">
                 <Input
@@ -483,7 +526,11 @@ function TwoFactorSection() {
                 <Button variant="ghost" onClick={() => setEnableStep(0)}>
                   Back
                 </Button>
-                <Button variant="terminal" disabled={verifyCode.length !== 6 || verifying} onClick={handleVerify}>
+                <Button
+                  variant="terminal"
+                  disabled={verifyCode.length !== 6 || verifying}
+                  onClick={handleVerify}
+                >
                   {verifying ? "Verifying..." : "Verify"}
                 </Button>
               </DialogFooter>
@@ -495,8 +542,8 @@ function TwoFactorSection() {
               <DialogHeader>
                 <DialogTitle>Save your recovery codes</DialogTitle>
                 <DialogDescription>
-                  Store these codes in a safe place. Each code can only be used once. You won&apos;t be able to see them
-                  again.
+                  Store these codes in a safe place. Each code can only be used once. You won&apos;t
+                  be able to see them again.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-2">
@@ -510,7 +557,11 @@ function TwoFactorSection() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => copyToClipboard(recoveryCodes.join("\n"))}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(recoveryCodes.join("\n"))}
+                >
                   <CopyIcon className="mr-1 size-4" />
                   {copied ? "Copied" : "Copy all"}
                 </Button>
@@ -538,7 +589,8 @@ function TwoFactorSection() {
           <DialogHeader>
             <DialogTitle>Disable two-factor authentication</DialogTitle>
             <DialogDescription>
-              Enter your current authenticator code to confirm. This will remove 2FA protection from your account.
+              Enter your current authenticator code to confirm. This will remove 2FA protection from
+              your account.
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-sm border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -570,7 +622,11 @@ function TwoFactorSection() {
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button variant="destructive" disabled={disableCode.length !== 6 || disabling} onClick={handleDisable}>
+            <Button
+              variant="destructive"
+              disabled={disableCode.length !== 6 || disabling}
+              onClick={handleDisable}
+            >
               {disabling ? "Disabling..." : "Disable 2FA"}
             </Button>
           </DialogFooter>
@@ -585,7 +641,8 @@ function TwoFactorSection() {
               <DialogHeader>
                 <DialogTitle>Regenerate recovery codes</DialogTitle>
                 <DialogDescription>
-                  Enter your authenticator code to generate new recovery codes. This will invalidate all previous codes.
+                  Enter your authenticator code to generate new recovery codes. This will invalidate
+                  all previous codes.
                 </DialogDescription>
               </DialogHeader>
               <div className="flex flex-col items-center gap-3">
@@ -644,7 +701,11 @@ function TwoFactorSection() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => copyToClipboard(regenCodes.join("\n"))}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyToClipboard(regenCodes.join("\n"))}
+                >
                   <CopyIcon className="mr-1 size-4" />
                   {copied ? "Copied" : "Copy all"}
                 </Button>
@@ -750,7 +811,12 @@ function SessionsSection() {
             <CardDescription>Devices currently signed into your account</CardDescription>
           </div>
           {!loading && sessions.length > 1 && (
-            <Button variant="destructive" size="sm" disabled={revokingAll} onClick={handleRevokeAll}>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={revokingAll}
+              onClick={handleRevokeAll}
+            >
               {revokingAll ? "Revoking..." : "Revoke all other sessions"}
             </Button>
           )}
@@ -817,14 +883,20 @@ function SessionsSection() {
                           {session.current && <Badge variant="terminal">Current</Badge>}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{session.ipAddress ?? "\u2014"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {session.ipAddress ?? "\u2014"}
+                      </TableCell>
                       <TableCell>
                         <Tooltip>
                           <TooltipTrigger className="text-xs text-muted-foreground">
-                            {relativeTime(String(session.updatedAt ?? session.createdAt ?? session.expiresAt))}
+                            {relativeTime(
+                              String(session.updatedAt ?? session.createdAt ?? session.expiresAt),
+                            )}
                           </TooltipTrigger>
                           <TooltipContent>
-                            {new Date(session.updatedAt ?? session.createdAt ?? session.expiresAt).toLocaleString()}
+                            {new Date(
+                              session.updatedAt ?? session.createdAt ?? session.expiresAt,
+                            ).toLocaleString()}
                           </TooltipContent>
                         </Tooltip>
                       </TableCell>
@@ -931,7 +1003,9 @@ function LoginHistorySection() {
     <Card>
       <CardHeader>
         <CardTitle>Login History</CardTitle>
-        <CardDescription>{data ? `${data.total} total events` : "Recent authentication events"}</CardDescription>
+        <CardDescription>
+          {data ? `${data.total} total events` : "Recent authentication events"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {loading ? (
@@ -983,12 +1057,18 @@ function LoginHistorySection() {
                           <TooltipTrigger className="text-xs text-muted-foreground">
                             {relativeTime(attempt.timestamp)}
                           </TooltipTrigger>
-                          <TooltipContent>{new Date(attempt.timestamp).toLocaleString()}</TooltipContent>
+                          <TooltipContent>
+                            {new Date(attempt.timestamp).toLocaleString()}
+                          </TooltipContent>
                         </Tooltip>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{parseBrowser(attempt.userAgent)}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {parseBrowser(attempt.userAgent)}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{attempt.ip}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{attempt.location ?? "\u2014"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {attempt.location ?? "\u2014"}
+                      </TableCell>
                       <TableCell>
                         {attempt.success ? (
                           <Badge variant="terminal">Success</Badge>

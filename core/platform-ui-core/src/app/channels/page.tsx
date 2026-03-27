@@ -66,14 +66,16 @@ export default function ChannelsPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-widest uppercase">COMMS CHANNELS</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Connect messaging platforms to your {getBrandConfig().productName}. Each channel is driven by a plugin
-          manifest.
+          Connect messaging platforms to your {getBrandConfig().productName}. Each channel is driven
+          by a plugin manifest.
         </p>
       </div>
 
       {loading && (
         <section className="mb-10">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-terminal">LINKED</h2>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-terminal">
+            LINKED
+          </h2>
           <p className="mb-4 font-mono text-sm text-terminal/60">
             &gt; QUERYING CHANNEL STATUS...
             <span className="animate-[pulse-dot_1s_step-end_infinite]">_</span>
@@ -120,7 +122,9 @@ export default function ChannelsPage() {
       {!loading && !error && (
         <>
           <section className="mb-10">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-terminal">LINKED</h2>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-terminal">
+              LINKED
+            </h2>
             {instances.some((inst) => inst.channels.length > 0) ? (
               <motion.div
                 variants={staggerContainer}
@@ -164,7 +168,9 @@ export default function ChannelsPage() {
                             </CardHeader>
                             <CardContent>
                               <Button variant="ghost" size="sm" asChild>
-                                <Link href={`/instances/${inst.id}?tab=channels`}>View Details</Link>
+                                <Link href={`/instances/${inst.id}?tab=channels`}>
+                                  View Details
+                                </Link>
                               </Button>
                             </CardContent>
                           </Card>
@@ -176,13 +182,17 @@ export default function ChannelsPage() {
               </motion.div>
             ) : (
               <div className="flex h-40 items-center justify-center rounded-sm border border-dashed border-terminal/20">
-                <p className="font-mono text-sm text-terminal/60">&gt; NO CHANNELS LINKED. YOUR BOT IS ISOLATED.</p>
+                <p className="font-mono text-sm text-terminal/60">
+                  &gt; NO CHANNELS LINKED. YOUR BOT IS ISOLATED.
+                </p>
               </div>
             )}
           </section>
 
           <section>
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">AVAILABLE</h2>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              AVAILABLE
+            </h2>
             <motion.div
               variants={staggerContainer}
               initial="hidden"
@@ -225,7 +235,9 @@ export default function ChannelsPage() {
                         <CardContent className="mt-auto">
                           {singleBotId ? (
                             <Button variant="terminal" className="w-full" asChild>
-                              <Link href={`/channels/setup/${manifest.id}?botId=${singleBotId}`}>Connect</Link>
+                              <Link href={`/channels/setup/${manifest.id}?botId=${singleBotId}`}>
+                                Connect
+                              </Link>
                             </Button>
                           ) : instances.length > 1 ? (
                             <Button variant="terminal" className="w-full" asChild>

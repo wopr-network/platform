@@ -33,7 +33,10 @@ export async function saveProviderKey(
   });
 }
 
-export async function testProviderKey(provider: string, key?: string): Promise<{ valid: boolean; error?: string }> {
+export async function testProviderKey(
+  provider: string,
+  key?: string,
+): Promise<{ valid: boolean; error?: string }> {
   return trpcVanilla.capabilities.testKey.mutate({
     provider: provider as ProviderName,
     key: key ?? "",

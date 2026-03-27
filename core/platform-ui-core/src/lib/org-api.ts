@@ -25,7 +25,11 @@ export async function updateOrganization(
   return trpcVanilla.org.updateOrganization.mutate({ orgId, ...data });
 }
 
-export async function inviteMember(orgId: string, email: string, role: "admin" | "member"): Promise<OrgInvite> {
+export async function inviteMember(
+  orgId: string,
+  email: string,
+  role: "admin" | "member",
+): Promise<OrgInvite> {
   const row = await trpcVanilla.org.inviteMember.mutate({ orgId, email, role });
   const typed = row as OrgInviteRow;
   return {
@@ -42,7 +46,11 @@ export async function revokeInvite(orgId: string, inviteId: string): Promise<voi
   await trpcVanilla.org.revokeInvite.mutate({ orgId, inviteId });
 }
 
-export async function changeRole(orgId: string, userId: string, role: "admin" | "member"): Promise<void> {
+export async function changeRole(
+  orgId: string,
+  userId: string,
+  role: "admin" | "member",
+): Promise<void> {
   await trpcVanilla.org.changeRole.mutate({ orgId, userId, role });
 }
 

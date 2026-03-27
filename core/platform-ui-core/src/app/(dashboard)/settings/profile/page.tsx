@@ -67,11 +67,15 @@ export default function ProfilePage() {
       setEmail(p.email);
       try {
         const accounts = await listAccounts();
-        const providerIds = ((accounts.data ?? []) as { providerId: string }[]).map((a) => a.providerId);
+        const providerIds = ((accounts.data ?? []) as { providerId: string }[]).map(
+          (a) => a.providerId,
+        );
         const providers = new Set<string>(providerIds);
         setConnectedProviders(providers);
       } catch {
-        setConnectedProviders(new Set(p.oauthConnections.filter((c) => c.connected).map((c) => c.provider)));
+        setConnectedProviders(
+          new Set(p.oauthConnections.filter((c) => c.connected).map((c) => c.provider)),
+        );
       }
     } catch {
       setLoadError(true);
@@ -250,7 +254,11 @@ export default function ProfilePage() {
             >
               {profile.avatarUrl ? (
                 // biome-ignore lint/performance/noImgElement: external avatar URL — domain not configured for next/image
-                <img src={profile.avatarUrl} alt={profile.name} className="size-full object-cover" />
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.name}
+                  className="size-full object-cover"
+                />
               ) : (
                 <span className="text-xl font-semibold text-muted-foreground">
                   {profile.name.charAt(0).toUpperCase()}
@@ -284,7 +292,12 @@ export default function ProfilePage() {
           <form onSubmit={handleSaveProfile} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="profile-name">Display name</Label>
-              <Input id="profile-name" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Input
+                id="profile-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="profile-email">Email</Label>
@@ -323,7 +336,12 @@ export default function ProfilePage() {
                     Saved
                   </motion.span>
                 ) : (
-                  <motion.span key="save" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <motion.span
+                    key="save"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
                     {saving ? "Saving..." : "Save changes"}
                   </motion.span>
                 )}
@@ -397,7 +415,12 @@ export default function ProfilePage() {
                     Changed
                   </motion.span>
                 ) : (
-                  <motion.span key="default" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <motion.span
+                    key="default"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                  >
                     {changingPw ? "Changing..." : "Change password"}
                   </motion.span>
                 )}
@@ -422,7 +445,9 @@ export default function ProfilePage() {
                   <Button
                     variant={connected ? "outline" : "default"}
                     size="sm"
-                    onClick={() => (connected ? handleOauthDisconnect(provider) : handleOauthConnect(provider))}
+                    onClick={() =>
+                      connected ? handleOauthDisconnect(provider) : handleOauthConnect(provider)
+                    }
                   >
                     {connected ? "Disconnect" : "Connect"}
                   </Button>
@@ -469,7 +494,11 @@ export default function ProfilePage() {
                 <DialogClose asChild>
                   <Button variant="outline">Cancel</Button>
                 </DialogClose>
-                <Button variant="destructive" disabled={deleteConfirm !== "delete my account"} onClick={handleDelete}>
+                <Button
+                  variant="destructive"
+                  disabled={deleteConfirm !== "delete my account"}
+                  onClick={handleDelete}
+                >
                   Delete permanently
                 </Button>
               </DialogFooter>

@@ -5,7 +5,7 @@ import * as schema from "./schema.js";
 export type CryptoDb = ReturnType<typeof drizzle<typeof schema>>;
 
 export function createDb(pool: pg.Pool): CryptoDb {
-  return drizzle(pool, { schema });
+	return drizzle(pool, { schema });
 }
 
 export { schema };

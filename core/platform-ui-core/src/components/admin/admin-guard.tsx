@@ -25,7 +25,9 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <ShieldAlert className="size-12 text-red-500" />
         <p className="text-lg font-bold uppercase tracking-widest text-red-500">ACCESS DENIED</p>
-        <p className="text-sm text-muted-foreground">You do not have permission to view this page.</p>
+        <p className="text-sm text-muted-foreground">
+          You do not have permission to view this page.
+        </p>
       </div>
     );
   }

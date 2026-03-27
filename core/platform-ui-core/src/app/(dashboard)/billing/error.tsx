@@ -8,7 +8,13 @@ import { logger } from "@/lib/logger";
 
 const log = logger("error-boundary:billing");
 
-export default function BillingError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function BillingError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   const [showDetails, setShowDetails] = useState(false);
   const isDev = process.env.NODE_ENV === "development";
 
@@ -26,7 +32,9 @@ export default function BillingError({ error, reset }: { error: Error & { digest
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-muted-foreground">Something went wrong loading billing. This may be a temporary issue.</p>
+          <p className="text-muted-foreground">
+            Something went wrong loading billing. This may be a temporary issue.
+          </p>
           {isDev && (
             <Button
               type="button"

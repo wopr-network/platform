@@ -11,7 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -164,7 +171,10 @@ export function EmailTemplatesClient() {
     );
   }, [templates, search]);
 
-  const selectedTemplate = useMemo(() => templates.find((t) => t.id === selectedId) ?? null, [templates, selectedId]);
+  const selectedTemplate = useMemo(
+    () => templates.find((t) => t.id === selectedId) ?? null,
+    [templates, selectedId],
+  );
 
   // --- Handlers ---
 
@@ -191,7 +201,9 @@ export function EmailTemplatesClient() {
         editActive !== selectedTemplate.active;
 
       if (isDirty) {
-        const confirmed = window.confirm("You have unsaved changes. Are you sure you want to close without saving?");
+        const confirmed = window.confirm(
+          "You have unsaved changes. Are you sure you want to close without saving?",
+        );
         if (!confirmed) return;
       }
     }
@@ -212,7 +224,15 @@ export function EmailTemplatesClient() {
       textBody: editTextBody,
       active: editActive,
     });
-  }, [selectedId, editDescription, editSubject, editHtmlBody, editTextBody, editActive, updateMutation]);
+  }, [
+    selectedId,
+    editDescription,
+    editSubject,
+    editHtmlBody,
+    editTextBody,
+    editActive,
+    updateMutation,
+  ]);
 
   const handlePreview = useCallback(() => {
     if (!selectedTemplate) return;
@@ -269,7 +289,9 @@ export function EmailTemplatesClient() {
   if (listQuery.isError) {
     return (
       <div className="flex h-40 flex-col items-center justify-center gap-3">
-        <p className="text-sm text-destructive font-mono">Failed to load email templates. Please try again.</p>
+        <p className="text-sm text-destructive font-mono">
+          Failed to load email templates. Please try again.
+        </p>
         <Button variant="outline" size="sm" onClick={() => listQuery.refetch()}>
           Retry
         </Button>
@@ -299,7 +321,9 @@ export function EmailTemplatesClient() {
             <Separator orientation="vertical" className="h-6" />
             <div className="flex items-center gap-2">
               <MailCheck className="size-4 text-amber-400" />
-              <h2 className="text-lg font-bold uppercase tracking-wider">{selectedTemplate.name}</h2>
+              <h2 className="text-lg font-bold uppercase tracking-wider">
+                {selectedTemplate.name}
+              </h2>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -332,7 +356,8 @@ export function EmailTemplatesClient() {
                 <CardTitle className="text-base">Template Settings</CardTitle>
                 <CardDescription>
                   Edit the template content. Use Handlebars syntax (
-                  <code className="text-xs font-mono text-amber-400">{"{{variableName}}"}</code>) for dynamic values.
+                  <code className="text-xs font-mono text-amber-400">{"{{variableName}}"}</code>)
+                  for dynamic values.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -388,7 +413,9 @@ export function EmailTemplatesClient() {
                 <div className="flex items-center justify-between rounded-md border border-border p-3">
                   <div className="space-y-0.5">
                     <Label>Active</Label>
-                    <p className="text-xs text-muted-foreground">Inactive templates will not be sent.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Inactive templates will not be sent.
+                    </p>
                   </div>
                   <Switch
                     checked={editActive}
@@ -403,12 +430,18 @@ export function EmailTemplatesClient() {
             <Card className="border-border">
               <CardHeader>
                 <CardTitle className="text-base">Available Variables</CardTitle>
-                <CardDescription>Use these in your template with Handlebars syntax.</CardDescription>
+                <CardDescription>
+                  Use these in your template with Handlebars syntax.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
                   {variables.map((v) => (
-                    <Badge key={v} variant="outline" className="border-amber-500/30 text-amber-400 font-mono text-xs">
+                    <Badge
+                      key={v}
+                      variant="outline"
+                      className="border-amber-500/30 text-amber-400 font-mono text-xs"
+                    >
                       {`{{${v}}}`}
                     </Badge>
                   ))}
@@ -419,19 +452,25 @@ export function EmailTemplatesClient() {
 
           {/* Right: preview panel */}
           <div className="w-[480px] shrink-0 border-l border-border overflow-auto p-6 space-y-4">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Preview</h3>
+            <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              Preview
+            </h3>
 
             {previewHtml === null && previewSubject === null ? (
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
                 <Eye className="size-8 mb-3 opacity-40" />
-                <p className="text-sm font-mono">Click &quot;Preview&quot; to render the template</p>
+                <p className="text-sm font-mono">
+                  Click &quot;Preview&quot; to render the template
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* Rendered subject */}
                 {previewSubject !== null && (
                   <div className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Subject</span>
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Subject
+                    </span>
                     <p className="text-sm font-medium rounded-md border border-border bg-black/20 px-3 py-2">
                       {previewSubject}
                     </p>
@@ -541,7 +580,9 @@ export function EmailTemplatesClient() {
                     <span className="text-sm font-medium font-mono">{template.name}</span>
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm text-muted-foreground line-clamp-1">{template.description ?? "--"}</span>
+                    <span className="text-sm text-muted-foreground line-clamp-1">
+                      {template.description ?? "--"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm text-muted-foreground font-mono line-clamp-1 max-w-[200px]">
@@ -553,7 +594,9 @@ export function EmailTemplatesClient() {
                       variant="outline"
                       className={cn(
                         "text-xs",
-                        template.active ? "border-amber-500/30 text-amber-400" : "border-border text-muted-foreground",
+                        template.active
+                          ? "border-amber-500/30 text-amber-400"
+                          : "border-border text-muted-foreground",
                       )}
                     >
                       {template.active ? "Active" : "Inactive"}

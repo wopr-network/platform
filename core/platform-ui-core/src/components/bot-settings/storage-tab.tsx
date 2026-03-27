@@ -13,7 +13,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
-import { getStorageTier, getStorageUsage, type StorageUsage, setStorageTier } from "@/lib/bot-settings-data";
+import {
+  getStorageTier,
+  getStorageUsage,
+  type StorageUsage,
+  setStorageTier,
+} from "@/lib/bot-settings-data";
 
 const STORAGE_TIERS = [
   {
@@ -68,7 +73,10 @@ export function StorageTab({ botId }: { botId: string }) {
     async function load() {
       setLoading(true);
       try {
-        const [tierResult, usageResult] = await Promise.all([getStorageTier(botId), getStorageUsage(botId)]);
+        const [tierResult, usageResult] = await Promise.all([
+          getStorageTier(botId),
+          getStorageUsage(botId),
+        ]);
         if (!cancelled) {
           setCurrentTier(tierResult.tier as TierKey);
           setUsage(usageResult);
@@ -101,7 +109,11 @@ export function StorageTab({ botId }: { botId: string }) {
   }
 
   if (loading) {
-    return <div className="flex h-40 items-center justify-center text-muted-foreground">Loading storage info...</div>;
+    return (
+      <div className="flex h-40 items-center justify-center text-muted-foreground">
+        Loading storage info...
+      </div>
+    );
   }
 
   const tierInfo = STORAGE_TIERS.find((t) => t.key === currentTier) ?? STORAGE_TIERS[0];
@@ -113,13 +125,16 @@ export function StorageTab({ botId }: { botId: string }) {
   const pendingTierInfo = pendingTier ? STORAGE_TIERS.find((t) => t.key === pendingTier) : null;
   const isDowngrade =
     pendingTier !== null &&
-    STORAGE_TIERS.findIndex((t) => t.key === pendingTier) < STORAGE_TIERS.findIndex((t) => t.key === currentTier);
+    STORAGE_TIERS.findIndex((t) => t.key === pendingTier) <
+      STORAGE_TIERS.findIndex((t) => t.key === currentTier);
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
         <h2 className="text-xl font-bold">Storage</h2>
-        <p className="text-sm text-muted-foreground">Persistent storage for bot memories, files, and data.</p>
+        <p className="text-sm text-muted-foreground">
+          Persistent storage for bot memories, files, and data.
+        </p>
       </div>
 
       {/* Usage bar */}
@@ -127,15 +142,23 @@ export function StorageTab({ botId }: { botId: string }) {
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">
-              {usage ? formatBytes(usedBytes) : "Usage unavailable"} of {tierInfo.storageLimitGb} GB used
+              {usage ? formatBytes(usedBytes) : "Usage unavailable"} of {tierInfo.storageLimitGb} GB
+              used
             </span>
             {usage && (
-              <span className={usageHigh ? "text-amber-500" : "text-muted-foreground"}>{usagePercent.toFixed(0)}%</span>
+              <span className={usageHigh ? "text-amber-500" : "text-muted-foreground"}>
+                {usagePercent.toFixed(0)}%
+              </span>
             )}
           </div>
-          <Progress value={usage ? usagePercent : 0} className={`h-2 ${usageHigh ? "[&>div]:bg-amber-500" : ""}`} />
+          <Progress
+            value={usage ? usagePercent : 0}
+            className={`h-2 ${usageHigh ? "[&>div]:bg-amber-500" : ""}`}
+          />
           {!usage && (
-            <p className="text-xs text-muted-foreground">Disk usage is only available while the bot is running.</p>
+            <p className="text-xs text-muted-foreground">
+              Disk usage is only available while the bot is running.
+            </p>
           )}
         </CardContent>
       </Card>
@@ -145,7 +168,9 @@ export function StorageTab({ botId }: { botId: string }) {
 
       {/* Tier cards */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Storage Tiers</h3>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Storage Tiers
+        </h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {STORAGE_TIERS.map((tier) => {
             const isActive = tier.key === currentTier;
@@ -153,7 +178,9 @@ export function StorageTab({ botId }: { botId: string }) {
               <Card
                 key={tier.key}
                 className={`cursor-pointer transition-colors ${
-                  isActive ? "border-primary bg-primary/5" : "hover:border-primary/50 hover:bg-accent/30"
+                  isActive
+                    ? "border-primary bg-primary/5"
+                    : "hover:border-primary/50 hover:bg-accent/30"
                 }`}
                 onClick={() => {
                   if (!isActive) setPendingTier(tier.key);
@@ -176,8 +203,8 @@ export function StorageTab({ botId }: { botId: string }) {
           })}
         </div>
         <p className="text-xs text-muted-foreground">
-          Storage costs are billed daily from your credit balance. Downgrades take effect immediately but do not delete
-          existing data.
+          Storage costs are billed daily from your credit balance. Downgrades take effect
+          immediately but do not delete existing data.
         </p>
       </div>
 
@@ -191,15 +218,17 @@ export function StorageTab({ botId }: { botId: string }) {
             <DialogDescription>
               {isDowngrade ? (
                 <>
-                  Downgrading to <strong>{pendingTierInfo?.label}</strong> ({pendingTierInfo?.storageLimitGb} GB) takes
-                  effect immediately. Existing data is not deleted, but the bot will be unable to write new data once it
-                  exceeds the new limit.
+                  Downgrading to <strong>{pendingTierInfo?.label}</strong> (
+                  {pendingTierInfo?.storageLimitGb} GB) takes effect immediately. Existing data is
+                  not deleted, but the bot will be unable to write new data once it exceeds the new
+                  limit.
                 </>
               ) : (
                 <>
-                  Upgrading to <strong>{pendingTierInfo?.label}</strong> ({pendingTierInfo?.storageLimitGb} GB) adds{" "}
-                  <strong>{pendingTierInfo?.dailyCostCents}¢ per day</strong> to this bot's credit cost, billed from
-                  your balance.
+                  Upgrading to <strong>{pendingTierInfo?.label}</strong> (
+                  {pendingTierInfo?.storageLimitGb} GB) adds{" "}
+                  <strong>{pendingTierInfo?.dailyCostCents}¢ per day</strong> to this bot's credit
+                  cost, billed from your balance.
                 </>
               )}
             </DialogDescription>

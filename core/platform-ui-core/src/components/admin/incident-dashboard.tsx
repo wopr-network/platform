@@ -37,7 +37,10 @@ function SeverityBadge({ severity }: { severity: IncidentSeverity }) {
     SEV3: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
   };
   return (
-    <Badge variant="secondary" className={cn("text-xs px-2 py-0.5 border font-mono", colors[severity])}>
+    <Badge
+      variant="secondary"
+      className={cn("text-xs px-2 py-0.5 border font-mono", colors[severity])}
+    >
       {severity}
     </Badge>
   );
@@ -131,7 +134,9 @@ function SeverityClassifierPanel() {
               type="number"
               min={0}
               value={signals.dlqDepth}
-              onChange={(e) => setSignals((s) => ({ ...s, dlqDepth: Number.parseInt(e.target.value, 10) || 0 }))}
+              onChange={(e) =>
+                setSignals((s) => ({ ...s, dlqDepth: Number.parseInt(e.target.value, 10) || 0 }))
+              }
               className="h-7 text-xs"
             />
           </div>
@@ -272,7 +277,9 @@ function EscalationPanel() {
               >
                 <div>
                   <span className="font-medium">{contact.role}</span>
-                  {contact.name && <span className="text-muted-foreground ml-2">— {contact.name}</span>}
+                  {contact.name && (
+                    <span className="text-muted-foreground ml-2">— {contact.name}</span>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {contact.method} · within {contact.within}
@@ -435,7 +442,9 @@ function CommunicationPanel() {
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Affected Systems (comma-separated)</Label>
+            <Label className="text-xs text-muted-foreground">
+              Affected Systems (comma-separated)
+            </Label>
             <Input
               value={affectedSystemsText}
               onChange={(e) => setAffectedSystemsText(e.target.value)}
@@ -468,13 +477,17 @@ function CommunicationPanel() {
         {templates && (
           <div className="space-y-3">
             <div>
-              <div className="text-xs font-medium text-muted-foreground mb-1">Customer Template</div>
+              <div className="text-xs font-medium text-muted-foreground mb-1">
+                Customer Template
+              </div>
               <pre className="text-xs bg-muted/30 rounded p-3 whitespace-pre-wrap font-mono border border-border/50">
                 {templates.customer}
               </pre>
             </div>
             <div>
-              <div className="text-xs font-medium text-muted-foreground mb-1">Internal Template</div>
+              <div className="text-xs font-medium text-muted-foreground mb-1">
+                Internal Template
+              </div>
               <pre className="text-xs bg-muted/30 rounded p-3 whitespace-pre-wrap font-mono border border-border/50">
                 {templates.internal}
               </pre>
@@ -615,7 +628,9 @@ function PostmortemPanel() {
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Affected Systems (comma-separated)</Label>
+            <Label className="text-xs text-muted-foreground">
+              Affected Systems (comma-separated)
+            </Label>
             <Input
               value={affectedSystemsText}
               onChange={(e) => setAffectedSystemsText(e.target.value)}
@@ -681,7 +696,9 @@ export function IncidentDashboard() {
             onClick={() => setTab(t.id)}
             className={cn(
               "text-sm px-3 py-1.5 rounded-sm transition-colors",
-              tab === t.id ? "bg-terminal/10 text-terminal font-medium" : "text-muted-foreground hover:text-foreground",
+              tab === t.id
+                ? "bg-terminal/10 text-terminal font-medium"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}

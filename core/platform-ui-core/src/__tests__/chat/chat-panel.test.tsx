@@ -48,7 +48,10 @@ describe("ChatPanel", () => {
   });
 
   it("renders message list with user and bot messages", () => {
-    const messages = [msg({ role: "user", content: "Question?" }), msg({ role: "bot", content: "Answer!" })];
+    const messages = [
+      msg({ role: "user", content: "Question?" }),
+      msg({ role: "bot", content: "Answer!" }),
+    ];
     render(<ChatPanel {...baseProps} messages={messages} />);
     expect(screen.getByText("Question?")).toBeInTheDocument();
     expect(screen.getByText("Answer!")).toBeInTheDocument();

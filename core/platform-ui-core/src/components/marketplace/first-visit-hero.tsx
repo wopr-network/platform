@@ -85,7 +85,9 @@ export function FirstVisitHero({ superpowers, onDismiss }: FirstVisitHeroProps) 
                     {sp.name[0]}
                   </div>
                   <h2 className="text-lg font-bold">{sp.superpowerHeadline ?? sp.name}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{sp.superpowerTagline ?? sp.description}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {sp.superpowerTagline ?? sp.description}
+                  </p>
                 </div>
               </motion.button>
             ))}

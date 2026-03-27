@@ -26,7 +26,9 @@ export default function ChatPage() {
             className={`h-2 w-2 rounded-full inline-block ${isConnected ? "bg-terminal" : "bg-destructive"}`}
             aria-label={isConnected ? "Connected" : "Disconnected"}
           />
-          <h1 className="text-sm font-mono uppercase tracking-wider text-muted-foreground">{brandName()}</h1>
+          <h1 className="text-sm font-mono uppercase tracking-wider text-muted-foreground">
+            {brandName()}
+          </h1>
         </div>
         <Button
           type="button"
@@ -48,7 +50,9 @@ export default function ChatPage() {
           </p>
         )}
         {messages.length === 0 && !isConnected && (
-          <p className="text-center text-xs text-muted-foreground animate-ellipsis">Connecting to {brandName()}</p>
+          <p className="text-center text-xs text-muted-foreground animate-ellipsis">
+            Connecting to {brandName()}
+          </p>
         )}
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />

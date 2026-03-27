@@ -15,8 +15,12 @@ vi.mock("@/components/auth/resend-verification-button", () => ({
 }));
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
-    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <p {...props}>{children}</p>,
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    ),
+    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <p {...props}>{children}</p>
+    ),
   },
 }));
 

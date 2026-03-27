@@ -26,7 +26,9 @@ vi.mock("@/lib/trpc", () => ({
 
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    ),
   },
 }));
 
@@ -57,7 +59,9 @@ vi.mock("@/components/ui/select", () => ({
       {children}
     </select>
   ),
-  SelectTrigger: ({ children, id }: { children: React.ReactNode; id?: string }) => <span id={id}>{children}</span>,
+  SelectTrigger: ({ children, id }: { children: React.ReactNode; id?: string }) => (
+    <span id={id}>{children}</span>
+  ),
   SelectValue: () => null,
   SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   SelectItem: ({ children, value }: { children: React.ReactNode; value: string }) => (

@@ -105,7 +105,14 @@ export const product = {
   ],
 
   /** What it is NOT. Never use these. */
-  isNot: ["A chatbot", "An AI assistant", "An automation tool", "A platform", "A SaaS product", "An agent framework"],
+  isNot: [
+    "A chatbot",
+    "An AI assistant",
+    "An automation tool",
+    "A platform",
+    "A SaaS product",
+    "An agent framework",
+  ],
 
   /** What it does. Always outcomes, never features. */
   does: [
@@ -520,7 +527,13 @@ export const animation = {
    */
   marketing: {
     allowed: ["typing-effect", "cursor-blink", "fade-in-on-scroll"],
-    banned: ["parallax", "floating-elements", "scroll-jacking", "hover-bounce", "auto-playing-video"],
+    banned: [
+      "parallax",
+      "floating-elements",
+      "scroll-jacking",
+      "hover-bounce",
+      "auto-playing-video",
+    ],
     philosophy: "Let the words land. One animation per viewport. The restraint IS the brand.",
   },
 

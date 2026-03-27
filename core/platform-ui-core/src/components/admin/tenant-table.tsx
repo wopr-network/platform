@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   type AdminUserSummary,
   bulkGrantCredits,
@@ -112,7 +119,9 @@ export function TenantTable() {
       setSelected(new Set());
       reload();
     } catch (err) {
-      toast.error(`Failed to suspend tenants: ${err instanceof Error ? err.message : "Unknown error"}`);
+      toast.error(
+        `Failed to suspend tenants: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -122,7 +131,9 @@ export function TenantTable() {
       setSelected(new Set());
       reload();
     } catch (err) {
-      toast.error(`Failed to reactivate tenants: ${err instanceof Error ? err.message : "Unknown error"}`);
+      toast.error(
+        `Failed to reactivate tenants: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -138,7 +149,9 @@ export function TenantTable() {
       setSelected(new Set());
       reload();
     } catch (err) {
-      toast.error(`Failed to grant credits: ${err instanceof Error ? err.message : "Unknown error"}`);
+      toast.error(
+        `Failed to grant credits: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -180,18 +193,30 @@ export function TenantTable() {
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
               <TableHead className="w-10">
-                <Checkbox checked={total > 0 && selected.size === total} onCheckedChange={toggleAll} />
+                <Checkbox
+                  checked={total > 0 && selected.size === total}
+                  onCheckedChange={toggleAll}
+                />
               </TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Email</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Name</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Status</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Plan</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider text-right">Credits</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider text-right">Agents</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider text-right">
+                Credits
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider text-right">
+                Agents
+              </TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
-          <TableBody className={cn("transition-opacity duration-150", loading && users.length > 0 && "opacity-60")}>
+          <TableBody
+            className={cn(
+              "transition-opacity duration-150",
+              loading && users.length > 0 && "opacity-60",
+            )}
+          >
             {loading && users.length === 0 ? (
               Array.from({ length: 8 }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton rows have no stable ID
@@ -217,14 +242,19 @@ export function TenantTable() {
                     &gt; No users found
                     <span className="animate-ellipsis" />
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">Try adjusting your search query</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Try adjusting your search query
+                  </p>
                 </TableCell>
               </TableRow>
             ) : (
               users.map((user) => (
                 <TableRow
                   key={user.id}
-                  className={cn("h-10 hover:bg-secondary/50", selected.has(user.tenant_id) && "bg-terminal/5")}
+                  className={cn(
+                    "h-10 hover:bg-secondary/50",
+                    selected.has(user.tenant_id) && "bg-terminal/5",
+                  )}
                 >
                   <TableCell>
                     <Checkbox
@@ -245,10 +275,17 @@ export function TenantTable() {
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{user.role}</TableCell>
-                  <TableCell className={cn("text-right font-mono text-xs", creditColor(user.credit_balance_cents))}>
+                  <TableCell
+                    className={cn(
+                      "text-right font-mono text-xs",
+                      creditColor(user.credit_balance_cents),
+                    )}
+                  >
                     {formatCreditStandard(user.credit_balance_cents / 100)}
                   </TableCell>
-                  <TableCell className="text-right text-xs text-muted-foreground">{user.agent_count}</TableCell>
+                  <TableCell className="text-right text-xs text-muted-foreground">
+                    {user.agent_count}
+                  </TableCell>
                   <TableCell>
                     <TenantRowActions user={user} onAction={reload} />
                   </TableCell>

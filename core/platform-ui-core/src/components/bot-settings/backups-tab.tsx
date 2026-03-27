@@ -15,7 +15,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { createSnapshot, deleteSnapshot, listSnapshots, restoreSnapshot, type Snapshot } from "@/lib/api";
+import {
+  createSnapshot,
+  deleteSnapshot,
+  listSnapshots,
+  restoreSnapshot,
+  type Snapshot,
+} from "@/lib/api";
 import { toUserMessage } from "@/lib/errors";
 
 function formatDate(iso: string): string {
@@ -49,7 +55,13 @@ function typeBadge(snap: Snapshot): {
   }
 }
 
-export function BackupsTab({ botId, onRestore }: { botId: string; onRestore?: () => void | Promise<void> }) {
+export function BackupsTab({
+  botId,
+  onRestore,
+}: {
+  botId: string;
+  onRestore?: () => void | Promise<void>;
+}) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +173,11 @@ export function BackupsTab({ botId, onRestore }: { botId: string; onRestore?: ()
   }
 
   if (loading) {
-    return <div className="flex h-40 items-center justify-center text-muted-foreground">Loading backups...</div>;
+    return (
+      <div className="flex h-40 items-center justify-center text-muted-foreground">
+        Loading backups...
+      </div>
+    );
   }
 
   return (
@@ -180,7 +196,9 @@ export function BackupsTab({ botId, onRestore }: { botId: string; onRestore?: ()
       </div>
 
       {error && (
-        <div className="rounded-sm border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div className="rounded-sm border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
       )}
 
       {error ? (
@@ -206,7 +224,10 @@ export function BackupsTab({ botId, onRestore }: { botId: string; onRestore?: ()
           {snapshots.map((snap) => {
             const badge = typeBadge(snap);
             return (
-              <Card key={snap.id} className="transition-colors hover:border-primary/50 hover:bg-accent/30">
+              <Card
+                key={snap.id}
+                className="transition-colors hover:border-primary/50 hover:bg-accent/30"
+              >
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -220,7 +241,9 @@ export function BackupsTab({ botId, onRestore }: { botId: string; onRestore?: ()
                       </span>
                       <span>{snap.sizeMb} MB</span>
                       {snap.expiresAt && (
-                        <span>Expires {formatDate(new Date(snap.expiresAt * 1000).toISOString())}</span>
+                        <span>
+                          Expires {formatDate(new Date(snap.expiresAt * 1000).toISOString())}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -255,7 +278,8 @@ export function BackupsTab({ botId, onRestore }: { botId: string; onRestore?: ()
           <DialogHeader>
             <DialogTitle>Create Backup</DialogTitle>
             <DialogDescription>
-              Save a checkpoint of your bot's current state. You can restore it later if something breaks.
+              Save a checkpoint of your bot's current state. You can restore it later if something
+              breaks.
             </DialogDescription>
           </DialogHeader>
           <Input
@@ -295,8 +319,8 @@ export function BackupsTab({ botId, onRestore }: { botId: string; onRestore?: ()
             <DialogTitle>Are you sure?</DialogTitle>
             <DialogDescription>
               This will overwrite your bot's current state with the backup from{" "}
-              <strong>{restoreTarget ? formatDate(restoreTarget.createdAt) : ""}</strong>. A pre-restore backup will be
-              created automatically.
+              <strong>{restoreTarget ? formatDate(restoreTarget.createdAt) : ""}</strong>. A
+              pre-restore backup will be created automatically.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -6,7 +6,12 @@ process.env.NEXT_PUBLIC_API_URL = "";
 const { validateCsrfOrigin } = await import("../proxy");
 
 // Helper: create a minimal NextRequest-like object for validateCsrfOrigin
-function makeMutationRequest(pathname: string, method: string, origin?: string, host = "localhost:3000") {
+function makeMutationRequest(
+  pathname: string,
+  method: string,
+  origin?: string,
+  host = "localhost:3000",
+) {
   return {
     headers: new Headers({
       ...(origin ? { origin } : {}),
@@ -20,12 +25,22 @@ function makeMutationRequest(pathname: string, method: string, origin?: string, 
 
 describe("CSRF_EXEMPT_PATHS", () => {
   it("validateCsrfOrigin rejects cross-origin POST", () => {
-    const req = makeMutationRequest("/api/auth/callback/github", "POST", "https://evil.com", "localhost:3000");
+    const req = makeMutationRequest(
+      "/api/auth/callback/github",
+      "POST",
+      "https://evil.com",
+      "localhost:3000",
+    );
     expect(validateCsrfOrigin(req)).toBe(false);
   });
 
   it("validateCsrfOrigin accepts same-origin POST", () => {
-    const req = makeMutationRequest("/api/auth/callback/github", "POST", "http://localhost:3000", "localhost:3000");
+    const req = makeMutationRequest(
+      "/api/auth/callback/github",
+      "POST",
+      "http://localhost:3000",
+      "localhost:3000",
+    );
     expect(validateCsrfOrigin(req)).toBe(true);
   });
 });

@@ -222,7 +222,9 @@ describe("useChat", () => {
       expect(result.current.messages[0].role).toBe("user");
       expect(result.current.messages[0].content).toBe("test");
       expect(result.current.messages[1].role).toBe("bot");
-      expect(result.current.messages[1].content).toBe("Sorry, your message could not be sent. Please try again.");
+      expect(result.current.messages[1].content).toBe(
+        "Sorry, your message could not be sent. Please try again.",
+      );
 
       sse.close();
     });

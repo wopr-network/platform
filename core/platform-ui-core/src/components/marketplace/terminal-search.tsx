@@ -11,7 +11,11 @@ interface TerminalSearchProps {
   placeholder?: string;
 }
 
-export function TerminalSearch({ value, onChange, placeholder = "Search plugins..." }: TerminalSearchProps) {
+export function TerminalSearch({
+  value,
+  onChange,
+  placeholder = "Search plugins...",
+}: TerminalSearchProps) {
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -19,7 +23,9 @@ export function TerminalSearch({ value, onChange, placeholder = "Search plugins.
     <search
       className={cn(
         "flex items-center gap-2 rounded-sm border px-3 py-2 font-mono text-sm transition-all max-w-sm cursor-text",
-        focused ? "border-primary shadow-[0_0_8px_rgba(0,255,65,0.15)]" : "border-input hover:border-primary/40",
+        focused
+          ? "border-primary shadow-[0_0_8px_rgba(0,255,65,0.15)]"
+          : "border-input hover:border-primary/40",
       )}
       onClick={() => inputRef.current?.focus()}
       onKeyDown={(e) => {

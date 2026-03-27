@@ -37,7 +37,9 @@ function BulkActionsBar({
         >
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold text-terminal">{selectedCount} selected</span>
-            {allMatchingSelected && <span className="text-sm text-muted-foreground">(all matching filters)</span>}
+            {allMatchingSelected && (
+              <span className="text-sm text-muted-foreground">(all matching filters)</span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

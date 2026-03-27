@@ -20,7 +20,12 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getChangeset } from "@/lib/changeset-api";
-import type { ChangesetDetail, ChangesetFile, ChangesetReviewStatus, ChangesetStatus } from "@/lib/changeset-types";
+import type {
+  ChangesetDetail,
+  ChangesetFile,
+  ChangesetReviewStatus,
+  ChangesetStatus,
+} from "@/lib/changeset-types";
 import { toUserMessage } from "@/lib/errors";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -192,7 +197,9 @@ export function ChangesetDetailClient({ changesetId }: { changesetId: string }) 
           <ChangesetStatusBadge status={changeset.status} />
           <ReviewStatusBadge status={changeset.reviewStatus} />
         </div>
-        {changeset.description && <p className="text-sm text-muted-foreground">{changeset.description}</p>}
+        {changeset.description && (
+          <p className="text-sm text-muted-foreground">{changeset.description}</p>
+        )}
       </div>
 
       {/* Metadata */}
@@ -245,7 +252,9 @@ export function ChangesetDetailClient({ changesetId }: { changesetId: string }) 
               <span className="text-sm text-muted-foreground">
                 {changeset.files.length} file{changeset.files.length !== 1 ? "s" : ""} changed
               </span>
-              <span className="text-sm font-mono text-emerald-400">+{changeset.totalAdditions}</span>
+              <span className="text-sm font-mono text-emerald-400">
+                +{changeset.totalAdditions}
+              </span>
               <span className="text-sm font-mono text-red-400">-{changeset.totalDeletions}</span>
             </CardContent>
           </Card>
@@ -259,7 +268,9 @@ export function ChangesetDetailClient({ changesetId }: { changesetId: string }) 
         <TabsContent value="reviews" className="space-y-4">
           {changeset.reviews.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">No reviews yet.</CardContent>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No reviews yet.
+              </CardContent>
             </Card>
           ) : (
             changeset.reviews.map((review) => (
@@ -272,7 +283,9 @@ export function ChangesetDetailClient({ changesetId }: { changesetId: string }) 
                     </div>
                     <div className="flex items-center gap-2">
                       <ReviewStatusBadge status={review.status} />
-                      <span className="text-xs text-muted-foreground">{formatRelativeTime(review.createdAt)}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatRelativeTime(review.createdAt)}
+                      </span>
                     </div>
                   </div>
                 </CardHeader>
@@ -290,7 +303,9 @@ export function ChangesetDetailClient({ changesetId }: { changesetId: string }) 
         <TabsContent value="comments" className="space-y-4">
           {changeset.comments.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">No comments yet.</CardContent>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No comments yet.
+              </CardContent>
             </Card>
           ) : (
             changeset.comments.map((comment) => (
@@ -301,7 +316,9 @@ export function ChangesetDetailClient({ changesetId }: { changesetId: string }) 
                       <User className="size-3.5 text-muted-foreground" />
                       <span className="text-sm font-medium">{comment.author}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">{formatRelativeTime(comment.createdAt)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatRelativeTime(comment.createdAt)}
+                    </span>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -353,7 +370,9 @@ function FileCard({ file }: { file: ChangesetFile }) {
               )}
               <FileStatusBadge status={file.status} />
               <span className="font-mono text-sm">
-                {file.status === "renamed" && file.previousPath ? `${file.previousPath} → ${file.path}` : file.path}
+                {file.status === "renamed" && file.previousPath
+                  ? `${file.previousPath} → ${file.path}`
+                  : file.path}
               </span>
             </div>
             <div className="flex items-center gap-3">

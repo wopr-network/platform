@@ -26,7 +26,9 @@ vi.mock("@/lib/api", () => ({
 }));
 
 // Mock bot-settings-data with controlBot we can spy on
-const mockControlBot = vi.fn().mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
+const mockControlBot = vi
+  .fn()
+  .mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 100)));
 const mockGetBotSettings = vi.fn().mockResolvedValue({
   id: "bot-1",
   identity: { name: "Test Bot", personality: "", avatar: "" },

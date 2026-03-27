@@ -53,13 +53,19 @@ export function CreditBalance({ data }: { data: CreditBalanceData }) {
           <CardTitle>Credit Balance</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className={cn("text-4xl font-bold font-mono", balanceColor(data.balance, data.runway))}>
+          <div
+            className={cn("text-4xl font-bold font-mono", balanceColor(data.balance, data.runway))}
+          >
             {formatCreditStandard(animatedBalance)}
           </div>
           <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
             <div>
-              <span className="block text-xs uppercase tracking-wider text-primary/60">Daily burn</span>
-              <span className="font-medium text-foreground">{formatCreditStandard(data.dailyBurn)}/day</span>
+              <span className="block text-xs uppercase tracking-wider text-primary/60">
+                Daily burn
+              </span>
+              <span className="font-medium text-foreground">
+                {formatCreditStandard(data.dailyBurn)}/day
+              </span>
             </div>
             <div>
               <span className="block text-xs uppercase tracking-wider text-primary/60">Runway</span>

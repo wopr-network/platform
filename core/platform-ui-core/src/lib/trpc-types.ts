@@ -13,7 +13,12 @@
  * The real AppRouter type lives at:
  *   wopr-network/wopr-platform/src/trpc/index.ts → `export type AppRouter = typeof appRouter;`
  */
-import type { AnyTRPCMutationProcedure, AnyTRPCQueryProcedure, AnyTRPCRootTypes, TRPCBuiltRouter } from "@trpc/server";
+import type {
+  AnyTRPCMutationProcedure,
+  AnyTRPCQueryProcedure,
+  AnyTRPCRootTypes,
+  TRPCBuiltRouter,
+} from "@trpc/server";
 
 /**
  * Minimal router record for the procedures this UI consumes.

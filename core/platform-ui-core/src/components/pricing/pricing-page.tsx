@@ -47,13 +47,13 @@ export async function PricingPage() {
         </h1>
 
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-          Every day, the platform distributes credits back to active users from its own margin. The bigger the community
-          grows, the more you receive. Early users get the most.
+          Every day, the platform distributes credits back to active users from its own margin. The
+          bigger the community grows, the more you receive. Early users get the most.
         </p>
 
         <p className="mt-4 max-w-lg text-sm text-muted-foreground">
-          At scale, the daily dividend covers your entire credit spend. You&apos;re not paying to run your bots.{" "}
-          {brandName()} is.
+          At scale, the daily dividend covers your entire credit spend. You&apos;re not paying to
+          run your bots. {brandName()} is.
         </p>
       </section>
 
@@ -75,17 +75,22 @@ export async function PricingPage() {
           <span className="font-semibold text-terminal">
             ${pricingData.bot_price.amount}/{pricingData.bot_price.period}
           </span>
-          . That&apos;s the minimum to be eligible for the daily dividend. Usage is billed at cost from credits.
+          . That&apos;s the minimum to be eligible for the daily dividend. Usage is billed at cost
+          from credits.
         </p>
 
         <Card className="w-full max-w-md border-terminal">
           <CardHeader className="items-center text-center">
-            <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">Pool eligibility</CardTitle>
+            <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">
+              Pool eligibility
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
             <p className="text-5xl font-bold text-terminal sm:text-6xl" data-testid="bot-price">
               ${pricingData.bot_price.amount}
-              <span className="text-xl font-normal text-muted-foreground">/{pricingData.bot_price.period}</span>
+              <span className="text-xl font-normal text-muted-foreground">
+                /{pricingData.bot_price.period}
+              </span>
             </p>
             <p className="text-muted-foreground">Minimum spend to stay in the dividend pool.</p>
           </CardContent>
@@ -116,7 +121,9 @@ export async function PricingPage() {
                           <p className="font-medium">{model.name}</p>
                           <p className="text-sm text-muted-foreground">per {model.unit}</p>
                         </div>
-                        <p className="text-lg font-bold text-terminal">{formatPrice(model.price)}</p>
+                        <p className="text-lg font-bold text-terminal">
+                          {formatPrice(model.price)}
+                        </p>
                       </CardContent>
                     </Card>
                   ))}
@@ -129,15 +136,19 @@ export async function PricingPage() {
 
       {/* --- VPS Tier --- */}
       <section className="mx-auto max-w-4xl px-6 pb-24">
-        <h2 className="mb-4 text-center text-2xl font-bold tracking-tight sm:text-3xl">Need a dedicated machine?</h2>
+        <h2 className="mb-4 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+          Need a dedicated machine?
+        </h2>
         <p className="mb-8 text-center text-muted-foreground">
-          The VPS tier gives your bot a persistent container with fixed monthly pricing — no per-credit billing for
-          compute.
+          The VPS tier gives your bot a persistent container with fixed monthly pricing — no
+          per-credit billing for compute.
         </p>
         <div className="mx-auto max-w-sm">
           <Card className="border-terminal/50">
             <CardHeader className="items-center text-center">
-              <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">VPS tier</CardTitle>
+              <CardTitle className="text-sm uppercase tracking-widest text-muted-foreground">
+                VPS tier
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4">
               <p className="text-5xl font-bold text-terminal sm:text-6xl">
@@ -149,7 +160,8 @@ export async function PricingPage() {
                   <span className="text-terminal">✓</span> 2 GB RAM / 2 vCPU / 20 GB SSD
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-terminal">✓</span> Persistent container — data survives restarts
+                  <span className="text-terminal">✓</span> Persistent container — data survives
+                  restarts
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="text-terminal">✓</span> Dedicated hostname
@@ -161,7 +173,12 @@ export async function PricingPage() {
                   <span className="text-terminal">✓</span> Flat monthly price — no metered compute
                 </li>
               </ul>
-              <Button data-onboarding-id="pricing.subscribe.vps" variant="terminal" className="w-full" asChild>
+              <Button
+                data-onboarding-id="pricing.subscribe.vps"
+                variant="terminal"
+                className="w-full"
+                asChild
+              >
                 <Link href="/signup">Get started</Link>
               </Button>
             </CardContent>
@@ -172,8 +189,8 @@ export async function PricingPage() {
       {/* --- Credits Explainer --- */}
       <section className="flex flex-col items-center justify-center gap-6 px-6 pb-24 text-center">
         <p className="max-w-lg text-lg text-muted-foreground">
-          Your bot is ${pricingData.bot_price.amount}/mo. Usage is billed from credits. Free tier includes $
-          {pricingData.signup_credit} signup credit.
+          Your bot is ${pricingData.bot_price.amount}/mo. Usage is billed from credits. Free tier
+          includes ${pricingData.signup_credit} signup credit.
         </p>
         <p className="text-sm text-muted-foreground">
           Credits in, dividend back. The community grows, your costs shrink.
@@ -190,7 +207,9 @@ export async function PricingPage() {
           <Link href="/signup">Get Started</Link>
         </Button>
 
-        <span className="mt-4 text-sm text-muted-foreground opacity-60">{getBrandConfig().domain}</span>
+        <span className="mt-4 text-sm text-muted-foreground opacity-60">
+          {getBrandConfig().domain}
+        </span>
       </section>
 
       {/* --- Footer --- */}

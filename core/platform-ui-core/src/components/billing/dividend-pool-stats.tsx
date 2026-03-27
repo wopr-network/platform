@@ -11,7 +11,11 @@ interface DividendPoolStatsProps {
   perUserCents: number;
 }
 
-export function DividendPoolStats({ poolCents, activeUsers, perUserCents }: DividendPoolStatsProps) {
+export function DividendPoolStats({
+  poolCents,
+  activeUsers,
+  perUserCents,
+}: DividendPoolStatsProps) {
   if (poolCents === 0 && activeUsers === 0) {
     return (
       <motion.div
@@ -24,7 +28,9 @@ export function DividendPoolStats({ poolCents, activeUsers, perUserCents }: Divi
             <CardTitle className="text-base">Community Pool</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Pool building... check back after the first purchase day.</p>
+            <p className="text-sm text-muted-foreground">
+              Pool building... check back after the first purchase day.
+            </p>
           </CardContent>
         </Card>
       </motion.div>
@@ -47,19 +53,27 @@ export function DividendPoolStats({ poolCents, activeUsers, perUserCents }: Divi
         <CardContent>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-6 text-sm">
             <div>
-              <span className="block text-xs uppercase tracking-wider text-primary/60">Today&apos;s pool</span>
+              <span className="block text-xs uppercase tracking-wider text-primary/60">
+                Today&apos;s pool
+              </span>
               <span className="font-bold text-lg font-mono text-terminal">{poolDollars}</span>
             </div>
             <div>
-              <span className="block text-xs uppercase tracking-wider text-primary/60">Active users</span>
+              <span className="block text-xs uppercase tracking-wider text-primary/60">
+                Active users
+              </span>
               <span className="font-bold text-lg font-mono flex items-center gap-1.5">
                 <UsersIcon className="size-4 text-muted-foreground" />
                 {activeUsers}
               </span>
             </div>
             <div>
-              <span className="block text-xs uppercase tracking-wider text-primary/60">Your share</span>
-              <span className="font-bold text-lg font-mono text-terminal">{perUserDollars}/day</span>
+              <span className="block text-xs uppercase tracking-wider text-primary/60">
+                Your share
+              </span>
+              <span className="font-bold text-lg font-mono text-terminal">
+                {perUserDollars}/day
+              </span>
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">

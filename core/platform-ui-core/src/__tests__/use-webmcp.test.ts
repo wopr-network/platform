@@ -30,7 +30,9 @@ describe("useWebMCP", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockRegisterWebMCPTools.mockReturnValue(true);
-    vi.mocked(useSession).mockReturnValue({ data: { user: mockSession.user } } as ReturnType<typeof useSession>);
+    vi.mocked(useSession).mockReturnValue({ data: { user: mockSession.user } } as ReturnType<
+      typeof useSession
+    >);
   });
 
   it("registers tools when user is authenticated", () => {

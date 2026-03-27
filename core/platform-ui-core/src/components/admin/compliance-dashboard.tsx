@@ -14,10 +14,23 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -93,7 +106,8 @@ function complianceActionBadgeClasses(action: string): string {
     return "bg-destructive/15 text-red-400 border border-destructive/20";
   if (action.includes("trigger_export") || action.includes("complete_export"))
     return "bg-terminal/15 text-terminal border border-terminal/20";
-  if (action.includes("policy_update")) return "bg-amber-500/15 text-amber-400 border border-amber-500/20";
+  if (action.includes("policy_update"))
+    return "bg-amber-500/15 text-amber-400 border border-amber-500/20";
   return "bg-secondary text-muted-foreground border border-border";
 }
 
@@ -188,7 +202,9 @@ function TriggerDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-base font-semibold uppercase tracking-wider">{title}</DialogTitle>
+          <DialogTitle className="text-base font-semibold uppercase tracking-wider">
+            {title}
+          </DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -254,7 +270,12 @@ function Pagination({
         >
           Previous
         </Button>
-        <Button variant="ghost" size="sm" disabled={!hasMore} onClick={() => onNavigate(offset + PAGE_SIZE)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!hasMore}
+          onClick={() => onNavigate(offset + PAGE_SIZE)}
+        >
           Next
         </Button>
         <Button
@@ -396,8 +417,8 @@ function DeletionRequestsTab() {
             <span className="animate-ellipsis" />
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            The admin.complianceDeletionRequests procedure is not yet available. This section will activate
-            automatically once deployed.
+            The admin.complianceDeletionRequests procedure is not yet available. This section will
+            activate automatically once deployed.
           </p>
         </div>
         <TriggerDialog
@@ -464,15 +485,27 @@ function DeletionRequestsTab() {
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
-              <TableHead className="text-xs font-medium uppercase tracking-wider w-[140px]">Tenant ID</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">Requested By</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider w-[140px]">
+                Tenant ID
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">
+                Requested By
+              </TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Status</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">Delete After</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">Created</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider w-[80px]">Actions</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">
+                Delete After
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">
+                Created
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider w-[80px]">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className={cn("transition-opacity duration-150", loading && data && "opacity-60")}>
+          <TableBody
+            className={cn("transition-opacity duration-150", loading && data && "opacity-60")}
+          >
             {loading && !data ? (
               <SkeletonRows cols={6} />
             ) : filteredRequests.length === 0 && !loading ? (
@@ -664,8 +697,8 @@ function DataExportsTab() {
             <span className="animate-ellipsis" />
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            The admin.complianceExportRequests procedure is not yet available. This section will activate automatically
-            once deployed.
+            The admin.complianceExportRequests procedure is not yet available. This section will
+            activate automatically once deployed.
           </p>
         </div>
         <TriggerDialog
@@ -732,15 +765,25 @@ function DataExportsTab() {
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
-              <TableHead className="text-xs font-medium uppercase tracking-wider w-[140px]">Tenant ID</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">Requested By</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider w-[140px]">
+                Tenant ID
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">
+                Requested By
+              </TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Status</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Format</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">Created</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider w-[80px]">Actions</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">
+                Created
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider w-[80px]">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className={cn("transition-opacity duration-150", loading && data && "opacity-60")}>
+          <TableBody
+            className={cn("transition-opacity duration-150", loading && data && "opacity-60")}
+          >
             {loading && !data ? (
               <SkeletonRows cols={6} />
             ) : filteredRequests.length === 0 && !loading ? (
@@ -839,7 +882,9 @@ function ComplianceAuditTab() {
       setLoadError(false);
       try {
         const since =
-          dateRange === "all" ? undefined : new Date(Date.now() - Number(dateRange) * 86400000).toISOString();
+          dateRange === "all"
+            ? undefined
+            : new Date(Date.now() - Number(dateRange) * 86400000).toISOString();
         const result = await fetchAuditLog({
           limit: PAGE_SIZE,
           offset: newOffset,
@@ -931,13 +976,21 @@ function ComplianceAuditTab() {
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
-              <TableHead className="text-xs font-medium uppercase tracking-wider w-[100px]">Time</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider w-[100px]">
+                Time
+              </TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Action</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">Resource</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">Details</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">
+                Resource
+              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">
+                Details
+              </TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody className={cn("transition-opacity duration-150", loading && data && "opacity-60")}>
+          <TableBody
+            className={cn("transition-opacity duration-150", loading && data && "opacity-60")}
+          >
             {loading && !data ? (
               <SkeletonRows cols={4} rows={8} />
             ) : filteredEvents.length === 0 && !loading ? (
@@ -964,8 +1017,12 @@ function ComplianceAuditTab() {
                     </span>
                   </TableCell>
                   <TableCell className="text-sm">
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground">{event.resourceType}</span>{" "}
-                    <span className="font-mono text-xs">{event.resourceName ?? event.resourceId}</span>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {event.resourceType}
+                    </span>{" "}
+                    <span className="font-mono text-xs">
+                      {event.resourceName ?? event.resourceId}
+                    </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
                     {event.details ?? "\u2014"}
@@ -977,7 +1034,14 @@ function ComplianceAuditTab() {
         </Table>
       </div>
 
-      {data && <Pagination offset={offset} total={data.total} hasMore={data.hasMore} onNavigate={(o) => load(o)} />}
+      {data && (
+        <Pagination
+          offset={offset}
+          total={data.total}
+          hasMore={data.hasMore}
+          onNavigate={(o) => load(o)}
+        />
+      )}
     </div>
   );
 }
@@ -1034,7 +1098,9 @@ function EditRetentionPolicyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-base font-semibold uppercase tracking-wider">Edit Retention Policy</DialogTitle>
+          <DialogTitle className="text-base font-semibold uppercase tracking-wider">
+            Edit Retention Policy
+          </DialogTitle>
           <DialogDescription>Update retention settings for {policy.dataType}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -1149,7 +1215,9 @@ function RetentionPoliciesTab() {
           key={policy.dataType}
           className="rounded-sm border border-terminal/10 bg-card p-4 transition-colors duration-150 hover:border-terminal/20"
         >
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">{policy.dataType}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+            {policy.dataType}
+          </h3>
           <dl className="mt-3 space-y-1.5 text-xs font-mono text-muted-foreground">
             <div className="flex justify-between">
               <dt>Retention period</dt>
@@ -1203,7 +1271,9 @@ function RetentionPoliciesTab() {
             if (!open) setEditingPolicy(null);
           }}
           onSaved={(updated) => {
-            setPolicies((prev) => (prev ? prev.map((p) => (p.dataType === updated.dataType ? updated : p)) : prev));
+            setPolicies((prev) =>
+              prev ? prev.map((p) => (p.dataType === updated.dataType ? updated : p)) : prev,
+            );
             setEditingPolicy(null);
           }}
         />

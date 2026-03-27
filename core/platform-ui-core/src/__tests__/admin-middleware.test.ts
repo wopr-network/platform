@@ -16,7 +16,9 @@ function mockRequest(opts: {
   if (!headers.has("host")) {
     headers.set("host", url.host);
   }
-  const cookieMap = new Map(Object.entries(opts.cookies ?? {}).map(([k, v]) => [k, { name: k, value: v }]));
+  const cookieMap = new Map(
+    Object.entries(opts.cookies ?? {}).map(([k, v]) => [k, { name: k, value: v }]),
+  );
   return {
     method: opts.method ?? "GET",
     url: opts.url,

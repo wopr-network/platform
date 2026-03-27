@@ -74,7 +74,10 @@ describe("getAllPlugins", () => {
 
 describe("getDiscoveryQueue", () => {
   it("returns only unreviewed plugins from tRPC", async () => {
-    const plugins = [fakePlugin({ id: "a", reviewed: true }), fakePlugin({ id: "b", reviewed: false })];
+    const plugins = [
+      fakePlugin({ id: "a", reviewed: true }),
+      fakePlugin({ id: "b", reviewed: false }),
+    ];
     mockListPlugins.query.mockResolvedValue(plugins);
 
     const result = await getDiscoveryQueue();

@@ -5,7 +5,8 @@ import { getBrandConfig } from "@/lib/brand-config";
 
 const brand = getBrandConfig();
 
-const desc = brand.tagline || `A ${brand.price || "$5/month"} supercomputer that runs your business.`;
+const desc =
+  brand.tagline || `A ${brand.price || "$5/month"} supercomputer that runs your business.`;
 
 export const metadata: Metadata = {
   title: `${brand.productName} — ${brand.tagline}`,

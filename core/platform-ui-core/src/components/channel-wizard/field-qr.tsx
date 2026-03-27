@@ -164,14 +164,20 @@ export function FieldQR({ field, value: _value, onChange, error, botId }: FieldQ
               {/* bg-white is intentional -- QR codes require white background for scanability */}
               <div className="h-40 w-40 rounded-sm bg-white p-3 min-[375px]:h-48 min-[375px]:w-48">
                 {/* biome-ignore lint/performance/noImgElement: QR PNG is a base64 data URI from the API — next/image does not support data: URIs (cannot optimize, resize, or lazy-load inline blobs). Raw <img> is the only option here. */}
-                <img src={qrPng} alt="Scan this QR code with your phone" className="h-full w-full" />
+                <img
+                  src={qrPng}
+                  alt="Scan this QR code with your phone"
+                  className="h-full w-full"
+                />
               </div>
             </div>
 
             {/* Scanning indicator */}
             <div className="flex items-center gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-terminal motion-safe:animate-[pulse-dot_2s_ease-in-out_infinite]" />
-              <span className="text-xs font-medium uppercase tracking-wider text-terminal">WAITING FOR SCAN</span>
+              <span className="text-xs font-medium uppercase tracking-wider text-terminal">
+                WAITING FOR SCAN
+              </span>
             </div>
 
             {/* Instructions */}
@@ -180,7 +186,9 @@ export function FieldQR({ field, value: _value, onChange, error, botId }: FieldQ
             </p>
 
             {/* Countdown */}
-            <span className={`text-xs tabular-nums ${countdownColor()}`}>Expires in {secondsLeft}s</span>
+            <span className={`text-xs tabular-nums ${countdownColor()}`}>
+              Expires in {secondsLeft}s
+            </span>
           </div>
         )}
 
@@ -207,13 +215,21 @@ export function FieldQR({ field, value: _value, onChange, error, botId }: FieldQ
               </div>
             </div>
 
-            <span className="text-xs font-medium uppercase tracking-wider text-amber-500">QR CODE EXPIRED</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-amber-500">
+              QR CODE EXPIRED
+            </span>
 
             <p className="text-center text-sm text-muted-foreground">
               The code expired. Tap below to generate a fresh one.
             </p>
 
-            <Button type="button" variant="terminal" size="sm" className="h-10 px-4" onClick={handleRefresh}>
+            <Button
+              type="button"
+              variant="terminal"
+              size="sm"
+              className="h-10 px-4"
+              onClick={handleRefresh}
+            >
               <RefreshCw className="size-3.5" />
               Generate New Code
             </Button>
@@ -227,7 +243,9 @@ export function FieldQR({ field, value: _value, onChange, error, botId }: FieldQ
               <Check className="size-16 text-emerald-500" />
             </div>
 
-            <span className="text-xs font-medium uppercase tracking-wider text-emerald-500">LINKED SUCCESSFULLY</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-emerald-500">
+              LINKED SUCCESSFULLY
+            </span>
 
             <p className="text-center text-sm text-muted-foreground">
               {field.label ? `${field.label} connected` : "Connected"}. You can continue setup.
@@ -240,13 +258,22 @@ export function FieldQR({ field, value: _value, onChange, error, botId }: FieldQ
           <div className="flex flex-col items-center gap-4">
             <AlertTriangle className="size-10 text-destructive" />
 
-            <span className="text-xs font-medium uppercase tracking-wider text-destructive">CONNECTION ERROR</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-destructive">
+              CONNECTION ERROR
+            </span>
 
             <p className="max-w-[280px] text-center text-sm text-muted-foreground">
-              {errorMsg || "Could not reach the server. Check that your bot is running and try again."}
+              {errorMsg ||
+                "Could not reach the server. Check that your bot is running and try again."}
             </p>
 
-            <Button type="button" variant="terminal" size="sm" className="h-10 px-4" onClick={handleRefresh}>
+            <Button
+              type="button"
+              variant="terminal"
+              size="sm"
+              className="h-10 px-4"
+              onClick={handleRefresh}
+            >
               <RefreshCw className="size-3.5" />
               Try Again
             </Button>
@@ -258,7 +285,9 @@ export function FieldQR({ field, value: _value, onChange, error, botId }: FieldQ
           <div className="flex flex-col items-center gap-4">
             <WifiOff className="size-10 text-muted-foreground" />
 
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">BOT OFFLINE</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              BOT OFFLINE
+            </span>
 
             <p className="max-w-[280px] text-center text-sm text-muted-foreground">
               Your bot is currently offline. Start it from the fleet dashboard to link your account.

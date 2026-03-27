@@ -15,7 +15,9 @@ export function useMyOrgRole(org: Organization | null): OrgMember["role"] | null
   return useMemo(() => {
     if (!org || !session?.user?.id) return null;
 
-    const me = org.members?.find((m: OrgMember) => m.userId === session.user.id || m.email === session.user.email);
+    const me = org.members?.find(
+      (m: OrgMember) => m.userId === session.user.id || m.email === session.user.email,
+    );
     return me?.role ?? null;
   }, [org, session?.user?.id, session?.user?.email]);
 }

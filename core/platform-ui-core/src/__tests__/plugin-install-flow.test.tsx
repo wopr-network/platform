@@ -43,25 +43,33 @@ vi.mock("framer-motion", () => {
 });
 
 // vi.hoisted runs before module imports so TEST_PLUGINS and mocks are available in vi.mock factories
-const { TEST_PLUGINS, ALL_PLUGINS, mockInstallPlugin, mockListBots, mockListInstalledPlugins, injectPathlessZodError } =
-  vi.hoisted(() => {
-    const mockInstallPlugin = vi.fn();
-    const mockListBots = vi.fn().mockResolvedValue([{ id: "bot-001", name: "My Bot", state: "running" }]);
-    const mockListInstalledPlugins = vi.fn().mockResolvedValue([]);
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { INSTALL_FLOW_TEST_PLUGINS, MARKETPLACE_TEST_PLUGINS } =
-      require("./fixtures/mock-manifests-data") as typeof import("./fixtures/mock-manifests");
-    // Flag to conditionally inject a path-less Zod error in the mocked z.object
-    const injectPathlessZodError = { value: false };
-    return {
-      TEST_PLUGINS: INSTALL_FLOW_TEST_PLUGINS,
-      ALL_PLUGINS: MARKETPLACE_TEST_PLUGINS,
-      mockInstallPlugin,
-      mockListBots,
-      mockListInstalledPlugins,
-      injectPathlessZodError,
-    };
-  });
+const {
+  TEST_PLUGINS,
+  ALL_PLUGINS,
+  mockInstallPlugin,
+  mockListBots,
+  mockListInstalledPlugins,
+  injectPathlessZodError,
+} = vi.hoisted(() => {
+  const mockInstallPlugin = vi.fn();
+  const mockListBots = vi
+    .fn()
+    .mockResolvedValue([{ id: "bot-001", name: "My Bot", state: "running" }]);
+  const mockListInstalledPlugins = vi.fn().mockResolvedValue([]);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { INSTALL_FLOW_TEST_PLUGINS, MARKETPLACE_TEST_PLUGINS } =
+    require("./fixtures/mock-manifests-data") as typeof import("./fixtures/mock-manifests");
+  // Flag to conditionally inject a path-less Zod error in the mocked z.object
+  const injectPathlessZodError = { value: false };
+  return {
+    TEST_PLUGINS: INSTALL_FLOW_TEST_PLUGINS,
+    ALL_PLUGINS: MARKETPLACE_TEST_PLUGINS,
+    mockInstallPlugin,
+    mockListBots,
+    mockListInstalledPlugins,
+    injectPathlessZodError,
+  };
+});
 
 // Mock zod with a conditional wrapper: when injectPathlessZodError.value is true,
 // z.object() adds a superRefine that produces a path-less ZodIssue.
@@ -70,7 +78,10 @@ const { TEST_PLUGINS, ALL_PLUGINS, mockInstallPlugin, mockListBots, mockListInst
 vi.mock("zod", async () => {
   const realZod = await vi.importActual<typeof import("zod")>("zod");
   const originalObject = realZod.z.object.bind(realZod.z);
-  const wrappedObject = (shape?: Record<string, unknown>, params?: string | Record<string, unknown>) => {
+  const wrappedObject = (
+    shape?: Record<string, unknown>,
+    params?: string | Record<string, unknown>,
+  ) => {
     const schema = originalObject(shape, params as undefined);
     if (!injectPathlessZodError.value || !shape || Object.keys(shape).length === 0) return schema;
     return schema.superRefine((_val, ctx) => {
@@ -94,7 +105,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
+  default: ({
+    children,
+    href,
+    ...props
+  }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
     <a href={href} {...props}>
       {children}
     </a>
@@ -182,7 +197,9 @@ describe("Plugin Install Flow", () => {
 
   it("renders install button on plugin detail page for uninstalled plugin", async () => {
     mockParams.plugin = "webhooks";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     expect(await screen.findByText("Webhooks")).toBeInTheDocument();
@@ -194,7 +211,9 @@ describe("Plugin Install Flow", () => {
   it("opens install wizard when install button is clicked", async () => {
     const user = userEvent.setup();
     mockParams.plugin = "webhooks";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Webhooks");
@@ -209,7 +228,9 @@ describe("Plugin Install Flow", () => {
 
     const user = userEvent.setup();
     mockParams.plugin = "webhooks";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Webhooks");
@@ -247,7 +268,9 @@ describe("Plugin Install Flow", () => {
 
     const user = userEvent.setup();
     mockParams.plugin = "webhooks";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Webhooks");
@@ -272,7 +295,9 @@ describe("Plugin Install Flow", () => {
   it("wizard cancel button returns to detail page", async () => {
     const user = userEvent.setup();
     mockParams.plugin = "webhooks";
-    const { default: PluginDetailPage } = await import("../app/(dashboard)/marketplace/[plugin]/page");
+    const { default: PluginDetailPage } = await import(
+      "../app/(dashboard)/marketplace/[plugin]/page"
+    );
     renderWithQueryClient(<PluginDetailPage />);
 
     await screen.findByText("Webhooks");
@@ -328,7 +353,9 @@ describe("Plugin Toggle (Enable/Disable)", () => {
 
     // Complete phase reached — "This plugin requires the following dependencies:" was never shown
     expect(screen.getByText("Plugin installed successfully")).toBeInTheDocument();
-    expect(screen.queryByText("This plugin requires the following dependencies:")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("This plugin requires the following dependencies:"),
+    ).not.toBeInTheDocument();
   });
 
   it("InstallWizard shows requirements phase for plugins with dependencies", async () => {
@@ -397,7 +424,10 @@ describe("Plugin Toggle (Enable/Disable)", () => {
     expect(screen.getByText("Plugin installed successfully")).toBeInTheDocument();
     await user.click(screen.getByText("Done"));
 
-    expect(onComplete).toHaveBeenCalledWith("bot-001", expect.objectContaining({ _providerChoices: {} }));
+    expect(onComplete).toHaveBeenCalledWith(
+      "bot-001",
+      expect.objectContaining({ _providerChoices: {} }),
+    );
   });
 
   it("InstallWizard shows loading skeleton while bots are loading", async () => {

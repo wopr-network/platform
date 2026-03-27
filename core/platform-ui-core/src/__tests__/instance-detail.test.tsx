@@ -45,7 +45,9 @@ vi.mock("@/lib/api", () => ({
   pullImageUpdate: vi.fn().mockResolvedValue(undefined),
   getInstanceLogs: vi
     .fn()
-    .mockResolvedValue([{ id: "log-1", level: "info", message: "Bot started", timestamp: "2026-02-14T10:00:00Z" }]),
+    .mockResolvedValue([
+      { id: "log-1", level: "info", message: "Bot started", timestamp: "2026-02-14T10:00:00Z" },
+    ]),
   listSnapshots: vi.fn().mockResolvedValue([
     {
       id: "snap-001",
@@ -334,7 +336,9 @@ describe("InstanceDetailClient", () => {
     await user.click(screen.getByText("Pull Update"));
 
     await waitFor(() => {
-      expect(screen.getByText("This will pull the latest image and restart the bot. Continue?")).toBeInTheDocument();
+      expect(
+        screen.getByText("This will pull the latest image and restart the bot. Continue?"),
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -355,7 +359,9 @@ describe("InstanceDetailClient", () => {
     await user.click(screen.getByText("Pull Update"));
 
     await waitFor(() => {
-      expect(screen.getByText("This will pull the latest image and restart the bot. Continue?")).toBeInTheDocument();
+      expect(
+        screen.getByText("This will pull the latest image and restart the bot. Continue?"),
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));

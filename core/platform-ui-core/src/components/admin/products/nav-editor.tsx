@@ -38,7 +38,9 @@ function newItem(sortOrder: number): NavItem {
 }
 
 export function NavEditor({ initial, onSave }: NavEditorProps) {
-  const [items, setItems] = useState<NavItem[]>([...initial].sort((a, b) => a.sortOrder - b.sortOrder));
+  const [items, setItems] = useState<NavItem[]>(
+    [...initial].sort((a, b) => a.sortOrder - b.sortOrder),
+  );
   const [saving, setSaving] = useState(false);
 
   function update(id: string, patch: Partial<NavItem>) {
@@ -82,9 +84,14 @@ export function NavEditor({ initial, onSave }: NavEditorProps) {
         <CardTitle>Navigation Items</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {items.length === 0 && <p className="text-sm text-muted-foreground">No navigation items. Add one below.</p>}
+        {items.length === 0 && (
+          <p className="text-sm text-muted-foreground">No navigation items. Add one below.</p>
+        )}
         {items.map((item, index) => (
-          <div key={item.id} className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
+          <div
+            key={item.id}
+            className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3"
+          >
             <div className="flex flex-col gap-1 pt-1">
               <Button
                 variant="ghost"

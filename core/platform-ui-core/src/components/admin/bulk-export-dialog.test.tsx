@@ -47,7 +47,13 @@ describe("BulkExportDialog", () => {
   it("disables Generate export when all fields unchecked", async () => {
     const user = userEvent.setup();
     render(<BulkExportDialog {...defaultProps} />);
-    for (const label of ["Account info", "Credit balance", "Monthly products", "Lifetime spend", "Last seen"]) {
+    for (const label of [
+      "Account info",
+      "Credit balance",
+      "Monthly products",
+      "Lifetime spend",
+      "Last seen",
+    ]) {
       await user.click(screen.getByLabelText(label));
     }
     expect(screen.getByText("Generate export").closest("button")).toBeDisabled();

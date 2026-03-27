@@ -29,7 +29,12 @@ interface GrantCreditsDialogProps {
   onComplete: () => void;
 }
 
-export function GrantCreditsDialog({ open, onOpenChange, user, onComplete }: GrantCreditsDialogProps) {
+export function GrantCreditsDialog({
+  open,
+  onOpenChange,
+  user,
+  onComplete,
+}: GrantCreditsDialogProps) {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +70,9 @@ export function GrantCreditsDialog({ open, onOpenChange, user, onComplete }: Gra
           <div className="space-y-2">
             <Label htmlFor="grant-amount">Amount</Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                $
+              </span>
               <Input
                 id="grant-amount"
                 type="number"
@@ -98,8 +105,14 @@ export function GrantCreditsDialog({ open, onOpenChange, user, onComplete }: Gra
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="terminal" disabled={!isValidAmount || !reason.trim() || submitting} onClick={handleGrant}>
-            {submitting ? "Granting..." : `Grant ${isValidAmount ? formatCreditStandard(parsedAmount) : "$0.00"}`}
+          <Button
+            variant="terminal"
+            disabled={!isValidAmount || !reason.trim() || submitting}
+            onClick={handleGrant}
+          >
+            {submitting
+              ? "Granting..."
+              : `Grant ${isValidAmount ? formatCreditStandard(parsedAmount) : "$0.00"}`}
           </Button>
         </DialogFooter>
       </DialogContent>

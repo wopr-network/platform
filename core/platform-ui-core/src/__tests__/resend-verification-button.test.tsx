@@ -16,14 +16,20 @@ vi.mock("better-auth/react", () => ({
 
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
-    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <p {...props}>{children}</p>,
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <div {...props}>{children}</div>
+    ),
+    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
+      <p {...props}>{children}</p>
+    ),
   },
 }));
 
 describe("ResendVerificationButton", () => {
   it("renders button with correct text", async () => {
-    const { ResendVerificationButton } = await import("@/components/auth/resend-verification-button");
+    const { ResendVerificationButton } = await import(
+      "@/components/auth/resend-verification-button"
+    );
     render(<ResendVerificationButton email="test@example.com" />);
 
     expect(screen.getByRole("button", { name: /Resend verification email/ })).toBeInTheDocument();
@@ -31,7 +37,9 @@ describe("ResendVerificationButton", () => {
 
   it("calls sendVerificationEmail on click", async () => {
     const user = userEvent.setup();
-    const { ResendVerificationButton } = await import("@/components/auth/resend-verification-button");
+    const { ResendVerificationButton } = await import(
+      "@/components/auth/resend-verification-button"
+    );
     render(<ResendVerificationButton email="test@example.com" />);
 
     await user.click(screen.getByRole("button", { name: /Resend verification email/ }));
@@ -44,7 +52,9 @@ describe("ResendVerificationButton", () => {
 
   it("shows success message after sending", async () => {
     const user = userEvent.setup();
-    const { ResendVerificationButton } = await import("@/components/auth/resend-verification-button");
+    const { ResendVerificationButton } = await import(
+      "@/components/auth/resend-verification-button"
+    );
     render(<ResendVerificationButton email="test@example.com" />);
 
     await user.click(screen.getByRole("button", { name: /Resend verification email/ }));
@@ -58,7 +68,9 @@ describe("ResendVerificationButton", () => {
       error: { message: "Rate limited" },
     });
     const user = userEvent.setup();
-    const { ResendVerificationButton } = await import("@/components/auth/resend-verification-button");
+    const { ResendVerificationButton } = await import(
+      "@/components/auth/resend-verification-button"
+    );
     render(<ResendVerificationButton email="test@example.com" />);
 
     await user.click(screen.getByRole("button", { name: /Resend verification email/ }));
@@ -67,7 +79,9 @@ describe("ResendVerificationButton", () => {
   });
 
   it("disables button when email is empty", async () => {
-    const { ResendVerificationButton } = await import("@/components/auth/resend-verification-button");
+    const { ResendVerificationButton } = await import(
+      "@/components/auth/resend-verification-button"
+    );
     render(<ResendVerificationButton email="" />);
 
     expect(screen.getByRole("button", { name: /Resend verification email/ })).toBeDisabled();
@@ -75,7 +89,9 @@ describe("ResendVerificationButton", () => {
 
   it("disables button after successful send", async () => {
     const user = userEvent.setup();
-    const { ResendVerificationButton } = await import("@/components/auth/resend-verification-button");
+    const { ResendVerificationButton } = await import(
+      "@/components/auth/resend-verification-button"
+    );
     render(<ResendVerificationButton email="test@example.com" />);
 
     await user.click(screen.getByRole("button", { name: /Resend verification email/ }));

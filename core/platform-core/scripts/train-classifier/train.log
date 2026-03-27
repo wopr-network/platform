@@ -1,0 +1,85 @@
+Device: cuda
+Loaded 46378 samples from cache
+Channel weights: user=1.0, assistant=1.2
+Normalization: l2
+Embeddings shape: (46378, 9216)
+Embedding dimension: 9216
+Model parameters: 9,879,681
+
+=== PHASE 1: PROBE (5 epochs) ===
+Epoch 1/50 — loss: 0.0071, val MAE: 0.1236
+Epoch 2/50 — loss: 0.0047, val MAE: 0.1059
+Epoch 3/50 — loss: 0.0038, val MAE: 0.0968
+Epoch 4/50 — loss: 0.0032, val MAE: 0.0867
+Epoch 5/50 — loss: 0.0029, val MAE: 0.0866
+
+Probe: first_half=0.1148, second_half=0.0900, improvement=21.55%
+PROMISING: 21.55% improvement. Full training.
+
+=== PHASE 2: FULL TRAINING (45 more epochs) ===
+Epoch 6/50 — loss: 0.0025, val MAE: 0.0726
+Epoch 7/50 — loss: 0.0023, val MAE: 0.0796
+Epoch 8/50 — loss: 0.0021, val MAE: 0.0678
+Epoch 9/50 — loss: 0.0021, val MAE: 0.0692
+Epoch 10/50 — loss: 0.0020, val MAE: 0.0688
+Epoch 11/50 — loss: 0.0019, val MAE: 0.0750
+Epoch 12/50 — loss: 0.0017, val MAE: 0.0602
+Epoch 13/50 — loss: 0.0016, val MAE: 0.0561
+Epoch 14/50 — loss: 0.0016, val MAE: 0.0577
+Epoch 15/50 — loss: 0.0015, val MAE: 0.0549
+Epoch 16/50 — loss: 0.0015, val MAE: 0.0536
+Epoch 17/50 — loss: 0.0013, val MAE: 0.0495
+Epoch 18/50 — loss: 0.0014, val MAE: 0.0509
+Epoch 19/50 — loss: 0.0012, val MAE: 0.0483
+Epoch 20/50 — loss: 0.0012, val MAE: 0.0494
+Epoch 21/50 — loss: 0.0011, val MAE: 0.0480
+Epoch 22/50 — loss: 0.0011, val MAE: 0.0434
+Epoch 23/50 — loss: 0.0010, val MAE: 0.0467
+Epoch 24/50 — loss: 0.0010, val MAE: 0.0396
+Epoch 25/50 — loss: 0.0010, val MAE: 0.0413
+Epoch 26/50 — loss: 0.0010, val MAE: 0.0393
+Epoch 27/50 — loss: 0.0009, val MAE: 0.0367
+Epoch 28/50 — loss: 0.0008, val MAE: 0.0363
+Epoch 29/50 — loss: 0.0008, val MAE: 0.0372
+Epoch 30/50 — loss: 0.0008, val MAE: 0.0350
+Epoch 31/50 — loss: 0.0008, val MAE: 0.0343
+Epoch 32/50 — loss: 0.0007, val MAE: 0.0326
+Epoch 33/50 — loss: 0.0007, val MAE: 0.0350
+Epoch 34/50 — loss: 0.0007, val MAE: 0.0313
+Epoch 35/50 — loss: 0.0007, val MAE: 0.0311
+Epoch 36/50 — loss: 0.0007, val MAE: 0.0301
+Epoch 37/50 — loss: 0.0006, val MAE: 0.0309
+Epoch 38/50 — loss: 0.0006, val MAE: 0.0294
+Epoch 39/50 — loss: 0.0006, val MAE: 0.0286
+Epoch 40/50 — loss: 0.0006, val MAE: 0.0282
+Epoch 41/50 — loss: 0.0005, val MAE: 0.0273
+Epoch 42/50 — loss: 0.0005, val MAE: 0.0271
+Epoch 43/50 — loss: 0.0005, val MAE: 0.0264
+Epoch 44/50 — loss: 0.0005, val MAE: 0.0264
+Epoch 45/50 — loss: 0.0005, val MAE: 0.0258
+Epoch 46/50 — loss: 0.0005, val MAE: 0.0254
+Epoch 47/50 — loss: 0.0005, val MAE: 0.0252
+Epoch 48/50 — loss: 0.0005, val MAE: 0.0251
+Epoch 49/50 — loss: 0.0005, val MAE: 0.0250
+Epoch 50/50 — loss: 0.0005, val MAE: 0.0250
+
+Best val MAE: 0.0250
+/home/tsavo/platform-core/scripts/train-classifier/train.py:274: UserWarning: # 'dynamic_axes' is not recommended when dynamo=True, and may lead to 'torch._dynamo.exc.UserError: Constraints violated.' Supply the 'dynamic_shapes' argument instead if export is unsuccessful.
+  torch.onnx.export(
+W0325 01:53:09.591000 80360 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_compat.py:133] Setting ONNX exporter to use operator set version 18 because the requested opset_version 17 is a lower version than we have implementations for. Automatic version conversion will be performed, which may not be successful at converting to the requested version. If version conversion is unsuccessful, the opset version of the exported model will be kept at 18. Please consider setting opset_version >=18 to leverage latest ONNX features
+W0325 01:53:10.043000 80360 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_registration.py:110] torchvision is not installed. Skipping torchvision::nms
+W0325 01:53:10.044000 80360 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_registration.py:110] torchvision is not installed. Skipping torchvision::roi_align
+W0325 01:53:10.044000 80360 .venv/lib/python3.14/site-packages/torch/onnx/_internal/exporter/_registration.py:110] torchvision is not installed. Skipping torchvision::roi_pool
+[torch.onnx] Obtain model graph for `ComplexityHead([...]` with `torch.export.export(..., strict=False)`...
+[torch.onnx] Obtain model graph for `ComplexityHead([...]` with `torch.export.export(..., strict=False)`... ✅
+[torch.onnx] Run decompositions...
+/home/linuxbrew/.linuxbrew/opt/python@3.14/lib/python3.14/copyreg.py:104: FutureWarning: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+  return cls.__new__(cls, *args)
+[torch.onnx] Run decompositions... ✅
+[torch.onnx] Translate the graph into ONNX...
+[torch.onnx] Translate the graph into ONNX... ✅
+The model version conversion is not supported by the onnxscript version converter and fallback is enabled. The model will be converted using the onnx C API (target version: 17).
+[torch.onnx] Optimize the ONNX graph...
+[torch.onnx] Optimize the ONNX graph... ✅
+Exported: /tmp/autoresearch-model.onnx
+Checksum: /tmp/autoresearch-model.sha256 (511a261d1401169d...)

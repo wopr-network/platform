@@ -8,7 +8,13 @@ import { logger } from "@/lib/logger";
 
 const log = logger("error-boundary:fleet-updates");
 
-export default function FleetUpdatesError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function FleetUpdatesError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   const [showDetails, setShowDetails] = useState(false);
   const isDev = process.env.NODE_ENV === "development";
 
