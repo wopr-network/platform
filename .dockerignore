@@ -4,3 +4,32 @@ dist/
 *.tsbuildinfo
 .turbo/
 .git/
+
+# Test/dev files not needed in Docker builds
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/tests/
+**/test/
+**/e2e/
+**/coverage/
+**/__tests__/
+**/vitest.config.*
+
+# Docs/specs
+**/docs/
+**/*.md
+!**/README.md
+**/CLAUDE.md
+
+# IDE/editor
+**/.vscode/
+**/.idea/
+
+# Ops (not needed in product builds)
+ops/
+
+# Dev configs
+**/.pr_agent.toml
+**/.changeset/
+**/.superpowers/
