@@ -1,0 +1,29 @@
+name: Auto-Fix
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches-ignore: [main]
+
+jobs:
+  auto-fix:
+    runs-on: self-hosted
+    if: github.event.workflow_run.conclusion == 'failure'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          model: claude-sonnet-4-6
+          prompt: |
+            The CI workflow failed on this branch. Look at the failing checks,
+            identify the issue, fix it, and commit the fix.
+          allowed_tools: "Bash,Read,Write,Edit,Glob,Grep"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

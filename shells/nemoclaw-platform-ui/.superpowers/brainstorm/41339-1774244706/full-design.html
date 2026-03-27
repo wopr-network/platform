@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NemoPod Design</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #09090b; color: #e2e8f0; font-family: system-ui, -apple-system, sans-serif; }
+
+  .page-section { border: 1px solid #818cf820; border-radius: 12px; margin: 24px; overflow: hidden; }
+  .page-label { background: #818cf815; padding: 10px 16px; font-size: 11px; font-weight: 600; color: #818cf8; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* === LANDING PAGE === */
+  .landing { background: linear-gradient(180deg, #0a0f1a 0%, #09090b 100%); }
+  .landing-nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid #818cf810; }
+  .landing-logo { display: flex; align-items: center; gap: 10px; }
+  .landing-logo-dot { width: 10px; height: 10px; background: #818cf8; border-radius: 50%; box-shadow: 0 0 12px #818cf860; }
+  .landing-logo-text { font-weight: 600; font-size: 18px; color: #e0e7ff; }
+  .landing-logo-badge { font-size: 9px; background: #76b90020; color: #76b900; padding: 3px 8px; border-radius: 4px; font-weight: 600; letter-spacing: 0.5px; }
+  .landing-nav-links { display: flex; gap: 24px; font-size: 13px; color: #94a3b8; }
+  .landing-nav-links a { color: inherit; text-decoration: none; }
+  .landing-nav-cta { background: #818cf8; color: #fff; padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; border: none; cursor: pointer; }
+
+  .hero { text-align: center; padding: 80px 32px 60px; }
+  .hero-eyebrow { font-size: 12px; color: #818cf8; letter-spacing: 3px; margin-bottom: 16px; font-weight: 500; }
+  .hero h1 { font-size: 48px; font-weight: 700; color: #f1f5f9; line-height: 1.15; margin-bottom: 16px; }
+  .hero h1 em { font-style: normal; color: #818cf8; }
+  .hero p { font-size: 17px; color: #64748b; max-width: 480px; margin: 0 auto 32px; line-height: 1.6; }
+  .hero-cta { display: inline-flex; gap: 12px; }
+  .btn-primary { background: #818cf8; color: #fff; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 600; border: none; }
+  .btn-ghost { background: transparent; color: #94a3b8; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 500; border: 1px solid #334155; }
+
+  .features { display: flex; gap: 20px; padding: 0 32px 60px; max-width: 800px; margin: 0 auto; }
+  .feature-card { flex: 1; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; }
+  .feature-icon { width: 36px; height: 36px; background: #818cf815; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; color: #818cf8; font-size: 16px; }
+  .feature-card h3 { font-size: 14px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+  .feature-card p { font-size: 12px; color: #64748b; line-height: 1.5; }
+
+  .social-proof { text-align: center; padding: 40px 32px; border-top: 1px solid #1e293b; }
+  .social-proof p { font-size: 13px; color: #475569; }
+  .nvidia-badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; padding: 8px 16px; background: #76b90010; border: 1px solid #76b90020; border-radius: 8px; }
+  .nvidia-badge span { color: #76b900; font-size: 13px; font-weight: 600; }
+
+  /* === LOGIN === */
+  .login-page { background: #09090b; display: flex; align-items: center; justify-content: center; padding: 60px 32px; }
+  .login-card { width: 360px; }
+  .login-header { text-align: center; margin-bottom: 32px; }
+  .login-header h2 { font-size: 22px; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+  .login-header p { font-size: 13px; color: #64748b; }
+  .login-field { margin-bottom: 16px; }
+  .login-field label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 6px; font-weight: 500; }
+  .login-field input { width: 100%; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 14px; color: #e2e8f0; font-size: 14px; outline: none; }
+  .login-field input:focus { border-color: #818cf8; }
+  .login-btn { width: 100%; background: #818cf8; color: #fff; padding: 11px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; margin-top: 8px; }
+  .login-footer { text-align: center; margin-top: 16px; font-size: 13px; color: #64748b; }
+  .login-footer a { color: #818cf8; text-decoration: none; }
+
+  /* === DASHBOARD === */
+  .dashboard { display: flex; background: #09090b; min-height: 400px; }
+  .sidebar { width: 220px; background: #0a0f1a; border-right: 1px solid #1e293b; padding: 16px 0; display: flex; flex-direction: column; }
+  .sidebar-logo { display: flex; align-items: center; gap: 8px; padding: 0 16px 16px; border-bottom: 1px solid #1e293b; margin-bottom: 12px; }
+  .sidebar-logo-dot { width: 8px; height: 8px; background: #818cf8; border-radius: 50%; box-shadow: 0 0 8px #818cf860; }
+  .sidebar-logo-text { font-weight: 600; font-size: 15px; color: #e0e7ff; }
+  .sidebar-nav { flex: 1; padding: 0 8px; }
+  .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 6px; font-size: 13px; color: #94a3b8; margin-bottom: 2px; }
+  .sidebar-item.active { background: #818cf815; color: #818cf8; }
+  .sidebar-item .icon { width: 16px; text-align: center; font-size: 12px; }
+  .sidebar-credits { margin: auto 8px 0; padding: 10px 12px; background: #0f172a; border-radius: 8px; border: 1px solid #1e293b; }
+  .sidebar-credits-label { font-size: 10px; color: #64748b; letter-spacing: 1px; text-transform: uppercase; }
+  .sidebar-credits-amount { font-size: 16px; font-weight: 600; color: #76b900; margin-top: 2px; }
+
+  .main-content { flex: 1; display: flex; flex-direction: column; }
+
+  /* Tab bar */
+  .tab-bar { display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid #1e293b; height: 42px; }
+  .tab { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 13px; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: #e0e7ff; border-bottom-color: #818cf8; }
+  .tab-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+  .tab-dot.warning { background: #f59e0b; }
+  .tab-add { color: #64748b; font-size: 16px; padding: 4px 10px; cursor: pointer; }
+
+  /* Chat area */
+  .chat-area { flex: 1; display: flex; flex-direction: column; padding: 16px; }
+  .chat-messages { flex: 1; }
+  .chat-msg { margin-bottom: 12px; max-width: 70%; }
+  .chat-msg.user { margin-left: auto; }
+  .chat-msg-bubble { padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
+  .chat-msg.user .chat-msg-bubble { background: #818cf820; color: #c7d2fe; border-bottom-right-radius: 4px; }
+  .chat-msg.bot .chat-msg-bubble { background: #0f172a; color: #cbd5e1; border: 1px solid #1e293b; border-bottom-left-radius: 4px; }
+  .chat-msg-label { font-size: 10px; color: #475569; margin-bottom: 4px; }
+  .chat-msg.user .chat-msg-label { text-align: right; }
+
+  .chat-input-bar { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid #1e293b; }
+  .chat-input { flex: 1; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 10px 14px; color: #e2e8f0; font-size: 13px; outline: none; }
+  .chat-input:focus { border-color: #818cf8; }
+  .chat-send { background: #818cf8; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+  /* === FIRST RUN === */
+  .first-run { display: flex; align-items: center; justify-content: center; flex: 1; }
+  .first-run-inner { text-align: center; }
+  .first-run-inner h2 { font-size: 24px; font-weight: 600; color: #f1f5f9; margin-bottom: 8px; }
+  .first-run-inner p { font-size: 13px; color: #64748b; margin-bottom: 24px; }
+  .first-run-input { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 12px 16px; color: #e2e8f0; font-size: 15px; width: 300px; text-align: center; outline: none; }
+  .first-run-input:focus { border-color: #818cf8; }
+  .first-run-subdomain { font-size: 12px; color: #818cf880; margin-top: 8px; }
+  .first-run-hint { font-size: 11px; color: #475569; margin-top: 16px; letter-spacing: 1px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<div style="max-width: 960px; margin: 0 auto; padding: 24px;">
+  <h1 style="text-align:center; font-size: 20px; color: #818cf8; margin-bottom: 8px;">NemoPod Full Redesign</h1>
+  <p style="text-align:center; font-size: 13px; color: #64748b; margin-bottom: 32px;">Indigo primary + NVIDIA green heritage badge. All pages.</p>
+
+  <!-- LANDING PAGE -->
+  <div class="page-section">
+    <div class="page-label">Landing Page — nemopod.com</div>
+    <div class="landing">
+      <div class="landing-nav">
+        <div class="landing-logo">
+          <div class="landing-logo-dot"></div>
+          <span class="landing-logo-text">NemoPod</span>
+          <span class="landing-logo-badge">NVIDIA NeMo</span>
+        </div>
+        <div class="landing-nav-links">
+          <a href="#">Docs</a>
+          <a href="#">Pricing</a>
+          <button class="landing-nav-cta">Get Started</button>
+        </div>
+      </div>
+      <div class="hero">
+        <div class="hero-eyebrow">AI AGENT PLATFORM</div>
+        <h1>NVIDIA NeMo,<br/><em>one click away</em></h1>
+        <p>Deploy intelligent AI agents powered by NVIDIA's NeMo framework. Instant pods. Chat interface. Pay only for what you use.</p>
+        <div class="hero-cta">
+          <button class="btn-primary">Start Free</button>
+          <button class="btn-ghost">View Docs</button>
+        </div>
+      </div>
+      <div class="features">
+        <div class="feature-card">
+          <div class="feature-icon">&#9889;</div>
+          <h3>Instant Deploy</h3>
+          <p>Hot pool of pre-warmed containers. Name it, claim it, chat with it. No cold starts.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128172;</div>
+          <h3>Chat Interface</h3>
+          <p>Tab-based chat. Each NemoClaw is its own agent with persistent conversation history.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128176;</div>
+          <h3>Pay Per Use</h3>
+          <p>$5 free credits on signup. Metered inference billing. No subscriptions, no surprises.</p>
+        </div>
+      </div>
+      <div class="social-proof">
+        <p>Built on enterprise-grade infrastructure</p>
+        <div class="nvidia-badge">
+          <span>&#9670; Powered by NVIDIA NeMo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="page-section">
+    <div class="page-label">Login — app.nemopod.com/login</div>
+    <div class="login-page">
+      <div class="login-card">
+        <div class="login-header">
+          <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:20px;">
+            <div style="width:10px; height:10px; background:#818cf8; border-radius:50%; box-shadow:0 0 12px #818cf860;"></div>
+            <span style="font-weight:600; font-size:18px; color:#e0e7ff;">NemoPod</span>
+          </div>
+          <h2>Welcome back</h2>
+          <p>Sign in to your NemoPod account</p>
+        </div>
+        <div class="login-field">
+          <label>Email</label>
+          <input type="email" placeholder="you@example.com" />
+        </div>
+        <div class="login-field">
+          <label>Password</label>
+          <input type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" />
+        </div>
+        <button class="login-btn">Sign in</button>
+        <div class="login-footer">
+          Don't have an account? <a href="#">Sign up</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD: FIRST RUN -->
+  <div class="page-section">
+    <div class="page-label">First Run — No instances yet</div>
+    <div class="dashboard" style="min-height: 350px;">
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-dot"></div>
+          <span class="sidebar-logo-text">NemoPod</span>
+        </div>
+        <div class="sidebar-nav">
+          <div class="sidebar-item active"><span class="icon">&#9881;</span> NemoClaws</div>
+          <div class="sidebar-item"><span class="icon">&#128179;</span> Billing</div>
+          <div class="sidebar-item"><span class="icon">&#9881;</span> Settings</div>
+        </div>
+        <div class="sidebar-credits">
+          <div class="sidebar-credits-label">Credits</div>
+          <div class="sidebar-credits-amount">$5.00</div>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="first-run">
+          <div class="first-run-inner">
+            <h2>Name your first NemoClaw</h2>
+            <p>This becomes your subdomain</p>
+            <input class="first-run-input" placeholder="my-agent" value="atlas" />
+            <div class="first-run-subdomain">atlas.nemopod.com</div>
+            <div class="first-run-hint">Press enter to create</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD: ACTIVE CHAT -->
+  <div class="page-section">
+    <div class="page-label">Dashboard — Active chat with tabs</div>
+    <div class="dashboard">
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <div class="sidebar-logo-dot"></div>
+          <span class="sidebar-logo-text">NemoPod</span>
+        </div>
+        <div class="sidebar-nav">
+          <div class="sidebar-item active"><span class="icon">&#9881;</span> NemoClaws</div>
+          <div class="sidebar-item"><span class="icon">&#128179;</span> Billing</div>
+          <div class="sidebar-item"><span class="icon">&#9881;</span> Settings</div>
+        </div>
+        <div class="sidebar-credits">
+          <div class="sidebar-credits-label">Credits</div>
+          <div class="sidebar-credits-amount">$4.37</div>
+        </div>
+      </div>
+      <div class="main-content">
+        <div class="tab-bar">
+          <div class="tab active"><span class="tab-dot"></span> atlas</div>
+          <div class="tab"><span class="tab-dot warning"></span> helper-bot</div>
+          <div class="tab-add">+</div>
+        </div>
+        <div class="chat-area">
+          <div class="chat-messages">
+            <div class="chat-msg user">
+              <div class="chat-msg-label">You</div>
+              <div class="chat-msg-bubble">What can you help me with?</div>
+            </div>
+            <div class="chat-msg bot">
+              <div class="chat-msg-label">atlas</div>
+              <div class="chat-msg-bubble">I'm Atlas, your NemoClaw AI agent. I can help with analysis, code generation, research, and creative tasks. I'm powered by NVIDIA's NeMo framework, so I'm particularly good at complex reasoning. What would you like to work on?</div>
+            </div>
+            <div class="chat-msg user">
+              <div class="chat-msg-label">You</div>
+              <div class="chat-msg-bubble">Help me draft a product announcement</div>
+            </div>
+            <div class="chat-msg bot">
+              <div class="chat-msg-label">atlas</div>
+              <div class="chat-msg-bubble">Sure! Let me help with that. What product are we announcing, and who's the target audience?</div>
+            </div>
+          </div>
+          <div class="chat-input-bar">
+            <input class="chat-input" placeholder="Type a message..." />
+            <button class="chat-send">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

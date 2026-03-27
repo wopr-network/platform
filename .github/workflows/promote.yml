@@ -1,0 +1,214 @@
+name: Promote staging → production
+
+on:
+  workflow_dispatch:
+    inputs:
+      product:
+        description: Product to promote
+        required: true
+        type: choice
+        options:
+          - paperclip
+          - wopr
+          - holyship
+          - nemoclaw
+          - all
+
+env:
+  REGISTRY: ghcr.io/wopr-network
+
+jobs:
+  promote:
+    runs-on: self-hosted
+    permissions:
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PAT }}
+
+      - name: Resolve product config
+        id: config
+        run: |
+          case "${{ inputs.product }}" in
+            paperclip)
+              echo "images=paperclip-platform paperclip-platform-ui" >> "$GITHUB_OUTPUT"
+              echo "hosts=68.183.160.201" >> "$GITHUB_OUTPUT"
+              echo "products=paperclip" >> "$GITHUB_OUTPUT"
+              ;;
+            wopr)
+              echo "images=wopr-platform wopr-platform-ui" >> "$GITHUB_OUTPUT"
+              echo "hosts=138.68.30.247" >> "$GITHUB_OUTPUT"
+              echo "products=wopr" >> "$GITHUB_OUTPUT"
+              ;;
+            holyship)
+              echo "images=holyship holyship-ui" >> "$GITHUB_OUTPUT"
+              echo "hosts=138.68.46.192" >> "$GITHUB_OUTPUT"
+              echo "products=holyship" >> "$GITHUB_OUTPUT"
+              ;;
+            nemoclaw)
+              echo "images=nemoclaw-platform nemoclaw-platform-ui" >> "$GITHUB_OUTPUT"
+              echo "hosts=167.172.208.149" >> "$GITHUB_OUTPUT"
+              echo "products=nemoclaw" >> "$GITHUB_OUTPUT"
+              ;;
+            all)
+              echo "images=paperclip-platform paperclip-platform-ui wopr-platform wopr-platform-ui holyship holyship-ui nemoclaw-platform nemoclaw-platform-ui" >> "$GITHUB_OUTPUT"
+              echo "hosts=68.183.160.201 138.68.30.247 138.68.46.192 167.172.208.149" >> "$GITHUB_OUTPUT"
+              echo "products=paperclip wopr holyship nemoclaw" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Backup prod DB before promotion
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          for product in ${{ steps.config.outputs.products }}; do
+            case "$product" in
+              paperclip) host=68.183.160.201 ;;
+              wopr)      host=138.68.30.247 ;;
+              holyship)  host=138.68.46.192 ;;
+              nemoclaw)  host=167.172.208.149 ;;
+            esac
+            echo "Backing up $product on $host..."
+            scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+              ops/scripts/backup-prod.sh "root@$host:/tmp/backup-prod.sh"
+            ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+              "root@$host" "chmod +x /tmp/backup-prod.sh && /tmp/backup-prod.sh $product ${{ github.sha }}"
+          done
+
+      - name: Retag :staging → :latest
+        run: |
+          for img in ${{ steps.config.outputs.images }}; do
+            echo "Promoting $REGISTRY/$img:staging → :latest"
+            if docker pull "$REGISTRY/$img:latest" 2>/dev/null; then
+              docker tag "$REGISTRY/$img:latest" "$REGISTRY/$img:latest-previous"
+              docker push "$REGISTRY/$img:latest-previous"
+              echo "  Saved previous :latest as :latest-previous"
+            fi
+            docker pull "$REGISTRY/$img:staging"
+            docker tag  "$REGISTRY/$img:staging" "$REGISTRY/$img:latest"
+            docker push "$REGISTRY/$img:latest"
+            echo "✓ $img promoted"
+          done
+
+      - name: Pull and restart on VPS
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          for product in ${{ steps.config.outputs.products }}; do
+            case "$product" in
+              paperclip) host=68.183.160.201; dir=/opt/paperclip-platform ;;
+              wopr)      host=138.68.30.247;  dir=/opt/wopr-platform ;;
+              holyship)  host=138.68.46.192;  dir=/opt/holyship ;;
+              nemoclaw)  host=167.172.208.149; dir=/opt/nemoclaw-platform ;;
+            esac
+            echo "Deploying $product on $host..."
+            ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$host" \
+              "cd $dir && docker compose pull && docker compose up -d --force-recreate platform-api platform-ui 2>/dev/null || docker compose up -d && docker image prune -f"
+            echo "✓ $product containers restarted"
+          done
+
+      - name: Health check
+        id: health
+        continue-on-error: true
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          for product in ${{ steps.config.outputs.products }}; do
+            case "$product" in
+              paperclip) host=68.183.160.201; dir=/opt/paperclip-platform ;;
+              wopr)      host=138.68.30.247;  dir=/opt/wopr-platform ;;
+              holyship)  host=138.68.46.192;  dir=/opt/holyship ;;
+              nemoclaw)  host=167.172.208.149; dir=/opt/nemoclaw-platform ;;
+            esac
+            echo "Health checking $product on $host..."
+            HEALTHY=false
+            for i in $(seq 1 30); do
+              STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+                "root@$host" "cd $dir && docker compose exec -T platform-api curl -sf http://localhost:3200/health 2>/dev/null || docker compose exec -T platform-api curl -sf http://localhost:3100/health 2>/dev/null" || true)
+              if [ -n "$STATUS" ]; then
+                echo "✓ $product is healthy: $STATUS"
+                HEALTHY=true
+                break
+              fi
+              echo "  Waiting... ($i/30)"
+              sleep 5
+            done
+            if [ "$HEALTHY" = false ]; then
+              echo "::error::$product health check failed on $host"
+              exit 1
+            fi
+          done
+
+      - name: Rollback on failure
+        if: steps.health.outcome == 'failure'
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          echo "::error::Health check failed — rolling back images and restarting"
+          for img in ${{ steps.config.outputs.images }}; do
+            echo "Rolling back $img: retagging :latest-previous → :latest"
+            if docker pull "$REGISTRY/$img:latest-previous" 2>/dev/null; then
+              docker tag "$REGISTRY/$img:latest-previous" "$REGISTRY/$img:latest"
+              docker push "$REGISTRY/$img:latest"
+              echo "✓ $img rolled back in GHCR"
+            else
+              echo "::warning::No previous image for $img — manual intervention needed"
+            fi
+          done
+          for product in ${{ steps.config.outputs.products }}; do
+            case "$product" in
+              paperclip) host=68.183.160.201; dir=/opt/paperclip-platform; db=paperclip_platform; pguser=paperclip ;;
+              wopr)      host=138.68.30.247;  dir=/opt/wopr-platform;     db=wopr_platform;      pguser=wopr ;;
+              holyship)  host=138.68.46.192;  dir=/opt/holyship;          db=holyship;           pguser=holyship ;;
+              nemoclaw)  host=167.172.208.149; dir=/opt/nemoclaw-platform; db=nemoclaw_platform;  pguser=nemoclaw ;;
+            esac
+            echo "Rolling back $product on $host..."
+            ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$host" bash -s <<ROLLBACK
+          set -euo pipefail
+          cd $dir
+          docker compose stop platform-api 2>/dev/null || true
+          BACKUP=\$(ls -t $dir/backups/${db}-*.sql.gz 2>/dev/null | head -1)
+          if [ -n "\$BACKUP" ]; then
+            echo "Restoring DB from \$BACKUP..."
+            docker compose exec -T postgres psql -U $pguser -d $db -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+            gunzip -c "\$BACKUP" | docker compose exec -T postgres psql -U $pguser -d $db -q
+            echo "✓ DB restored from \$BACKUP"
+          else
+            echo "::warning::No backup found in $dir/backups/ — DB not restored"
+          fi
+          docker compose pull
+          docker compose up -d --force-recreate
+          echo "✓ $product fully rolled back (images + DB)"
+          ROLLBACK
+          done
+
+      - name: Fail workflow if health check failed
+        if: steps.health.outcome == 'failure'
+        run: exit 1
+
+      - name: Summary
+        if: steps.health.outcome != 'failure'
+        run: |
+          SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          echo "## Promoted to production" >> "$SUMMARY"
+          echo "" >> "$SUMMARY"
+          echo "**Product:** ${{ inputs.product }}" >> "$SUMMARY"
+          echo "" >> "$SUMMARY"
+          echo "### Images" >> "$SUMMARY"
+          for img in ${{ steps.config.outputs.images }}; do
+            echo "- \`$REGISTRY/$img:staging\` → \`:latest\`" >> "$SUMMARY"
+          done
+          echo "" >> "$SUMMARY"
+          echo "### Health check: passed" >> "$SUMMARY"
+          echo "Promotion complete for ${{ inputs.product }}"

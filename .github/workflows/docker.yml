@@ -1,0 +1,97 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io/wopr-network
+
+jobs:
+  detect-changes:
+    runs-on: self-hosted
+    outputs:
+      matrix: ${{ steps.detect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed products
+        id: detect
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          ITEMS=()
+
+          # Core changes affect ALL products
+          if echo "$CHANGED_FILES" | grep -q "^core/"; then
+            echo 'matrix={"product":["wopr-platform","paperclip-platform","nemoclaw-platform","holyship","wopr-platform-ui","paperclip-platform-ui","nemoclaw-platform-ui","holyship-platform-ui"]}' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "$CHANGED_FILES" | grep -q "^platforms/wopr-platform/" && ITEMS+=("wopr-platform")
+          echo "$CHANGED_FILES" | grep -q "^platforms/paperclip-platform/" && ITEMS+=("paperclip-platform")
+          echo "$CHANGED_FILES" | grep -q "^platforms/nemoclaw-platform/" && ITEMS+=("nemoclaw-platform")
+          echo "$CHANGED_FILES" | grep -q "^platforms/holyship/" && ITEMS+=("holyship")
+          echo "$CHANGED_FILES" | grep -q "^shells/wopr-platform-ui/" && ITEMS+=("wopr-platform-ui")
+          echo "$CHANGED_FILES" | grep -q "^shells/paperclip-platform-ui/" && ITEMS+=("paperclip-platform-ui")
+          echo "$CHANGED_FILES" | grep -q "^shells/nemoclaw-platform-ui/" && ITEMS+=("nemoclaw-platform-ui")
+          echo "$CHANGED_FILES" | grep -q "^shells/holyship-platform-ui/" && ITEMS+=("holyship-platform-ui")
+          echo "$CHANGED_FILES" | grep -q "^services/platform-crypto-server/" && ITEMS+=("platform-crypto-server")
+          # Service changes affect their consumers
+          if echo "$CHANGED_FILES" | grep -q "^services/provision-client/"; then
+            ITEMS+=("wopr-platform" "paperclip-platform" "nemoclaw-platform")
+          fi
+
+          # Deduplicate
+          UNIQUE=($(printf '%s\n' "${ITEMS[@]}" | sort -u))
+          if [ ${#UNIQUE[@]} -eq 0 ]; then
+            echo 'matrix={"product":[]}' >> "$GITHUB_OUTPUT"
+          else
+            PRODUCTS=$(printf '%s\n' "${UNIQUE[@]}" | jq -R . | jq -s -c .)
+            echo "matrix={\"product\":$PRODUCTS}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-push:
+    needs: detect-changes
+    if: ${{ fromJson(needs.detect-changes.outputs.matrix).product[0] != null }}
+    runs-on: self-hosted
+    permissions:
+      packages: write
+    strategy:
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve build context
+        id: paths
+        run: |
+          case "${{ matrix.product }}" in
+            wopr-platform)         echo "context=platforms/wopr-platform" >> "$GITHUB_OUTPUT" ;;
+            paperclip-platform)    echo "context=platforms/paperclip-platform" >> "$GITHUB_OUTPUT" ;;
+            nemoclaw-platform)     echo "context=platforms/nemoclaw-platform" >> "$GITHUB_OUTPUT" ;;
+            holyship)              echo "context=platforms/holyship" >> "$GITHUB_OUTPUT" ;;
+            wopr-platform-ui)      echo "context=shells/wopr-platform-ui" >> "$GITHUB_OUTPUT" ;;
+            paperclip-platform-ui) echo "context=shells/paperclip-platform-ui" >> "$GITHUB_OUTPUT" ;;
+            nemoclaw-platform-ui)  echo "context=shells/nemoclaw-platform-ui" >> "$GITHUB_OUTPUT" ;;
+            holyship-platform-ui)  echo "context=shells/holyship-platform-ui" >> "$GITHUB_OUTPUT" ;;
+            platform-crypto-server) echo "context=services/platform-crypto-server" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ steps.paths.outputs.context }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.product }}:staging
+            ${{ env.REGISTRY }}/${{ matrix.product }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
