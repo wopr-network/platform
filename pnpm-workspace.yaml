@@ -1,0 +1,6 @@
+packages:
+  - "core/*"
+  - "platforms/*"
+  - "sidecars/*"
+  - "shells/*"
+  - "services/*"
