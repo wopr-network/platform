@@ -1,0 +1,192 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { INotificationQueueRepository } from "./notification-repository-types.js";
+import { NotificationService } from "./notification-service.js";
+
+function makeQueueStore(): INotificationQueueRepository {
+  return {
+    enqueue: vi.fn().mockReturnValue("notif-id-123"),
+    fetchPending: vi.fn().mockReturnValue([]),
+    markSent: vi.fn(),
+    markFailed: vi.fn(),
+    listForTenant: vi.fn().mockReturnValue({ entries: [], total: 0 }),
+  } as unknown as INotificationQueueRepository;
+}
+
+describe("NotificationService", () => {
+  let queue: INotificationQueueRepository;
+  let service: NotificationService;
+  const BASE_URL = "https://app.wopr.bot";
+
+  beforeEach(() => {
+    queue = makeQueueStore();
+    service = new NotificationService(queue, BASE_URL);
+  });
+
+  describe("notifyLowBalance", () => {
+    it("enqueues a low-balance notification with correct data", () => {
+      service.notifyLowBalance("tenant-1", "user@example.com", "$2.50", 5);
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "low-balance", {
+        email: "user@example.com",
+        balanceDollars: "$2.50",
+        estimatedDaysRemaining: 5,
+        creditsUrl: `${BASE_URL}/billing/credits`,
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyCreditsDepeleted", () => {
+    it("enqueues a credits-depleted notification", () => {
+      service.notifyCreditsDepeleted("tenant-1", "user@example.com");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "credits-depleted", {
+        email: "user@example.com",
+        creditsUrl: `${BASE_URL}/billing/credits`,
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyGracePeriodStart", () => {
+    it("enqueues a grace-period-start notification", () => {
+      service.notifyGracePeriodStart("tenant-1", "user@example.com", "$0.50", 7);
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "grace-period-start", {
+        email: "user@example.com",
+        balanceDollars: "$0.50",
+        graceDays: 7,
+        creditsUrl: `${BASE_URL}/billing/credits`,
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyGracePeriodWarning", () => {
+    it("enqueues a grace-period-warning notification", () => {
+      service.notifyGracePeriodWarning("tenant-1", "user@example.com");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "grace-period-warning", {
+        email: "user@example.com",
+        creditsUrl: `${BASE_URL}/billing/credits`,
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyAutoSuspended", () => {
+    it("enqueues an auto-suspended notification", () => {
+      service.notifyAutoSuspended("tenant-1", "user@example.com", "Grace period expired");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "auto-suspended", {
+        email: "user@example.com",
+        reason: "Grace period expired",
+        creditsUrl: `${BASE_URL}/billing/credits`,
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyAdminSuspended", () => {
+    it("enqueues an admin-suspended notification", () => {
+      service.notifyAdminSuspended("tenant-1", "user@example.com", "ToS violation");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "admin-suspended", {
+        email: "user@example.com",
+        reason: "ToS violation",
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyAdminReactivated", () => {
+    it("enqueues an admin-reactivated notification", () => {
+      service.notifyAdminReactivated("tenant-1", "user@example.com");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "admin-reactivated", {
+        email: "user@example.com",
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyCreditsGranted", () => {
+    it("enqueues a credits-granted notification", () => {
+      service.notifyCreditsGranted("tenant-1", "user@example.com", "$5.00", "Support credit");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "credits-granted", {
+        email: "user@example.com",
+        amountDollars: "$5.00",
+        reason: "Support credit",
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyRoleChanged", () => {
+    it("enqueues a role-changed notification", () => {
+      service.notifyRoleChanged("tenant-1", "user@example.com", "tenant_admin");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "role-changed", {
+        email: "user@example.com",
+        newRole: "tenant_admin",
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyTeamInvite", () => {
+    it("enqueues a team-invite notification", () => {
+      service.notifyTeamInvite("tenant-1", "user@example.com", "Acme Corp", "https://app.wopr.bot/invite/abc");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "team-invite", {
+        email: "user@example.com",
+        tenantName: "Acme Corp",
+        inviteUrl: "https://app.wopr.bot/invite/abc",
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyChannelDisconnected", () => {
+    it("enqueues a channel-disconnected notification", () => {
+      service.notifyChannelDisconnected("tenant-1", "user@example.com", "Discord", "MyBot", "Token expired");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "channel-disconnected", {
+        email: "user@example.com",
+        channelName: "Discord",
+        agentName: "MyBot",
+        reason: "Token expired",
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("sendCustomEmail", () => {
+    it("enqueues a custom template notification", () => {
+      service.sendCustomEmail("tenant-1", "user@example.com", "Hello there", "This is the body.");
+      expect(queue.enqueue).toHaveBeenCalledWith("tenant-1", "custom", {
+        email: "user@example.com",
+        subject: "Hello there",
+        bodyText: "This is the body.",
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyDisputeCreated", () => {
+    it("enqueues dispute-created notification", () => {
+      service.notifyDisputeCreated("t1", "admin@test.com", "dp_123", "$50.00", "fraudulent");
+      expect(queue.enqueue).toHaveBeenCalledWith("t1", "dispute-created", {
+        email: "admin@test.com",
+        disputeId: "dp_123",
+        amountDollars: "$50.00",
+        reason: "fraudulent",
+        creditsUrl: `${BASE_URL}/billing/credits`,
+        brandName: "WOPR",
+      });
+    });
+  });
+
+  describe("notifyDisputeWon", () => {
+    it("enqueues dispute-won notification", () => {
+      service.notifyDisputeWon("t1", "admin@test.com", "dp_123", "$50.00");
+      expect(queue.enqueue).toHaveBeenCalledWith("t1", "dispute-won", {
+        email: "admin@test.com",
+        disputeId: "dp_123",
+        amountDollars: "$50.00",
+        creditsUrl: `${BASE_URL}/billing/credits`,
+        brandName: "WOPR",
+      });
+    });
+  });
+});

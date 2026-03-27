@@ -1,0 +1,943 @@
+import { DrizzleAdminAuditLogRepository } from "@wopr-network/platform-core/admin";
+import { Pool } from "pg";
+import type { IDeletionExecutorRepository } from "../account/deletion-executor-repository.js";
+import { DrizzleDeletionExecutorRepository } from "../account/deletion-executor-repository.js";
+import { DrizzleAuditLogRepository } from "../audit/audit-log-repository.js";
+import { DrizzleBackupStatusRepository } from "../backup/backup-status-repository.js";
+import { BackupStatusStore, type IBackupStatusStore } from "../backup/backup-status-store.js";
+import { BackupVerifier } from "../backup/backup-verifier.js";
+import { DrizzleRestoreLogRepository } from "../backup/restore-log-repository.js";
+import { type IRestoreLogStore, RestoreLogStore } from "../backup/restore-log-store.js";
+import { RestoreService } from "../backup/restore-service.js";
+import { SnapshotManager } from "../backup/snapshot-manager.js";
+import { DrizzleSnapshotRepository } from "../backup/snapshot-repository.js";
+import { SpacesClient } from "../backup/spaces-client.js";
+import { EvidenceCollector } from "../compliance/evidence-collector.js";
+import { logger } from "../config/logger.js";
+import { createDb, type DrizzleDb } from "../db/index.js";
+import type { ISpendingCapStore } from "../gateway/spending-cap-store.js";
+import { DrizzleMarketplacePluginRepository } from "../marketplace/drizzle-marketplace-plugin-repository.js";
+import type { IMarketplacePluginRepository } from "../marketplace/marketplace-plugin-repository.js";
+import type { IAffiliateFraudRepository } from "../monetization/affiliate/affiliate-fraud-repository.js";
+import { DrizzleAffiliateFraudRepository } from "../monetization/affiliate/affiliate-fraud-repository.js";
+import type { IAffiliateRepository } from "../monetization/affiliate/drizzle-affiliate-repository.js";
+import { DrizzleAffiliateRepository } from "../monetization/affiliate/drizzle-affiliate-repository.js";
+import type { IBotBilling } from "../monetization/credits/bot-billing.js";
+import { DrizzleBotBilling } from "../monetization/credits/bot-billing.js";
+import type { IPhoneNumberRepository } from "../monetization/credits/drizzle-phone-number-repository.js";
+import { DrizzlePhoneNumberRepository } from "../monetization/credits/drizzle-phone-number-repository.js";
+import { SystemResourceMonitor } from "../observability/system-resources.js";
+// Platform singletons — these were in wopr-platform's platform-services.ts.
+// In platform-core they are wired by the consuming application.
+// Stub re-exports so existing references compile; consumers must call initPlatformServices().
+// TODO: Replace with proper DI / service-locator pattern in platform-core.
+import { DrizzleTwoFactorRepository } from "../security/two-factor-repository.js";
+import type { RolloutOrchestrator } from "./rollout-orchestrator.js";
+import type { VolumeSnapshotManager } from "./volume-snapshot-manager.js";
+
+// Platform singletons (getAdminAuditLog, getCreditLedger, etc.) are wired by
+// the consuming application's own composition root (e.g. wopr-platform's
+// platform-services.ts). They are NOT re-exported from platform-core.
+
+import { AdminNotifier } from "./admin-notifier.js";
+import type { IBotInstanceRepository } from "./bot-instance-repository.js";
+import type { IBotProfileRepository } from "./bot-profile-repository.js";
+import { CapacityPolicy, type CapacityPolicyConfig, DEFAULT_CAPACITY_POLICY_CONFIG } from "./capacity-policy.js";
+import { DigitalOceanNodeProvider } from "./digitalocean-node-provider.js";
+import { DOClient } from "./do-client.js";
+import { DrizzleBotInstanceRepository } from "./drizzle-bot-instance-repository.js";
+import { DrizzleBotProfileRepository } from "./drizzle-bot-profile-repository.js";
+import { DrizzleFleetEventRepository } from "./drizzle-fleet-event-repository.js";
+import { DrizzleNodeRepository } from "./drizzle-node-repository.js";
+import { DrizzleRecoveryRepository } from "./drizzle-recovery-repository.js";
+import { DrizzleTenantUpdateConfigRepository } from "./drizzle-tenant-update-config-repository.js";
+import { FleetEventEmitter } from "./fleet-event-emitter.js";
+import type { IFleetEventRepository } from "./fleet-event-repository.js";
+import type { IGpuAllocationRepository } from "./gpu-allocation-repository.js";
+import { DrizzleGpuAllocationRepository } from "./gpu-allocation-repository.js";
+import type { IGpuConfigurationRepository } from "./gpu-configuration-repository.js";
+import { DrizzleGpuConfigurationRepository } from "./gpu-configuration-repository.js";
+import { GpuNodeProvisioner } from "./gpu-node-provisioner.js";
+import type { IGpuNodeRepository } from "./gpu-node-repository.js";
+import { DrizzleGpuNodeRepository } from "./gpu-node-repository.js";
+import { HeartbeatProcessor } from "./heartbeat-processor.js";
+import { HeartbeatWatchdog } from "./heartbeat-watchdog.js";
+import { InferenceWatchdog } from "./inference-watchdog.js";
+import { MigrationOrchestrator } from "./migration-orchestrator.js";
+import { NodeCommandBus } from "./node-command-bus.js";
+import { NodeConnectionRegistry } from "./node-connection-registry.js";
+import { NodeDrainer } from "./node-drainer.js";
+import type { INodeProvider } from "./node-provider.js";
+import { NodeProvisioner } from "./node-provisioner.js";
+import { NodeRegistrar } from "./node-registrar.js";
+import type { INodeRepository } from "./node-repository.js";
+import { OrphanCleaner } from "./orphan-cleaner.js";
+import { RecoveryOrchestrator } from "./recovery-orchestrator.js";
+import type { IRecoveryRepository } from "./recovery-repository.js";
+import type { IRegistrationTokenRepository } from "./registration-token-store.js";
+import { DrizzleRegistrationTokenRepository } from "./registration-token-store.js";
+import { DrizzleSpendingCapStore } from "./spending-cap-repository.js";
+import type { ITenantUpdateConfigRepository } from "./tenant-update-config-repository.js";
+import type { IVpsRepository } from "./vps-repository.js";
+import { DrizzleVpsRepository } from "./vps-repository.js";
+
+const SNAPSHOT_DIR = process.env.SNAPSHOT_DIR || "/data/snapshots";
+
+/**
+ * Shared lazy-initialized fleet management singletons.
+ * All files that need DB/repositories/orchestrators import from here
+ * to ensure a single set of instances across the application.
+ *
+ * Nothing runs at import time — all initialization is deferred to first call.
+ */
+
+let _pool: Pool | null = null;
+let _db: DrizzleDb | null = null;
+let _registrationTokenStore: IRegistrationTokenRepository | null = null;
+let _adminNotifier: AdminNotifier | null = null;
+
+// Repositories
+let _nodeRepo: INodeRepository | null = null;
+let _botInstanceRepo: IBotInstanceRepository | null = null;
+let _botProfileRepo: IBotProfileRepository | null = null;
+let _recoveryRepo: IRecoveryRepository | null = null;
+let _spendingCapStore: ISpendingCapStore | null = null;
+let _gpuNodeRepo: IGpuNodeRepository | null = null;
+let _gpuAllocationRepo: IGpuAllocationRepository | null = null;
+let _gpuConfigurationRepo: IGpuConfigurationRepository | null = null;
+
+// WebSocket layer
+let _connectionRegistry: NodeConnectionRegistry | null = null;
+let _commandBus: NodeCommandBus | null = null;
+
+// Processors
+let _heartbeatProcessor: HeartbeatProcessor | null = null;
+let _nodeRegistrar: NodeRegistrar | null = null;
+let _orphanCleaner: OrphanCleaner | null = null;
+
+// Orchestrators
+let _recoveryOrchestrator: RecoveryOrchestrator | null = null;
+let _migrationOrchestrator: MigrationOrchestrator | null = null;
+let _nodeDrainer: NodeDrainer | null = null;
+
+// Watchdog
+let _heartbeatWatchdog: HeartbeatWatchdog | null = null;
+let _inferenceWatchdog: InferenceWatchdog | null = null;
+
+// Fleet event emitter
+let _fleetEventEmitter: FleetEventEmitter | null = null;
+
+// Fleet event repository
+let _fleetEventRepo: IFleetEventRepository | null = null;
+
+// Tenant update config
+let _tenantUpdateConfigRepo: ITenantUpdateConfigRepository | null = null;
+
+// Infrastructure
+let _doClient: DOClient | null = null;
+let _nodeProvider: INodeProvider | null = null;
+let _nodeProvisioner: NodeProvisioner | null = null;
+let _gpuNodeProvisioner: GpuNodeProvisioner | null = null;
+let _capacityPolicy: CapacityPolicy | null = null;
+let _restoreLogStore: IRestoreLogStore | null = null;
+let _restoreService: RestoreService | null = null;
+let _backupStatusStore: IBackupStatusStore | null = null;
+let _snapshotManager: SnapshotManager | null = null;
+let _volumeSnapshotManager: VolumeSnapshotManager | null = null;
+let _rolloutOrchestrator: RolloutOrchestrator | null = null;
+
+const S3_BUCKET = process.env.S3_BUCKET || "wopr-backups";
+
+function envInt(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (raw === undefined) return fallback;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+export function getPool(): Pool {
+  if (!_pool) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) throw new Error("DATABASE_URL environment variable is required");
+    _pool = new Pool({
+      connectionString,
+      max: envInt("DB_POOL_MAX", 20),
+      idleTimeoutMillis: envInt("DB_POOL_IDLE_TIMEOUT_MS", 30_000),
+      connectionTimeoutMillis: envInt("DB_POOL_CONNECTION_TIMEOUT_MS", 5_000),
+    });
+  }
+  return _pool;
+}
+
+export function getDb(): DrizzleDb {
+  if (!_db) {
+    _db = createDb(getPool());
+  }
+  return _db;
+}
+
+/** Alias for audit DB — same PostgreSQL database in the pg migration. */
+export function getAuditDb(): DrizzleDb {
+  return getDb();
+}
+
+export function getRegistrationTokenStore(): IRegistrationTokenRepository {
+  if (!_registrationTokenStore) {
+    _registrationTokenStore = new DrizzleRegistrationTokenRepository(getDb());
+  }
+  return _registrationTokenStore;
+}
+
+export function getAdminNotifier() {
+  if (!_adminNotifier) {
+    _adminNotifier = new AdminNotifier({
+      webhookUrl: process.env.ADMIN_WEBHOOK_URL,
+    });
+  }
+  return _adminNotifier;
+}
+
+// ---------------------------------------------------------------------------
+// Repositories
+// ---------------------------------------------------------------------------
+
+export function getNodeRepo(): INodeRepository {
+  if (!_nodeRepo) {
+    _nodeRepo = new DrizzleNodeRepository(getDb());
+  }
+  return _nodeRepo;
+}
+
+/** Alias for compatibility with callers that use getNodeRepository() */
+export const getNodeRepository = getNodeRepo;
+
+export function getBotInstanceRepo(): IBotInstanceRepository {
+  if (!_botInstanceRepo) {
+    _botInstanceRepo = new DrizzleBotInstanceRepository(getDb());
+  }
+  return _botInstanceRepo;
+}
+
+export function getBotProfileRepo(): IBotProfileRepository {
+  if (!_botProfileRepo) {
+    _botProfileRepo = new DrizzleBotProfileRepository(getDb());
+  }
+  return _botProfileRepo;
+}
+
+export function getRecoveryRepo(): IRecoveryRepository {
+  if (!_recoveryRepo) {
+    _recoveryRepo = new DrizzleRecoveryRepository(getDb());
+  }
+  return _recoveryRepo;
+}
+
+export function getSpendingCapStore(): ISpendingCapStore {
+  if (!_spendingCapStore) {
+    _spendingCapStore = new DrizzleSpendingCapStore(getDb());
+  }
+  return _spendingCapStore;
+}
+
+export function getGpuNodeRepo(): IGpuNodeRepository {
+  if (!_gpuNodeRepo) {
+    _gpuNodeRepo = new DrizzleGpuNodeRepository(getDb());
+  }
+  return _gpuNodeRepo;
+}
+
+/** Alias for compatibility with callers that use getGpuNodeRepository() */
+export const getGpuNodeRepository = getGpuNodeRepo;
+
+export function getGpuAllocationRepo(): IGpuAllocationRepository {
+  if (!_gpuAllocationRepo) {
+    _gpuAllocationRepo = new DrizzleGpuAllocationRepository(getDb());
+  }
+  return _gpuAllocationRepo;
+}
+
+export function getGpuConfigurationRepo(): IGpuConfigurationRepository {
+  if (!_gpuConfigurationRepo) {
+    _gpuConfigurationRepo = new DrizzleGpuConfigurationRepository(getDb());
+  }
+  return _gpuConfigurationRepo;
+}
+
+// ---------------------------------------------------------------------------
+// WebSocket layer
+// ---------------------------------------------------------------------------
+
+export function getConnectionRegistry(): NodeConnectionRegistry {
+  if (!_connectionRegistry) {
+    _connectionRegistry = new NodeConnectionRegistry();
+  }
+  return _connectionRegistry;
+}
+
+export function getCommandBus(): NodeCommandBus {
+  if (!_commandBus) {
+    _commandBus = new NodeCommandBus(getConnectionRegistry());
+  }
+  return _commandBus;
+}
+
+// ---------------------------------------------------------------------------
+// Processors
+// ---------------------------------------------------------------------------
+
+export function getHeartbeatProcessor(): HeartbeatProcessor {
+  if (!_heartbeatProcessor) {
+    _heartbeatProcessor = new HeartbeatProcessor(getNodeRepo());
+  }
+  return _heartbeatProcessor;
+}
+
+export function getOrphanCleaner(): OrphanCleaner {
+  if (!_orphanCleaner) {
+    _orphanCleaner = new OrphanCleaner(getNodeRepo(), getBotInstanceRepo(), getCommandBus());
+  }
+  return _orphanCleaner;
+}
+
+export function getNodeRegistrar(): NodeRegistrar {
+  if (!_nodeRegistrar) {
+    _nodeRegistrar = new NodeRegistrar(
+      getNodeRepo(),
+      getRecoveryRepo(),
+      {
+        onReturning: (_nodeId: string) => {
+          // Intentional no-op. Container cleanup for returning nodes is handled by
+          // OrphanCleaner on first heartbeat (wired via NodeConnectionManager in
+          // initFleet). Waiting-tenant placement is handled separately by the
+          // onRetryWaiting callback below, which fires for ALL registrations
+          // (active or returning) whenever open recovery events have waiting items.
+          // See WOP-912 for the investigation confirming this path is correct.
+        },
+        onRetryWaiting: (eventId: string) => {
+          getRecoveryOrchestrator()
+            .retryWaiting(eventId)
+            .catch((err) => {
+              logger.error("Auto-retry waiting after node registration failed", { eventId, err });
+            });
+        },
+      },
+      getFleetEventEmitter(),
+    );
+  }
+  return _nodeRegistrar;
+}
+
+// ---------------------------------------------------------------------------
+// Orchestrators
+// ---------------------------------------------------------------------------
+
+export function getRecoveryOrchestrator(): RecoveryOrchestrator {
+  if (!_recoveryOrchestrator) {
+    const nodeRepo = getNodeRepo();
+    const botInstanceRepo = getBotInstanceRepo();
+
+    _recoveryOrchestrator = new RecoveryOrchestrator(
+      nodeRepo,
+      getBotProfileRepo(),
+      getRecoveryRepo(),
+      getCommandBus(),
+      getAdminNotifier(),
+      async (deadNodeId: string) => {
+        // Returns tenants on this node sorted by tier (enterprise > pro > starter > free)
+        // DrizzleBotInstanceRepository.listByNode returns all instances; tier sorting is
+        // handled here via a join-style approach using the raw list.
+        const instances = await botInstanceRepo.listByNode(deadNodeId);
+        return instances.map((inst) => ({
+          botId: inst.id,
+          tenantId: inst.tenantId,
+          name: inst.name,
+          containerName: `tenant_${inst.tenantId}`,
+          estimatedMb: 100,
+          tier: null,
+        }));
+      },
+      async (excludeNodeId: string, requiredMb: number) => {
+        return nodeRepo.findBestTarget(excludeNodeId, requiredMb);
+      },
+      async (botId: string, targetNodeId: string) => {
+        await getBotInstanceRepo().reassign(botId, targetNodeId);
+      },
+      async (nodeId: string, deltaMb: number) => {
+        await getNodeRepo().addCapacity(nodeId, deltaMb);
+      },
+    );
+  }
+  return _recoveryOrchestrator;
+}
+
+export function getMigrationOrchestrator(): MigrationOrchestrator {
+  if (!_migrationOrchestrator) {
+    _migrationOrchestrator = new MigrationOrchestrator(getCommandBus(), getBotInstanceRepo(), getNodeRepo());
+  }
+  return _migrationOrchestrator;
+}
+
+export function getNodeDrainer(): NodeDrainer {
+  if (!_nodeDrainer) {
+    _nodeDrainer = new NodeDrainer(
+      getMigrationOrchestrator(),
+      getNodeRepo(),
+      getBotInstanceRepo(),
+      getAdminNotifier(),
+      getFleetEventEmitter(),
+    );
+  }
+  return _nodeDrainer;
+}
+
+// ---------------------------------------------------------------------------
+// FleetEventRepository
+// ---------------------------------------------------------------------------
+
+export function getFleetEventEmitter(): FleetEventEmitter {
+  if (!_fleetEventEmitter) {
+    _fleetEventEmitter = new FleetEventEmitter(getFleetEventRepo());
+  }
+  return _fleetEventEmitter;
+}
+
+export function getFleetEventRepo(): IFleetEventRepository {
+  if (!_fleetEventRepo) {
+    _fleetEventRepo = new DrizzleFleetEventRepository(getDb());
+  }
+  return _fleetEventRepo;
+}
+
+export function getTenantUpdateConfigRepo(): ITenantUpdateConfigRepository {
+  if (!_tenantUpdateConfigRepo) {
+    _tenantUpdateConfigRepo = new DrizzleTenantUpdateConfigRepository(getDb());
+  }
+  return _tenantUpdateConfigRepo;
+}
+
+// ---------------------------------------------------------------------------
+// HeartbeatWatchdog
+// ---------------------------------------------------------------------------
+
+export function getHeartbeatWatchdog() {
+  if (!_heartbeatWatchdog) {
+    _heartbeatWatchdog = new HeartbeatWatchdog(
+      getNodeRepo(),
+      (nodeId: string) => {
+        // Signal the fleet-unexpected-stop alert: this fires only for
+        // heartbeat timeouts (crash/OOM), never for user-initiated stops.
+        getFleetEventRepo().fireFleetStop();
+        getRecoveryOrchestrator()
+          .triggerRecovery(nodeId, "heartbeat_timeout")
+          .catch((err) => {
+            logger.error(`Recovery failed for node ${nodeId}`, { err });
+          });
+      },
+      (nodeId: string, newStatus: string) => {
+        logger.info(`Node ${nodeId} status changed to ${newStatus}`);
+      },
+      {},
+      getFleetEventEmitter(),
+    );
+  }
+  return _heartbeatWatchdog;
+}
+
+// ---------------------------------------------------------------------------
+// InferenceWatchdog
+// ---------------------------------------------------------------------------
+
+export function getInferenceWatchdog(): InferenceWatchdog {
+  if (!_inferenceWatchdog) {
+    _inferenceWatchdog = new InferenceWatchdog(getGpuNodeRepo(), getDOClient(), getAdminNotifier());
+  }
+  return _inferenceWatchdog;
+}
+
+// ---------------------------------------------------------------------------
+// Infrastructure
+// ---------------------------------------------------------------------------
+
+export function getDOClient(): DOClient {
+  if (!_doClient) {
+    const token = process.env.DO_API_TOKEN;
+    if (!token) throw new Error("DO_API_TOKEN environment variable is required for node provisioning");
+    _doClient = new DOClient(token);
+  }
+  return _doClient;
+}
+
+export function getNodeProvider(): INodeProvider {
+  if (!_nodeProvider) {
+    _nodeProvider = new DigitalOceanNodeProvider(getDOClient());
+  }
+  return _nodeProvider;
+}
+
+export function getNodeProvisioner(): NodeProvisioner {
+  if (!_nodeProvisioner) {
+    const sshKeyIdStr = process.env.DO_SSH_KEY_ID;
+    if (!sshKeyIdStr) throw new Error("DO_SSH_KEY_ID environment variable is required");
+    _nodeProvisioner = new NodeProvisioner(
+      getNodeRepo(),
+      getNodeProvider(),
+      {
+        sshKeyId: Number(sshKeyIdStr),
+        defaultRegion: process.env.DO_DEFAULT_REGION,
+        defaultSize: process.env.DO_DEFAULT_SIZE,
+      },
+      getFleetEventEmitter(),
+    );
+  }
+  return _nodeProvisioner;
+}
+
+export function getGpuNodeProvisioner(): GpuNodeProvisioner {
+  if (!_gpuNodeProvisioner) {
+    const sshKeyIdStr = process.env.DO_SSH_KEY_ID;
+    if (!sshKeyIdStr) throw new Error("DO_SSH_KEY_ID environment variable is required");
+    _gpuNodeProvisioner = new GpuNodeProvisioner(getGpuNodeRepo(), getDOClient(), {
+      sshKeyId: Number(sshKeyIdStr),
+      defaultRegion: process.env.DO_GPU_DEFAULT_REGION ?? "nyc1",
+      defaultSize: process.env.DO_GPU_DEFAULT_SIZE ?? "gpu-h100x1-80gb",
+      platformUrl: process.env.PLATFORM_URL ?? "https://api.wopr.bot",
+      gpuNodeSecret: process.env.GPU_NODE_SECRET ?? "",
+    });
+  }
+  return _gpuNodeProvisioner;
+}
+
+export function getCapacityPolicy(configOverrides?: Partial<CapacityPolicyConfig>): CapacityPolicy {
+  if (!_capacityPolicy) {
+    const config = { ...DEFAULT_CAPACITY_POLICY_CONFIG, ...configOverrides };
+    _capacityPolicy = new CapacityPolicy(
+      getNodeRepo(),
+      getNodeProvisioner(),
+      getAdminNotifier(),
+      config,
+      // auditLog is optional — consuming app can inject via CapacityPolicy.setAuditLog()
+    );
+  } else if (configOverrides && Object.keys(configOverrides).length > 0) {
+    // Singleton already initialized — overrides from this call will be silently ignored.
+    // Callers that need custom config must set it before the first call to getCapacityPolicy().
+    logger.warn("getCapacityPolicy: configOverrides ignored — singleton already initialized", { configOverrides });
+  }
+  return _capacityPolicy;
+}
+
+export function getRestoreLogStore(): IRestoreLogStore {
+  if (!_restoreLogStore) {
+    const repo = new DrizzleRestoreLogRepository(getDb());
+    _restoreLogStore = new RestoreLogStore(repo);
+  }
+  return _restoreLogStore;
+}
+
+export function getBackupStatusStore(): IBackupStatusStore {
+  if (!_backupStatusStore) {
+    const repo = new DrizzleBackupStatusRepository(getDb());
+    _backupStatusStore = new BackupStatusStore(repo);
+  }
+  return _backupStatusStore;
+}
+
+export function getSnapshotManager(): SnapshotManager {
+  if (!_snapshotManager) {
+    const repo = new DrizzleSnapshotRepository(getDb());
+    _snapshotManager = new SnapshotManager({
+      snapshotDir: SNAPSHOT_DIR,
+      repo,
+      spaces: process.env.S3_BUCKET ? new SpacesClient(process.env.S3_BUCKET) : undefined,
+    });
+  }
+  return _snapshotManager;
+}
+
+export function getVolumeSnapshotManager(): VolumeSnapshotManager {
+  if (!_volumeSnapshotManager) {
+    throw new Error("VolumeSnapshotManager not initialized — call setVolumeSnapshotManager() first");
+  }
+  return _volumeSnapshotManager;
+}
+
+export function setVolumeSnapshotManager(mgr: VolumeSnapshotManager): void {
+  _volumeSnapshotManager = mgr;
+}
+
+export function getRolloutOrchestrator(): RolloutOrchestrator {
+  if (!_rolloutOrchestrator) {
+    throw new Error("RolloutOrchestrator not initialized — call setRolloutOrchestrator() first");
+  }
+  return _rolloutOrchestrator;
+}
+
+export function setRolloutOrchestrator(orch: RolloutOrchestrator): void {
+  _rolloutOrchestrator = orch;
+}
+
+export function getRestoreService(): RestoreService {
+  if (!_restoreService) {
+    _restoreService = new RestoreService({
+      spaces: new SpacesClient(S3_BUCKET),
+      commandBus: getCommandBus(),
+      restoreLog: getRestoreLogStore(),
+    });
+  }
+  return _restoreService;
+}
+
+/** Call once at server startup to wire up fleet services. */
+export function initFleet(): void {
+  // Eagerly initialize orphan cleaner so it's ready when heartbeats arrive
+  getOrphanCleaner();
+
+  // Start inference watchdog so GPU node health checks run in production
+  getInferenceWatchdog().start();
+
+  // Rate-limit and circuit-breaker periodic cleanup is wired by the consuming
+  // application (e.g. wopr-platform's initPlatformServices) since those repos
+  // are platform-level singletons, not fleet-level.
+}
+
+// ---------------------------------------------------------------------------
+// Monetization singletons (WOPR-specific)
+// ---------------------------------------------------------------------------
+
+let _botBilling: IBotBilling | null = null;
+let _phoneNumberRepo: IPhoneNumberRepository | null = null;
+let _affiliateRepo: IAffiliateRepository | null = null;
+let _affiliateFraudRepo: IAffiliateFraudRepository | null = null;
+
+export function getBotBilling(): IBotBilling {
+  if (!_botBilling) _botBilling = new DrizzleBotBilling(getBotInstanceRepo(), getCommandBus());
+  return _botBilling;
+}
+
+export function getPhoneNumberRepo(): IPhoneNumberRepository {
+  if (!_phoneNumberRepo) _phoneNumberRepo = new DrizzlePhoneNumberRepository(getDb());
+  return _phoneNumberRepo;
+}
+
+export function getAffiliateRepo(): IAffiliateRepository {
+  if (!_affiliateRepo) _affiliateRepo = new DrizzleAffiliateRepository(getDb());
+  return _affiliateRepo;
+}
+
+export function getAffiliateFraudRepo(): IAffiliateFraudRepository {
+  if (!_affiliateFraudRepo) _affiliateFraudRepo = new DrizzleAffiliateFraudRepository(getDb());
+  return _affiliateFraudRepo;
+}
+
+// ---------------------------------------------------------------------------
+// VPS Repository (WOP-741)
+// ---------------------------------------------------------------------------
+
+let _vpsRepo: IVpsRepository | null = null;
+
+export function getVpsRepo(): IVpsRepository {
+  if (!_vpsRepo) {
+    _vpsRepo = new DrizzleVpsRepository(getDb());
+  }
+  return _vpsRepo;
+}
+
+// ---------------------------------------------------------------------------
+// Account / Security repository singletons (WOP-904)
+// ---------------------------------------------------------------------------
+
+let _deletionExecutorRepo: IDeletionExecutorRepository | null = null;
+
+export function getDeletionExecutorRepo(): IDeletionExecutorRepository {
+  if (!_deletionExecutorRepo) {
+    _deletionExecutorRepo = new DrizzleDeletionExecutorRepository(getDb());
+  }
+  return _deletionExecutorRepo;
+}
+
+// ---------------------------------------------------------------------------
+// Observability / backup singletons (WOP-929)
+// ---------------------------------------------------------------------------
+
+let _systemResourceMonitor: SystemResourceMonitor | null = null;
+let _backupVerifier: BackupVerifier | null = null;
+
+export function getSystemResourceMonitor(): SystemResourceMonitor {
+  if (!_systemResourceMonitor) {
+    _systemResourceMonitor = new SystemResourceMonitor();
+  }
+  return _systemResourceMonitor;
+}
+
+export function getBackupVerifier(): BackupVerifier {
+  if (!_backupVerifier) {
+    _backupVerifier = new BackupVerifier({ spaces: new SpacesClient(S3_BUCKET) });
+  }
+  return _backupVerifier;
+}
+
+// ---------------------------------------------------------------------------
+// Marketplace Plugin Repository (WOP-1031)
+// ---------------------------------------------------------------------------
+
+let _marketplacePluginRepo: IMarketplacePluginRepository | null = null;
+
+export function getMarketplacePluginRepo(): IMarketplacePluginRepository {
+  if (!_marketplacePluginRepo) {
+    _marketplacePluginRepo = new DrizzleMarketplacePluginRepository(getDb());
+  }
+  return _marketplacePluginRepo;
+}
+
+// ---------------------------------------------------------------------------
+// Marketplace Content Repository (WOP-1174)
+// ---------------------------------------------------------------------------
+
+import type { IMarketplaceContentRepository } from "../api/marketplace-content-repository.js";
+import { DrizzleMarketplaceContentRepository } from "../api/marketplace-content-repository.js";
+
+let _marketplaceContentRepo: IMarketplaceContentRepository | null = null;
+
+export function getMarketplaceContentRepo(): IMarketplaceContentRepository {
+  if (!_marketplaceContentRepo) {
+    _marketplaceContentRepo = new DrizzleMarketplaceContentRepository(getDb());
+  }
+  return _marketplaceContentRepo;
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding singletons (WOP-1020)
+// ---------------------------------------------------------------------------
+
+import type { ISessionUsageRepository } from "../inference/session-usage-repository.js";
+import { DrizzleSessionUsageRepository } from "../inference/session-usage-repository.js";
+import { loadOnboardingConfig } from "../onboarding/config.js";
+import { DaemonManager, type IDaemonManager } from "../onboarding/daemon-manager.js";
+import type { IOnboardingScriptRepository } from "../onboarding/drizzle-onboarding-script-repository.js";
+import { DrizzleOnboardingScriptRepository } from "../onboarding/drizzle-onboarding-script-repository.js";
+import type { IOnboardingSessionRepository } from "../onboarding/drizzle-onboarding-session-repository.js";
+import { DrizzleOnboardingSessionRepository } from "../onboarding/drizzle-onboarding-session-repository.js";
+import { GraduationService } from "../onboarding/graduation-service.js";
+import { OnboardingService } from "../onboarding/onboarding-service.js";
+import { WoprClient } from "../onboarding/wopr-client.js";
+
+let _onboardingSessionRepo: IOnboardingSessionRepository | null = null;
+let _onboardingScriptRepo: IOnboardingScriptRepository | null = null;
+let _woprClient: WoprClient | null = null;
+let _daemonManager: IDaemonManager | null = null;
+let _onboardingService: OnboardingService | null = null;
+let _sessionUsageRepo: ISessionUsageRepository | null = null; // NOSONAR
+let _graduationService: GraduationService | null = null;
+
+export function getGraduationService(): GraduationService {
+  if (!_graduationService) {
+    _graduationService = new GraduationService(getOnboardingSessionRepo(), getBotInstanceRepo(), getSessionUsageRepo());
+  }
+  return _graduationService;
+}
+
+export function getOnboardingSessionRepo(): IOnboardingSessionRepository {
+  if (!_onboardingSessionRepo) {
+    _onboardingSessionRepo = new DrizzleOnboardingSessionRepository(getDb());
+  }
+  return _onboardingSessionRepo;
+}
+
+export function getOnboardingScriptRepo(): IOnboardingScriptRepository {
+  if (!_onboardingScriptRepo) {
+    _onboardingScriptRepo = new DrizzleOnboardingScriptRepository(getDb());
+  }
+  return _onboardingScriptRepo;
+}
+
+export function getWoprClient(): WoprClient {
+  if (!_woprClient) {
+    const cfg = loadOnboardingConfig();
+    _woprClient = new WoprClient(cfg.woprPort);
+  }
+  return _woprClient;
+}
+
+export function getDaemonManager(): IDaemonManager {
+  if (!_daemonManager) {
+    const cfg = loadOnboardingConfig();
+    _daemonManager = new DaemonManager(cfg, getWoprClient());
+  }
+  return _daemonManager;
+}
+
+export function getSessionUsageRepo(): ISessionUsageRepository {
+  if (!_sessionUsageRepo) {
+    _sessionUsageRepo = new DrizzleSessionUsageRepository(getDb());
+  }
+  return _sessionUsageRepo;
+}
+
+export function getOnboardingService(): OnboardingService {
+  if (!_onboardingService) {
+    const cfg = loadOnboardingConfig();
+    _onboardingService = new OnboardingService(
+      getOnboardingSessionRepo(),
+      getWoprClient(),
+      cfg,
+      getDaemonManager(),
+      getSessionUsageRepo(),
+      getOnboardingScriptRepo(),
+      // creditLedger and resolveTenantId are optional — wired by consuming app
+      undefined,
+      undefined,
+    );
+  }
+  return _onboardingService;
+}
+
+// ---------------------------------------------------------------------------
+// Setup Session Repository (WOP-1034)
+// ---------------------------------------------------------------------------
+
+import type { ISetupSessionRepository } from "../setup/setup-session-repository.js";
+import { DrizzleSetupSessionRepository } from "../setup/setup-session-repository.js";
+
+let _setupSessionRepo: ISetupSessionRepository | null = null;
+
+export function getSetupSessionRepo(): ISetupSessionRepository {
+  if (!_setupSessionRepo) {
+    _setupSessionRepo = new DrizzleSetupSessionRepository(getDb());
+  }
+  return _setupSessionRepo;
+}
+
+// ---------------------------------------------------------------------------
+// Page Context Repository (WOP-1517)
+// ---------------------------------------------------------------------------
+
+import type { IPageContextRepository } from "./page-context-repository.js";
+import { DrizzlePageContextRepository } from "./page-context-repository.js";
+
+let _pageContextRepo: IPageContextRepository | null = null;
+
+export function getPageContextRepo(): IPageContextRepository {
+  if (!_pageContextRepo) {
+    _pageContextRepo = new DrizzlePageContextRepository(getDb());
+  }
+  return _pageContextRepo;
+}
+
+// ---------------------------------------------------------------------------
+// Compliance Evidence Collector (WOP-529)
+// ---------------------------------------------------------------------------
+
+let _evidenceCollector: EvidenceCollector | null = null;
+
+export function getEvidenceCollector(): EvidenceCollector {
+  if (!_evidenceCollector) {
+    _evidenceCollector = new EvidenceCollector({
+      auditRepo: new DrizzleAuditLogRepository(getDb()),
+      backupStore: getBackupStatusStore(),
+      adminAuditRepo: new DrizzleAdminAuditLogRepository(getDb()),
+      twoFactorRepo: new DrizzleTwoFactorRepository(getDb()),
+    });
+  }
+  return _evidenceCollector;
+}
+
+// ---------------------------------------------------------------------------
+// Setup Service (WOP-1037)
+// ---------------------------------------------------------------------------
+
+import { SetupService } from "../setup/setup-service.js";
+
+let _setupService: SetupService | null = null;
+
+export function getSetupService(): SetupService {
+  if (!_setupService) {
+    _setupService = new SetupService(getSetupSessionRepo(), getPluginConfigRepo());
+  }
+  return _setupService;
+}
+
+// ---------------------------------------------------------------------------
+// Plugin Config Repository (WOP-1055)
+// ---------------------------------------------------------------------------
+
+import type { IPluginConfigRepository } from "../setup/plugin-config-repository.js";
+import { DrizzlePluginConfigRepository } from "../setup/plugin-config-repository.js";
+
+let _pluginConfigRepo: IPluginConfigRepository | null = null;
+
+export function getPluginConfigRepo(): IPluginConfigRepository {
+  if (!_pluginConfigRepo) {
+    _pluginConfigRepo = new DrizzlePluginConfigRepository(getDb());
+  }
+  return _pluginConfigRepo;
+}
+
+// ---------------------------------------------------------------------------
+// Test helpers — NOT for production use
+// ---------------------------------------------------------------------------
+
+/** @internal Inject a test database. Call before any getter. */
+export function _setDbForTest(db: DrizzleDb): void {
+  _db = db;
+}
+
+/** @internal Reset all singletons. Call in afterAll to prevent cross-test leakage. */
+export function _resetForTest(): void {
+  _pool = null;
+  _db = null;
+  _registrationTokenStore = null;
+  _adminNotifier = null;
+  _nodeRepo = null;
+  _botInstanceRepo = null;
+  _botProfileRepo = null;
+  _recoveryRepo = null;
+  _spendingCapStore = null;
+  _gpuNodeRepo = null;
+  _gpuAllocationRepo = null;
+  _gpuConfigurationRepo = null;
+  _connectionRegistry = null;
+  _commandBus = null;
+  _heartbeatProcessor = null;
+  _nodeRegistrar = null;
+  _orphanCleaner = null;
+  _recoveryOrchestrator = null;
+  _migrationOrchestrator = null;
+  _nodeDrainer = null;
+  _heartbeatWatchdog = null;
+  _inferenceWatchdog = null;
+  _fleetEventRepo = null;
+  _fleetEventEmitter = null;
+  _tenantUpdateConfigRepo = null;
+  _doClient = null;
+  _nodeProvider = null;
+  _nodeProvisioner = null;
+  _gpuNodeProvisioner = null;
+  _capacityPolicy = null;
+  _restoreLogStore = null;
+  _restoreService = null;
+  _backupStatusStore = null;
+  _snapshotManager = null;
+  _volumeSnapshotManager = null;
+  _rolloutOrchestrator = null;
+  _botBilling = null;
+  _phoneNumberRepo = null;
+  _affiliateRepo = null;
+  _affiliateFraudRepo = null;
+  _vpsRepo = null;
+  _deletionExecutorRepo = null;
+  _systemResourceMonitor = null;
+  _backupVerifier = null;
+  _marketplacePluginRepo = null;
+  _marketplaceContentRepo = null;
+  _graduationService = null;
+  _onboardingSessionRepo = null;
+  _onboardingScriptRepo = null;
+  _woprClient = null;
+  _daemonManager = null;
+  _onboardingService = null;
+  _sessionUsageRepo = null;
+  _setupSessionRepo = null;
+  _pageContextRepo = null;
+  _evidenceCollector = null;
+  _setupService = null;
+  _pluginConfigRepo = null;
+}

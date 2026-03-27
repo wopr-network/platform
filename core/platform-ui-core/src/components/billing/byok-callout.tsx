@@ -34,7 +34,8 @@ export function ByokCallout({ compact }: { compact?: boolean }) {
   if (compact) {
     return (
       <p className="text-xs text-muted-foreground">
-        All plans are BYOK — you pay your AI provider directly. {brandName()} never touches your inference.
+        All plans are BYOK — you pay your AI provider directly. {brandName()} never touches your
+        inference.
       </p>
     );
   }
@@ -48,8 +49,8 @@ export function ByokCallout({ compact }: { compact?: boolean }) {
         <div className="space-y-1">
           <p className="text-sm font-medium">Bring Your Own Keys</p>
           <p className="text-sm text-muted-foreground">
-            All plans are BYOK — you pay your AI provider directly. {brandName()} never touches your inference. We only
-            charge for the orchestration layer: containers, plugins, and support.
+            All plans are BYOK — you pay your AI provider directly. {brandName()} never touches your
+            inference. We only charge for the orchestration layer: containers, plugins, and support.
           </p>
         </div>
       </CardContent>
@@ -61,7 +62,8 @@ function HostedCallout({ compact }: { compact?: boolean }) {
   if (compact) {
     return (
       <p className="text-xs text-muted-foreground">
-        Hosted adapter — transparent per-use pricing with no markup surprises. Switch to BYOK anytime in settings.
+        Hosted adapter — transparent per-use pricing with no markup surprises. Switch to BYOK
+        anytime in settings.
       </p>
     );
   }
@@ -75,8 +77,8 @@ function HostedCallout({ compact }: { compact?: boolean }) {
         <div className="space-y-1">
           <p className="text-sm font-medium">Hosted AI Adapter</p>
           <p className="text-sm text-muted-foreground">
-            BYOK users pay their providers directly. Hosted users pay per use — transparent pricing, no markup
-            surprises. Each plan includes a monthly hosted credit.
+            BYOK users pay their providers directly. Hosted users pay per use — transparent pricing,
+            no markup surprises. Each plan includes a monthly hosted credit.
           </p>
         </div>
       </CardContent>

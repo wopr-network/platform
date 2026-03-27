@@ -10,64 +10,64 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --radius: 8px;
-  --terminal: #818cf8;
-  --terminal-glow: rgba(129, 140, 248, 0.4);
-  --terminal-dim: #6366f1;
-  --ring: #818cf8;
-  --chart-1: #818cf8;
-  --chart-2: #a78bfa;
-  --chart-3: #6366f1;
-  --chart-4: #ef4444;
-  --chart-5: #3f3f46;
-  --sidebar-ring: #818cf8;
+	--radius: 8px;
+	--terminal: #818cf8;
+	--terminal-glow: rgba(129, 140, 248, 0.4);
+	--terminal-dim: #6366f1;
+	--ring: #818cf8;
+	--chart-1: #818cf8;
+	--chart-2: #a78bfa;
+	--chart-3: #6366f1;
+	--chart-4: #ef4444;
+	--chart-5: #3f3f46;
+	--sidebar-ring: #818cf8;
 }
 
 .dark {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: rgba(17, 17, 21, 0.8);
-  --card-foreground: #fafafa;
-  --popover: #111115;
-  --popover-foreground: #fafafa;
-  --primary: #818cf8;
-  --primary-foreground: #09090b;
-  --secondary: #18181b;
-  --secondary-foreground: #fafafa;
-  --muted: #18181b;
-  --muted-foreground: #a1a1aa;
-  --accent: #1f1f23;
-  --accent-foreground: #fafafa;
-  --destructive: #ef4444;
-  --border: rgba(129, 140, 248, 0.1);
-  --input: rgba(129, 140, 248, 0.1);
-  --ring: #818cf8;
-  --terminal: #818cf8;
-  --terminal-dim: #a78bfa;
-  --sidebar: #06060a;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #818cf8;
-  --sidebar-primary-foreground: #09090b;
-  --sidebar-accent: #18181b;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: rgba(129, 140, 248, 0.06);
-  --sidebar-ring: #818cf8;
+	--background: #09090b;
+	--foreground: #fafafa;
+	--card: rgba(17, 17, 21, 0.8);
+	--card-foreground: #fafafa;
+	--popover: #111115;
+	--popover-foreground: #fafafa;
+	--primary: #818cf8;
+	--primary-foreground: #09090b;
+	--secondary: #18181b;
+	--secondary-foreground: #fafafa;
+	--muted: #18181b;
+	--muted-foreground: #a1a1aa;
+	--accent: #1f1f23;
+	--accent-foreground: #fafafa;
+	--destructive: #ef4444;
+	--border: rgba(129, 140, 248, 0.1);
+	--input: rgba(129, 140, 248, 0.1);
+	--ring: #818cf8;
+	--terminal: #818cf8;
+	--terminal-dim: #a78bfa;
+	--sidebar: #06060a;
+	--sidebar-foreground: #fafafa;
+	--sidebar-primary: #818cf8;
+	--sidebar-primary-foreground: #09090b;
+	--sidebar-accent: #18181b;
+	--sidebar-accent-foreground: #fafafa;
+	--sidebar-border: rgba(129, 140, 248, 0.06);
+	--sidebar-ring: #818cf8;
 }
 
 /* Kill terminal effects — high specificity without !important */
 html body .crt-scanlines,
 html body .crt-scanlines::before,
 html body .crt-scanlines::after {
-  background: none;
-  animation: none;
+	background: none;
+	animation: none;
 }
 
 /* ─── Font overrides — high specificity selectors ─── */
 html body {
-  font-family: "DM Sans", system-ui, sans-serif;
-  background: #09090b;
-  font-size: 16px;
-  line-height: 1.6;
+	font-family: "DM Sans", system-ui, sans-serif;
+	background: #09090b;
+	font-size: 16px;
+	line-height: 1.6;
 }
 
 html body h1,
@@ -82,7 +82,7 @@ html body [data-slot="alert-dialog-title"],
 html body nav a,
 html body button,
 html body label {
-  font-family: "Space Grotesk", system-ui, sans-serif;
+	font-family: "Space Grotesk", system-ui, sans-serif;
 }
 
 html body code,
@@ -91,292 +91,314 @@ html body kbd,
 html body input,
 html body textarea,
 html body select {
-  font-family: "JetBrains Mono", monospace;
+	font-family: "JetBrains Mono", monospace;
 }
 
 /* ─── Typography scale ─── */
 html body h1 {
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  font-size: 2.25rem;
+	font-weight: 700;
+	letter-spacing: -0.03em;
+	font-size: 2.25rem;
 }
 html body h2 {
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-size: 1.75rem;
+	font-weight: 600;
+	letter-spacing: -0.02em;
+	font-size: 1.75rem;
 }
 html body h3 {
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  font-size: 1.375rem;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	font-size: 1.375rem;
 }
 html body h4 {
-  font-weight: 600;
-  font-size: 1.125rem;
+	font-weight: 600;
+	font-size: 1.125rem;
 }
 html body h5,
 html body h6 {
-  font-weight: 500;
-  font-size: 1rem;
+	font-weight: 500;
+	font-size: 1rem;
 }
 html body label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: #a1a1aa;
+	font-size: 0.8125rem;
+	font-weight: 500;
+	letter-spacing: 0.02em;
+	color: #a1a1aa;
 }
 
 /* ─── Atmospheric background ─── */
 html body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99, 102, 241, 0.15), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 80% 90%, rgba(139, 92, 246, 0.06), transparent),
-    radial-gradient(ellipse 40% 30% at 10% 60%, rgba(99, 102, 241, 0.04), transparent);
-  pointer-events: none;
-  z-index: 0;
+	content: "";
+	position: fixed;
+	inset: 0;
+	background:
+		radial-gradient(
+			ellipse 80% 60% at 50% -10%,
+			rgba(99, 102, 241, 0.15),
+			transparent 60%
+		),
+		radial-gradient(
+			ellipse 50% 40% at 80% 90%,
+			rgba(139, 92, 246, 0.06),
+			transparent
+		),
+		radial-gradient(
+			ellipse 40% 30% at 10% 60%,
+			rgba(99, 102, 241, 0.04),
+			transparent
+		);
+	pointer-events: none;
+	z-index: 0;
 }
 
 /* Subtle grid pattern */
 html body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(129, 140, 248, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(129, 140, 248, 0.025) 1px, transparent 1px);
-  background-size: 40px 40px;
-  pointer-events: none;
-  z-index: 0;
+	content: "";
+	position: fixed;
+	inset: 0;
+	background-image:
+		linear-gradient(rgba(129, 140, 248, 0.025) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(129, 140, 248, 0.025) 1px, transparent 1px);
+	background-size: 40px 40px;
+	pointer-events: none;
+	z-index: 0;
 }
 
 html body > * {
-  position: relative;
-  z-index: 1;
+	position: relative;
+	z-index: 1;
 }
 
 /* ─── Focus states ─── */
 html body *:focus-visible {
-  outline: 1px solid #818cf8;
-  outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
+	outline: 1px solid #818cf8;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.12);
 }
 
 /* ─── Inputs ─── */
 html body input,
 html body textarea,
 html body select {
-  border: 1px solid rgba(129, 140, 248, 0.12);
-  background: rgba(9, 9, 11, 0.6);
-  font-size: 0.9375rem;
-  padding: 0.625rem 0.875rem;
-  border-radius: 8px;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+	border: 1px solid rgba(129, 140, 248, 0.12);
+	background: rgba(9, 9, 11, 0.6);
+	font-size: 0.9375rem;
+	padding: 0.625rem 0.875rem;
+	border-radius: 8px;
+	transition:
+		border-color 0.2s ease,
+		box-shadow 0.2s ease;
 }
 
 html body input:focus,
 html body textarea:focus,
 html body select:focus {
-  border-color: rgba(129, 140, 248, 0.4);
-  box-shadow:
-    0 0 0 3px rgba(129, 140, 248, 0.08),
-    0 0 20px rgba(99, 102, 241, 0.06);
+	border-color: rgba(129, 140, 248, 0.4);
+	box-shadow:
+		0 0 0 3px rgba(129, 140, 248, 0.08),
+		0 0 20px rgba(99, 102, 241, 0.06);
 }
 
 html body input::placeholder,
 html body textarea::placeholder {
-  color: #3f3f46;
+	color: #3f3f46;
 }
 
 /* ─── Buttons ─── */
 html body button[data-slot="button"] {
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  font-size: 0.9375rem;
-  transition: all 0.15s ease;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
-  border-radius: 8px;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	font-size: 0.9375rem;
+	transition: all 0.15s ease;
+	box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+	border-radius: 8px;
 }
 
 html body button[data-slot="button"]:hover {
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
-  transform: translateY(-1px);
+	box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+	transform: translateY(-1px);
 }
 
 /* ─── Cards ─── */
 html body [data-slot="card"] {
-  border: 1px solid rgba(129, 140, 248, 0.1);
-  background: rgba(17, 17, 21, 0.8);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+	border: 1px solid rgba(129, 140, 248, 0.1);
+	background: rgba(17, 17, 21, 0.8);
+	backdrop-filter: blur(20px);
+	border-radius: 16px;
+	transition:
+		border-color 0.2s ease,
+		box-shadow 0.2s ease;
 }
 
 html body [data-slot="card"]:hover {
-  border-color: rgba(129, 140, 248, 0.2);
-  box-shadow: 0 0 30px rgba(99, 102, 241, 0.06);
+	border-color: rgba(129, 140, 248, 0.2);
+	box-shadow: 0 0 30px rgba(99, 102, 241, 0.06);
 }
 
 /* ─── Sidebar ─── */
 html body [data-slot="sidebar"] {
-  border-right: 1px solid rgba(129, 140, 248, 0.08);
-  background: linear-gradient(180deg, #08081a 0%, #06060a 100%);
-  backdrop-filter: blur(20px);
+	border-right: 1px solid rgba(129, 140, 248, 0.08);
+	background: linear-gradient(180deg, #08081a 0%, #06060a 100%);
+	backdrop-filter: blur(20px);
 }
 
 /* Sidebar brand header — gradient underline */
 html body [data-slot="sidebar"] > div:first-child {
-  border-bottom: 1px solid transparent;
-  background-image:
-    linear-gradient(#08081a, #08081a),
-    linear-gradient(90deg, rgba(129, 140, 248, 0.3), rgba(139, 92, 246, 0.1), transparent);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
+	border-bottom: 1px solid transparent;
+	background-image:
+		linear-gradient(#08081a, #08081a),
+		linear-gradient(
+			90deg,
+			rgba(129, 140, 248, 0.3),
+			rgba(139, 92, 246, 0.1),
+			transparent
+		);
+	background-origin: border-box;
+	background-clip: padding-box, border-box;
 }
 
 /* Sidebar nav links — indigo hover glow */
 html body [data-slot="sidebar"] nav a:hover {
-  background: rgba(129, 140, 248, 0.06);
-  box-shadow: inset 0 0 20px rgba(129, 140, 248, 0.03);
+	background: rgba(129, 140, 248, 0.06);
+	box-shadow: inset 0 0 20px rgba(129, 140, 248, 0.03);
 }
 
 /* Sidebar active link — left glow bar */
 html body [data-slot="sidebar"] nav a[class*="border-terminal"] {
-  box-shadow:
-    -2px 0 12px rgba(129, 140, 248, 0.15),
-    inset 0 0 20px rgba(129, 140, 248, 0.04);
+	box-shadow:
+		-2px 0 12px rgba(129, 140, 248, 0.15),
+		inset 0 0 20px rgba(129, 140, 248, 0.04);
 }
 
 /* Sidebar user section — subtle top gradient border */
 html body [data-slot="sidebar"] > div:last-child {
-  border-top: 1px solid transparent;
-  background-image:
-    linear-gradient(#06060a, #06060a), linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.15), transparent);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
+	border-top: 1px solid transparent;
+	background-image:
+		linear-gradient(#06060a, #06060a),
+		linear-gradient(90deg, transparent, rgba(129, 140, 248, 0.15), transparent);
+	background-origin: border-box;
+	background-clip: padding-box, border-box;
 }
 
 /* Sidebar avatar — indigo gradient ring on hover */
-html body [data-slot="sidebar"] > div:last-child button:hover span[class*="rounded-full"] {
-  box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3);
+html body
+	[data-slot="sidebar"]
+	> div:last-child
+	button:hover
+	span[class*="rounded-full"] {
+	box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.3);
 }
 
 /* Sidebar icon opacity boost on active */
 html body [data-slot="sidebar"] nav a[class*="text-terminal"] svg {
-  opacity: 1;
-  filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.4));
+	opacity: 1;
+	filter: drop-shadow(0 0 4px rgba(129, 140, 248, 0.4));
 }
 
 /* ─── Links ─── */
 html body :any-link {
-  transition:
-    color 0.15s ease,
-    opacity 0.15s ease;
+	transition:
+		color 0.15s ease,
+		opacity 0.15s ease;
 }
 
 /* ─── Dividers ─── */
 html body hr,
 html body [data-slot="separator"] {
-  border-color: rgba(129, 140, 248, 0.08);
+	border-color: rgba(129, 140, 248, 0.08);
 }
 
 /* ─── Dialog/Modal ─── */
 html body [data-slot="dialog-overlay"] {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+	background: rgba(0, 0, 0, 0.7);
+	backdrop-filter: blur(4px);
 }
 
 html body [data-slot="dialog-content"] {
-  border: 1px solid rgba(129, 140, 248, 0.1);
-  background: #111115;
-  border-radius: 16px;
+	border: 1px solid rgba(129, 140, 248, 0.1);
+	background: #111115;
+	border-radius: 16px;
 }
 
 /* ─── Tables ─── */
 html body th {
-  font-family: "Space Grotesk", sans-serif;
-  font-weight: 500;
-  color: #a1a1aa;
-  font-size: 0.8125rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+	font-family: "Space Grotesk", sans-serif;
+	font-weight: 500;
+	color: #a1a1aa;
+	font-size: 0.8125rem;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
 }
 
 html body td {
-  border-color: rgba(129, 140, 248, 0.06);
+	border-color: rgba(129, 140, 248, 0.06);
 }
 
 html body tr:hover td {
-  background: rgba(129, 140, 248, 0.03);
+	background: rgba(129, 140, 248, 0.03);
 }
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+	width: 6px;
+	height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+	background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(129, 140, 248, 0.15);
-  border-radius: 3px;
+	background: rgba(129, 140, 248, 0.15);
+	border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(129, 140, 248, 0.3);
+	background: rgba(129, 140, 248, 0.3);
 }
 
 /* ─── Selection ─── */
 ::selection {
-  background: rgba(129, 140, 248, 0.25);
-  color: #fafafa;
+	background: rgba(129, 140, 248, 0.25);
+	color: #fafafa;
 }
 
 /* ─── Toast ─── */
 html body [data-sonner-toaster] {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  left: auto;
-  top: auto;
-  z-index: 99999;
-  transform: none;
+	position: fixed;
+	bottom: 20px;
+	right: 20px;
+	left: auto;
+	top: auto;
+	z-index: 99999;
+	transform: none;
 }
 
 html body [data-sonner-toast] {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  margin-left: auto;
-  background: #111115;
-  border: 1px solid rgba(129, 140, 248, 0.12);
-  font-family: "DM Sans", sans-serif;
-  border-radius: 12px;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	width: fit-content;
+	margin-left: auto;
+	background: #111115;
+	border: 1px solid rgba(129, 140, 248, 0.12);
+	font-family: "DM Sans", sans-serif;
+	border-radius: 12px;
 }
 
 html body [data-sonner-toast] [data-content] {
-  flex: none;
+	flex: none;
 }
 html body [data-sonner-toast] [data-icon] {
-  flex: none;
-  margin: 0;
+	flex: none;
+	margin: 0;
 }
 
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
-  html body *,
-  html body *::before,
-  html body *::after {
-    animation-duration: 0.01ms;
-    animation-iteration-count: 1;
-    transition-duration: 0.01ms;
-  }
+	html body *,
+	html body *::before,
+	html body *::after {
+		animation-duration: 0.01ms;
+		animation-iteration-count: 1;
+		transition-duration: 0.01ms;
+	}
 }

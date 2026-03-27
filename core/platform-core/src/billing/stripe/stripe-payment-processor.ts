@@ -1,0 +1,284 @@
+import type Stripe from "stripe";
+import { chargeAutoTopup } from "../../credits/auto-topup-charge.js";
+import type { IAutoTopupEventLogRepository } from "../../credits/auto-topup-event-log-repository.js";
+import { Credit } from "../../credits/credit.js";
+import type { ILedger } from "../../credits/ledger.js";
+import {
+  type ChargeOpts,
+  type ChargeResult,
+  type CheckoutOpts,
+  type CheckoutSession,
+  type Invoice,
+  type IPaymentProcessor,
+  PaymentMethodOwnershipError,
+  type PortalOpts,
+  type SavedPaymentMethod,
+  type SetupResult,
+  type WebhookResult,
+} from "../payment-processor.js";
+import { createCreditCheckoutSession } from "./checkout.js";
+import type { CreditPriceMap } from "./credit-prices.js";
+import { createPortalSession } from "./portal.js";
+import { createSetupIntent } from "./setup-intent.js";
+import type { ITenantCustomerRepository } from "./tenant-store.js";
+
+/** Result from the consumer-supplied webhook handler. */
+export interface StripeWebhookHandlerResult {
+  handled: boolean;
+  event_type: string;
+  tenant?: string;
+  creditedCents?: number;
+  reactivatedBots?: string[];
+  duplicate?: boolean;
+}
+
+export interface StripePaymentProcessorDeps {
+  stripe: Stripe;
+  tenantRepo: ITenantCustomerRepository;
+  webhookSecret: string;
+  priceMap?: CreditPriceMap;
+  creditLedger: ILedger;
+  autoTopupEventLog?: IAutoTopupEventLogRepository;
+  /** Consumer-supplied webhook handler (handles domain-specific event processing). */
+  webhookHandler?: (event: Stripe.Event) => Promise<StripeWebhookHandlerResult>;
+}
+
+export class StripePaymentProcessor implements IPaymentProcessor {
+  readonly name = "stripe";
+
+  private readonly stripe: Stripe;
+  private readonly tenantRepo: ITenantCustomerRepository;
+  private readonly webhookSecret: string;
+  private readonly priceMap: CreditPriceMap;
+  private readonly creditLedger: ILedger;
+  private readonly autoTopupEventLog?: IAutoTopupEventLogRepository;
+  private readonly webhookHandler?: (event: Stripe.Event) => Promise<StripeWebhookHandlerResult>;
+
+  constructor(deps: StripePaymentProcessorDeps) {
+    this.stripe = deps.stripe;
+    this.tenantRepo = deps.tenantRepo;
+    this.webhookSecret = deps.webhookSecret;
+    this.priceMap = deps.priceMap ?? new Map();
+    this.creditLedger = deps.creditLedger;
+    this.autoTopupEventLog = deps.autoTopupEventLog;
+    this.webhookHandler = deps.webhookHandler;
+  }
+
+  async createCheckoutSession(opts: CheckoutOpts): Promise<CheckoutSession> {
+    let priceId: string | undefined = opts.priceId;
+
+    if (!priceId) {
+      // Fall back to looking up by amount when no explicit priceId provided.
+      const amountCents = opts.amount instanceof Credit ? opts.amount.toCentsFloor() : Number(opts.amount);
+
+      for (const [id, point] of this.priceMap.entries()) {
+        if (point.creditCents === amountCents || point.amountCents === amountCents) {
+          priceId = id;
+          break;
+        }
+      }
+
+      if (!priceId) {
+        throw new Error(
+          `No Stripe price tier matches amount ${amountCents} cents. Configure STRIPE_CREDIT_PRICE_* env vars.`,
+        );
+      }
+    }
+
+    const session = await createCreditCheckoutSession(
+      this.stripe,
+      this.tenantRepo as Parameters<typeof createCreditCheckoutSession>[1],
+      {
+        tenant: opts.tenant,
+        priceId,
+        successUrl: opts.successUrl,
+        cancelUrl: opts.cancelUrl,
+      },
+    );
+
+    return {
+      id: session.id,
+      url: session.url ?? "",
+    };
+  }
+
+  async handleWebhook(payload: Buffer, signature: string): Promise<WebhookResult> {
+    const event = this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
+
+    if (!this.webhookHandler) {
+      return { handled: false, eventType: event.type };
+    }
+
+    const result = await this.webhookHandler(event);
+
+    return {
+      handled: result.handled,
+      eventType: result.event_type,
+      tenant: result.tenant,
+      credited: result.creditedCents != null ? Credit.fromCents(result.creditedCents) : undefined,
+      reactivatedBots: result.reactivatedBots,
+      duplicate: result.duplicate,
+    };
+  }
+
+  supportsPortal(): boolean {
+    return true;
+  }
+
+  async createPortalSession(opts: PortalOpts): Promise<{ url: string }> {
+    const session = await createPortalSession(
+      this.stripe,
+      this.tenantRepo as Parameters<typeof createPortalSession>[1],
+      {
+        tenant: opts.tenant,
+        returnUrl: opts.returnUrl,
+      },
+    );
+
+    return { url: session.url };
+  }
+
+  async setupPaymentMethod(tenant: string): Promise<SetupResult> {
+    const intent = await createSetupIntent(this.stripe, this.tenantRepo as Parameters<typeof createSetupIntent>[1], {
+      tenant,
+    });
+
+    return {
+      clientSecret: intent.client_secret ?? "",
+    };
+  }
+
+  async listPaymentMethods(tenant: string): Promise<SavedPaymentMethod[]> {
+    const mapping = await this.tenantRepo.getByTenant(tenant);
+    if (!mapping) {
+      return [];
+    }
+
+    const [methods, customer] = await Promise.all([
+      this.stripe.customers.listPaymentMethods(mapping.processor_customer_id),
+      this.stripe.customers.retrieve(mapping.processor_customer_id),
+    ]);
+
+    const defaultPmId =
+      !customer.deleted && customer.invoice_settings?.default_payment_method
+        ? typeof customer.invoice_settings.default_payment_method === "string"
+          ? customer.invoice_settings.default_payment_method
+          : customer.invoice_settings.default_payment_method.id
+        : null;
+
+    return methods.data.map((pm) => ({
+      id: pm.id,
+      label: formatPaymentMethodLabel(pm),
+      isDefault: defaultPmId ? pm.id === defaultPmId : false,
+    }));
+  }
+
+  async setDefaultPaymentMethod(tenant: string, paymentMethodId: string): Promise<void> {
+    const mapping = await this.tenantRepo.getByTenant(tenant);
+    if (!mapping) {
+      throw new Error(`No Stripe customer found for tenant: ${tenant}`);
+    }
+
+    const pm = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+    const pmCustomerId = typeof pm.customer === "string" ? pm.customer : (pm.customer?.id ?? null);
+    if (!pmCustomerId || pmCustomerId !== mapping.processor_customer_id) {
+      throw new PaymentMethodOwnershipError();
+    }
+
+    await this.stripe.customers.update(mapping.processor_customer_id, {
+      invoice_settings: { default_payment_method: paymentMethodId },
+    });
+  }
+
+  async detachPaymentMethod(tenant: string, paymentMethodId: string): Promise<void> {
+    const mapping = await this.tenantRepo.getByTenant(tenant);
+    if (!mapping) {
+      throw new Error(`No Stripe customer found for tenant: ${tenant}`);
+    }
+
+    const pm = await this.stripe.paymentMethods.retrieve(paymentMethodId);
+    const pmCustomerId = typeof pm.customer === "string" ? pm.customer : (pm.customer?.id ?? null);
+    if (!pmCustomerId || pmCustomerId !== mapping.processor_customer_id) {
+      throw new PaymentMethodOwnershipError();
+    }
+
+    await this.stripe.paymentMethods.detach(paymentMethodId);
+  }
+
+  async getCustomerEmail(tenantId: string): Promise<string> {
+    const mapping = await this.tenantRepo.getByTenant(tenantId);
+    if (!mapping) {
+      return "";
+    }
+
+    const customer = await this.stripe.customers.retrieve(mapping.processor_customer_id);
+    if (customer.deleted) {
+      return "";
+    }
+    return customer.email ?? "";
+  }
+
+  async updateCustomerEmail(tenantId: string, email: string): Promise<void> {
+    const mapping = await this.tenantRepo.getByTenant(tenantId);
+    if (!mapping) {
+      throw new Error(`No Stripe customer found for tenant: ${tenantId}`);
+    }
+
+    await this.stripe.customers.update(mapping.processor_customer_id, { email });
+  }
+
+  async listInvoices(tenantId: string): Promise<Invoice[]> {
+    const mapping = await this.tenantRepo.getByTenant(tenantId);
+    if (!mapping) {
+      return [];
+    }
+
+    const invoices = await this.stripe.invoices.list({
+      customer: mapping.processor_customer_id,
+      limit: 24,
+    });
+
+    return invoices.data.map((inv) => ({
+      id: inv.id,
+      date: new Date(inv.created * 1000).toISOString(),
+      amountCents: inv.amount_due,
+      status: inv.status ?? "unknown",
+      downloadUrl: inv.invoice_pdf ?? "",
+      hostedUrl: inv.hosted_invoice_url ?? "",
+    }));
+  }
+
+  async charge(opts: ChargeOpts): Promise<ChargeResult> {
+    if (!this.autoTopupEventLog) {
+      throw new Error("autoTopupEventLog is required for charge()");
+    }
+
+    const amount = opts.amount instanceof Credit ? opts.amount : Credit.fromCents(Number(opts.amount));
+
+    const result = await chargeAutoTopup(
+      {
+        stripe: this.stripe,
+        tenantRepo: this.tenantRepo,
+        creditLedger: this.creditLedger,
+        eventLogRepo: this.autoTopupEventLog,
+      },
+      opts.tenant,
+      amount,
+      opts.source,
+    );
+
+    return {
+      success: result.success,
+      paymentReference: result.paymentReference,
+      error: result.error,
+    };
+  }
+}
+
+function formatPaymentMethodLabel(pm: Stripe.PaymentMethod): string {
+  if (pm.card) {
+    const brand = pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1);
+    return `${brand} ending ${pm.card.last4}`;
+  }
+  return `Payment method ${pm.id}`;
+}
