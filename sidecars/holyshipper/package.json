@@ -10,7 +10,7 @@
     "format": "biome format --write packages/worker-runtime/src/"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.6",
+    "@biomejs/biome": "^2.4.9",
     "@types/node": "^25.5.0"
   },
   "engines": {
