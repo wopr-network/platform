@@ -35,9 +35,6 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/paperclip-platform
 
-# Create standalone deployment with all deps resolved
-RUN pnpm --filter @wopr-network/paperclip-platform deploy --legacy --prod /app/deployed
-
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
 # ---------------------------------------------------------------------------
@@ -55,10 +52,13 @@ RUN groupadd -g 1001 docker || true && usermod -aG docker node || true
 # Create fleet data directory with node user ownership
 RUN mkdir -p /data/fleet && chown -R node:node /data
 
-# Self-contained deployment (all deps resolved, no workspace links)
-COPY --chown=node:node --from=build /app/deployed/node_modules ./node_modules
-COPY --chown=node:node --from=build /app/deployed/dist ./dist
-COPY --chown=node:node --from=build /app/deployed/package.json ./
+# node_modules from deps stage (all deps installed including workspace packages)
+COPY --chown=node:node --from=deps /app/node_modules ./node_modules
+# Compiled output + package manifest
+COPY --chown=node:node --from=build /app/platforms/paperclip-platform/dist ./dist
+COPY --chown=node:node --from=build /app/platforms/paperclip-platform/package.json ./
+# Drizzle migrations from platform-core (workspace dep, not in node_modules)
+COPY --chown=node:node --from=build /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
 
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \
