@@ -36,7 +36,7 @@ COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/holyship
 
 # Create self-contained deployment with all dependencies resolved (no workspace links)
-RUN pnpm --filter @wopr-network/holyship deploy --prod /app/deployed
+RUN pnpm --filter @wopr-network/holyship deploy --legacy --prod /app/deployed
 
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime

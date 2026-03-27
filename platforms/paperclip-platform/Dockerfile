@@ -36,7 +36,7 @@ COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/paperclip-platform
 
 # Create standalone deployment with all deps resolved
-RUN pnpm --filter @wopr-network/paperclip-platform deploy --prod /app/deployed
+RUN pnpm --filter @wopr-network/paperclip-platform deploy --legacy --prod /app/deployed
 
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
