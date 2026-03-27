@@ -25,6 +25,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 LABEL org.opencontainers.image.source=https://github.com/wopr-network/paperclip-platform-ui
 COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/tooling ./tooling
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 # API URL derived from hostname at runtime — no build-time baking

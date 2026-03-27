@@ -32,6 +32,7 @@ RUN pnpm install --frozen-lockfile
 FROM deps AS build
 
 COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/tooling ./tooling
 RUN pnpm turbo run build --filter=@wopr-network/nemoclaw-platform
 
 # ---------------------------------------------------------------------------

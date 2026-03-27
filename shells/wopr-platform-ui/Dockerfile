@@ -24,6 +24,7 @@ RUN pnpm install --frozen-lockfile
 # ---------------------------------------------------------------------------
 FROM deps AS build
 COPY --from=pruner /app/out/full/ .
+COPY --from=pruner /app/tooling ./tooling
 # Brand config is loaded from .env.brand at build time
 # API URL is derived from hostname at runtime — not baked at build time
 ENV NODE_OPTIONS="--max-old-space-size=2048"
