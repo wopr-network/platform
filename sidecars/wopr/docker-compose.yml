@@ -1,0 +1,66 @@
+networks:
+  wopr-net:
+    driver: bridge
+
+services:
+  wopr:
+    build: .
+    container_name: wopr
+    restart: unless-stopped
+    privileged: true
+    networks:
+      - wopr-net
+    group_add:
+      - "1001"  # docker group for socket access
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cgroup: host
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      # Bind mounts — host paths, Docker can never recreate these
+      - ${HOME}/wopr-volumes/data:/data
+      - ${HOME}/wopr-volumes/usr:/usr
+      - ${HOME}/wopr-volumes/etc:/etc
+      - ${HOME}/wopr-volumes/var-lib:/var/lib
+      - ${HOME}/wopr-volumes/var-cache:/var/cache
+      - ${HOME}/wopr-volumes/opt:/opt
+      - ${HOME}/wopr-volumes/home-node:/home/node
+      - ${HOME}/.claude:/home/node/.claude
+      - ${HOME}/malice:/tmp/malice:rw
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WOPR_HOME=/data
+      - WOPR_DAEMON_HOST=0.0.0.0
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OLLAMA_HOST=http://ollama:11434
+    ports:
+      - "7437:7437"
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    restart: unless-stopped
+    networks:
+      - wopr-net
+    volumes:
+      - ${HOME}/wopr-volumes/ollama:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - "11434:11434"
+    environment:
+      - OLLAMA_MODEL=qwen3-embedding:0.6b
+    entrypoint: /bin/sh -c "ollama serve & sleep 5 && ollama pull $$OLLAMA_MODEL && wait"
+
+# No named volumes — all bind mounts to ${HOME}/wopr-volumes/

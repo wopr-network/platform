@@ -1,0 +1,392 @@
+## Local development stack for WOPR platform — simulates the full production topology
+## on a single host with two logical nodes: vps (platform services) and gpu (inference).
+##
+## Prerequisites:
+##   - NVIDIA Container Toolkit installed (https://github.com/NVIDIA/nvidia-container-toolkit)
+##   - Model weights at /opt/models/ on host (see .env.local.example for required files)
+##   - Copy .env.local.example to .env.local and fill in values
+##   - docker compose -f docker-compose.local.yml --env-file .env.local up -d
+##
+## After the stack is healthy, seed the GPU node registration:
+##   docker compose -f docker-compose.local.yml --env-file .env.local \
+##     run --rm gpu-seeder
+##
+## Health checks:
+##   curl http://localhost:3100/health          # platform-api
+##   curl http://localhost                       # platform-ui via Caddy
+##   curl http://localhost:8080/health           # llama-cpp
+##   curl http://localhost:8082/health           # whisper
+##   curl http://localhost:8083/health           # qwen-embeddings
+##
+## Caddy serves plain HTTP on port 80 (no TLS in local dev).
+## api.localhost and app.localhost are routed by Caddy — add to /etc/hosts or use
+## direct ports if preferred.
+
+# VRAM PROFILES (RTX 3070 — 8 GB)
+# Run only the services you need. All four simultaneously exceed 8 GB.
+#
+#   Voice testing:  docker compose --profile voice up
+#     chatterbox (~5 GB) + whisper (~1 GB) = ~6 GB
+#
+#   LLM testing:    docker compose --profile llm up
+#     llama-cpp (~5 GB) + qwen (~1 GB) = ~6 GB
+#
+#   Full stack:     Not supported on 8 GB. Use --profile voice or --profile llm.
+
+x-gpu-common: &gpu-common
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+# ---------------------------------------------------------------------------
+# Shared network — vps services can reach gpu services by service name
+# ---------------------------------------------------------------------------
+networks:
+  wopr-local:
+    name: wopr-local
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+volumes:
+  postgres_data:
+  platform_data:
+  caddy_data:
+  caddy_config:
+  wopr_shared_node_modules:
+    name: wopr-local-shared-node-modules
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+services:
+
+  # --- NTP (Chrony) -------------------------------------------------------
+  # Authoritative time source for all containers on the wopr-local network.
+  # Syncs from Cloudflare NTS + Google + pool.ntp.org upstream.
+  # All services get correct timestamps for logs, timeouts, event ordering.
+  ntp:
+    image: cturra/ntp:latest
+    container_name: wopr-local-ntp
+    restart: unless-stopped
+    cap_add:
+      - SYS_TIME
+      - SYS_NICE
+    environment:
+      - NTP_SERVERS=time.cloudflare.com,time.google.com,pool.ntp.org
+      - LOG_LEVEL=0
+    networks:
+      - wopr-local
+
+  # --- Postgres -----------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wopr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: wopr_platform
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wopr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - wopr-local
+
+  # --- Platform API --------------------------------------------------------
+  # Simulates the VPS platform-api container.
+  # docker.sock is mounted so Dockerode can spawn tenant bot containers locally.
+  #
+  # Image selection:
+  #   Production/CI: ghcr.io/wopr-network/wopr-platform:local (default)
+  #   Local build:   build locally first, then override:
+  #     docker build -t wopr-platform-api:local /tmp/wopr-platform
+  #     IMAGE=wopr-platform-api:local docker compose -f docker-compose.local.yml up -d platform-api
+  #   Or set IMAGE env var in shell before running compose.
+  platform-api:
+    image: ${PLATFORM_API_IMAGE:-ghcr.io/wopr-network/wopr-platform:local}
+    # host.docker.internal allows containers to reach services bound on the host
+    # (e.g. standalone GPU containers running outside compose on ports 8080-8083).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - platform_data:/data
+      - wopr_shared_node_modules:/shared/node_modules:ro
+    environment:
+      DATABASE_URL: postgresql://wopr:${POSTGRES_PASSWORD}@postgres:5432/wopr_platform
+      METER_WAL_PATH: /data/meter-wal.jsonl
+      METER_DLQ_PATH: /data/meter-dlq.jsonl
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      STRIPE_DEFAULT_PRICE_ID: ${STRIPE_DEFAULT_PRICE_ID}
+      RESEND_API_KEY: ${RESEND_API_KEY:-re_placeholder_local_dev}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@localhost}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      # Local dev: plain HTTP, no domain
+      BETTER_AUTH_URL: http://localhost:3100
+      UI_ORIGIN: http://localhost,http://localhost:3000
+      PLATFORM_DOMAIN: localhost
+      PLATFORM_SECRET: ${PLATFORM_SECRET}
+      WOPR_BOT_IMAGE: ${WOPR_BOT_IMAGE:-ghcr.io/wopr-network/wopr:latest}
+      GPU_NODE_SECRET: ${GPU_NODE_SECRET}
+      # InferenceWatchdog will poll the 'gpu' service on this network by name.
+      # The watchdog reads host from the gpu_nodes DB row — set by gpu-seeder.
+      # DO credentials — optional in local dev; watchdog reboot calls will fail
+      # gracefully without them (no real droplet to reboot).
+      DO_API_TOKEN: ${DO_API_TOKEN:-}
+      REGISTRY_USERNAME: ${REGISTRY_USERNAME:-}
+      REGISTRY_PASSWORD: ${REGISTRY_PASSWORD:-}
+      REGISTRY_SERVER: ${REGISTRY_SERVER:-ghcr.io}
+      SHARED_NODE_MODULES_VOLUME: wopr-local-shared-node-modules
+      NODE_ENV: development
+      COOKIE_DOMAIN: localhost
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - wopr-local
+
+  # --- Platform UI ---------------------------------------------------------
+  platform-ui:
+    image: ghcr.io/wopr-network/wopr-platform-ui:local
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3100
+      BETTER_AUTH_URL: http://localhost:3100
+      NEXT_PUBLIC_APP_DOMAIN: localhost
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - wopr-local
+
+  # --- Caddy (local — plain HTTP, no TLS) ----------------------------------
+  # Uses a local-dev Caddyfile that serves plain HTTP on :80.
+  # No Cloudflare token needed. No DNS-01 challenge.
+  # Add to /etc/hosts: 127.0.0.1 api.localhost app.localhost
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      platform-api:
+        condition: service_healthy
+      platform-ui:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - wopr-local
+
+  # --- GPU: llama.cpp ------------------------------------------------------
+  llama-cpp:
+    <<: *gpu-common
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: wopr-local-llama-cpp
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${MODELS_PATH:-/opt/models}:/models:ro
+    command:
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --model
+      - /models/${LLAMA_MODEL_FILE:-Meta-Llama-3.1-8B-Instruct-Q8_0.gguf}
+      - --ctx-size
+      - "${LLAMA_CTX_SIZE:-4096}"
+      - --n-gpu-layers
+      - "${LLAMA_GPU_LAYERS:--1}"
+      - --parallel
+      - "${LLAMA_PARALLEL:-2}"
+      - --cont-batching
+      - --flash-attn
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - wopr-local
+    profiles:
+      - llm
+      - gpu
+
+  # --- GPU: Qwen Embeddings ------------------------------------------------
+  qwen-embeddings:
+    <<: *gpu-common
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: wopr-local-qwen-embeddings
+    ports:
+      - "8083:8080"
+    volumes:
+      - ${MODELS_PATH:-/opt/models}:/models:ro
+    command:
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --model
+      - /models/${EMBEDDINGS_MODEL_FILE:-qwen2-0_5b-instruct-q8_0.gguf}
+      - --ctx-size
+      - "${EMBEDDINGS_CTX_SIZE:-8192}"
+      - --n-gpu-layers
+      - "-1"
+      - --embedding
+      - --pooling
+      - "${EMBEDDINGS_POOLING:-mean}"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - wopr-local
+    profiles:
+      - llm
+      - gpu
+
+  # --- GPU: Chatterbox TTS -------------------------------------------------
+  # travisvn/chatterbox-tts-api:gpu
+  # VRAM: ~5 GB on RTX 3070. Models are bundled in the image — no pre-download.
+  # Inner port: 5123. Health: GET /health (or GET / as fallback).
+  # TTS: POST /v1/audio/speech (OpenAI-compat, WOP-506) + POST /synthesize fallback.
+  # Voice cloning: mount .wav samples into /app/voices (optional).
+  chatterbox:
+    <<: *gpu-common
+    image: travisvn/chatterbox-tts-api:gpu
+    container_name: wopr-local-chatterbox
+    ports:
+      - "8081:5123"
+    environment:
+      CHATTERBOX_DEVICE: cuda
+    volumes:
+      - ${CHATTERBOX_VOICES_PATH:-/opt/voices}:/app/voices:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5123/health || curl -sf http://localhost:5123/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 180s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - wopr-local
+    profiles:
+      - voice
+      - gpu
+
+  # --- GPU: Whisper STT ----------------------------------------------------
+  whisper:
+    <<: *gpu-common
+    image: fedirz/faster-whisper-server:0.6.0-rc.3-cuda
+    container_name: wopr-local-whisper
+    ports:
+      - "8082:8000"
+    environment:
+      WHISPER__MODEL: ${WHISPER_MODEL:-Systran/faster-whisper-small}
+      WHISPER__INFERENCE_DEVICE: cuda
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - wopr-local
+    profiles:
+      - voice
+      - gpu
+
+  # --- GPU Seeder ----------------------------------------------------------
+  # One-shot container: inserts (or updates) a gpu_nodes row directly in
+  # postgres with status=active and provision_stage=done.
+  #
+  # WHY direct DB insert (not /internal/gpu/register):
+  #   The /internal/gpu/register endpoint only UPDATEs an existing row — it
+  #   cannot INSERT a new one. Row insertion is normally done by
+  #   GpuNodeProvisioner.provision() which calls the DO API, unavailable in
+  #   local dev. Direct DB insert is the correct local dev approach.
+  #
+  # Run manually after the stack is up and healthy:
+  #   docker compose -f docker-compose.local.yml --env-file .env.local \
+  #     run --rm gpu-seeder
+  #
+  # GPU_NODE_ID must match across runs — it is the stable identity of this
+  # local GPU node in the database.
+  #
+  # GPU_NODE_HOST controls what host the InferenceWatchdog polls for health.
+  # Two modes:
+  #   - Compose GPU services (default for full compose stack):
+  #       GPU_NODE_HOST=llama-cpp   (service name, reachable on wopr-local network)
+  #   - Standalone GPU containers on host (GPU containers NOT in this compose):
+  #       GPU_NODE_HOST=host.docker.internal  (reaches host-bound ports 8080-8083)
+  #
+  # The .env.local default is host.docker.internal for the standalone GPU case.
+  # After seeding, restart platform-api so InferenceWatchdog picks up the new
+  # row on its next 30s poll cycle.
+  gpu-seeder:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      GPU_NODE_ID: ${GPU_NODE_ID:-local-gpu-node-001}
+      GPU_NODE_HOST: ${GPU_NODE_HOST:-host.docker.internal}
+    entrypoint: >
+      sh -c '
+        set -e
+        echo "==> Seeding GPU node row directly in postgres (host=${GPU_NODE_HOST:-host.docker.internal})..."
+        psql -h postgres -U wopr -d wopr_platform -c "
+          INSERT INTO gpu_nodes (id, host, region, size, status, provision_stage, service_health, monthly_cost_cents)
+          VALUES (
+            '"'"'${GPU_NODE_ID:-local-gpu-node-001}'"'"',
+            '"'"'${GPU_NODE_HOST:-host.docker.internal}'"'"',
+            '"'"'local'"'"',
+            '"'"'rtx-3070'"'"',
+            '"'"'active'"'"',
+            '"'"'done'"'"',
+            '"'"'{\"llama\":true,\"chatterbox\":true,\"whisper\":true,\"qwen\":true}'"'"',
+            0
+          )
+          ON CONFLICT (id) DO UPDATE SET
+            host             = EXCLUDED.host,
+            status           = '"'"'active'"'"',
+            provision_stage  = '"'"'done'"'"',
+            service_health   = '"'"'{\"llama\":true,\"chatterbox\":true,\"whisper\":true,\"qwen\":true}'"'"',
+            updated_at       = EXTRACT(EPOCH FROM NOW())::bigint;
+        " && echo "==> GPU node row upserted. Restart platform-api to let InferenceWatchdog pick it up."
+      '
+    networks:
+      - wopr-local
+    profiles:
+      - seed

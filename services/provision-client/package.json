@@ -1,0 +1,49 @@
+{
+  "name": "@wopr-network/provision-client",
+  "version": "1.0.0",
+  "description": "Platform-side HTTP client and Hono proxy middleware for wopr-provisioned containers",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wopr-network/provision-client.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./proxy": {
+      "types": "./dist/proxy/index.d.ts",
+      "import": "./dist/proxy/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "check": "biome check src/ && tsc --noEmit",
+    "lint": "biome check src/",
+    "lint:fix": "biome check --fix src/",
+    "format": "biome format --write src/",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.6",
+    "@types/node": "^25.4.0",
+    "hono": "^4.12.7",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

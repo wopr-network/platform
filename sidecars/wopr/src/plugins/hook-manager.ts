@@ -1,0 +1,241 @@
+/**
+ * Plugin-scoped hook manager factory.
+ *
+ * Creates a hook manager that provides typed, mutable access to core
+ * lifecycle events with priority ordering (lower = runs first).
+ */
+
+import { eventBus } from "../core/events.js";
+import { logger } from "../logger.js";
+import type { HookOptions, MutableHookEvent, WOPRHookManager } from "../types.js";
+import { pluginCircuitBreaker } from "./circuit-breaker.js";
+
+/**
+ * Hook registration entry with metadata
+ */
+interface HookEntry {
+  handler: (...args: unknown[]) => unknown;
+  priority: number;
+  name?: string;
+  once: boolean;
+  unsubscribe: () => void;
+}
+
+/**
+ * Create a hook manager scoped to a plugin.
+ * Hooks provide typed, mutable access to core lifecycle events
+ * with priority ordering (lower = runs first).
+ */
+export function createPluginHookManager(_pluginName: string): WOPRHookManager {
+  // Map of event -> array of hook entries (sorted by priority)
+  const hookEntries = new Map<string, HookEntry[]>();
+
+  // One bus subscription per event (prevents N*N handler calls)
+  const busSubscriptions = new Map<string, () => void>();
+
+  // Mutable events that can transform data or block
+  const mutableEvents = new Set(["message:incoming", "message:outgoing", "channel:message"]);
+
+  // Map hook event names to underlying event bus events
+  const eventMapping: Record<string, string> = {
+    "message:incoming": "session:beforeInject",
+    "message:outgoing": "session:afterInject",
+  };
+
+  function getEntries(event: string): HookEntry[] {
+    const existing = hookEntries.get(event);
+    if (!existing) {
+      const newEntries: HookEntry[] = [];
+      hookEntries.set(event, newEntries);
+      return newEntries;
+    }
+    return existing;
+  }
+
+  function insertSorted(entries: HookEntry[], entry: HookEntry): void {
+    // Insert in priority order (lower = first)
+    const idx = entries.findIndex((e) => e.priority > entry.priority);
+    if (idx === -1) {
+      entries.push(entry);
+    } else {
+      entries.splice(idx, 0, entry);
+    }
+  }
+
+  /** Ensure exactly one event bus listener exists for this hook event */
+  function ensureBusSubscription(event: string): void {
+    if (busSubscriptions.has(event)) return;
+
+    const busEvent = eventMapping[event] || event;
+    const isMutable = mutableEvents.has(event);
+
+    async function dispatchMutable(entries: HookEntry[], payload: unknown, event: string): Promise<void> {
+      let dispatchHadError = false;
+      const payloadObj = payload as { session?: string; _prevented?: boolean };
+      let prevented = false;
+      const mutableEvent: MutableHookEvent<unknown> = {
+        data: payload,
+        session: payloadObj.session || "default",
+        preventDefault() {
+          prevented = true;
+          if (payload && typeof payload === "object") {
+            payloadObj._prevented = true;
+          }
+        },
+        isPrevented() {
+          return prevented;
+        },
+      };
+
+      for (const entry of [...entries]) {
+        if (pluginCircuitBreaker.isTripped(_pluginName)) break;
+        let handlerError = false;
+        try {
+          await entry.handler(mutableEvent);
+        } catch (err) {
+          handlerError = true;
+          dispatchHadError = true;
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.error(`[plugins] Hook handler error in ${_pluginName} (event: ${event}): ${msg}`);
+          pluginCircuitBreaker.recordError(_pluginName, err instanceof Error ? err : new Error(msg));
+        } finally {
+          // once cleanup always runs regardless of success or failure
+          if (entry.once) {
+            const idx = entries.indexOf(entry);
+            if (idx !== -1) entries.splice(idx, 1);
+          }
+        }
+
+        // Check preventDefault even after handler errors
+        if (!handlerError && mutableEvent.isPrevented()) break;
+        if (pluginCircuitBreaker.isTripped(_pluginName)) break;
+      }
+
+      if (!dispatchHadError && !pluginCircuitBreaker.isTripped(_pluginName)) {
+        pluginCircuitBreaker.recordSuccess(_pluginName);
+      }
+    }
+
+    async function dispatchImmutable(entries: HookEntry[], payload: unknown, event: string): Promise<void> {
+      let dispatchHadError = false;
+
+      for (const entry of [...entries]) {
+        if (pluginCircuitBreaker.isTripped(_pluginName)) break;
+        try {
+          await entry.handler(payload);
+        } catch (err) {
+          dispatchHadError = true;
+          const msg = err instanceof Error ? err.message : String(err);
+          logger.error(`[plugins] Hook handler error in ${_pluginName} (event: ${event}): ${msg}`);
+          pluginCircuitBreaker.recordError(_pluginName, err instanceof Error ? err : new Error(msg));
+        } finally {
+          // once cleanup always runs regardless of success or failure
+          if (entry.once) {
+            const idx = entries.indexOf(entry);
+            if (idx !== -1) entries.splice(idx, 1);
+          }
+        }
+
+        if (pluginCircuitBreaker.isTripped(_pluginName)) break;
+      }
+
+      if (!dispatchHadError && !pluginCircuitBreaker.isTripped(_pluginName)) {
+        pluginCircuitBreaker.recordSuccess(_pluginName);
+      }
+    }
+
+    const unsubscribe = eventBus.on(busEvent as keyof import("../types.js").WOPREventMap, async (payload, _evt) => {
+      const entries = getEntries(event);
+
+      if (isMutable) {
+        await dispatchMutable(entries, payload, event);
+      } else {
+        await dispatchImmutable(entries, payload, event);
+      }
+
+      // If all entries removed, clean up bus subscription
+      if (entries.length === 0) {
+        unsubscribe();
+        busSubscriptions.delete(event);
+      }
+    });
+
+    busSubscriptions.set(event, unsubscribe);
+  }
+
+  return {
+    on(event: string, handler: (...args: unknown[]) => unknown, options?: HookOptions): () => void {
+      const priority = options?.priority ?? 100;
+      const name = options?.name;
+      const once = options?.once ?? false;
+
+      const entry: HookEntry = {
+        handler,
+        priority,
+        name,
+        once,
+        unsubscribe: () => {}, // placeholder, removal handled below
+      };
+
+      const entries = getEntries(event);
+      insertSorted(entries, entry);
+
+      // Subscribe to event bus (only once per event)
+      ensureBusSubscription(event);
+
+      return () => {
+        const entries = getEntries(event);
+        const idx = entries.indexOf(entry);
+        if (idx !== -1) entries.splice(idx, 1);
+
+        // If no entries left, unsubscribe from bus
+        if (entries.length === 0) {
+          busSubscriptions.get(event)?.();
+          busSubscriptions.delete(event);
+        }
+      };
+    },
+
+    off(event: string, handler: (...args: unknown[]) => unknown): void {
+      const entries = getEntries(event);
+      const idx = entries.findIndex((e) => e.handler === handler);
+      if (idx !== -1) {
+        entries.splice(idx, 1);
+      }
+      // If no entries left, unsubscribe from bus
+      if (entries.length === 0) {
+        busSubscriptions.get(event)?.();
+        busSubscriptions.delete(event);
+      }
+    },
+
+    offByName(name: string): void {
+      for (const [event, entries] of hookEntries) {
+        const toRemove = entries.filter((e) => e.name === name);
+        for (const entry of toRemove) {
+          const idx = entries.indexOf(entry);
+          if (idx !== -1) entries.splice(idx, 1);
+        }
+        // If no entries left, unsubscribe from bus
+        if (entries.length === 0) {
+          busSubscriptions.get(event)?.();
+          busSubscriptions.delete(event);
+        }
+      }
+    },
+
+    list(): Array<{ event: string; name?: string; priority: number }> {
+      const result: Array<{ event: string; name?: string; priority: number }> = [];
+      for (const [event, entries] of hookEntries) {
+        for (const entry of entries) {
+          result.push({
+            event,
+            name: entry.name,
+            priority: entry.priority,
+          });
+        }
+      }
+      return result.sort((a, b) => a.priority - b.priority);
+    },
+  } as WOPRHookManager;
+}

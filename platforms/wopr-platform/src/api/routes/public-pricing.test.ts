@@ -1,0 +1,137 @@
+import type { PGlite } from "@electric-sql/pglite";
+import { RateStore } from "@wopr-network/platform-core/admin/rates/rate-store";
+import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
+import {
+  beginTestTransaction,
+  createTestDb,
+  endTestTransaction,
+  rollbackTestTransaction,
+} from "@wopr-network/platform-core/test/db";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * Tests for the public-pricing route logic and RateStore.listPublicRates.
+ *
+ * The publicPricingRoutes Hono app uses a module-level singleton DB pointing
+ * at /data/platform/rates.db (a filesystem path that won't exist in tests).
+ * We test the grouping logic by exercising RateStore directly, which gives us
+ * the branch coverage we need in rate-store.ts while keeping tests fast.
+ */
+
+let pool: PGlite;
+let db: DrizzleDb;
+
+beforeAll(async () => {
+  const t = await createTestDb();
+  db = t.db;
+  pool = t.pool;
+  await beginTestTransaction(pool);
+});
+
+afterAll(async () => {
+  await endTestTransaction(pool);
+  await pool.close();
+});
+
+describe("RateStore.listPublicRates (used by public pricing route)", () => {
+  let store: RateStore;
+
+  beforeEach(async () => {
+    await rollbackTestTransaction(pool);
+    store = new RateStore(db);
+  });
+
+  it("returns empty array when no rates exist", async () => {
+    const rates = await await store.listPublicRates();
+    expect(rates).toEqual([]);
+  });
+
+  it("returns only active rates", async () => {
+    await await store.createSellRate({ capability: "tts", displayName: "TTS Standard", unit: "char", priceUsd: 0.001 });
+    await await store.createSellRate({
+      capability: "tts-hd",
+      displayName: "TTS HD",
+      unit: "char",
+      priceUsd: 0.002,
+      isActive: false,
+    });
+
+    const rates = await await store.listPublicRates();
+    expect(rates).toHaveLength(1);
+    expect(rates[0].display_name).toBe("TTS Standard");
+  });
+
+  it("orders by capability then sort_order", async () => {
+    await await store.createSellRate({
+      capability: "tts",
+      displayName: "TTS B",
+      unit: "char",
+      priceUsd: 0.002,
+      sortOrder: 2,
+    });
+    await await store.createSellRate({
+      capability: "llm",
+      displayName: "LLM Fast",
+      unit: "token",
+      priceUsd: 0.001,
+      sortOrder: 1,
+    });
+    await await store.createSellRate({
+      capability: "tts",
+      displayName: "TTS A",
+      unit: "char",
+      priceUsd: 0.001,
+      model: "tts-a",
+      sortOrder: 1,
+    });
+
+    const rates = await await store.listPublicRates();
+    expect(rates[0].capability).toBe("llm");
+    expect(rates[1].display_name).toBe("TTS A");
+    expect(rates[2].display_name).toBe("TTS B");
+  });
+
+  it("grouping logic works for multiple capabilities", async () => {
+    await await store.createSellRate({ capability: "tts", displayName: "TTS Standard", unit: "char", priceUsd: 0.001 });
+    await await store.createSellRate({ capability: "llm", displayName: "GPT Fast", unit: "token", priceUsd: 0.0001 });
+    await await store.createSellRate({
+      capability: "tts",
+      displayName: "TTS HD",
+      unit: "char",
+      priceUsd: 0.002,
+      model: "tts-hd",
+    });
+
+    const rates = await await store.listPublicRates();
+
+    const grouped: Record<string, Array<{ name: string; unit: string; price: number }>> = {};
+    for (const rate of rates) {
+      if (!grouped[rate.capability]) grouped[rate.capability] = [];
+      grouped[rate.capability].push({ name: rate.display_name, unit: rate.unit, price: rate.price_usd });
+    }
+
+    expect(Object.keys(grouped)).toContain("tts");
+    expect(Object.keys(grouped)).toContain("llm");
+    expect(grouped.tts).toHaveLength(2);
+    expect(grouped.llm).toHaveLength(1);
+  });
+});
+
+describe("publicPricingRoutes Hono app", () => {
+  it("returns 500 with error JSON when DB is unavailable", async () => {
+    // Force the route to use a guaranteed non-existent DB path so the error
+    // branch is always exercised, regardless of host filesystem state.
+    vi.resetModules();
+    process.env.RATES_DB_PATH = "/nonexistent/path/rates.db";
+    try {
+      const { publicPricingRoutes } = await import("./public-pricing.js");
+      const res = await publicPricingRoutes.request("/");
+      expect(res.status).toBe(500);
+      const body = (await res.json()) as { error: string };
+      expect(body).toHaveProperty("error");
+    } finally {
+      delete process.env.RATES_DB_PATH;
+      vi.resetModules();
+    }
+  });
+});

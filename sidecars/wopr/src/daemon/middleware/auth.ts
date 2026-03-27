@@ -1,0 +1,229 @@
+/**
+ * Authentication Middleware (WOP-378, WOP-209)
+ *
+ * Two-layer auth chain:
+ *
+ * 1. bearerAuth() — validates the daemon bearer token OR wopr_ API key.
+ *    Skips /health, /ready, and / endpoints.
+ *
+ * 2. requireAdmin() — enforces admin/owner role after API key auth.
+ *
+ * Auth is a platform concern (WOP-340). The core daemon only validates
+ * API tokens for platform→daemon communication.
+ */
+
+import { timingSafeEqual } from "node:crypto";
+import type { MiddlewareHandler } from "hono";
+import { logger } from "../../logger.js";
+import { validateApiKey } from "../api-keys.js";
+import { ensureToken } from "../auth-token.js";
+
+// WebSocket upgrade paths are no longer skipped — auth happens at the HTTP
+// upgrade request via bearer token or Sec-WebSocket-Protocol header (WOP-1407)
+
+/** Paths that never require authentication (probe endpoints). */
+const ALWAYS_SKIP_PATHS = new Set(["/health", "/ready", "/healthz"]);
+
+/** Documentation paths — only skip auth when WOPR_EXPOSE_DOCS=true. */
+const DOC_PATHS = new Set([
+  "/openapi.json",
+  "/docs",
+  "/openapi/websocket.json",
+  "/openapi/plugin-manifest.schema.json",
+]);
+
+/** Build the skip-auth path set. Exported for testing. */
+export function buildSkipAuthPaths(exposeDocs: boolean): Set<string> {
+  return new Set([...ALWAYS_SKIP_PATHS, ...(exposeDocs ? DOC_PATHS : [])]);
+}
+
+/** Map an API key scope to its corresponding auth role. */
+function scopeToRole(scope: string): string {
+  if (scope === "full") return "admin";
+  return "viewer";
+}
+
+// Cache the token so we don't hit disk on every request
+let cachedToken: string | null = null;
+
+function getDaemonToken(): string {
+  if (!cachedToken) {
+    cachedToken = ensureToken();
+  }
+  return cachedToken;
+}
+
+/**
+ * Validate a wopr_ API key token and set user/role context on the Hono context.
+ * Returns true if the key was valid and context was set, false otherwise.
+ */
+export async function authenticateApiKey(c: Parameters<MiddlewareHandler>[0], token: string): Promise<boolean> {
+  const keyUser = await validateApiKey(token);
+  if (!keyUser) return false;
+  c.set("user", { id: keyUser.id });
+  c.set("authMethod", "api_key");
+  c.set("apiKeyScope", keyUser.scope);
+  c.set("role", scopeToRole(keyUser.scope));
+  return true;
+}
+
+export function isDaemonBearerValid(authHeader: string): boolean {
+  const provided = authHeader.slice(7); // Strip "Bearer "
+  let expected: string;
+  try {
+    expected = getDaemonToken();
+  } catch {
+    return false;
+  }
+  const providedBuf = Buffer.from(provided, "utf-8");
+  const expectedBuf = Buffer.from(expected, "utf-8");
+  if (providedBuf.length !== expectedBuf.length) return false;
+  return timingSafeEqual(providedBuf, expectedBuf);
+}
+
+/**
+ * Hono middleware that validates daemon bearer tokens.
+ * Skips /health, /ready, /, and WebSocket paths.
+ * Must be applied after CORS but before route handlers.
+ */
+export function bearerAuth(): MiddlewareHandler {
+  // Compute skip paths when the middleware factory is called (not at module load)
+  // so that process.env.WOPR_EXPOSE_DOCS can be set before createApp() in scripts/tests.
+  const skipPaths = buildSkipAuthPaths(process.env.WOPR_EXPOSE_DOCS === "true");
+  return async (c, next) => {
+    // Skip paths that don't need daemon auth
+    if (skipPaths.has(c.req.path) || c.req.path === "/") {
+      return next();
+    }
+
+    const authHeader = c.req.header("Authorization");
+
+    // For WebSocket upgrade requests, also accept token via Sec-WebSocket-Protocol
+    // Browsers cannot set Authorization headers on WebSocket connections (WOP-1407)
+    if (!authHeader && c.req.header("Upgrade")?.toLowerCase() === "websocket") {
+      const protocols = c.req.header("Sec-WebSocket-Protocol");
+      if (protocols) {
+        const authProtocol = protocols
+          .split(",")
+          .map((p) => p.trim())
+          .find((p) => p.startsWith("auth."));
+        if (authProtocol) {
+          const token = authProtocol.slice(5); // strip "auth."
+          if (token.startsWith("wopr_")) {
+            if (await authenticateApiKey(c, token)) return next();
+          } else {
+            const fakeHeader = `Bearer ${token}`;
+            if (isDaemonBearerValid(fakeHeader)) return next();
+          }
+          return c.json({ error: "Invalid WebSocket auth token" }, 401);
+        }
+      }
+    }
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return c.json({ error: "Missing or invalid Authorization header" }, 401);
+    }
+
+    // Accept wopr_ prefixed API keys (WOP-209)
+    const token = authHeader.slice(7);
+    if (token.startsWith("wopr_")) {
+      if (await authenticateApiKey(c, token)) return next();
+      return c.json({ error: "Invalid API key" }, 401);
+    }
+
+    try {
+      if (!isDaemonBearerValid(authHeader)) {
+        return c.json({ error: "Invalid token" }, 401);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.error(`[auth] Failed to load token: ${msg}`);
+      return c.json({ error: "Internal server error" }, 500);
+    }
+
+    // Daemon bearer tokens are effectively admin (WOP-1710)
+    c.set("role", "admin");
+    return next();
+  };
+}
+
+/**
+ * Middleware that requires API authentication (daemon bearer token or wopr_ API key).
+ * Sets user context and role based on the auth method.
+ *
+ * Daemon bearer token holders are treated as "admin" role.
+ * API key holders get role based on their scope (full=admin, read/write=viewer).
+ */
+export function requireAuth(): MiddlewareHandler {
+  return async (c, next) => {
+    // If bearerAuth() already authenticated this request (API key path),
+    // skip re-validation to avoid double validateApiKey() + lastUsedAt writes.
+    if (c.get("authMethod") === "api_key") {
+      return next();
+    }
+
+    const authHeader = c.req.header("Authorization");
+
+    if (!authHeader?.startsWith("Bearer ")) {
+      return c.json({ error: "Missing or invalid Authorization header" }, 401);
+    }
+
+    const token = authHeader.slice(7);
+
+    // Check wopr_ API keys (WOP-209)
+    if (token.startsWith("wopr_")) {
+      if (await authenticateApiKey(c, token)) return next();
+      return c.json({ error: "Invalid API key" }, 401);
+    }
+
+    // Check daemon bearer token
+    if (isDaemonBearerValid(authHeader)) {
+      c.set("role", "admin");
+      return next();
+    }
+
+    return c.json({ error: "Unauthorized" }, 401);
+  };
+}
+
+/**
+ * Middleware that requires admin role.
+ * Must be used AFTER requireAuth() in the middleware chain.
+ * Rejects non-admin users with 403 Forbidden.
+ */
+export function requireAdmin(): MiddlewareHandler {
+  return async (c, next) => {
+    const role = c.get("role");
+    if (role !== "admin" && role !== "owner") {
+      return c.json({ error: "Forbidden: admin access required" }, 403);
+    }
+    return next();
+  };
+}
+
+/**
+ * Middleware that blocks read-only API keys from mutating routes.
+ * Must be used AFTER bearerAuth() in the middleware chain.
+ * Allows daemon bearer tokens (no apiKeyScope) and all non-read-only scopes.
+ */
+export function requireWriteScope(options?: { format?: "openai" }): MiddlewareHandler {
+  return async (c, next) => {
+    const scope = c.get("apiKeyScope") as string | undefined;
+    if (scope === "read-only") {
+      if (options?.format === "openai") {
+        return c.json(
+          {
+            error: {
+              message: "Forbidden: read-only API key cannot perform write operations",
+              type: "insufficient_scope",
+              code: "forbidden",
+            },
+          },
+          403,
+        );
+      }
+      return c.json({ error: "Forbidden: read-only API key cannot perform write operations" }, 403);
+    }
+    return next();
+  };
+}

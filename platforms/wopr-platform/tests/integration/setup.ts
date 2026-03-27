@@ -1,0 +1,200 @@
+/**
+ * Shared setup for integration tests.
+ *
+ * Provides a fully-composed Hono app with mocked external dependencies
+ * (Docker, Stripe, filesystem) but real middleware chains and routing.
+ */
+import { vi } from "vitest";
+
+// ---------------------------------------------------------------------------
+// Environment stubs (MUST be set before any route module is imported)
+// ---------------------------------------------------------------------------
+
+export const TEST_TOKEN = "integration-test-token";
+export const TEST_PLATFORM_SECRET = "test-platform-secret-32bytes!!ok";
+export const TENANT_A_TOKEN = "wopr_write_tenantA123";
+export const TENANT_B_TOKEN = "wopr_write_tenantB456";
+
+vi.stubEnv("FLEET_API_TOKEN", TEST_TOKEN);
+vi.stubEnv("PLATFORM_SECRET", TEST_PLATFORM_SECRET);
+vi.stubEnv("INSTANCE_DATA_DIR", "/tmp/wopr-int-test-instances");
+vi.stubEnv("SNAPSHOT_DB_PATH", ":memory:");
+vi.stubEnv("SNAPSHOT_DIR", "/tmp/wopr-int-test-snapshots");
+vi.stubEnv("WOPR_HOME_BASE", "/tmp/wopr-int-test-instances");
+vi.stubEnv("FLEET_TOKEN_TENANT_A", `write:${TENANT_A_TOKEN}`);
+vi.stubEnv("FLEET_TOKEN_TENANT_B", `write:${TENANT_B_TOKEN}`);
+
+export const AUTH_HEADER = { Authorization: `Bearer ${TEST_TOKEN}` };
+export const JSON_HEADERS = { "Content-Type": "application/json", ...AUTH_HEADER };
+
+// ---------------------------------------------------------------------------
+// Module mocks (external dependencies)
+// ---------------------------------------------------------------------------
+
+// Fleet / Docker mocks
+export const mockFleetInstance = {
+  start: vi.fn(),
+  stop: vi.fn(),
+  restart: vi.fn(),
+};
+
+export const fleetMock = {
+  create: vi.fn(),
+  getInstance: vi.fn().mockResolvedValue(mockFleetInstance),
+  restart: vi.fn(),
+  remove: vi.fn(),
+  status: vi.fn(),
+  listAll: vi.fn(),
+  logs: vi.fn(),
+  update: vi.fn(),
+  profiles: {
+    get: vi.fn(),
+    list: vi.fn(),
+  },
+};
+
+export const updaterMock = {
+  updateBot: vi.fn(),
+};
+
+export const pollerMock = {
+  getImageStatus: vi.fn(),
+  onUpdateAvailable: null as ((botId: string) => Promise<void>) | null,
+};
+
+vi.mock("dockerode", () => ({
+  default: class MockDocker {},
+}));
+
+vi.mock("@wopr-network/platform-core/fleet/profile-store", () => ({
+  ProfileStore: class MockProfileStore {},
+}));
+
+vi.mock("@wopr-network/platform-core/fleet/fleet-manager", () => {
+  class BotNotFoundError extends Error {
+    constructor(id: string) {
+      super(`Bot not found: ${id}`);
+      this.name = "BotNotFoundError";
+    }
+  }
+  return {
+    FleetManager: class {
+      create = fleetMock.create;
+      getInstance = fleetMock.getInstance;
+      restart = fleetMock.restart;
+      remove = fleetMock.remove;
+      status = fleetMock.status;
+      listAll = fleetMock.listAll;
+      logs = fleetMock.logs;
+      update = fleetMock.update;
+      profiles = fleetMock.profiles;
+    },
+    BotNotFoundError,
+  };
+});
+
+vi.mock("@wopr-network/platform-core/fleet/image-poller", () => ({
+  ImagePoller: class {
+    getImageStatus = pollerMock.getImageStatus;
+    onUpdateAvailable = pollerMock.onUpdateAvailable;
+  },
+}));
+
+vi.mock("@wopr-network/platform-core/fleet/updater", () => ({
+  ContainerUpdater: class {
+    updateBot = updaterMock.updateBot;
+  },
+}));
+
+vi.mock("@wopr-network/platform-core/network/network-policy", () => ({
+  NetworkPolicy: class {
+    prepareForContainer = vi.fn().mockResolvedValue("wopr-tenant-mock");
+    cleanupAfterRemoval = vi.fn().mockResolvedValue(undefined);
+  },
+}));
+
+// Proxy singleton mock — prevents real DNS resolution in tests
+vi.mock("@wopr-network/platform-core/proxy/singleton", () => ({
+  getProxyManager: () => ({
+    addRoute: vi.fn().mockResolvedValue(undefined),
+    removeRoute: vi.fn(),
+    updateHealth: vi.fn(),
+  }),
+  hydrateProxyRoutes: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Friends proxy mock
+export const mockProxyToInstance = vi.fn();
+
+vi.mock("../../src/api/routes/friends-proxy.js", () => ({
+  proxyToInstance: (...args: unknown[]) => mockProxyToInstance(...args),
+}));
+
+// Key injection mock
+export const mockWriteEncryptedSeed = vi.fn();
+export const mockForwardSecretsToInstance = vi.fn();
+
+// Key validation mock
+export const mockValidateProviderKey = vi.fn();
+
+vi.mock("@wopr-network/platform-core/security", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@wopr-network/platform-core/security")>();
+  return {
+    ...actual,
+    writeEncryptedSeed: (...args: unknown[]) => mockWriteEncryptedSeed(...args),
+    forwardSecretsToInstance: (...args: unknown[]) => mockForwardSecretsToInstance(...args),
+    validateProviderKey: (...args: unknown[]) => mockValidateProviderKey(...args),
+  };
+});
+
+// Snapshot mocks
+export const snapshotManagerMock = {
+  create: vi.fn(),
+  restore: vi.fn(),
+  get: vi.fn(),
+  list: vi.fn(),
+  delete: vi.fn(),
+  count: vi.fn(),
+  getOldest: vi.fn(),
+};
+
+vi.mock("@wopr-network/platform-core/backup/snapshot-manager", () => {
+  class SnapshotNotFoundError extends Error {
+    constructor(id: string) {
+      super(`Snapshot not found: ${id}`);
+      this.name = "SnapshotNotFoundError";
+    }
+  }
+  return {
+    SnapshotManager: class {
+      create = snapshotManagerMock.create;
+      restore = snapshotManagerMock.restore;
+      get = snapshotManagerMock.get;
+      list = snapshotManagerMock.list;
+      delete = snapshotManagerMock.delete;
+      count = snapshotManagerMock.count;
+      getOldest = snapshotManagerMock.getOldest;
+    },
+    SnapshotNotFoundError,
+  };
+});
+
+vi.mock("@wopr-network/platform-core/backup/retention", () => ({
+  enforceRetention: vi.fn().mockResolvedValue(0),
+}));
+
+// ---------------------------------------------------------------------------
+// Fleet route deps — must be set before POST /fleet/bots is exercised
+// ---------------------------------------------------------------------------
+
+const { setFleetDeps } = await import("../../src/api/routes/fleet.js");
+setFleetDeps({
+  creditLedger: { balance: vi.fn().mockReturnValue(10000) } as never,
+  botBilling: { registerBot: vi.fn(), getActiveBotCount: vi.fn().mockReturnValue(0) } as never,
+  emailVerifier: { isVerified: vi.fn().mockReturnValue(true) },
+});
+
+// Inject the mock snapshot manager into the snapshot route so it does not
+// attempt to connect to a real database via getSnapshotManager().
+const { setSnapshotManagerForTest } = await import("../../src/api/routes/snapshots.js");
+setSnapshotManagerForTest(snapshotManagerMock as never);

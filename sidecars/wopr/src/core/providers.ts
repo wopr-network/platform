@@ -1,0 +1,323 @@
+import { logger } from "../logger.js";
+import { emitProviderAdded, emitProviderRemoved, emitProviderStatus } from "./events.js";
+import { rateLimitTracker } from "./rate-limit-tracker.js";
+
+/**
+ * Provider Registry & Management System
+ *
+ * Handles registration, discovery, resolution, and fallback logic
+ * for multiple model providers.
+ */
+
+import { existsSync } from "node:fs";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import type {
+  ModelProvider,
+  ProviderConfig,
+  ProviderCredentials,
+  ProviderRegistration,
+  ResolvedProvider,
+} from "../types/provider.js";
+
+/**
+ * Provider Registry
+ * Singleton that manages all available providers and their credentials
+ */
+export class ProviderRegistry {
+  private providers = new Map<string, ProviderRegistration>();
+  private credentials = new Map<string, ProviderCredentials>();
+  private credentialsPath: string;
+  private loadedCredentials = false;
+
+  constructor() {
+    this.credentialsPath = join(homedir(), ".wopr", "providers.json");
+  }
+
+  /**
+   * Register a provider
+   */
+  register(provider: ModelProvider): void {
+    logger.info(`[provider-registry] Registering: ${provider.id} (${provider.name})`);
+    this.providers.set(provider.id, {
+      provider,
+      available: false,
+      lastChecked: 0,
+    });
+    logger.info(`[provider-registry]   ✓ ${provider.id} registered. Total: ${this.providers.size}`);
+
+    emitProviderAdded(provider.id, provider.name).catch((err) => {
+      logger.error(`[provider-registry] Failed to emit provider:added for ${provider.id}:`, err);
+    });
+  }
+
+  /**
+   * Unregister a provider
+   */
+  unregister(id: string): void {
+    const reg = this.providers.get(id);
+    if (!reg) return;
+
+    logger.info(`[provider-registry] Unregistering: ${id}`);
+    this.providers.delete(id);
+
+    emitProviderRemoved(id, reg.provider.name).catch((err) => {
+      logger.error(`[provider-registry] Failed to emit provider:removed for ${id}:`, err);
+    });
+  }
+
+  /**
+   * Load credentials from disk
+   */
+  async loadCredentials(): Promise<void> {
+    if (this.loadedCredentials) return;
+
+    try {
+      if (!existsSync(this.credentialsPath)) {
+        this.loadedCredentials = true;
+        return;
+      }
+
+      const data = await readFile(this.credentialsPath, "utf-8");
+      const creds = JSON.parse(data) as ProviderCredentials[];
+
+      for (const cred of creds) {
+        this.credentials.set(cred.providerId, cred);
+      }
+
+      // Fix permissions on existing credentials file (migration for pre-WOP-621 deployments)
+      await chmod(this.credentialsPath, 0o600).catch(() => {});
+
+      this.loadedCredentials = true;
+    } catch (error) {
+      logger.error(`Failed to load provider credentials: ${error}`);
+      this.loadedCredentials = true;
+    }
+  }
+
+  /**
+   * Save credentials to disk
+   */
+  async saveCredentials(): Promise<void> {
+    const creds = Array.from(this.credentials.values());
+
+    // Ensure directory exists with restricted permissions
+    const dir = join(homedir(), ".wopr");
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+
+    await writeFile(this.credentialsPath, JSON.stringify(creds, null, 2), { mode: 0o600 });
+  }
+
+  /**
+   * Get a credential for a provider
+   */
+  getCredential(providerId: string): ProviderCredentials | undefined {
+    return this.credentials.get(providerId);
+  }
+
+  /**
+   * Store a credential
+   */
+  async setCredential(providerId: string, credential: string, metadata?: Record<string, unknown>): Promise<void> {
+    // Validate provider exists
+    const provider = this.providers.get(providerId);
+    if (!provider) {
+      throw new Error(`Provider not registered: ${providerId}`);
+    }
+
+    // Validate credential
+    const valid = await provider.provider.validateCredentials(credential);
+    if (!valid) {
+      throw new Error(`Invalid credential for provider: ${providerId}`);
+    }
+
+    // Store credential
+    this.credentials.set(providerId, {
+      providerId,
+      type: provider.provider.getCredentialType(),
+      credential,
+      metadata: metadata as Record<string, unknown>,
+      createdAt: Date.now(),
+    });
+
+    // Save to disk
+    await this.saveCredentials();
+  }
+
+  /**
+   * Remove a credential
+   */
+  async removeCredential(providerId: string): Promise<void> {
+    this.credentials.delete(providerId);
+    await this.saveCredentials();
+  }
+
+  /**
+   * List all registered providers
+   */
+  listProviders(): Array<{ id: string; name: string; available: boolean; lastChecked: number }> {
+    return Array.from(this.providers.values()).map((reg) => ({
+      id: reg.provider.id,
+      name: reg.provider.name,
+      available: reg.available,
+      lastChecked: reg.lastChecked,
+    }));
+  }
+
+  /**
+   * Check health of all providers
+   */
+  async checkHealth(): Promise<void> {
+    logger.info(`[provider-registry] Checking health for ${this.providers.size} providers`);
+    const checks = Array.from(this.providers.values()).map(async (reg) => {
+      const previousAvailable = reg.available;
+      try {
+        logger.info(`[provider-registry] Checking ${reg.provider.id}...`);
+        const cred = this.credentials.get(reg.provider.id);
+        const credType = reg.provider.getCredentialType?.() || "api-key";
+        logger.info(`[provider-registry] ${reg.provider.id}: credType=${credType}, hasCred=${!!cred}`);
+
+        // For OAuth providers, skip credential check
+        if (!cred && credType !== "oauth") {
+          reg.available = false;
+          reg.error = "No credentials configured";
+          logger.info(`[provider-registry] ${reg.provider.id}: skipped - no credentials`);
+          if (previousAvailable !== reg.available) {
+            await emitProviderStatus(reg.provider.id, reg.provider.name, previousAvailable, reg.available, reg.error);
+          }
+          return;
+        }
+
+        logger.info(`[provider-registry] ${reg.provider.id}: creating client...`);
+        const client = await reg.provider.createClient(cred?.credential || "");
+        logger.info(`[provider-registry] ${reg.provider.id}: running health check...`);
+        const healthy = await client.healthCheck();
+        logger.info(`[provider-registry] ${reg.provider.id}: health check result=${healthy}`);
+
+        reg.available = healthy;
+        reg.lastChecked = Date.now();
+        if (!healthy) {
+          reg.error = "Health check failed";
+        } else {
+          reg.error = undefined;
+        }
+
+        if (previousAvailable !== reg.available) {
+          await emitProviderStatus(reg.provider.id, reg.provider.name, previousAvailable, reg.available, reg.error);
+        }
+      } catch (error) {
+        logger.error(`[provider-registry] ${reg.provider.id}: health check error:`, error);
+        reg.available = false;
+        reg.lastChecked = Date.now();
+        reg.error = error instanceof Error ? error.message : "Unknown error";
+
+        if (previousAvailable !== reg.available) {
+          await emitProviderStatus(reg.provider.id, reg.provider.name, previousAvailable, reg.available, reg.error);
+        }
+      }
+    });
+
+    await Promise.all(checks);
+    logger.info(`[provider-registry] Health check complete`);
+  }
+
+  /**
+   * Get a single provider registration by ID
+   */
+  getProvider(id: string): ProviderRegistration | undefined {
+    return this.providers.get(id);
+  }
+
+  /**
+   * Get the currently active (first available) provider
+   */
+  getActiveProvider(): { id: string; name: string; defaultModel: string } | null {
+    for (const reg of this.providers.values()) {
+      if (reg.available) {
+        return {
+          id: reg.provider.id,
+          name: reg.provider.name,
+          defaultModel: reg.provider.defaultModel,
+        };
+      }
+    }
+    const first = this.providers.values().next().value;
+    if (first) {
+      return {
+        id: first.provider.id,
+        name: first.provider.name,
+        defaultModel: first.provider.defaultModel,
+      };
+    }
+    return null;
+  }
+
+  /**
+   * Resolve a provider with fallback chain
+   * Returns the first available provider in the chain
+   */
+  async resolveProvider(config: ProviderConfig): Promise<ResolvedProvider> {
+    const chain = [config.name, ...(config.fallback || [])];
+    const errors: string[] = [];
+
+    for (const providerName of chain) {
+      const reg = this.providers.get(providerName);
+      if (!reg) {
+        errors.push(`Provider not found: ${providerName}`);
+        continue;
+      }
+
+      // Check if provider is currently rate-limited
+      if (rateLimitTracker.isRateLimited(providerName)) {
+        const retryMs = rateLimitTracker.getRetryAfterMs(providerName);
+        errors.push(`Provider rate-limited: ${providerName} (retry in ${Math.ceil(retryMs / 1000)}s)`);
+        continue;
+      }
+
+      const cred = this.credentials.get(providerName);
+      const credType = reg.provider.getCredentialType?.() || "api-key";
+
+      // For OAuth providers, skip credential check
+      if (!cred && credType !== "oauth") {
+        errors.push(`No credentials for provider: ${providerName}`);
+        continue;
+      }
+
+      try {
+        // Create client with provider options
+        const client = await reg.provider.createClient(cred?.credential || "", config.options);
+        return {
+          name: providerName,
+          provider: reg.provider,
+          client,
+          credential: cred?.credential || "",
+          fallbackChain: chain.slice(chain.indexOf(providerName) + 1),
+        };
+      } catch (error) {
+        errors.push(
+          `Failed to create client for ${providerName}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    throw new Error(`Could not resolve any provider in chain [${chain.join(", ")}]:\n${errors.join("\n")}`);
+  }
+
+  /**
+   * Get singleton instance
+   */
+  private static instance: ProviderRegistry;
+
+  static getInstance(): ProviderRegistry {
+    if (!ProviderRegistry.instance) {
+      ProviderRegistry.instance = new ProviderRegistry();
+    }
+    return ProviderRegistry.instance;
+  }
+}
+
+/**
+ * Export singleton
+ */
+export const providerRegistry = ProviderRegistry.getInstance();

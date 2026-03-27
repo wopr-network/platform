@@ -1,0 +1,19 @@
+{
+  "name": "@wopr-network/holyshipper",
+  "private": true,
+  "packageManager": "pnpm@10.31.0",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "check": "pnpm -r run check",
+    "lint": "biome check --error-on-warnings packages/worker-runtime/src/",
+    "format": "biome format --write packages/worker-runtime/src/"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.6"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}

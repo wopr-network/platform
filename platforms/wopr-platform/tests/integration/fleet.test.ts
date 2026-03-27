@@ -1,0 +1,452 @@
+/**
+ * Integration tests for /fleet/* routes.
+ *
+ * Tests fleet endpoints through the full composed Hono app with real
+ * middleware chains (bearer auth) but mocked Docker/FleetManager.
+ */
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTH_HEADER, JSON_HEADERS, TENANT_A_TOKEN, TENANT_B_TOKEN, fleetMock, mockFleetInstance, pollerMock, updaterMock } from "./setup.js";
+
+const { app } = await import("../../src/api/app.js");
+
+/** Stable UUIDs for test bots. */
+const BOT_1 = "00000000-0000-4000-8000-000000000001";
+const BOT_2 = "00000000-0000-4000-8000-000000000002";
+/** A valid UUID for a bot that does not exist. */
+const MISSING_BOT = "ffffffff-ffff-4fff-bfff-ffffffffffff";
+
+describe("integration: fleet routes", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Mock profiles.get to return a profile for BOT_1 and BOT_2, null for MISSING_BOT
+    fleetMock.profiles.get.mockImplementation((id: string) => {
+      if (id === BOT_1 || id === BOT_2) {
+        return Promise.resolve({ id, tenantId: "test-tenant", name: "test-bot" });
+      }
+      return Promise.resolve(null);
+    });
+    // Reset getInstance and instance mocks so tests don't bleed into each other
+    fleetMock.getInstance.mockResolvedValue(mockFleetInstance);
+    mockFleetInstance.start.mockResolvedValue(undefined);
+    mockFleetInstance.stop.mockResolvedValue(undefined);
+    mockFleetInstance.restart.mockResolvedValue(undefined);
+  });
+
+  // -- Authentication (middleware chain) ------------------------------------
+
+  describe("auth middleware", () => {
+    it("rejects unauthenticated requests to GET /fleet/bots", async () => {
+      const res = await app.request("/fleet/bots");
+      expect(res.status).toBe(401);
+    });
+
+    it("rejects wrong bearer token", async () => {
+      const res = await app.request("/fleet/bots", {
+        headers: { Authorization: "Bearer wrong-token" },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it("accepts valid bearer token", async () => {
+      fleetMock.listAll.mockResolvedValue([]);
+      const res = await app.request("/fleet/bots", { headers: AUTH_HEADER });
+      expect(res.status).toBe(200);
+    });
+  });
+
+  // -- UUID validation -----------------------------------------------------
+
+  describe("UUID validation", () => {
+    it("returns 400 for non-UUID bot ID on GET", async () => {
+      const res = await app.request("/fleet/bots/not-a-uuid", { headers: AUTH_HEADER });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe("Invalid bot ID");
+    });
+
+    it("returns 400 for non-UUID bot ID on DELETE", async () => {
+      const res = await app.request("/fleet/bots/bad!", {
+        method: "DELETE",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 for non-UUID bot ID on sub-route", async () => {
+      const res = await app.request("/fleet/bots/bad-id/start", {
+        method: "POST",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // -- GET /fleet/bots ------------------------------------------------------
+
+  describe("GET /fleet/bots", () => {
+    it("returns bot list", async () => {
+      fleetMock.listAll.mockResolvedValue([
+        { id: BOT_1, name: "alpha", state: "running" },
+        { id: BOT_2, name: "bravo", state: "stopped" },
+      ]);
+
+      const res = await app.request("/fleet/bots", { headers: AUTH_HEADER });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.bots).toHaveLength(2);
+      expect(body.bots[0].name).toBe("alpha");
+    });
+
+    it("returns empty array when no bots exist", async () => {
+      fleetMock.listAll.mockResolvedValue([]);
+
+      const res = await app.request("/fleet/bots", { headers: AUTH_HEADER });
+      const body = await res.json();
+      expect(body.bots).toEqual([]);
+    });
+  });
+
+  // -- POST /fleet/bots -----------------------------------------------------
+
+  describe("POST /fleet/bots", () => {
+    it("creates a bot with valid payload", async () => {
+      fleetMock.create.mockResolvedValue({
+        id: BOT_1,
+        profile: { id: BOT_1, tenantId: "user-123", name: "test-bot", image: "ghcr.io/wopr-network/wopr:stable" },
+      });
+
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          tenantId: "user-123",
+          name: "test-bot",
+          image: "ghcr.io/wopr-network/wopr:stable",
+          env: { TOKEN: "abc" },
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body.name).toBe("test-bot");
+    });
+
+    it("returns 400 for invalid bot name", async () => {
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ tenantId: "user-123", name: "!!bad!!", image: "ghcr.io/wopr-network/wopr:stable" }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 for host path in volumeName", async () => {
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          tenantId: "user-123",
+          name: "bot",
+          image: "ghcr.io/wopr-network/wopr:stable",
+          volumeName: "/var/run/docker.sock",
+        }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 for path traversal in volumeName", async () => {
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          tenantId: "user-123",
+          name: "bot",
+          image: "ghcr.io/wopr-network/wopr:stable",
+          volumeName: "vol/../escape",
+        }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("accepts valid named Docker volume", async () => {
+      fleetMock.create.mockResolvedValue({
+        id: "new-bot",
+        profile: { id: "new-bot", tenantId: "user-123", name: "bot", image: "ghcr.io/wopr-network/wopr:stable", volumeName: "my-data-vol" },
+      });
+
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          tenantId: "user-123",
+          name: "bot",
+          image: "ghcr.io/wopr-network/wopr:stable",
+          volumeName: "my-data-vol",
+        }),
+      });
+      expect(res.status).toBe(201);
+    });
+
+    it("returns 400 for missing image", async () => {
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ tenantId: "user-123", name: "good-name" }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 for malformed JSON", async () => {
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: "not json{{{",
+      });
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe("Invalid JSON body");
+    });
+
+    it("returns 500 when fleet manager throws", async () => {
+      fleetMock.create.mockRejectedValue(new Error("Docker daemon down"));
+
+      const res = await app.request("/fleet/bots", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ tenantId: "user-123", name: "bot", image: "ghcr.io/wopr-network/wopr:stable" }),
+      });
+      expect(res.status).toBe(500);
+    });
+  });
+
+  // -- GET /fleet/bots/:id --------------------------------------------------
+
+  describe("GET /fleet/bots/:id", () => {
+    it("returns bot status", async () => {
+      fleetMock.status.mockResolvedValue({
+        id: BOT_1,
+        name: "alpha",
+        state: "running",
+        health: "healthy",
+      });
+
+      const res = await app.request(`/fleet/bots/${BOT_1}`, { headers: AUTH_HEADER });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.state).toBe("running");
+    });
+
+    it("returns 404 for non-existent bot", async () => {
+      const { BotNotFoundError } = await import("@wopr-network/platform-core/fleet/fleet-manager");
+      fleetMock.status.mockRejectedValue(new BotNotFoundError(MISSING_BOT));
+
+      const res = await app.request(`/fleet/bots/${MISSING_BOT}`, { headers: AUTH_HEADER });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  // -- PATCH /fleet/bots/:id ------------------------------------------------
+
+  describe("PATCH /fleet/bots/:id", () => {
+    it("updates bot config", async () => {
+      fleetMock.update.mockResolvedValue({ id: BOT_1, name: "updated" });
+
+      const res = await app.request(`/fleet/bots/${BOT_1}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ name: "updated" }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.name).toBe("updated");
+    });
+
+    it("returns 400 for host path in volumeName", async () => {
+      const res = await app.request("/fleet/bots/bot-1", {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ volumeName: "/etc" }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 for empty update body", async () => {
+      const res = await app.request(`/fleet/bots/${BOT_1}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({}),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("returns 400 for malformed JSON", async () => {
+      const res = await app.request(`/fleet/bots/${BOT_1}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: "{bad",
+      });
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // -- DELETE /fleet/bots/:id -----------------------------------------------
+
+  describe("DELETE /fleet/bots/:id", () => {
+    it("removes a bot (204 No Content)", async () => {
+      fleetMock.remove.mockResolvedValue(undefined);
+
+      const res = await app.request(`/fleet/bots/${BOT_1}`, {
+        method: "DELETE",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(204);
+    });
+
+    it("passes removeVolumes query parameter", async () => {
+      fleetMock.remove.mockResolvedValue(undefined);
+
+      await app.request(`/fleet/bots/${BOT_1}?removeVolumes=true`, {
+        method: "DELETE",
+        headers: AUTH_HEADER,
+      });
+      expect(fleetMock.remove).toHaveBeenCalledWith(BOT_1, true);
+    });
+  });
+
+  // -- POST /fleet/bots/:id/start|stop|restart ------------------------------
+
+  describe("lifecycle actions (start/stop/restart)", () => {
+    it("POST /fleet/bots/:id/start starts a bot", async () => {
+      mockFleetInstance.start.mockResolvedValue(undefined);
+
+      const res = await app.request(`/fleet/bots/${BOT_1}/start`, {
+        method: "POST",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.ok).toBe(true);
+    });
+
+    it("POST /fleet/bots/:id/stop stops a bot", async () => {
+      mockFleetInstance.stop.mockResolvedValue(undefined);
+
+      const res = await app.request(`/fleet/bots/${BOT_1}/stop`, {
+        method: "POST",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(200);
+    });
+
+    it("POST /fleet/bots/:id/restart restarts a bot", async () => {
+      fleetMock.restart.mockResolvedValue(undefined);
+
+      const res = await app.request(`/fleet/bots/${BOT_1}/restart`, {
+        method: "POST",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(200);
+    });
+
+    it("returns 404 when starting non-existent bot", async () => {
+      // profiles.get returns null for MISSING_BOT (set in beforeEach),
+      // so validateTenantOwnership returns 404 before getInstance is called.
+      const res = await app.request(`/fleet/bots/${MISSING_BOT}/start`, {
+        method: "POST",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  // -- GET /fleet/bots/:id/logs ---------------------------------------------
+
+  describe("GET /fleet/bots/:id/logs", () => {
+    it("returns container logs as text", async () => {
+      fleetMock.logs.mockResolvedValue("2026-01-01 startup complete");
+
+      const res = await app.request(`/fleet/bots/${BOT_1}/logs`, { headers: AUTH_HEADER });
+      expect(res.status).toBe(200);
+      const text = await res.text();
+      expect(text).toContain("startup complete");
+    });
+
+    it("passes tail query parameter", async () => {
+      fleetMock.logs.mockResolvedValue("logs");
+
+      await app.request(`/fleet/bots/${BOT_1}/logs?tail=50`, { headers: AUTH_HEADER });
+      expect(fleetMock.logs).toHaveBeenCalledWith(BOT_1, 50);
+    });
+
+    it("clamps tail to 10000 max", async () => {
+      fleetMock.logs.mockResolvedValue("logs");
+
+      await app.request(`/fleet/bots/${BOT_1}/logs?tail=99999`, { headers: AUTH_HEADER });
+      expect(fleetMock.logs).toHaveBeenCalledWith(BOT_1, 10_000);
+    });
+  });
+
+  // -- POST /fleet/bots/:id/update ------------------------------------------
+
+  describe("POST /fleet/bots/:id/update", () => {
+    it("returns success on successful update", async () => {
+      updaterMock.updateBot.mockResolvedValue({
+        botId: BOT_1,
+        success: true,
+        previousImage: "img:old",
+        newImage: "img:new",
+      });
+
+      const res = await app.request(`/fleet/bots/${BOT_1}/update`, {
+        method: "POST",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+    });
+
+    it("returns 404 when bot not found during update", async () => {
+      updaterMock.updateBot.mockResolvedValue({
+        botId: MISSING_BOT,
+        success: false,
+        error: "Bot not found",
+      });
+
+      const res = await app.request(`/fleet/bots/${MISSING_BOT}/update`, {
+        method: "POST",
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  // -- GET /fleet/bots/:id/image-status -------------------------------------
+
+  describe("GET /fleet/bots/:id/image-status", () => {
+    it("returns image status", async () => {
+      fleetMock.profiles.get.mockResolvedValue({ id: BOT_1, image: "img" });
+      pollerMock.getImageStatus.mockReturnValue({
+        botId: BOT_1,
+        updateAvailable: true,
+        currentDigest: "sha256:old",
+        availableDigest: "sha256:new",
+      });
+
+      const res = await app.request(`/fleet/bots/${BOT_1}/image-status`, { headers: AUTH_HEADER });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.updateAvailable).toBe(true);
+    });
+
+    it("returns 404 when bot profile not found", async () => {
+      fleetMock.profiles.get.mockResolvedValue(null);
+
+      const res = await app.request(`/fleet/bots/${MISSING_BOT}/image-status`, {
+        headers: AUTH_HEADER,
+      });
+      expect(res.status).toBe(404);
+    });
+  });
+
+});

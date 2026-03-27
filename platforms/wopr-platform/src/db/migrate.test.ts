@@ -1,0 +1,33 @@
+import type { PGlite } from "@electric-sql/pglite";
+import { beginTestTransaction, createTestDb, endTestTransaction } from "@wopr-network/platform-core/test/db";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+// TOP OF FILE - shared across ALL describes
+let pool: PGlite;
+
+beforeAll(async () => {
+  ({ pool } = await createTestDb());
+  await beginTestTransaction(pool);
+});
+
+afterAll(async () => {
+  await endTestTransaction(pool);
+  await pool.close();
+});
+
+describe("runMigrations", () => {
+  it("applies all migrations to a fresh database", async () => {
+    const result = await pool.query<{ table_name: string }>(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name",
+    );
+    const tableNames = result.rows.map((r) => r.table_name);
+    expect(tableNames).toContain("bot_instances");
+    expect(tableNames).toContain("nodes");
+  });
+
+  it("is idempotent — createTestDb can be called twice without error", async () => {
+    // Calling createTestDb a second time to verify idempotency
+    const { pool: pool2 } = await createTestDb();
+    await pool2.close();
+  });
+});

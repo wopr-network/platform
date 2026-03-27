@@ -1,0 +1,195 @@
+import { logger } from "../logger.js";
+
+/**
+ * Unified Query Interface
+ *
+ * Provides a single interface for querying models regardless of provider.
+ * Handles provider resolution, fallback, and response normalization.
+ */
+
+import type { ModelQueryOptions, ModelResponse, ProviderConfig } from "../types/provider.js";
+import { config as configManager } from "./config.js";
+import { providerRegistry } from "./providers.js";
+import { rateLimitTracker } from "./rate-limit-tracker.js";
+
+/**
+ * Query options normalized from session context
+ */
+export interface QueryRequest {
+  prompt: string;
+  systemPrompt?: string;
+  sessionId?: string;
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  providerConfig?: ProviderConfig;
+  providerOptions?: Record<string, unknown>;
+}
+
+/**
+ * Execute a query with automatic provider resolution and fallback
+ *
+ * @param request Query request with all parameters
+ * @returns Model response from first successful provider
+ * @throws Error if all providers in fallback chain fail
+ */
+export async function executeQuery(request: QueryRequest): Promise<ModelResponse> {
+  // Use provided config or auto-detect available provider
+  let config: ProviderConfig;
+  if (request.providerConfig) {
+    config = request.providerConfig;
+  } else {
+    // Auto-detect: use first available provider
+    const available = providerRegistry
+      .listProviders()
+      .filter((p) => p.available && !rateLimitTracker.isRateLimited(p.id));
+    if (available.length === 0) {
+      throw new Error("No providers available. Configure at least one provider (anthropic, kimi, openai, etc.)");
+    }
+    config = { name: available[0].id };
+    logger.info(`[Query] Auto-selected provider: ${available[0].id}`);
+  }
+
+  // Declare outside try so it is accessible in catch for 429 tracking.
+  // Assign inside the try so resolution failures still flow through the
+  // unified error path ([Query] Failed: ...) with logging and 429 detection.
+  let resolved: Awaited<ReturnType<typeof providerRegistry.resolveProvider>> | undefined;
+
+  try {
+    // Resolve provider with fallback
+    resolved = await providerRegistry.resolveProvider(config);
+
+    // Get global provider defaults from config
+    const globalDefaults = configManager.getProviderDefaults(resolved.provider.id);
+
+    // Model resolution hierarchy:
+    // 1. Explicit request.model
+    // 2. Per-session config.model
+    // 3. Global provider default
+    // 4. SDK default (handled by provider)
+    const resolvedModel = request.model || config.model || globalDefaults?.model;
+
+    // Prepare query options with merged defaults
+    const options: ModelQueryOptions = {
+      prompt: request.prompt,
+      systemPrompt: request.systemPrompt,
+      resume: request.sessionId,
+      model: resolvedModel,
+      temperature: request.temperature ?? globalDefaults?.temperature,
+      maxTokens: request.maxTokens ?? globalDefaults?.maxTokens,
+      topP: request.topP ?? globalDefaults?.topP,
+      providerOptions: {
+        ...globalDefaults?.options,
+        ...config.options,
+        ...request.providerOptions,
+      },
+    };
+
+    // Execute query (returns async generator for streaming)
+    const stream = resolved.client.query(options);
+
+    // Collect all chunks to build final response
+    const chunks: string[] = [];
+    let sessionId: string | undefined;
+    const providerUsed = resolved.provider.id;
+    const modelUsed = options.model || resolved.provider.defaultModel;
+
+    for await (const raw of stream) {
+      const msg = raw as {
+        type: string;
+        subtype?: string;
+        session_id?: string;
+        message?: { content?: Array<{ type: string; text?: string }> };
+      };
+      if (msg.type === "system" && msg.subtype === "init") {
+        sessionId = msg.session_id;
+      } else if (msg.type === "assistant") {
+        for (const block of msg.message?.content || []) {
+          if (block.type === "text" && block.text) {
+            chunks.push(block.text);
+          }
+        }
+      }
+    }
+
+    logger.info(`[Query] Used provider: ${providerUsed} (${modelUsed})`);
+
+    // Successful query - clear any rate limit state for the provider that served the request
+    rateLimitTracker.clearProvider(resolved.provider.id);
+
+    return {
+      content: chunks.join(""),
+      provider: providerUsed,
+      model: modelUsed,
+      sessionId,
+    };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logger.error(`[Query] Failed: ${errorMsg}`);
+
+    // Detect 429 rate limiting using explicit structured signals only.
+    // String heuristics (e.g. errorMsg.includes("429")) are intentionally
+    // excluded — they produce false positives on unrelated errors and would
+    // mark healthy providers as rate-limited unnecessarily.
+    // Note: RateLimitError always has statusCode=429, so it is caught below.
+    // Guard against null/undefined errors before property access.
+    const is429 =
+      error != null &&
+      typeof error === "object" &&
+      ((error as { status?: number }).status === 429 || (error as { statusCode?: number }).statusCode === 429);
+
+    if (is429 && resolved) {
+      const retryAfter = (error as { retryAfterSeconds?: number }).retryAfterSeconds;
+      rateLimitTracker.markRateLimited(resolved.provider.id, retryAfter);
+      logger.warn(`[Query] Provider ${resolved.provider.id} rate-limited (429). Backoff applied.`);
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * List available models across all configured providers
+ */
+export async function listAvailableModels(): Promise<Array<{ provider: string; models: string[] }>> {
+  const providers = providerRegistry.listProviders();
+  const result = [];
+
+  for (const providerInfo of providers) {
+    if (!providerInfo.available) continue;
+
+    try {
+      const resolved = await providerRegistry.resolveProvider({
+        name: providerInfo.id,
+      });
+
+      const models = await resolved.client.listModels();
+      result.push({
+        provider: providerInfo.name,
+        models,
+      });
+    } catch (_error) {
+      logger.warn(`Failed to list models for ${providerInfo.id}`);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get health status of all configured providers
+ */
+export function getProviderStatus(): Array<{
+  id: string;
+  name: string;
+  available: boolean;
+  lastChecked: number;
+}> {
+  return providerRegistry.listProviders().map((p) => ({
+    id: p.id,
+    name: p.name,
+    available: p.available,
+    lastChecked: p.lastChecked,
+  }));
+}

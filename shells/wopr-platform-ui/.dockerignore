@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+.env*
+!.env.brand
+.vscode
+.idea
+coverage
+.vercel
+Dockerfile
+docker-compose.yml
+.dockerignore

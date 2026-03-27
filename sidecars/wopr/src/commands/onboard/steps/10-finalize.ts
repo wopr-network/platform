@@ -1,0 +1,143 @@
+/**
+ * Step 10: Finalize and complete
+ */
+
+import { config } from "../../../core/config.js";
+import { applyWizardMetadata, DEFAULT_WORKSPACE, openBrowser } from "../helpers.js";
+import { confirm, note, outro, pc } from "../prompts.js";
+import type { OnboardContext, OnboardStep } from "../types.js";
+
+export const finalizeStep: OnboardStep = async (ctx: OnboardContext) => {
+  // Apply wizard metadata
+  const finalConfig = await applyWizardMetadata(ctx.nextConfig, {
+    command: "onboard",
+    mode: ctx.opts.mode || ctx.opts.flow,
+  });
+
+  // Save config
+  await config.load();
+  Object.entries(finalConfig).forEach(([key, value]) => {
+    if (value !== undefined) {
+      config.setValue(key, value);
+    }
+  });
+
+  // Save embeddings config to plugin-specific data
+  if (finalConfig.embeddings) {
+    const pluginConfig: Record<string, unknown> = {
+      provider: finalConfig.embeddings.provider,
+      model: finalConfig.embeddings.model,
+    };
+    if (finalConfig.embeddings.ollamaBaseUrl) {
+      pluginConfig.ollama = { baseUrl: finalConfig.embeddings.ollamaBaseUrl };
+    }
+    config.setValue("plugins.data.wopr-plugin-memory-semantic", pluginConfig);
+  }
+
+  await config.save();
+
+  ctx.runtime.log("Configuration saved!");
+
+  // Build summary
+  const port = finalConfig.gateway?.port || 3000;
+  const token = finalConfig.gateway?.auth?.token;
+  const webUiUrl = `http://127.0.0.1:${port}`;
+
+  // Build sandbox status
+  const sandboxStatus = finalConfig.sandbox?.enabled
+    ? `${pc.green("✓")} Sandbox: ${finalConfig.sandbox.mode} (${finalConfig.sandbox.workspaceAccess || "ro"})`
+    : pc.dim("○ Sandbox: Disabled");
+
+  await note(
+    [
+      `${pc.green("✓")} Workspace configured`,
+      finalConfig.provider?.primary
+        ? `${pc.green("✓")} AI provider: ${finalConfig.provider.primary}`
+        : `${pc.yellow("○")} AI provider: Not configured`,
+      sandboxStatus,
+      finalConfig.channels?.length
+        ? `${pc.green("✓")} Channels: ${finalConfig.channels.join(", ")}`
+        : pc.dim("○ Channels: None"),
+      `${pc.green("✓")} Gateway configured`,
+      "",
+      `Web UI: ${webUiUrl}`,
+      token ? pc.dim("Auth token will be required on first visit.") : "",
+      "",
+      pc.dim("Next steps:"),
+      "  • Open the Web UI to start chatting",
+      `  • Edit ${finalConfig.workspace || DEFAULT_WORKSPACE}/IDENTITY.md to customize your agent`,
+      `  • Edit ${finalConfig.workspace || DEFAULT_WORKSPACE}/SOUL.md to set boundaries`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    "Setup Complete",
+  );
+
+  // Check for BOOTSTRAP.md
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+  const bootstrapPath = path.join(finalConfig.workspace || DEFAULT_WORKSPACE, "BOOTSTRAP.md");
+
+  let hasBootstrap = false;
+  try {
+    await fs.access(bootstrapPath);
+    hasBootstrap = true;
+  } catch {
+    hasBootstrap = false;
+  }
+
+  if (hasBootstrap) {
+    await note(
+      [
+        "BOOTSTRAP.md detected!",
+        "",
+        "This is your agent's first-run ritual.",
+        "Open the Web UI and say:",
+        pc.cyan('  "Wake up, my friend!"'),
+        "",
+        "Your agent will guide you through setting up:",
+        "  • Its name and identity",
+        "  • Your user profile",
+        "  • Preferred communication style",
+      ].join("\n"),
+      "🐣 First Run",
+    );
+  }
+
+  // Ask to open browser
+  if (!ctx.opts.skipUi) {
+    const openNow = await confirm({
+      message: "Open Web UI in browser?",
+      initialValue: true,
+    });
+
+    if (openNow) {
+      const opened = await openBrowser(webUiUrl);
+      if (opened) {
+        ctx.runtime.log("Browser opened!");
+      } else {
+        await note(["Could not open browser automatically.", "", `Please open: ${webUiUrl}`].join("\n"), "Open Web UI");
+      }
+    }
+  }
+
+  // Helpful commands
+  await note(
+    [
+      `${pc.cyan("wopr daemon start")}     Start the gateway daemon`,
+      `${pc.cyan("wopr daemon stop")}      Stop the gateway daemon`,
+      `${pc.cyan("wopr status")}           Check system status`,
+      `${pc.cyan("wopr sandbox status")}   Check sandbox containers`,
+      `${pc.cyan("wopr configure")}        Reconfigure settings`,
+      `${pc.cyan("wopr onboard")}          Run this wizard again`,
+      "",
+      pc.dim("Docs: https://github.com/wopr-network/wopr"),
+      pc.dim("Issues: https://github.com/wopr-network/wopr/issues"),
+    ].join("\n"),
+    "Useful Commands",
+  );
+
+  await outro(pc.green("🚀 WOPR is ready! Happy chatting!"));
+
+  return {};
+};

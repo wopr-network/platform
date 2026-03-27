@@ -1,0 +1,31 @@
+@import "tailwindcss";
+@source "../../node_modules/@wopr-network/platform-ui-core/src";
+/* biome-ignore lint/correctness/noInvalidPositionAtImportRule: @source must precede @import for Tailwind v4 to scan core's source files */
+@import "../../node_modules/@wopr-network/platform-ui-core/src/app/globals.css";
+
+@theme {
+	--color-signal-orange: #ff6200;
+	--color-near-black: #0a0a0a;
+	--color-off-white: #fafafa;
+}
+
+/* Holy Ship brand: signal orange replaces neon green across the entire UI */
+:root {
+	--primary: #ff6200;
+	--primary-foreground: #000000;
+	--ring: #ff6200;
+	--terminal: #ff6200;
+	--terminal-dim: #cc4e00;
+	--sidebar-primary: #ff6200;
+	--sidebar-primary-foreground: #000000;
+}
+
+.dark {
+	--primary: #ff6200;
+	--primary-foreground: #000000;
+	--ring: #ff6200;
+	--terminal: #ff6200;
+	--terminal-dim: #cc4e00;
+	--sidebar-primary: #ff6200;
+	--sidebar-primary-foreground: #000000;
+}

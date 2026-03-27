@@ -1,0 +1,1147 @@
+import crypto from "node:crypto";
+import type { PGlite } from "@electric-sql/pglite";
+import type { IAuditLogRepository } from "@wopr-network/platform-core/audit/audit-log-repository";
+import { AuditLogger } from "@wopr-network/platform-core/audit/logger";
+import type { AuditEntry } from "@wopr-network/platform-core/audit/schema";
+import type {
+  CryptoServiceClient,
+  ICryptoChargeRepository,
+  IPaymentProcessor,
+} from "@wopr-network/platform-core/billing";
+import type { ILedger, JournalEntry } from "@wopr-network/platform-core/credits";
+import { Credit, DrizzleAutoTopupSettingsRepository } from "@wopr-network/platform-core/credits";
+import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
+import type { IMeterAggregator } from "@wopr-network/platform-core/metering";
+import { DrizzleUsageSummaryRepository } from "@wopr-network/platform-core/metering";
+import { DrizzleAffiliateRepository } from "@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository";
+import type { IDividendRepository } from "@wopr-network/platform-core/monetization/credits/dividend-repository";
+import { DrizzleSpendingLimitsRepository } from "@wopr-network/platform-core/monetization/drizzle-spending-limits-repository";
+import {
+  beginTestTransaction,
+  createTestDb,
+  endTestTransaction,
+  rollbackTestTransaction,
+} from "@wopr-network/platform-core/test/db";
+import { setTrpcOrgMemberRepo } from "@wopr-network/platform-core/trpc";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { type BillingRouterDeps, billingRouter, setBillingRouterDeps } from "./billing.js";
+
+// ---------------------------------------------------------------------------
+// Context helpers
+// ---------------------------------------------------------------------------
+
+function makeCtx(userId: string, tenantId?: string) {
+  return {
+    user: { id: userId, roles: [] as string[] },
+    tenantId,
+  };
+}
+
+function makeUnauthCtx() {
+  return { user: undefined as undefined, tenantId: undefined as string | undefined };
+}
+
+function makeCaller(ctx: ReturnType<typeof makeCtx> | ReturnType<typeof makeUnauthCtx>) {
+  return billingRouter.createCaller(ctx as Parameters<typeof billingRouter.createCaller>[0]);
+}
+
+// Wire a permissive org member repo so tenantProcedure passes validation.
+// tenantProcedure calls validateTenantAccess for non-token users; we allow all.
+beforeAll(() => {
+  setTrpcOrgMemberRepo({
+    findMember: async (_orgId, _userId) => ({
+      id: "m1",
+      orgId: _orgId,
+      userId: _userId,
+      role: "owner" as const,
+      joinedAt: Date.now(),
+    }),
+    listMembers: async () => [],
+    addMember: async () => {},
+    updateMemberRole: async () => {},
+    removeMember: async () => {},
+    countAdminsAndOwners: async () => 1,
+    listInvites: async () => [],
+    createInvite: async () => {},
+    findInviteById: async () => null,
+    findInviteByToken: async () => null,
+    deleteInvite: async () => {},
+    deleteAllMembers: async () => {},
+    deleteAllInvites: async () => {},
+    listOrgsByUser: async () => [],
+    markInviteAccepted: async () => {},
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mock factories
+// ---------------------------------------------------------------------------
+
+function createMockProcessor(overrides: Partial<IPaymentProcessor> = {}): IPaymentProcessor {
+  return {
+    name: "mock",
+    supportsPortal: () => true,
+    createCheckoutSession: vi
+      .fn()
+      .mockResolvedValue({ id: "cs_test", url: "https://pay.example.com/checkout/cs_test" }),
+    createPortalSession: vi.fn().mockResolvedValue({ url: "https://pay.example.com/portal/portal_test" }),
+    handleWebhook: vi.fn().mockResolvedValue({ handled: false, eventType: "unknown" }),
+    setupPaymentMethod: vi.fn().mockResolvedValue({ clientSecret: "seti_test_secret" }),
+    listPaymentMethods: vi.fn().mockResolvedValue([]),
+    detachPaymentMethod: vi.fn().mockResolvedValue(undefined),
+    charge: vi.fn().mockResolvedValue({ success: true }),
+    getCustomerEmail: vi.fn().mockResolvedValue(""),
+    updateCustomerEmail: vi.fn().mockResolvedValue(undefined),
+    setDefaultPaymentMethod: vi.fn().mockResolvedValue(undefined),
+    listInvoices: vi.fn().mockResolvedValue([]),
+    ...overrides,
+  };
+}
+
+function makeMockLedger(): ILedger {
+  const balances = new Map<string, number>();
+  const entries: JournalEntry[] = [];
+
+  function makeEntry(
+    tenantId: string,
+    amount: Credit,
+    entryType: string,
+    opts?: { description?: string; referenceId?: string },
+  ): JournalEntry {
+    return {
+      id: crypto.randomUUID(),
+      postedAt: new Date().toISOString(),
+      entryType,
+      tenantId,
+      description: opts?.description ?? null,
+      referenceId: opts?.referenceId ?? null,
+      metadata: null,
+      lines: [{ accountCode: `2000:${tenantId}`, amount, side: "credit" }],
+    };
+  }
+
+  return {
+    async post() {
+      throw new Error("post() not implemented in mock");
+    },
+    async credit(tenantId, amount, type, opts) {
+      balances.set(tenantId, (balances.get(tenantId) ?? 0) + amount.toCents());
+      const entry = makeEntry(tenantId, amount, type, opts);
+      entries.push(entry);
+      return entry;
+    },
+    async debit(tenantId, amount, type, opts) {
+      balances.set(tenantId, (balances.get(tenantId) ?? 0) - amount.toCents());
+      const entry = makeEntry(tenantId, amount, type, opts);
+      entries.push(entry);
+      return entry;
+    },
+    async debitCapped(tenantId, amount, type, opts) {
+      balances.set(tenantId, (balances.get(tenantId) ?? 0) - amount.toCents());
+      const entry = makeEntry(tenantId, amount, type, opts);
+      entries.push(entry);
+      return entry;
+    },
+    async balance(tenantId) {
+      return Credit.fromCents(balances.get(tenantId) ?? 0);
+    },
+    async hasReferenceId() {
+      return false;
+    },
+    async history(tenantId, opts) {
+      return entries
+        .filter((e) => e.tenantId === tenantId)
+        .slice(opts?.offset ?? 0, (opts?.offset ?? 0) + (opts?.limit ?? 50));
+    },
+    async tenantsWithBalance() {
+      return [];
+    },
+    async expiredCredits(_now: string) {
+      return [];
+    },
+    async memberUsage(_tenantId: string) {
+      return [];
+    },
+    async lifetimeSpend(_tenantId: string) {
+      return Credit.fromCents(0);
+    },
+    async lifetimeSpendBatch(tenantIds: string[]) {
+      return new Map(tenantIds.map((id) => [id, Credit.fromCents(0)]));
+    },
+    async accountBalance(_code: string) {
+      return Credit.fromCents(0);
+    },
+    async seedSystemAccounts() {},
+    async existsByReferenceIdLike(_pattern: string) {
+      return false;
+    },
+    async sumPurchasesForPeriod(_start: string, _end: string) {
+      return Credit.fromCents(0);
+    },
+    async getActiveTenantIdsInWindow(_start: string, _end: string) {
+      return [];
+    },
+    async trialBalance() {
+      return {
+        totalDebits: Credit.fromCents(0),
+        totalCredits: Credit.fromCents(0),
+        balanced: true,
+        difference: Credit.fromCents(0),
+      };
+    },
+  };
+}
+
+function createMockAuditRepo(): IAuditLogRepository & { entries: AuditEntry[] } {
+  const entries: AuditEntry[] = [];
+  return {
+    entries,
+    async insert(entry: AuditEntry) {
+      entries.push(entry);
+    },
+    async query() {
+      return [];
+    },
+    async count() {
+      return 0;
+    },
+    async purgeOlderThan() {
+      return 0;
+    },
+    async purgeOlderThanForUser() {
+      return 0;
+    },
+    async countByAction() {
+      return {};
+    },
+    async getTimeRange() {
+      return { oldest: null, newest: null };
+    },
+  };
+}
+
+function makeMockDividendRepo(overrides: Partial<IDividendRepository> = {}): IDividendRepository {
+  return {
+    getStats: vi.fn().mockResolvedValue({
+      pool: Credit.ZERO,
+      activeUsers: 0,
+      perUser: Credit.ZERO,
+      nextDistributionAt: new Date().toISOString(),
+      userEligible: false,
+      userLastPurchaseAt: null,
+      userWindowExpiresAt: null,
+    }),
+    getHistory: vi.fn().mockResolvedValue([]),
+    getLifetimeTotal: vi.fn().mockResolvedValue(Credit.ZERO),
+    getDigestTenantAggregates: vi.fn().mockResolvedValue([]),
+    getTenantEmail: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe("billingRouter", () => {
+  let db: DrizzleDb;
+  let pool: PGlite;
+  let affiliateRepo: DrizzleAffiliateRepository;
+  let MeterAggregatorClass: typeof import("@wopr-network/platform-core/metering")["MeterAggregator"];
+  let TenantCustomerRepositoryClass: new (
+    db: DrizzleDb,
+  ) => InstanceType<typeof import("@wopr-network/platform-core/monetization/index")["TenantCustomerRepository"]>;
+
+  beforeAll(async () => {
+    const testDb = await createTestDb();
+    pool = testDb.pool;
+    await beginTestTransaction(pool);
+    db = testDb.db;
+    const agg = await import("@wopr-network/platform-core/metering");
+    MeterAggregatorClass = agg.MeterAggregator as typeof MeterAggregatorClass;
+    const tcs = await import("@wopr-network/platform-core/monetization/index");
+    TenantCustomerRepositoryClass = tcs.TenantCustomerRepository as typeof TenantCustomerRepositoryClass;
+  }, 30000);
+
+  afterAll(async () => {
+    await endTestTransaction(pool);
+    await pool.close();
+  });
+
+  beforeEach(async () => {
+    await rollbackTestTransaction(pool);
+    affiliateRepo = new DrizzleAffiliateRepository(db);
+  });
+
+  function injectDeps(overrides: Partial<BillingRouterDeps> = {}) {
+    const defaults: BillingRouterDeps = {
+      processor: createMockProcessor(),
+      tenantRepo: new TenantCustomerRepositoryClass(db),
+      creditLedger: makeMockLedger(),
+      meterAggregator: new MeterAggregatorClass(new DrizzleUsageSummaryRepository(db)),
+      priceMap: undefined,
+      autoTopupSettingsStore: new DrizzleAutoTopupSettingsRepository(db),
+      dividendRepo: makeMockDividendRepo(),
+      spendingLimitsRepo: new DrizzleSpendingLimitsRepository(db),
+      affiliateRepo,
+      ...overrides,
+    };
+    setBillingRouterDeps(defaults);
+    return defaults;
+  }
+
+  // -------------------------------------------------------------------------
+  // creditsCheckout
+  // -------------------------------------------------------------------------
+
+  describe("creditsCheckout", () => {
+    beforeEach(() => {
+      injectDeps();
+    });
+
+    it("returns checkout URL and sessionId", async () => {
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.creditsCheckout({
+        priceId: "price_test_5",
+        successUrl: "https://app.wopr.bot/success",
+        cancelUrl: "https://app.wopr.bot/cancel",
+      });
+      expect(result.url).toBe("https://pay.example.com/checkout/cs_test");
+      expect(result.sessionId).toBe("cs_test");
+    });
+
+    it("uses ctx.tenantId when tenant omitted", async () => {
+      const mockProcessor = createMockProcessor();
+      injectDeps({ processor: mockProcessor });
+      const caller = makeCaller(makeCtx("user-1", "ctx-tenant"));
+      await caller.creditsCheckout({
+        priceId: "price_test_5",
+        successUrl: "https://app.wopr.bot/success",
+        cancelUrl: "https://app.wopr.bot/cancel",
+      });
+      expect(mockProcessor.createCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant: "ctx-tenant" }),
+      );
+    });
+
+    it("rejects cross-tenant access", async () => {
+      const caller = makeCaller(makeCtx("user-1", "tenant-a"));
+      await expect(
+        caller.creditsCheckout({
+          tenant: "tenant-b",
+          priceId: "price_test_5",
+          successUrl: "https://app.wopr.bot/success",
+          cancelUrl: "https://app.wopr.bot/cancel",
+        }),
+      ).rejects.toThrow("Access denied");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(
+        caller.creditsCheckout({
+          priceId: "price_test_5",
+          successUrl: "https://app.wopr.bot/success",
+          cancelUrl: "https://app.wopr.bot/cancel",
+        }),
+      ).rejects.toThrow("Authentication required");
+    });
+
+    it("rejects external successUrl", async () => {
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(
+        caller.creditsCheckout({
+          priceId: "price_test_5",
+          successUrl: "https://evil.com/phishing",
+          cancelUrl: "https://app.wopr.bot/cancel",
+        }),
+      ).rejects.toThrow("Invalid redirect URL");
+    });
+
+    it("rejects external cancelUrl", async () => {
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(
+        caller.creditsCheckout({
+          priceId: "price_test_5",
+          successUrl: "https://app.wopr.bot/success",
+          cancelUrl: "https://evil.com/cancel",
+        }),
+      ).rejects.toThrow("Invalid redirect URL");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // cryptoCheckout
+  // -------------------------------------------------------------------------
+
+  describe("cryptoCheckout", () => {
+    it("throws NOT_IMPLEMENTED when crypto not configured", async () => {
+      injectDeps({ cryptoClient: undefined, cryptoChargeRepo: undefined });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(caller.cryptoCheckout({ amountUsd: 10 })).rejects.toThrow("Crypto payments not configured");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.cryptoCheckout({ amountUsd: 10 })).rejects.toThrow("Authentication required");
+    });
+
+    it("rejects amount below minimum", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      // MIN_PAYMENT_USD is 10; amount 0.01 fails zod validation
+      await expect(caller.cryptoCheckout({ amountUsd: 0.01 })).rejects.toThrow();
+    });
+
+    it("returns referenceId and address on success", async () => {
+      const mockCreateCharge = vi.fn().mockResolvedValue({
+        chargeId: "charge-abc-123",
+        address: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+        chain: "btc",
+        token: "BTC",
+        amountUsd: 10,
+        derivationIndex: 0,
+        expiresAt: new Date().toISOString(),
+      });
+      const mockCreateStablecoinCharge = vi.fn().mockResolvedValue(undefined);
+      injectDeps({
+        cryptoClient: { createCharge: mockCreateCharge } as unknown as CryptoServiceClient,
+        cryptoChargeRepo: {
+          create: vi.fn(),
+          createStablecoinCharge: mockCreateStablecoinCharge,
+          getByReferenceId: vi.fn(),
+          updateStatus: vi.fn(),
+        } as unknown as ICryptoChargeRepository,
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.cryptoCheckout({ amountUsd: 10 });
+
+      expect(result.referenceId).toBe("charge-abc-123");
+      expect(result.address).toBe("1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2");
+      expect(mockCreateCharge).toHaveBeenCalledWith({ chain: "btc", amountUsd: 10, metadata: { tenant: "tenant-1" } });
+      expect(mockCreateStablecoinCharge).toHaveBeenCalledWith({
+        referenceId: "charge-abc-123",
+        tenantId: "tenant-1",
+        amountUsdCents: 1000,
+        chain: "btc",
+        token: "BTC",
+        depositAddress: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+        derivationIndex: 0,
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // checkout
+  // -------------------------------------------------------------------------
+
+  describe("checkout", () => {
+    it("throws NOT_IMPLEMENTED when crypto not configured", async () => {
+      injectDeps({ cryptoClient: undefined, cryptoChargeRepo: undefined });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(caller.checkout({ chain: "eth", amountUsd: 10 })).rejects.toThrow("Crypto payments not configured");
+    });
+
+    it("rejects amount below minimum", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(caller.checkout({ chain: "eth", amountUsd: 0.01 })).rejects.toThrow();
+    });
+
+    it("persists chain and returns chargeId/address on success", async () => {
+      const mockCreateCharge = vi.fn().mockResolvedValue({
+        chargeId: "charge-eth-456",
+        address: "0xdeadbeef",
+        chain: "eth",
+        token: "USDC",
+        amountUsd: 50,
+        derivationIndex: 3,
+        expiresAt: new Date().toISOString(),
+      });
+      const mockCreateStablecoinCharge = vi.fn().mockResolvedValue(undefined);
+      injectDeps({
+        cryptoClient: { createCharge: mockCreateCharge } as unknown as CryptoServiceClient,
+        cryptoChargeRepo: {
+          create: vi.fn(),
+          createStablecoinCharge: mockCreateStablecoinCharge,
+          getByReferenceId: vi.fn(),
+          updateStatus: vi.fn(),
+        } as unknown as ICryptoChargeRepository,
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.checkout({ chain: "eth", amountUsd: 50 });
+
+      expect(result.referenceId).toBe("charge-eth-456");
+      expect(result.address).toBe("0xdeadbeef");
+      expect(mockCreateCharge).toHaveBeenCalledWith({ chain: "eth", amountUsd: 50, metadata: { tenant: "tenant-1" } });
+      expect(mockCreateStablecoinCharge).toHaveBeenCalledWith({
+        referenceId: "charge-eth-456",
+        tenantId: "tenant-1",
+        amountUsdCents: 5000,
+        chain: "eth",
+        token: "USDC",
+        depositAddress: "0xdeadbeef",
+        derivationIndex: 3,
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // chargeStatus
+  // -------------------------------------------------------------------------
+
+  describe("chargeStatus", () => {
+    it("throws NOT_IMPLEMENTED when crypto not configured", async () => {
+      injectDeps({ cryptoChargeRepo: undefined });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(caller.chargeStatus({ referenceId: "charge-abc" })).rejects.toThrow(
+        "Crypto payments not configured",
+      );
+    });
+
+    it("throws NOT_FOUND when charge does not exist", async () => {
+      injectDeps({
+        cryptoChargeRepo: {
+          get: vi.fn().mockResolvedValue(null),
+          getByReferenceId: vi.fn(),
+          create: vi.fn(),
+          updateStatus: vi.fn(),
+          updateProgress: vi.fn(),
+          markCredited: vi.fn(),
+          isCredited: vi.fn(),
+          createStablecoinCharge: vi.fn(),
+          getByDepositAddress: vi.fn(),
+          getNextDerivationIndex: vi.fn(),
+          listActiveDepositAddresses: vi.fn(),
+        } as unknown as ICryptoChargeRepository,
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(caller.chargeStatus({ referenceId: "missing-charge" })).rejects.toThrow("Charge not found");
+    });
+
+    it("throws FORBIDDEN when charge belongs to a different tenant (IDOR protection)", async () => {
+      injectDeps({
+        cryptoChargeRepo: {
+          get: vi.fn(),
+          getByReferenceId: vi.fn().mockResolvedValue({
+            id: "charge-other-tenant",
+            tenantId: "tenant-other",
+            chain: "btc",
+            status: "pending",
+            amountExpectedCents: 1000,
+            amountReceivedCents: 0,
+            confirmations: 0,
+            confirmationsRequired: 1,
+            txHash: undefined,
+            credited: false,
+            createdAt: new Date(),
+          }),
+          create: vi.fn(),
+          updateStatus: vi.fn(),
+          updateProgress: vi.fn(),
+          markCredited: vi.fn(),
+          isCredited: vi.fn(),
+          createStablecoinCharge: vi.fn(),
+          getByDepositAddress: vi.fn(),
+          getNextDerivationIndex: vi.fn(),
+          listActiveDepositAddresses: vi.fn(),
+        } as unknown as ICryptoChargeRepository,
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(caller.chargeStatus({ referenceId: "charge-other-tenant" })).rejects.toThrow("Access denied");
+    });
+
+    it("returns charge data when tenant matches", async () => {
+      const mockCharge = {
+        id: "charge-abc-123",
+        tenantId: "tenant-1",
+        chain: "btc",
+        status: "pending" as const,
+        amountExpectedCents: 1000,
+        amountReceivedCents: 0,
+        confirmations: 0,
+        confirmationsRequired: 1,
+        txHash: undefined,
+        credited: false,
+        createdAt: new Date(),
+      };
+      injectDeps({
+        cryptoChargeRepo: {
+          get: vi.fn(),
+          getByReferenceId: vi.fn().mockResolvedValue(mockCharge),
+          create: vi.fn(),
+          updateStatus: vi.fn(),
+          updateProgress: vi.fn(),
+          markCredited: vi.fn(),
+          isCredited: vi.fn(),
+          createStablecoinCharge: vi.fn(),
+          getByDepositAddress: vi.fn(),
+          getNextDerivationIndex: vi.fn(),
+          listActiveDepositAddresses: vi.fn(),
+        } as unknown as ICryptoChargeRepository,
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.chargeStatus({ referenceId: "charge-abc-123" });
+      expect(result).toEqual(mockCharge);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // portalSession
+  // -------------------------------------------------------------------------
+
+  describe("portalSession", () => {
+    it("returns portal URL when processor supports portal", async () => {
+      injectDeps({
+        processor: createMockProcessor({ supportsPortal: () => true }),
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.portalSession({ returnUrl: "https://app.wopr.bot/return" });
+      expect(result.url).toBe("https://pay.example.com/portal/portal_test");
+    });
+
+    it("returns null url when processor does not support portal", async () => {
+      injectDeps({
+        processor: createMockProcessor({ supportsPortal: () => false }),
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.portalSession({ returnUrl: "https://app.wopr.bot/return" });
+      expect(result.url).toBeNull();
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.portalSession({ returnUrl: "https://app.wopr.bot/return" })).rejects.toThrow(
+        "Authentication required",
+      );
+    });
+
+    it("rejects cross-tenant access", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-a"));
+      await expect(
+        caller.portalSession({ tenant: "tenant-b", returnUrl: "https://app.wopr.bot/return" }),
+      ).rejects.toThrow("Access denied");
+    });
+
+    it("rejects external returnUrl", async () => {
+      injectDeps({
+        processor: createMockProcessor({ supportsPortal: () => true }),
+      });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await expect(caller.portalSession({ returnUrl: "https://evil.com/phishing" })).rejects.toThrow(
+        "Invalid redirect URL",
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // dividendStats
+  // -------------------------------------------------------------------------
+
+  describe("dividendStats", () => {
+    it("returns stats shape with defaults", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.dividendStats({});
+      expect(result).toHaveProperty("pool_cents");
+      expect(result).toHaveProperty("active_users");
+      expect(result).toHaveProperty("per_user_cents");
+      expect(result).toHaveProperty("next_distribution_at");
+      expect(result).toHaveProperty("user_eligible");
+      expect(result.pool_cents).toBe(0);
+      expect(result.active_users).toBe(0);
+      expect(result.user_eligible).toBe(false);
+    });
+
+    it("uses ctx.tenantId when tenant omitted", async () => {
+      const dividendRepo = makeMockDividendRepo();
+      injectDeps({ dividendRepo });
+      const caller = makeCaller(makeCtx("user-1", "my-tenant"));
+      await caller.dividendStats();
+      expect(dividendRepo.getStats).toHaveBeenCalledWith("my-tenant");
+    });
+
+    it("rejects cross-tenant access", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-a"));
+      await expect(caller.dividendStats({ tenant: "tenant-b" })).rejects.toThrow("Access denied");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.dividendStats()).rejects.toThrow("Authentication required");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // dividendHistory
+  // -------------------------------------------------------------------------
+
+  describe("dividendHistory", () => {
+    it("returns empty array by default", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.dividendHistory({});
+      expect(result.dividends).toEqual([]);
+    });
+
+    it("passes limit and offset to repo", async () => {
+      const dividendRepo = makeMockDividendRepo();
+      injectDeps({ dividendRepo });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      await caller.dividendHistory({ limit: 10, offset: 5 });
+      expect(dividendRepo.getHistory).toHaveBeenCalledWith("tenant-1", 10, 5);
+    });
+
+    it("rejects cross-tenant access", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-a"));
+      await expect(caller.dividendHistory({ tenant: "tenant-b" })).rejects.toThrow("Access denied");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.dividendHistory()).rejects.toThrow("Authentication required");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // dividendLifetime
+  // -------------------------------------------------------------------------
+
+  describe("dividendLifetime", () => {
+    it("returns zero for new tenant", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.dividendLifetime({});
+      expect(result.total_cents).toBe(0);
+      expect(result.tenant).toBe("tenant-1");
+    });
+
+    it("returns value from repo", async () => {
+      const dividendRepo = makeMockDividendRepo({
+        getLifetimeTotal: vi.fn().mockResolvedValue(Credit.fromCents(4200)),
+      });
+      injectDeps({ dividendRepo });
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.dividendLifetime({});
+      expect(result.total_cents).toBe(4200);
+    });
+
+    it("rejects cross-tenant access", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-a"));
+      await expect(caller.dividendLifetime({ tenant: "tenant-b" })).rejects.toThrow("Access denied");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.dividendLifetime()).rejects.toThrow("Authentication required");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // affiliateInfo
+  // -------------------------------------------------------------------------
+
+  describe("affiliateInfo", () => {
+    it("returns stats from affiliate repo", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.affiliateInfo();
+      expect(result).not.toBeNull();
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.affiliateInfo()).rejects.toThrow("Authentication required");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // affiliateRecordReferral
+  // -------------------------------------------------------------------------
+
+  describe("affiliateRecordReferral", () => {
+    it("rejects when caller tenant does not match referredTenantId", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-a"));
+      await expect(caller.affiliateRecordReferral({ code: "abc123", referredTenantId: "tenant-b" })).rejects.toThrow(
+        "Cannot record referral for another tenant",
+      );
+    });
+
+    it("rejects invalid referral code", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "user-1"));
+      await expect(caller.affiliateRecordReferral({ code: "nonexist", referredTenantId: "user-1" })).rejects.toThrow(
+        "Invalid referral code",
+      );
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.affiliateRecordReferral({ code: "abc123", referredTenantId: "t1" })).rejects.toThrow(
+        "Authentication required",
+      );
+    });
+
+    it("rejects cross-tenant access (IDOR via missing tenantId)", async () => {
+      injectDeps();
+      // Caller has no tenantId — tenantProcedure should reject
+      const caller = makeCaller(makeCtx("user-1"));
+      await expect(caller.affiliateRecordReferral({ code: "abc12", referredTenantId: "user-1" })).rejects.toThrow();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // memberUsage
+  // -------------------------------------------------------------------------
+
+  describe("memberUsage", () => {
+    it("returns tenant and members for new tenant", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.memberUsage({});
+      expect(result.tenant).toBe("tenant-1");
+      expect(Array.isArray(result.members)).toBe(true);
+    });
+
+    it("uses ctx.tenantId when tenant omitted", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "my-tenant"));
+      const result = await caller.memberUsage();
+      expect(result.tenant).toBe("my-tenant");
+    });
+
+    it("rejects cross-tenant access", async () => {
+      injectDeps();
+      const caller = makeCaller(makeCtx("user-1", "tenant-a"));
+      await expect(caller.memberUsage({ tenant: "tenant-b" })).rejects.toThrow("Access denied");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      injectDeps();
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.memberUsage()).rejects.toThrow("Authentication required");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // billingInfo
+  // -------------------------------------------------------------------------
+
+  describe("billingInfo", () => {
+    it("returns email from processor.getCustomerEmail", async () => {
+      const mockProcessor = createMockProcessor({
+        getCustomerEmail: vi.fn().mockResolvedValue("billing@test.com"),
+        listPaymentMethods: vi.fn().mockResolvedValue([]),
+      });
+      injectDeps({ processor: mockProcessor });
+
+      const caller = makeCaller(makeCtx("user-1", "user-1"));
+      const result = await caller.billingInfo();
+      expect(result.email).toBe("billing@test.com");
+      expect(mockProcessor.getCustomerEmail).toHaveBeenCalledWith("user-1");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // updateBillingEmail
+  // -------------------------------------------------------------------------
+
+  describe("updateBillingEmail", () => {
+    it("persists email via processor.updateCustomerEmail", async () => {
+      const mockProcessor = createMockProcessor({
+        updateCustomerEmail: vi.fn().mockResolvedValue(undefined),
+      });
+      const mockTenantStore = {
+        getByTenant: vi.fn().mockResolvedValue({ tenant: "user-1", processor_customer_id: "cus_abc" }),
+        getByProcessorCustomerId: vi.fn(),
+        upsert: vi.fn(),
+        setTier: vi.fn(),
+        setBillingHold: vi.fn(),
+        hasBillingHold: vi.fn(),
+        getInferenceMode: vi.fn(),
+        setInferenceMode: vi.fn(),
+        list: vi.fn(),
+        buildCustomerIdMap: vi.fn(),
+      };
+      injectDeps({
+        processor: mockProcessor,
+        tenantRepo: mockTenantStore as unknown as BillingRouterDeps["tenantRepo"],
+      });
+
+      const caller = makeCaller(makeCtx("user-1", "user-1"));
+      const result = await caller.updateBillingEmail({ email: "new@test.com" });
+      expect(result.email).toBe("new@test.com");
+      expect(mockProcessor.updateCustomerEmail).toHaveBeenCalledWith("user-1", "new@test.com");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // creditsBalance
+  // -------------------------------------------------------------------------
+
+  describe("creditsBalance", () => {
+    beforeEach(() => {
+      injectDeps();
+    });
+
+    it("returns balance for own tenant", async () => {
+      const caller = makeCaller(makeCtx("user-1", "user-1"));
+      const result = await caller.creditsBalance({});
+      expect(result.tenant).toBe("user-1");
+      expect(typeof result.balance_credits).toBe("number");
+    });
+
+    it("uses ctx.tenantId as the tenant", async () => {
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.creditsBalance({});
+      expect(result.tenant).toBe("tenant-1");
+    });
+
+    it("rejects when no tenant context is provided", async () => {
+      const caller = makeCaller(makeCtx("user-1"));
+      await expect(caller.creditsBalance({})).rejects.toThrow("Tenant context required");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.creditsBalance({})).rejects.toThrow("Authentication required");
+    });
+
+    it("returns correct runway_days and daily_burn_credits with spend history", async () => {
+      // Tenant has $5.00 balance (500 cents).
+      // 7-day totalCharge = 7_000_000_000 raw (= $7.00, i.e. $1/day = 100 cents/day).
+      // Expected: daily_burn_credits = 100, runway_days = floor(500 / 100) = 5.
+      const mockLedger = makeMockLedger();
+      await mockLedger.credit("tenant-runway", Credit.fromCents(500), "signup_grant", { description: "test grant" });
+
+      const mockAggregator: IMeterAggregator = {
+        aggregate: vi.fn(),
+        start: vi.fn(),
+        stop: vi.fn(),
+        querySummaries: vi.fn().mockResolvedValue([]),
+        getTenantTotal: vi.fn().mockResolvedValue({
+          totalCost: 0,
+          totalCharge: 7_000_000_000, // $7 in 7 days = $1/day
+          eventCount: 100,
+        }),
+      };
+
+      injectDeps({ creditLedger: mockLedger, meterAggregator: mockAggregator });
+      const caller = makeCaller(makeCtx("user-1", "tenant-runway"));
+      const result = await caller.creditsBalance({});
+
+      expect(result.balance_credits).toBe(500);
+      expect(result.daily_burn_credits).toBe(100);
+      expect(result.runway_days).toBe(5);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // creditsHistory
+  // -------------------------------------------------------------------------
+
+  describe("creditsHistory", () => {
+    beforeEach(() => {
+      injectDeps();
+    });
+
+    it("returns history for own tenant", async () => {
+      const caller = makeCaller(makeCtx("user-1", "user-1"));
+      const result = await caller.creditsHistory({});
+      expect(result.entries).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
+    it("uses ctx.tenantId as the tenant", async () => {
+      const caller = makeCaller(makeCtx("user-1", "tenant-1"));
+      const result = await caller.creditsHistory({});
+      expect(result.entries).toEqual([]);
+    });
+
+    it("rejects when no tenant context is provided", async () => {
+      const caller = makeCaller(makeCtx("user-1"));
+      await expect(caller.creditsHistory({})).rejects.toThrow("Tenant context required");
+    });
+
+    it("rejects unauthenticated request", async () => {
+      const caller = makeCaller(makeUnauthCtx());
+      await expect(caller.creditsHistory({})).rejects.toThrow("Authentication required");
+    });
+
+    it("passes filter options through", async () => {
+      const caller = makeCaller(makeCtx("user-1", "user-1"));
+      const result = await caller.creditsHistory({ type: "grant", limit: 10, offset: 0 });
+      expect(result.entries).toEqual([]);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Auth enforcement sweep — all protected procedures
+  // -------------------------------------------------------------------------
+
+  describe("auth enforcement", () => {
+    beforeEach(() => {
+      injectDeps();
+    });
+
+    const protectedQueries: Array<{ name: string; input: unknown }> = [
+      { name: "creditsBalance", input: {} },
+      { name: "creditsHistory", input: {} },
+      { name: "usage", input: {} },
+      { name: "usageSummary", input: {} },
+      { name: "plans", input: undefined },
+      { name: "currentPlan", input: undefined },
+      { name: "inferenceMode", input: undefined },
+      { name: "providerCosts", input: undefined },
+      { name: "hostedUsageSummary", input: undefined },
+      { name: "hostedUsageEvents", input: undefined },
+      { name: "spendingLimits", input: undefined },
+      { name: "billingInfo", input: undefined },
+      { name: "autoTopupSettings", input: undefined },
+      { name: "dividendStats", input: undefined },
+      { name: "dividendHistory", input: undefined },
+      { name: "dividendLifetime", input: undefined },
+      { name: "affiliateInfo", input: undefined },
+      { name: "memberUsage", input: undefined },
+      { name: "chargeStatus", input: { referenceId: "charge-abc-123" } },
+    ];
+
+    const protectedMutations: Array<{ name: string; input: unknown }> = [
+      {
+        name: "creditsCheckout",
+        input: { priceId: "p", successUrl: "https://app.wopr.bot/a", cancelUrl: "https://app.wopr.bot/b" },
+      },
+      { name: "cryptoCheckout", input: { amountUsd: 10 } },
+      { name: "checkout", input: { chain: "btc", amountUsd: 10 } },
+      { name: "portalSession", input: { returnUrl: "https://app.wopr.bot/a" } },
+      {
+        name: "updateSpendingLimits",
+        input: { global: { alertAt: null, hardCap: null }, perCapability: {} },
+      },
+      { name: "updateBillingEmail", input: { email: "a@b.com" } },
+      { name: "removePaymentMethod", input: { id: "pm_1" } },
+      { name: "updateAutoTopupSettings", input: {} },
+      { name: "changePlan", input: { tier: "free" as const } },
+      { name: "setInferenceMode", input: { mode: "byok" as const } },
+      { name: "affiliateRecordReferral", input: { code: "abc12", referredTenantId: "t1" } },
+    ];
+
+    for (const { name, input } of protectedQueries) {
+      it(`${name} rejects unauthenticated`, async () => {
+        const caller = makeCaller(makeUnauthCtx());
+        await expect((caller as Record<string, (i: unknown) => Promise<unknown>>)[name](input)).rejects.toThrow(
+          "Authentication required",
+        );
+      });
+    }
+
+    for (const { name, input } of protectedMutations) {
+      it(`${name} rejects unauthenticated`, async () => {
+        const caller = makeCaller(makeUnauthCtx());
+        await expect((caller as Record<string, (i: unknown) => Promise<unknown>>)[name](input)).rejects.toThrow(
+          "Authentication required",
+        );
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // updateAutoTopupSettings audit log
+  // -------------------------------------------------------------------------
+
+  describe("updateAutoTopupSettings audit log", () => {
+    let auditRepo: ReturnType<typeof createMockAuditRepo>;
+
+    beforeEach(() => {
+      auditRepo = createMockAuditRepo();
+      injectDeps({
+        processor: createMockProcessor({ listPaymentMethods: vi.fn().mockResolvedValue([{ id: "pm_1" }]) }),
+        auditLogger: new AuditLogger(auditRepo),
+      });
+    });
+
+    it("emits audit entry with previous and new settings", async () => {
+      const caller = makeCaller(makeCtx("user-audit-1", "user-audit-1"));
+
+      // First call — creates settings (previous is null)
+      await caller.updateAutoTopupSettings({
+        usage_enabled: true,
+        usage_threshold_cents: 500,
+        usage_topup_cents: 2000,
+      });
+
+      expect(auditRepo.entries).toHaveLength(1);
+      const entry1 = auditRepo.entries[0];
+      expect(entry1?.action).toBe("billing.auto_topup_update");
+      expect(entry1?.resource_type).toBe("billing");
+      expect(entry1?.user_id).toBe("user-audit-1");
+      const details1 = JSON.parse(entry1?.details ?? "null");
+      expect(details1.previous).toBeNull();
+      expect(details1.new.usage_enabled).toBe(true);
+
+      // Second call — updates settings (previous is non-null)
+      await caller.updateAutoTopupSettings({
+        usage_enabled: false,
+      });
+
+      expect(auditRepo.entries).toHaveLength(2);
+      const entry2 = auditRepo.entries[1];
+      const details2 = JSON.parse(entry2?.details ?? "null");
+      expect(details2.previous.usage_enabled).toBe(true);
+      expect(details2.new.usage_enabled).toBe(false);
+    });
+
+    it("does not break settings update if audit logging fails", async () => {
+      const failingRepo: IAuditLogRepository = {
+        async insert() {
+          throw new Error("audit DB down");
+        },
+        async query() {
+          return [];
+        },
+        async count() {
+          return 0;
+        },
+        async purgeOlderThan() {
+          return 0;
+        },
+        async purgeOlderThanForUser() {
+          return 0;
+        },
+        async countByAction() {
+          return {};
+        },
+        async getTimeRange() {
+          return { oldest: null, newest: null };
+        },
+      };
+      injectDeps({
+        processor: createMockProcessor({ listPaymentMethods: vi.fn().mockResolvedValue([{ id: "pm_1" }]) }),
+        auditLogger: new AuditLogger(failingRepo),
+      });
+
+      const caller = makeCaller(makeCtx("user-audit-2", "user-audit-2"));
+
+      // Should NOT throw even though audit fails
+      const result = await caller.updateAutoTopupSettings({
+        usage_enabled: true,
+        usage_threshold_cents: 500,
+        usage_topup_cents: 2000,
+      });
+
+      expect(result.usage_enabled).toBe(true);
+    });
+  });
+});

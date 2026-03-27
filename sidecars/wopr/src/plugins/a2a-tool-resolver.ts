@@ -1,0 +1,110 @@
+/**
+ * A2A tool dependency resolver.
+ *
+ * After all plugins are loaded, scans each plugin's manifest.toolDependencies
+ * and resolves them against the global pluginTools registry. Returns a map
+ * of tool proxies per plugin that context-factory uses for getA2ATool().
+ */
+
+import { accumulateChunks, isAsyncIterable, pluginTools, type RegisteredTool } from "../core/a2a-tools/_base.js";
+import { logger } from "../logger.js";
+import type { A2AToolResult, ToolResultChunk } from "../plugin-types/a2a.js";
+import { pluginManifests } from "./state.js";
+
+export interface ResolveResult {
+  /** Successfully resolved tool references (format: "pluginName:toolName") */
+  resolved: string[];
+  /** Missing tool references (format: "pluginName:toolName") */
+  missing: string[];
+  /** Map of pluginName -> Map of toolName -> handler proxy */
+  toolMap: Map<string, Map<string, (args: Record<string, unknown>) => Promise<A2AToolResult>>>;
+}
+
+/**
+ * Find a registered tool by bare name, scanning all namespaced keys.
+ * Returns the first match. If multiple plugins have the same tool name,
+ * logs a warning about ambiguity.
+ */
+function findToolByBareName(toolName: string): RegisteredTool | undefined {
+  const matches: RegisteredTool[] = [];
+  for (const [, tool] of pluginTools) {
+    if (tool.name === toolName) {
+      matches.push(tool);
+    }
+  }
+  if (matches.length > 1) {
+    logger.warn(
+      `[a2a-resolver] Ambiguous tool dependency "${toolName}" — found in plugins: ${matches.map((t) => t.pluginId).join(", ")}. Specify pluginName in toolDependencies to disambiguate.`,
+    );
+  }
+  return matches[0];
+}
+
+/**
+ * Resolve all declared A2A tool dependencies across all loaded plugins.
+ *
+ * Call this AFTER loadAllPlugins() completes — all tools must be registered.
+ */
+export function resolveA2AToolDependencies(): ResolveResult {
+  const resolved: string[] = [];
+  const missing: string[] = [];
+  const toolMap = new Map<string, Map<string, (args: Record<string, unknown>) => Promise<A2AToolResult>>>();
+
+  for (const [pluginName, manifest] of pluginManifests) {
+    if (!manifest.toolDependencies?.length) continue;
+
+    const pluginToolMap = new Map<string, (args: Record<string, unknown>) => Promise<A2AToolResult>>();
+
+    for (const dep of manifest.toolDependencies) {
+      let registeredTool: RegisteredTool | undefined;
+
+      if (dep.pluginName) {
+        // Preferred: exact namespaced lookup
+        registeredTool = pluginTools.get(`${dep.pluginName}:${dep.toolName}`);
+      } else {
+        // Fallback: scan by bare name (backward compat)
+        registeredTool = findToolByBareName(dep.toolName);
+      }
+
+      if (registeredTool) {
+        const proxy = async (args: Record<string, unknown>): Promise<A2AToolResult> => {
+          // Use a sentinel session name to make the absence of a real user session explicit
+          const rawResult = registeredTool.handler(args, { sessionName: "a2a-dependency" });
+          // Check for direct AsyncIterable (sync handler returning generator)
+          if (isAsyncIterable(rawResult)) {
+            return accumulateChunks(rawResult) as Promise<A2AToolResult>;
+          }
+          // Await in case the handler is async and resolves to an AsyncIterable
+          const handlerResult = await rawResult;
+          if (isAsyncIterable(handlerResult)) {
+            return accumulateChunks(handlerResult as AsyncIterable<ToolResultChunk>) as Promise<A2AToolResult>;
+          }
+          return handlerResult as A2AToolResult;
+        };
+
+        pluginToolMap.set(dep.toolName, proxy);
+        resolved.push(`${pluginName}:${dep.toolName}`);
+        logger.info(`[a2a-resolver] Resolved tool dependency: ${pluginName} -> ${dep.toolName}`);
+      } else {
+        missing.push(`${pluginName}:${dep.toolName}`);
+        if (dep.optional) {
+          logger.warn(
+            `[a2a-resolver] Optional tool dependency not found: ${pluginName} needs "${dep.toolName}" (skipped)`,
+          );
+        } else {
+          logger.error(`[a2a-resolver] Required tool dependency not found: ${pluginName} needs "${dep.toolName}"`);
+        }
+      }
+    }
+
+    if (pluginToolMap.size > 0) {
+      toolMap.set(pluginName, pluginToolMap);
+    }
+  }
+
+  if (resolved.length > 0) {
+    logger.info(`[a2a-resolver] Resolved ${resolved.length} tool dependencies, ${missing.length} missing`);
+  }
+
+  return { resolved, missing, toolMap };
+}

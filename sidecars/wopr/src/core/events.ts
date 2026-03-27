@@ -1,0 +1,666 @@
+/**
+ * WOPR Event Bus - Core primitive for plugin event communication
+ *
+ * The WOPR way: Expose the event primitive, let plugins compose.
+ * This is a typed event bus that allows plugins to:
+ * - Subscribe to core lifecycle events
+ * - Emit custom events for inter-plugin communication
+ * - Build reactive behaviors
+ */
+
+import { EventEmitter } from "node:events";
+import { logger, shouldLogStack } from "../logger.js";
+import { getEventTypeRegistry } from "./event-type-registry.js";
+
+// ============================================================================
+// Core Event Types
+// ============================================================================
+
+export interface WOPREvent {
+  type: string;
+  payload: unknown;
+  timestamp: number;
+  source?: string; // Plugin name that emitted, or "core"
+}
+
+// Session lifecycle events
+export interface SessionCreateEvent {
+  session: string;
+  config?: Record<string, unknown>;
+}
+
+export interface SessionInjectEvent {
+  session: string;
+  message: string;
+  from: string;
+  channel?: { type: string; id: string; name?: string };
+}
+
+export interface SessionResponseEvent {
+  session: string;
+  message: string;
+  response: string;
+  from: string;
+}
+
+export interface SessionDestroyEvent {
+  session: string;
+  history: unknown[];
+  reason?: string;
+}
+
+// Channel events
+export interface ChannelMessageEvent {
+  channel: { type: string; id: string; name?: string };
+  message: string;
+  from: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ChannelSendEvent {
+  channel: { type: string; id: string };
+  content: string;
+}
+
+// Plugin events
+export interface PluginInitEvent {
+  plugin: string;
+  version: string;
+}
+
+export interface PluginErrorEvent {
+  plugin: string;
+  error: Error;
+  context?: string;
+}
+
+export interface PluginDrainingEvent {
+  plugin: string;
+  timeoutMs: number;
+}
+
+export interface PluginDrainedEvent {
+  plugin: string;
+  durationMs: number;
+  timedOut: boolean;
+}
+
+export interface PluginActivatedEvent {
+  plugin: string;
+  version: string;
+}
+
+export interface PluginDeactivatedEvent {
+  plugin: string;
+  version: string;
+  drained: boolean;
+}
+
+// Config events
+export interface ConfigChangeEvent {
+  key: string;
+  oldValue: unknown;
+  newValue: unknown;
+  plugin?: string;
+}
+
+// System events
+export interface SystemShutdownEvent {
+  reason: string;
+  code?: number;
+}
+
+export interface SystemRestartScheduledEvent {
+  requestedAt: number;
+  idleThresholdSeconds: number;
+  maxWaitSeconds: number;
+  batchedRequests: number;
+}
+
+// Capability health events
+export interface CapabilityProviderHealthChangeEvent {
+  capability: string;
+  providerId: string;
+  providerName: string;
+  previousHealthy: boolean;
+  currentHealthy: boolean;
+  error?: string;
+}
+
+// Provider registry events
+export interface ProviderAddedEvent {
+  providerId: string;
+  providerName: string;
+}
+
+export interface ProviderRemovedEvent {
+  providerId: string;
+  providerName: string;
+}
+
+export interface ProviderStatusEvent {
+  providerId: string;
+  providerName: string;
+  previousAvailable: boolean;
+  currentAvailable: boolean;
+  error?: string;
+}
+
+// ============================================================================
+// Event Map - defines all core events and their payloads
+// ============================================================================
+
+export interface WOPREventMap {
+  // Session lifecycle
+  "session:create": SessionCreateEvent;
+  "session:beforeInject": SessionInjectEvent;
+  "session:afterInject": SessionResponseEvent;
+  "session:responseChunk": SessionResponseEvent & { chunk: string };
+  "session:destroy": SessionDestroyEvent;
+
+  // Channel events
+  "channel:message": ChannelMessageEvent;
+  "channel:send": ChannelSendEvent;
+
+  // Plugin lifecycle
+  "plugin:beforeInit": PluginInitEvent;
+  "plugin:afterInit": PluginInitEvent;
+  "plugin:error": PluginErrorEvent;
+  "plugin:draining": PluginDrainingEvent;
+  "plugin:drained": PluginDrainedEvent;
+  "plugin:activated": PluginActivatedEvent;
+  "plugin:deactivated": PluginDeactivatedEvent;
+
+  // Config changes
+  "config:change": ConfigChangeEvent;
+
+  // System events
+  "system:shutdown": SystemShutdownEvent;
+  "system:restartScheduled": SystemRestartScheduledEvent;
+
+  // Capability health events
+  "capability:providerHealthChange": CapabilityProviderHealthChangeEvent;
+
+  // Provider registry events
+  "provider:added": ProviderAddedEvent;
+  "provider:removed": ProviderRemovedEvent;
+  "provider:status": ProviderStatusEvent;
+
+  // Wildcard - catch all
+  "*": WOPREvent;
+}
+
+// ============================================================================
+// Event Bus Interface
+// ============================================================================
+
+export type EventHandler<T = unknown> = (payload: T, event: WOPREvent) => void | Promise<void>;
+
+export interface WOPREventBus {
+  /**
+   * Subscribe to an event
+   * @param event - Event name (e.g., 'session:create')
+   * @param handler - Handler function
+   * @returns Unsubscribe function
+   */
+  on<T extends keyof WOPREventMap>(event: T, handler: EventHandler<WOPREventMap[T]>): () => void;
+
+  /**
+   * Subscribe to an event once
+   * @param event - Event name
+   * @param handler - Handler function
+   */
+  once<T extends keyof WOPREventMap>(event: T, handler: EventHandler<WOPREventMap[T]>): void;
+
+  /**
+   * Unsubscribe from an event
+   * @param event - Event name
+   * @param handler - Handler function to remove
+   */
+  off<T extends keyof WOPREventMap>(event: T, handler: EventHandler<WOPREventMap[T]>): void;
+
+  /**
+   * Emit an event
+   * @param event - Event name
+   * @param payload - Event payload
+   * @param source - Source plugin or "core"
+   */
+  emit<T extends keyof WOPREventMap>(event: T, payload: WOPREventMap[T], source?: string): Promise<void>;
+
+  /**
+   * Emit a custom event (for inter-plugin communication)
+   * @param event - Custom event name (use plugin: prefix)
+   * @param payload - Event payload
+   * @param source - Source plugin
+   */
+  emitCustom(event: string, payload: unknown, source?: string): Promise<void>;
+
+  /**
+   * Get list of all active event listeners
+   */
+  listenerCount(event: string): number;
+
+  /**
+   * Remove all listeners for an event
+   */
+  removeAllListeners(event?: string): void;
+}
+
+// ============================================================================
+// Event Bus Implementation
+// ============================================================================
+
+// General-purpose callable type for handler/wrapper tracking.
+// This `any` is unavoidable: WeakMap<AnyFunction, ...> requires parameter contravariance.
+// Using `unknown[]` would make this type incompatible with typed EventHandler<T> callbacks
+// because (...args: unknown[]) => unknown is NOT assignable from (payload: SomeEvent) => void.
+// biome-ignore lint/suspicious/noExplicitAny: WeakMap keys require contravariant parameter types
+type AnyFunction = (...args: any[]) => any;
+
+class WOPREventBusImpl implements WOPREventBus {
+  private emitter = new EventEmitter();
+  private handlerWrappers = new WeakMap<AnyFunction, Map<string, AnyFunction>>();
+
+  private setWrapper(handler: AnyFunction, event: string, wrapper: AnyFunction): void {
+    let eventMap = this.handlerWrappers.get(handler);
+    if (!eventMap) {
+      eventMap = new Map();
+      this.handlerWrappers.set(handler, eventMap);
+    }
+    eventMap.set(event, wrapper);
+  }
+
+  private getWrapper(handler: AnyFunction, event: string): AnyFunction | undefined {
+    return this.handlerWrappers.get(handler)?.get(event);
+  }
+
+  private deleteWrapper(handler: AnyFunction, event: string): void {
+    const eventMap = this.handlerWrappers.get(handler);
+    if (eventMap) {
+      eventMap.delete(event);
+      if (eventMap.size === 0) this.handlerWrappers.delete(handler);
+    }
+  }
+
+  on<T extends keyof WOPREventMap>(event: T, handler: EventHandler<WOPREventMap[T]>): () => void {
+    // Wrap handler to provide full event context
+    const wrapper = async (payload: WOPREventMap[T], meta: { timestamp: number; source?: string }) => {
+      const fullEvent: WOPREvent = {
+        type: event as string,
+        payload,
+        timestamp: meta?.timestamp || Date.now(),
+        source: meta?.source || "unknown",
+      };
+
+      try {
+        await handler(payload, fullEvent);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const stack = err instanceof Error ? err.stack : undefined;
+        logger.error(`[events] Handler error for '${String(event)}' (source: ${meta?.source || "unknown"}): ${errMsg}`);
+        if (stack && shouldLogStack()) logger.error(`[events] Stack: ${stack}`);
+      }
+    };
+
+    // Remove existing wrapper for same handler+event to prevent orphaned listeners
+    const existing = this.getWrapper(handler as AnyFunction, event as string);
+    if (existing) {
+      this.emitter.off(event as string, existing);
+    }
+    this.setWrapper(handler as AnyFunction, event as string, wrapper);
+    this.emitter.on(event as string, wrapper);
+
+    // Return unsubscribe function
+    return () => this.off(event, handler);
+  }
+
+  once<T extends keyof WOPREventMap>(event: T, handler: EventHandler<WOPREventMap[T]>): void {
+    const wrapper = async (payload: WOPREventMap[T], meta: { timestamp: number; source?: string }) => {
+      // Clean up the wrapper map after firing (emitter auto-removes the listener)
+      this.deleteWrapper(handler, event as string);
+
+      const fullEvent: WOPREvent = {
+        type: event as string,
+        payload,
+        timestamp: meta?.timestamp || Date.now(),
+        source: meta?.source || "unknown",
+      };
+
+      try {
+        await handler(payload, fullEvent);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        const stack = err instanceof Error ? err.stack : undefined;
+        logger.error(`[events] Handler error for '${String(event)}' (source: ${meta?.source || "unknown"}): ${errMsg}`);
+        if (stack && shouldLogStack()) logger.error(`[events] Stack: ${stack}`);
+      }
+    };
+
+    // Remove existing wrapper for same handler+event to prevent orphaned listeners
+    const existing = this.getWrapper(handler as AnyFunction, event as string);
+    if (existing) {
+      this.emitter.off(event as string, existing);
+    }
+    // Store wrapper so off() can find and remove it before it fires
+    this.setWrapper(handler as AnyFunction, event as string, wrapper);
+    this.emitter.once(event as string, wrapper);
+  }
+
+  off<T extends keyof WOPREventMap>(event: T, handler: EventHandler<WOPREventMap[T]>): void {
+    const wrapper = this.getWrapper(handler as AnyFunction, event as string);
+    if (wrapper) {
+      this.emitter.off(event as string, wrapper);
+      this.deleteWrapper(handler as AnyFunction, event as string);
+    }
+  }
+
+  // Events where payload mutation order matters — handlers run sequentially.
+  // All other events run handlers concurrently for throughput.
+  private static SEQUENTIAL_EVENTS: ReadonlySet<string> = new Set(["session:beforeInject", "session:afterInject"]);
+
+  async emit<T extends keyof WOPREventMap>(event: T, payload: WOPREventMap[T], source: string = "core"): Promise<void> {
+    const meta = { timestamp: Date.now(), source };
+    const eventName = event as string;
+    const listeners = this.emitter.listeners(eventName);
+    const sequential = WOPREventBusImpl.SEQUENTIAL_EVENTS.has(eventName);
+
+    if (sequential) {
+      // Sequential: await each handler before starting the next so payload
+      // mutations (e.g. beforeInject adding <relevant-memories>) are visible
+      // to subsequent handlers.
+      for (let i = 0; i < listeners.length; i++) {
+        try {
+          const result = (listeners[i] as AnyFunction)(payload, meta);
+          if (result && typeof result.then === "function") {
+            await result;
+          }
+        } catch (err) {
+          logger.error(`[events] Handler ${i} error for ${eventName}:`, err);
+        }
+      }
+    } else {
+      // Concurrent: start all handlers, then await, for throughput on
+      // high-frequency events like session:responseChunk.
+      const promises: Promise<void>[] = [];
+      for (let i = 0; i < listeners.length; i++) {
+        try {
+          const result = (listeners[i] as AnyFunction)(payload, meta);
+          if (result && typeof result.then === "function") {
+            promises.push(
+              (result as Promise<void>).catch((err: unknown) => {
+                logger.error(`[events] Handler ${i} error for ${eventName}:`, err);
+              }),
+            );
+          }
+        } catch (err) {
+          logger.error(`[events] Handler ${i} sync throw for ${eventName}:`, err);
+        }
+      }
+      if (promises.length > 0) {
+        await Promise.all(promises);
+      }
+    }
+
+    // Wildcard listeners — always concurrent (observation only, no mutation)
+    // Shallow-copy payload so wildcard handlers can't mutate the live object
+    const wildcardEvent: WOPREvent = {
+      type: eventName,
+      payload: typeof payload === "object" && payload !== null ? { ...payload } : payload,
+      timestamp: meta.timestamp,
+      source,
+    };
+    const wildcardListeners = this.emitter.listeners("*");
+    const wcPromises: Promise<void>[] = [];
+    for (const listener of wildcardListeners) {
+      try {
+        const result = (listener as AnyFunction)(wildcardEvent, meta);
+        if (result && typeof result.then === "function") {
+          wcPromises.push(
+            (result as Promise<void>).catch((err: unknown) => {
+              const errMsg = err instanceof Error ? err.message : String(err);
+              logger.error(`[events] Wildcard handler error for '${eventName}': ${errMsg}`);
+              if (err instanceof Error && err.stack) {
+                logger.error(`[events] Stack: ${err.stack}`);
+              }
+            }),
+          );
+        }
+      } catch (err) {
+        logger.error(`[events] Wildcard handler sync throw for ${eventName}:`, err);
+      }
+    }
+    if (wcPromises.length > 0) {
+      await Promise.all(wcPromises);
+    }
+
+    logger.debug(`[events] Emitted: ${eventName} (source: ${source})`);
+  }
+
+  async emitCustom(event: string, payload: unknown, source: string = "unknown"): Promise<void> {
+    // Validate custom event name (suggest namespace prefix)
+    if (!event.includes(":") && !event.includes(".")) {
+      logger.warn(
+        `[events] Custom event '${event}' should use namespace prefix (e.g., 'myplugin:customEvent' or 'myplugin.customEvent')`,
+      );
+    }
+
+    // Reject unregistered event types
+    if (!getEventTypeRegistry().isRegistered(event)) {
+      throw new Error(
+        `"${event}" is not a registered event type. Plugins must call ctx.events.registerEventType("${event}", { ... }) during init.`,
+      );
+    }
+
+    await this.emit(event as keyof WOPREventMap, payload as WOPREventMap[keyof WOPREventMap], source);
+  }
+
+  listenerCount(event: string): number {
+    return this.emitter.listenerCount(event);
+  }
+
+  removeAllListeners(event?: string): void {
+    this.emitter.removeAllListeners(event);
+  }
+}
+
+// ============================================================================
+// Singleton Instance
+// ============================================================================
+
+export const eventBus: WOPREventBus = new WOPREventBusImpl();
+
+// ============================================================================
+// Convenience Exports for Core Usage
+// ============================================================================
+
+export async function emitSessionCreate(session: string, config?: Record<string, unknown>): Promise<void> {
+  await eventBus.emit("session:create", { session, config }, "core");
+}
+
+export async function emitSessionBeforeInject(
+  session: string,
+  message: string,
+  from: string,
+  channel?: { type: string; id: string; name?: string },
+): Promise<void> {
+  await eventBus.emit("session:beforeInject", { session, message, from, channel }, "core");
+}
+
+export async function emitSessionAfterInject(
+  session: string,
+  message: string,
+  response: string,
+  from: string,
+): Promise<void> {
+  await eventBus.emit("session:afterInject", { session, message, response, from }, "core");
+}
+
+export async function emitSessionResponseChunk(
+  session: string,
+  message: string,
+  response: string,
+  from: string,
+  chunk: string,
+): Promise<void> {
+  await eventBus.emit("session:responseChunk", { session, message, response, from, chunk }, "core");
+}
+
+export async function emitSessionDestroy(session: string, history: unknown[], reason?: string): Promise<void> {
+  await eventBus.emit("session:destroy", { session, history, reason }, "core");
+}
+
+export async function emitChannelMessage(
+  channel: { type: string; id: string; name?: string },
+  message: string,
+  from: string,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  await eventBus.emit("channel:message", { channel, message, from, metadata }, "core");
+}
+
+export async function emitChannelSend(channel: { type: string; id: string }, content: string): Promise<void> {
+  await eventBus.emit("channel:send", { channel, content }, "core");
+}
+
+export async function emitPluginBeforeInit(plugin: string, version: string): Promise<void> {
+  await eventBus.emit("plugin:beforeInit", { plugin, version }, "core");
+}
+
+export async function emitPluginAfterInit(plugin: string, version: string): Promise<void> {
+  await eventBus.emit("plugin:afterInit", { plugin, version }, "core");
+}
+
+export async function emitPluginError(plugin: string, error: Error, context?: string): Promise<void> {
+  await eventBus.emit("plugin:error", { plugin, error, context }, "core");
+}
+
+export async function emitConfigChange(
+  key: string,
+  oldValue: unknown,
+  newValue: unknown,
+  plugin?: string,
+): Promise<void> {
+  await eventBus.emit("config:change", { key, oldValue, newValue, plugin }, "core");
+}
+
+export async function emitSystemShutdown(reason: string, code?: number): Promise<void> {
+  await eventBus.emit("system:shutdown", { reason, code }, "core");
+}
+
+export async function emitPluginDraining(plugin: string, timeoutMs: number): Promise<void> {
+  await eventBus.emit("plugin:draining", { plugin, timeoutMs }, "core");
+}
+
+export async function emitPluginDrained(plugin: string, durationMs: number, timedOut: boolean): Promise<void> {
+  await eventBus.emit("plugin:drained", { plugin, durationMs, timedOut }, "core");
+}
+
+export async function emitPluginActivated(plugin: string, version: string): Promise<void> {
+  await eventBus.emit("plugin:activated", { plugin, version }, "core");
+}
+
+export async function emitPluginDeactivated(plugin: string, version: string, drained: boolean): Promise<void> {
+  await eventBus.emit("plugin:deactivated", { plugin, version, drained }, "core");
+}
+
+export async function emitProviderAdded(providerId: string, providerName: string): Promise<void> {
+  await eventBus.emit("provider:added", { providerId, providerName }, "core");
+}
+
+export async function emitProviderRemoved(providerId: string, providerName: string): Promise<void> {
+  await eventBus.emit("provider:removed", { providerId, providerName }, "core");
+}
+
+export async function emitProviderStatus(
+  providerId: string,
+  providerName: string,
+  previousAvailable: boolean,
+  currentAvailable: boolean,
+  error?: string,
+): Promise<void> {
+  await eventBus.emit(
+    "provider:status",
+    { providerId, providerName, previousAvailable, currentAvailable, error },
+    "core",
+  );
+}
+
+// ============================================================================
+// Mutable Event Helpers (for hook-based message transformation)
+// ============================================================================
+
+/**
+ * Mutable incoming message event result
+ */
+export interface MutableIncomingResult {
+  message: string;
+  prevented: boolean;
+}
+
+/**
+ * Mutable outgoing response event result
+ */
+export interface MutableOutgoingResult {
+  response: string;
+  prevented: boolean;
+}
+
+/**
+ * Emit an incoming message event that hooks can transform or block.
+ * Replaces the old middleware pattern with hooks.
+ *
+ * @returns The (possibly transformed) message and whether it was blocked
+ */
+export async function emitMutableIncoming(
+  session: string,
+  message: string,
+  from: string,
+  channel?: { type: string; id: string; name?: string },
+): Promise<MutableIncomingResult> {
+  // Create mutable payload that hooks can modify
+  const mutablePayload = {
+    session,
+    message,
+    from,
+    channel,
+    _prevented: false,
+  };
+
+  // Emit the event - handlers can mutate mutablePayload
+  await eventBus.emit("session:beforeInject", mutablePayload as SessionInjectEvent, "core");
+
+  return {
+    message: mutablePayload.message,
+    prevented: mutablePayload._prevented,
+  };
+}
+
+/**
+ * Emit an outgoing response event that hooks can transform or block.
+ * Replaces the old middleware pattern with hooks.
+ *
+ * @returns The (possibly transformed) response and whether it was blocked
+ */
+export async function emitMutableOutgoing(
+  session: string,
+  response: string,
+  from: string,
+  channel?: { type: string; id: string; name?: string },
+): Promise<MutableOutgoingResult> {
+  // Create mutable payload that hooks can modify
+  const mutablePayload = {
+    session,
+    response,
+    from,
+    channel,
+    _prevented: false,
+  };
+
+  // Emit the event - handlers can mutate mutablePayload
+  await eventBus.emit("session:afterInject", mutablePayload as unknown as SessionResponseEvent, "core");
+
+  return {
+    response: mutablePayload.response,
+    prevented: mutablePayload._prevented,
+  };
+}

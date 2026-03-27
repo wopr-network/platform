@@ -1,0 +1,56 @@
+{
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+}
+
+nemopod.com {
+	reverse_proxy nemoclaw-ui:3000
+}
+
+app.nemopod.com {
+	handle /trpc/* {
+		reverse_proxy nemoclaw-platform:3100
+	}
+	handle /api/* {
+		reverse_proxy nemoclaw-platform:3100
+	}
+	handle {
+		reverse_proxy nemoclaw-ui:3000
+	}
+}
+
+api.nemopod.com {
+	reverse_proxy nemoclaw-platform:3100
+}
+
+*.nemopod.com {
+	reverse_proxy nemoclaw-platform:3100
+}
+
+staging.nemopod.com {
+	basic_auth {
+		staging $2a$14$fJJ4LQ/s/zHY6vAjrmvIvuGD8rh7a3un2Kj7PWaCVll1aQ2Hi8bAq
+	}
+	reverse_proxy staging-ui:3000
+}
+
+staging.app.nemopod.com {
+	basic_auth {
+		staging $2a$14$fJJ4LQ/s/zHY6vAjrmvIvuGD8rh7a3un2Kj7PWaCVll1aQ2Hi8bAq
+	}
+	handle /trpc/* {
+		reverse_proxy staging-api:3100
+	}
+	handle /api/* {
+		reverse_proxy staging-api:3100
+	}
+	handle {
+		reverse_proxy staging-ui:3000
+	}
+}
+
+staging.api.nemopod.com {
+	basic_auth {
+		staging $2a$14$fJJ4LQ/s/zHY6vAjrmvIvuGD8rh7a3un2Kj7PWaCVll1aQ2Hi8bAq
+	}
+	reverse_proxy staging-api:3100
+}

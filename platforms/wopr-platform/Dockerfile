@@ -1,0 +1,98 @@
+# ---------------------------------------------------------------------------
+# Global build arguments
+# ---------------------------------------------------------------------------
+ARG PNPM_VERSION=10.31.0
+
+# ---------------------------------------------------------------------------
+# Stage 1: Install production dependencies
+# ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS deps
+
+ARG PNPM_VERSION
+
+# Build tools for native modules (better-sqlite3 in @wopr-network/wopr)
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --prod
+
+# ---------------------------------------------------------------------------
+# Stage 2: Build TypeScript
+# ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS build
+
+ARG PNPM_VERSION
+
+# Build tools needed for native modules (better-sqlite3 via @wopr-network/wopr)
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+
+WORKDIR /app
+
+# Full node_modules (including devDeps) needed for tsc
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY tsconfig.json ./
+COPY src/ ./src/
+RUN pnpm build
+
+# ---------------------------------------------------------------------------
+# Stage 3: Runtime
+# ---------------------------------------------------------------------------
+FROM node:24-bookworm-slim AS runtime
+
+# curl for HEALTHCHECK, git for worktree provisioning
+RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# DOCKER_GID should match the host docker group GID (e.g. pass --build-arg DOCKER_GID=$(getent group docker | cut -d: -f3))
+# -f ensures groupadd succeeds even if the GID is already in use by another group in the image
+ARG DOCKER_GID=998
+RUN groupadd -r wopr \
+    && useradd -r -g wopr -m wopr \
+    && groupadd -f -g "${DOCKER_GID}" dockersock \
+    && usermod -aG dockersock wopr
+
+# Production node_modules
+COPY --chown=wopr:wopr --from=deps /app/node_modules ./node_modules
+
+# WOPR daemon binary — wrapper script with absolute path
+# (pnpm's .bin scripts use $basedir-relative paths that break outside node_modules)
+# Path corresponds to the "wopr" bin entry in @wopr-network/wopr/package.json → dist/cli.js
+# If the package changes its compiled output path, update this line accordingly.
+# Fail at build time if the expected CLI path is missing (catches upstream layout changes).
+RUN test -f /app/node_modules/@wopr-network/wopr/dist/cli.js \
+    || (echo "ERROR: @wopr-network/wopr dist/cli.js not found — update wrapper path in Dockerfile" >&2 && exit 1)
+RUN printf '#!/bin/sh\nexec node /app/node_modules/@wopr-network/wopr/dist/cli.js "$@"\n' > /usr/local/bin/wopr \
+    && chmod +x /usr/local/bin/wopr
+
+# Compiled output
+COPY --chown=wopr:wopr --from=build /app/dist ./dist
+
+# Package manifest (needed by Node for ESM resolution)
+COPY --chown=wopr:wopr package.json ./
+
+# Profile templates loaded at runtime by fleet module
+COPY --chown=wopr:wopr templates/ ./templates/
+
+# Migration files for schema versioning
+COPY --chown=wopr:wopr drizzle/ ./drizzle/
+
+USER wopr
+
+ENV NODE_ENV=production
+ENV PORT=3100
+
+EXPOSE 3100
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:${PORT}/health || exit 1
+
+CMD ["node", "dist/index.js"]

@@ -1,0 +1,46 @@
+FROM node:lts-trixie-slim AS base
+LABEL org.opencontainers.image.source=https://github.com/wopr-network/paperclip-platform
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && rm -rf /var/lib/apt/lists/*
+RUN npm install -g pnpm@10
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --ignore-scripts --prod
+
+FROM base AS build
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile --ignore-scripts
+COPY . .
+RUN pnpm run build
+RUN test -f dist/index.js || (echo "ERROR: build output missing" && exit 1)
+
+FROM base AS production
+WORKDIR /app
+# Add node user to docker group (GID from host socket — overridden at runtime if needed)
+RUN groupadd -g 1001 docker || true && usermod -aG docker node || true
+# Create fleet data directory with node user ownership
+RUN mkdir -p /data/fleet && chown -R node:node /data
+COPY --chown=node:node --from=deps /app/node_modules /app/node_modules
+COPY --chown=node:node --from=build /app/dist /app/dist
+COPY --chown=node:node --from=build /app/package.json /app/package.json
+
+ENV NODE_ENV=production \
+  HOST=0.0.0.0 \
+  PORT=3200
+
+# Injected at runtime by fleet / docker-compose:
+#   PROVISION_SECRET  — shared secret for /internal/* and provision webhook
+#   GATEWAY_URL       — platform-core inference gateway URL
+#   PLATFORM_DOMAIN   — e.g. runpaperclip.com
+#   UI_ORIGIN         — CORS origin for dashboard
+#   DATABASE_URL      — Postgres (optional)
+#   BTCPAY_*          — BTCPay Server crypto payment config (optional)
+
+EXPOSE 3200
+
+USER node
+CMD ["node", "dist/index.js"]

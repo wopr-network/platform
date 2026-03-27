@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+.cache/
+coverage/
+test-results/
+.env
+.env.local
+.env.staging
+package-lock.json

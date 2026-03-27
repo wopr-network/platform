@@ -1,0 +1,776 @@
+/**
+ * WOPR Session Security Model - Type Definitions
+ *
+ * Three-layer security model:
+ * - Layer 1: Trust Levels (Who) - owner, trusted, semi-trusted, untrusted
+ * - Layer 2: Capabilities (What) - granular permissions
+ * - Layer 3: Sandbox (Where) - Docker isolation
+ */
+
+import { getSecurityRegistry } from "./registry.js";
+
+// ============================================================================
+// Trust Levels - Who is making the request
+// ============================================================================
+
+/**
+ * Trust level hierarchy (highest to lowest)
+ */
+export type TrustLevel = "owner" | "trusted" | "semi-trusted" | "untrusted";
+
+/**
+ * Trust level numeric values for comparison
+ */
+export const TRUST_LEVEL_ORDER: Record<TrustLevel, number> = {
+  owner: 100,
+  trusted: 75,
+  "semi-trusted": 50,
+  untrusted: 0,
+};
+
+/**
+ * Compare two trust levels
+ */
+export function compareTrustLevel(a: TrustLevel, b: TrustLevel): number {
+  return TRUST_LEVEL_ORDER[a] - TRUST_LEVEL_ORDER[b];
+}
+
+/**
+ * Check if trust level meets minimum requirement
+ */
+export function meetsTrustLevel(actual: TrustLevel, required: TrustLevel): boolean {
+  return TRUST_LEVEL_ORDER[actual] >= TRUST_LEVEL_ORDER[required];
+}
+
+// ============================================================================
+// Capabilities - What actions are allowed
+// ============================================================================
+
+/**
+ * Granular capability permissions.
+ * Widened to `string` to support dynamic plugin-registered permissions.
+ * Core permissions are seeded in SecurityRegistry; plugins register additional ones at init.
+ */
+export type Capability = string;
+
+/**
+ * Capability sets for common profiles
+ */
+export const CAPABILITY_PROFILES: Record<string, Capability[]> = {
+  owner: ["*"],
+  trusted: ["inject", "inject.tools", "session.spawn", "session.history", "config.read", "event.emit", "a2a.call"],
+  "semi-trusted": ["inject", "inject.tools", "session.history", "config.read"],
+  untrusted: ["inject"], // Can only send messages, no tools
+  gateway: ["inject", "inject.tools", "cross.inject", "cross.read", "session.history", "a2a.call"],
+};
+
+/**
+ * Check if a capability set includes a specific capability
+ */
+export function hasCapability(capabilities: Capability[], required: Capability): boolean {
+  // Wildcard grants everything
+  if (capabilities.includes("*")) {
+    return true;
+  }
+
+  // Direct match
+  if (capabilities.includes(required)) {
+    return true;
+  }
+
+  // Check parent capabilities (e.g., "inject" grants "inject.tools")
+  // Only if the required capability is a registered permission — unregistered
+  // sub-capabilities cannot be granted via hierarchy alone.
+  const parts = required.split(".");
+  if (parts.length > 1) {
+    const parent = parts[0] as Capability;
+    if (capabilities.includes(parent) && getSecurityRegistry().hasPermission(required)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Expand a capability set (resolve wildcards, add implicit permissions)
+ */
+export function expandCapabilities(capabilities: Capability[]): Capability[] {
+  if (capabilities.includes("*")) {
+    return [...new Set(getSecurityRegistry().getAllPermissions())];
+  }
+  return [...new Set(capabilities)];
+}
+
+// ============================================================================
+// Injection Source - Where the request came from
+// ============================================================================
+
+/**
+ * Source type of an injection.
+ * Widened to `string` to support dynamic plugin-registered sources.
+ * Core sources are seeded in SecurityRegistry; plugins register additional ones at init.
+ */
+export type InjectionSourceType = string;
+
+/**
+ * Full injection source with metadata
+ */
+export interface InjectionSource {
+  /** Source type */
+  type: InjectionSourceType;
+
+  /** Trust level (can be explicitly set or derived from type) */
+  trustLevel: TrustLevel;
+
+  /** Identity of the source */
+  identity?: {
+    /** Public key for P2P sources */
+    publicKey?: string;
+
+    /** Plugin name for plugin sources */
+    pluginName?: string;
+
+    /** API key identifier for API sources */
+    apiKeyId?: string;
+
+    /** Session name for gateway forwarding */
+    gatewaySession?: string;
+
+    /** User identifier if authenticated */
+    userId?: string;
+  };
+
+  /** Granted capabilities (if explicitly granted) */
+  grantedCapabilities?: Capability[];
+
+  /** Grant ID if this source has an access grant */
+  grantId?: string;
+
+  /** Timestamp of the request */
+  timestamp?: number;
+
+  /** Session this source is targeting */
+  targetSession?: string;
+}
+
+/**
+ * Default trust levels by source type.
+ * Delegates to SecurityRegistry so plugin-registered sources are included.
+ * @deprecated Use getSecurityRegistry().getDefaultTrust() instead
+ */
+export const DEFAULT_TRUST_BY_SOURCE: Record<string, TrustLevel> = new Proxy({} as Record<string, TrustLevel>, {
+  get(_target, prop: string) {
+    return getSecurityRegistry().getDefaultTrust(prop);
+  },
+  ownKeys() {
+    return [...getSecurityRegistry().getAllDefaultTrusts().keys()];
+  },
+  getOwnPropertyDescriptor(_target, prop: string) {
+    const val = getSecurityRegistry().getDefaultTrust(prop as string);
+    if (val !== undefined) {
+      return { configurable: true, enumerable: true, value: val };
+    }
+    return undefined;
+  },
+});
+
+/**
+ * Create an injection source with defaults
+ */
+export function createInjectionSource(
+  type: InjectionSourceType,
+  overrides?: Partial<InjectionSource>,
+): InjectionSource {
+  return {
+    type,
+    trustLevel: getSecurityRegistry().getDefaultTrust(type) ?? "untrusted",
+    timestamp: Date.now(),
+    ...overrides,
+  };
+}
+
+// ============================================================================
+// Sandbox Configuration
+// ============================================================================
+
+/**
+ * Sandbox network isolation modes
+ */
+export type SandboxNetworkMode =
+  | "none" // No network access
+  | "host" // Full host network (no isolation)
+  | "bridge"; // Bridged network (limited)
+
+/**
+ * Sandbox configuration for Docker isolation
+ */
+export interface SandboxConfig {
+  /** Enable sandbox execution */
+  enabled: boolean;
+
+  /** Docker network mode */
+  network: SandboxNetworkMode;
+
+  /** Memory limit (e.g., "512m", "1g") */
+  memoryLimit?: string;
+
+  /** CPU limit (e.g., "0.5" for half a core) */
+  cpuLimit?: number;
+
+  /** PIDs limit */
+  pidsLimit?: number;
+
+  /** Timeout in seconds */
+  timeout?: number;
+
+  /** Allowed paths (read-only mounts) */
+  allowedPaths?: string[];
+
+  /** Writable paths */
+  writablePaths?: string[];
+
+  /** Environment variables to pass through */
+  envPassthrough?: string[];
+}
+
+/**
+ * Default sandbox configurations by trust level
+ */
+export const DEFAULT_SANDBOX_BY_TRUST: Record<TrustLevel, SandboxConfig> = {
+  owner: {
+    enabled: false,
+    network: "host",
+  },
+  trusted: {
+    enabled: false,
+    network: "host",
+  },
+  "semi-trusted": {
+    enabled: true,
+    network: "bridge",
+    memoryLimit: "512m",
+    cpuLimit: 0.5,
+    pidsLimit: 100,
+    timeout: 300,
+  },
+  untrusted: {
+    enabled: true,
+    network: "none",
+    memoryLimit: "256m",
+    cpuLimit: 0.25,
+    pidsLimit: 50,
+    timeout: 60,
+  },
+};
+
+// ============================================================================
+// Security Policy
+// ============================================================================
+
+/**
+ * Tool access policy
+ */
+export interface ToolPolicy {
+  /** Tools explicitly allowed */
+  allow?: string[];
+
+  /** Tools explicitly denied */
+  deny?: string[];
+}
+
+/**
+ * Security policy for a session or source
+ */
+export interface SecurityPolicy {
+  /** Minimum trust level required */
+  minTrustLevel?: TrustLevel;
+
+  /** Capabilities granted by this policy */
+  capabilities?: Capability[];
+
+  /** Sandbox configuration */
+  sandbox?: Partial<SandboxConfig>;
+
+  /** Tool-specific overrides */
+  tools?: ToolPolicy;
+
+  /** Rate limiting */
+  rateLimit?: {
+    /** Requests per minute */
+    perMinute?: number;
+
+    /** Requests per hour */
+    perHour?: number;
+  };
+
+  /** Session-specific policies */
+  sessions?: {
+    /** Sessions this policy applies to */
+    allowed?: string[];
+
+    /** Sessions explicitly blocked */
+    blocked?: string[];
+
+    /** Gateway sessions (can receive untrusted traffic) */
+    gateways?: string[];
+  };
+}
+
+/**
+ * Access rule pattern types:
+ * - "*" - anyone can access
+ * - "trust:owner" - owner trust level only
+ * - "trust:trusted" - trusted or higher
+ * - "trust:semi-trusted" - semi-trusted or higher
+ * - "trust:untrusted" - any trust level
+ * - "session:<name>" - only from specific session
+ * - "p2p:<publicKey>" - specific P2P peer
+ * - "type:<sourceType>" - by source type (cli, daemon, p2p, etc.)
+ */
+export type AccessPattern = string;
+
+/**
+ * Per-session configuration
+ */
+export interface SessionConfig {
+  /** Access rules - who can inject into this session */
+  access?: AccessPattern[];
+
+  /**
+   * Indexable rules - which session transcripts THIS session can see in memory search
+   * - ["*"] - can see all sessions' transcripts
+   * - ["self"] - can only see own transcripts
+   * - ["self", "session:api-*"] - self + glob match on session names (* = any chars)
+   */
+  indexable?: AccessPattern[];
+
+  /** Capabilities for code running in this session */
+  capabilities?: Capability[];
+
+  /** System prompt for the AI (security context) */
+  prompt?: string;
+
+  /** Sandbox configuration override */
+  sandbox?: Partial<SandboxConfig>;
+
+  /** Human-readable description of the session */
+  description?: string;
+}
+
+/**
+ * Default indexable patterns by trust level
+ * Controls what session transcripts a session can see in memory search
+ * - owner/trusted: ["*"] - can search all session transcripts
+ * - semi-trusted/untrusted (P2P): ["self"] - can only search own transcripts
+ */
+export const DEFAULT_INDEXABLE_BY_TRUST: Record<TrustLevel, AccessPattern[]> = {
+  owner: ["*"],
+  trusted: ["*"],
+  "semi-trusted": ["self"],
+  untrusted: ["self"],
+};
+
+/**
+ * Hook configuration
+ */
+export interface HookConfig {
+  /** Hook name */
+  name: string;
+
+  /** Hook type */
+  type: "pre-inject" | "post-inject" | "session-start" | "session-end";
+
+  /** Shell command to run (receives JSON on stdin, returns JSON on stdout) */
+  command?: string;
+
+  /** Or inline JavaScript (runs in sandbox) */
+  script?: string;
+
+  /** Enable/disable */
+  enabled: boolean;
+
+  /** If true, hook errors allow the injection to proceed. Default: false (fail closed). */
+  failOpen?: boolean;
+}
+
+/**
+ * Global security configuration
+ */
+export interface SecurityConfig {
+  /** Enforcement mode */
+  enforcement: "off" | "warn" | "enforce";
+
+  /** Default policy for sources without specific config */
+  defaults: SecurityPolicy;
+
+  /** Policies by trust level */
+  trustLevels?: Partial<Record<TrustLevel, SecurityPolicy>>;
+
+  /** Per-session configuration */
+  sessions?: Record<string, SessionConfig>;
+
+  /** Default session access (if not specified per-session) */
+  defaultAccess?: AccessPattern[];
+
+  /** P2P-specific settings */
+  p2p?: {
+    /** Default trust level for discovered peers */
+    discoveryTrust: TrustLevel;
+
+    /** Auto-accept peer connections */
+    autoAccept: boolean;
+
+    /** Key rotation grace period in hours */
+    keyRotationGraceHours?: number;
+
+    /** Maximum payload size in bytes */
+    maxPayloadSize?: number;
+  };
+
+  /** @deprecated Use sessions config instead */
+  gateways?: {
+    /** Sessions that act as gateways */
+    sessions: string[];
+
+    /** Forward rules per gateway */
+    forwardRules?: Record<
+      string,
+      {
+        allowForwardTo: string[];
+        allowActions?: string[];
+        requireApproval?: boolean;
+        rateLimit?: { perMinute: number };
+      }
+    >;
+  };
+
+  /** Injection hooks */
+  hooks?: HookConfig[];
+
+  /** Additional executable names to allow in hook commands (extends built-in allowlist) */
+  allowedHookCommands?: string[];
+
+  /** Audit logging */
+  audit?: {
+    /** Enable audit logging */
+    enabled: boolean;
+
+    /** Log successful actions */
+    logSuccess?: boolean;
+
+    /** Log denied actions */
+    logDenied?: boolean;
+
+    /** Audit log path */
+    logPath?: string;
+  };
+
+  /** Whether to log a warning at startup when sandboxing is disabled (default: true) */
+  warnOnDisabledSandbox?: boolean;
+}
+
+/**
+ * Default security configuration
+ */
+export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
+  enforcement: "enforce", // Enforce security policies by default
+  defaults: {
+    minTrustLevel: "semi-trusted",
+    capabilities: CAPABILITY_PROFILES["semi-trusted"],
+    sandbox: { enabled: false, network: "host" },
+    tools: { deny: ["config.write"] },
+    rateLimit: { perMinute: 60, perHour: 1000 },
+  },
+  trustLevels: {
+    owner: {
+      capabilities: ["*"],
+      sandbox: { enabled: false, network: "host" },
+    },
+    trusted: {
+      capabilities: CAPABILITY_PROFILES.trusted,
+      sandbox: { enabled: false, network: "host" },
+    },
+    "semi-trusted": {
+      capabilities: CAPABILITY_PROFILES["semi-trusted"],
+      sandbox: { enabled: true, network: "bridge" },
+      tools: { deny: ["config.write"] },
+    },
+    untrusted: {
+      capabilities: CAPABILITY_PROFILES.untrusted,
+      sandbox: { enabled: true, network: "none" },
+      tools: { deny: ["*"] }, // No tools for untrusted
+    },
+  },
+  // Default: only trusted and above can access sessions
+  defaultAccess: ["trust:trusted"],
+  // Per-session config (empty by default, user configures)
+  sessions: {},
+  p2p: {
+    discoveryTrust: "untrusted",
+    autoAccept: false,
+    keyRotationGraceHours: 24,
+    maxPayloadSize: 1024 * 1024, // 1MB
+  },
+  // Hooks (empty by default, user configures)
+  hooks: [],
+  audit: {
+    enabled: true,
+    logSuccess: false,
+    logDenied: true,
+  },
+  warnOnDisabledSandbox: true,
+};
+
+// ============================================================================
+// Security Events
+// ============================================================================
+
+/**
+ * Security event types
+ */
+export type SecurityEventType =
+  | "access_granted"
+  | "access_denied"
+  | "capability_check"
+  | "sandbox_start"
+  | "sandbox_stop"
+  | "policy_violation"
+  | "rate_limit_exceeded"
+  | "trust_elevation"
+  | "trust_revocation";
+
+/**
+ * Security audit event
+ */
+export interface SecurityEvent {
+  /** Event type */
+  type: SecurityEventType;
+
+  /** Timestamp */
+  timestamp: number;
+
+  /** Injection source */
+  source: InjectionSource;
+
+  /** Target session */
+  session?: string;
+
+  /** Action attempted */
+  action?: string;
+
+  /** Tool name if applicable */
+  tool?: string;
+
+  /** Capability checked */
+  capability?: Capability;
+
+  /** Result of the check */
+  allowed: boolean;
+
+  /** Reason for denial */
+  reason?: string;
+
+  /** Additional context */
+  context?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Tool to Capability Mapping
+// ============================================================================
+
+/**
+ * Map A2A tools to required capabilities.
+ * Delegates to SecurityRegistry so plugin-registered tools are included.
+ * @deprecated Use getSecurityRegistry().getToolCapability() instead
+ */
+export const TOOL_CAPABILITY_MAP: Record<string, Capability> = new Proxy({} as Record<string, Capability>, {
+  get(_target, prop: string) {
+    return getSecurityRegistry().getToolCapability(prop);
+  },
+  has(_target, prop: string) {
+    return getSecurityRegistry().getToolCapability(prop) !== undefined;
+  },
+  ownKeys() {
+    return [...getSecurityRegistry().getAllToolCapabilities().keys()];
+  },
+  getOwnPropertyDescriptor(_target, prop: string) {
+    const val = getSecurityRegistry().getToolCapability(prop);
+    if (val !== undefined) {
+      return { configurable: true, enumerable: true, value: val };
+    }
+    return undefined;
+  },
+});
+
+/**
+ * Get required capability for a tool
+ */
+export function getToolCapability(toolName: string): Capability | undefined {
+  return getSecurityRegistry().getToolCapability(toolName);
+}
+
+// ============================================================================
+// Access Pattern Matching
+// ============================================================================
+
+/**
+ * Check if an injection source matches an access pattern
+ *
+ * Pattern types:
+ * - "*" - matches anyone
+ * - "trust:owner" - matches owner trust level
+ * - "trust:trusted" - matches trusted or higher
+ * - "trust:semi-trusted" - matches semi-trusted or higher
+ * - "trust:untrusted" - matches any trust level
+ * - "session:<name>" - matches injection from specific session
+ * - "p2p:<publicKey>" - matches specific P2P peer
+ * - "type:<sourceType>" - matches by source type
+ */
+export function matchesAccessPattern(source: InjectionSource, pattern: AccessPattern): boolean {
+  // Wildcard matches everything
+  if (pattern === "*") {
+    return true;
+  }
+
+  // Trust level patterns
+  if (pattern.startsWith("trust:")) {
+    const requiredTrust = pattern.slice(6) as TrustLevel;
+    // "trust:untrusted" means anyone can access (lowest bar)
+    // "trust:owner" means only owner can access (highest bar)
+    return meetsTrustLevel(source.trustLevel, requiredTrust);
+  }
+
+  // Session patterns (for cross-session injection)
+  if (pattern.startsWith("session:")) {
+    const requiredSession = pattern.slice(8);
+    return source.identity?.gatewaySession === requiredSession;
+  }
+
+  // P2P peer patterns
+  if (pattern.startsWith("p2p:")) {
+    const requiredKey = pattern.slice(4);
+    return source.identity?.publicKey === requiredKey;
+  }
+
+  // Source type patterns
+  if (pattern.startsWith("type:")) {
+    const requiredType = pattern.slice(5);
+    return source.type === requiredType;
+  }
+
+  // Unknown pattern - deny by default
+  return false;
+}
+
+/**
+ * Check if an injection source matches any of the access patterns
+ */
+export function matchesAnyAccessPattern(source: InjectionSource, patterns: AccessPattern[]): boolean {
+  return patterns.some((pattern) => matchesAccessPattern(source, pattern));
+}
+
+/**
+ * Get the session configuration for a session
+ */
+export function getSessionConfig(config: SecurityConfig, sessionName: string): SessionConfig | undefined {
+  return config.sessions?.[sessionName];
+}
+
+/**
+ * Get the effective access patterns for a session
+ */
+export function getSessionAccess(config: SecurityConfig, sessionName: string): AccessPattern[] {
+  const sessionConfig = getSessionConfig(config, sessionName);
+
+  // Session-specific access rules take precedence
+  if (sessionConfig?.access) {
+    return sessionConfig.access;
+  }
+
+  // Fall back to default access
+  if (config.defaultAccess) {
+    return config.defaultAccess;
+  }
+
+  // Legacy: check if this is in the old gateways config
+  if (config.gateways?.sessions?.includes(sessionName)) {
+    // Old gateway sessions were accessible by untrusted
+    return ["trust:untrusted"];
+  }
+
+  // Default: only trusted and above can access
+  return ["trust:trusted"];
+}
+
+/**
+ * Get the effective indexable patterns for a session
+ * Controls which session transcripts this session can see in memory search
+ */
+export function getSessionIndexable(
+  config: SecurityConfig,
+  sessionName: string,
+  trustLevel: TrustLevel = "untrusted",
+): AccessPattern[] {
+  const sessionConfig = getSessionConfig(config, sessionName);
+
+  // Session-specific indexable rules take precedence
+  if (sessionConfig?.indexable) {
+    return sessionConfig.indexable;
+  }
+
+  // Fall back to trust-level default
+  return DEFAULT_INDEXABLE_BY_TRUST[trustLevel];
+}
+
+/**
+ * Convert a glob pattern (supporting * and ?) to a safe regex.
+ * All regex metacharacters except * and ? are escaped.
+ */
+function globToSafeRegex(glob: string): RegExp {
+  const escaped = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  const regexStr = escaped.replace(/\*/g, ".*").replace(/\?/g, ".");
+  return new RegExp(`^${regexStr}$`);
+}
+
+/**
+ * Check if a session can index (see in search) another session's transcripts
+ *
+ * @param searcherSession - The session performing the search
+ * @param targetSession - The session whose transcripts are being checked
+ * @param patterns - The searcher's indexable patterns
+ * @returns true if the searcher can see the target's transcripts
+ */
+export function canIndexSession(searcherSession: string, targetSession: string, patterns: AccessPattern[]): boolean {
+  for (const pattern of patterns) {
+    // Wildcard matches all sessions
+    if (pattern === "*") {
+      return true;
+    }
+
+    // "self" matches only the searcher's own session
+    if (pattern === "self") {
+      if (searcherSession === targetSession) {
+        return true;
+      }
+      continue;
+    }
+
+    // "session:pattern" - glob match on session name (* = any chars, ? = single char)
+    if (pattern.startsWith("session:")) {
+      const globPattern = pattern.slice(8);
+      const regex = globToSafeRegex(globPattern);
+      if (regex.test(targetSession)) {
+        return true;
+      }
+      continue;
+    }
+
+    // Exact session name match
+    if (pattern === targetSession) {
+      return true;
+    }
+  }
+
+  return false;
+}

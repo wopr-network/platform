@@ -1,0 +1,33 @@
+{
+  "flows": [
+    {
+      "name": "e2e-pipeline",
+      "description": "E2E test flow with gate",
+      "initialState": "backlog",
+      "maxConcurrent": 0,
+      "maxConcurrentPerRepo": 0,
+      "discipline": "coder",
+      "gateTimeoutMs": 500
+    }
+  ],
+  "states": [
+    { "name": "backlog", "flowName": "e2e-pipeline", "mode": "passive" },
+    { "name": "coding", "flowName": "e2e-pipeline", "mode": "active", "promptTemplate": "Implement task for {{entity.id}}" },
+    { "name": "reviewing", "flowName": "e2e-pipeline", "mode": "passive" },
+    { "name": "done", "flowName": "e2e-pipeline", "mode": "passive" },
+    { "name": "cancelled", "flowName": "e2e-pipeline", "mode": "passive" }
+  ],
+  "gates": [
+    {
+      "name": "quality-check",
+      "type": "command",
+      "command": "gates/test-pass.sh",
+      "timeoutMs": 5000
+    }
+  ],
+  "transitions": [
+    { "flowName": "e2e-pipeline", "fromState": "backlog", "toState": "coding", "trigger": "assigned", "priority": 0 },
+    { "flowName": "e2e-pipeline", "fromState": "coding", "toState": "reviewing", "trigger": "submit", "gateName": "quality-check", "priority": 0 },
+    { "flowName": "e2e-pipeline", "fromState": "reviewing", "toState": "done", "trigger": "approve", "priority": 0 }
+  ]
+}

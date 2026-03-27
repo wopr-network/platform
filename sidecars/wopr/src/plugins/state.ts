@@ -1,0 +1,72 @@
+/**
+ * Shared mutable state for the plugin system.
+ *
+ * All plugin modules that need access to runtime registries import from here.
+ * This keeps the state in one place and avoids circular dependency issues.
+ */
+
+import { homedir } from "node:os";
+import { join } from "node:path";
+import type { A2AToolResult } from "../plugin-types/a2a.js";
+import type { PluginManifest } from "../plugin-types/manifest.js";
+import type { ModelProvider } from "../types/provider.js";
+import type {
+  ChannelAdapter,
+  ConfigSchema,
+  ContextProvider,
+  SetupContextProvider,
+  UiComponentExtension,
+  WebUiExtension,
+  WOPRPlugin,
+  WOPRPluginContext,
+} from "../types.js";
+
+export const WOPR_HOME = process.env.WOPR_HOME || join(homedir(), "wopr");
+export const PLUGINS_DIR = join(WOPR_HOME, "plugins");
+/** @deprecated Used only by migrate-json.ts for one-time migration */
+export const PLUGINS_FILE = join(WOPR_HOME, "plugins.json");
+/** @deprecated Used only by migrate-json.ts for one-time migration */
+export const REGISTRIES_FILE = join(WOPR_HOME, "plugin-registries.json");
+
+/** Loaded plugins (runtime) */
+export const loadedPlugins: Map<string, { plugin: WOPRPlugin; context: WOPRPluginContext }> = new Map();
+
+/** Context providers - session -> provider mapping */
+export const contextProviders: Map<string, ContextProvider> = new Map();
+export const channelAdapters: Map<string, ChannelAdapter> = new Map();
+export const webUiExtensions: Map<string, WebUiExtension> = new Map();
+export const uiComponents: Map<string, UiComponentExtension> = new Map();
+
+/** Provider plugins registry (for providers registered via plugins) */
+export const providerPlugins: Map<string, ModelProvider> = new Map();
+
+/** Config schemas registry (pluginId -> schema) */
+export const configSchemas: Map<string, ConfigSchema> = new Map();
+
+/** Plugin manifests registry (pluginName -> manifest) */
+export const pluginManifests: Map<string, PluginManifest> = new Map();
+
+/** Runtime state of a loaded plugin */
+export type PluginRuntimeState = "active" | "draining" | "deactivating" | "inactive";
+
+/** Plugin runtime states (pluginName -> state) */
+export const pluginStates: Map<string, PluginRuntimeState> = new Map();
+
+/**
+ * Plugin extensions registry - plugins can expose APIs to other plugins.
+ * Key format: "pluginName.extensionName" -> extension object
+ */
+export const pluginExtensions: Map<string, unknown> = new Map();
+
+/** Setup context providers (pluginName -> provider function) */
+export const setupContextProviders: Map<string, SetupContextProvider> = new Map();
+
+/** Resolved A2A tool dependencies per plugin (pluginName -> toolName -> handler) */
+export const resolvedA2ATools: Map<
+  string,
+  Map<string, (args: Record<string, unknown>) => Promise<A2AToolResult>>
+> = new Map();
+
+export function channelKey(channel: { type: string; id: string }): string {
+  return `${channel.type}:${channel.id}`;
+}

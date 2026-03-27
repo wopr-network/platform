@@ -1,0 +1,230 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1772235892631,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1772220006000,
+      "tag": "0052_affiliate_fraud_detection",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1772220007000,
+      "tag": "0053_affiliate_velocity_cap",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1772220008000,
+      "tag": "0054_platform_api_keys_unique_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1772220009000,
+      "tag": "0055_promotions_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1772220010000,
+      "tag": "0056_promotions_fk_and_unique",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1772220011000,
+      "tag": "0057_tenant_addons",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1772220012000,
+      "tag": "0058_billing_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1772220013000,
+      "tag": "0059_credit_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1772220013001,
+      "tag": "0060_page_contexts",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1772220014000,
+      "tag": "0061_marketplace_plugin_previous_version",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1772220014001,
+      "tag": "0062_marketplace_plugin_manifest",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1772220015000,
+      "tag": "0063_better_auth_two_factor_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1772220016000,
+      "tag": "0064_add_stripe_fingerprint",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1772220017000,
+      "tag": "0065_gpu_allocations_and_configurations",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1772220018000,
+      "tag": "0066_account_export_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1772220019000,
+      "tag": "0067_account_deletion_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1772220020000,
+      "tag": "0068_secret_audit_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1772220021000,
+      "tag": "0069_fleet_event_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1772220022000,
+      "tag": "0070_fleet_event_history_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1773301093888,
+      "tag": "0071_funny_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1773387603222,
+      "tag": "0072_double_entry_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1773387604000,
+      "tag": "0073_gateway_service_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1773387605000,
+      "tag": "0074_archived_journal_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1773697402606,
+      "tag": "0075_loving_quasar",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1773700111109,
+      "tag": "0076_demonic_aaron_stack",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1773800418244,
+      "tag": "0077_fine_wilson_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1774063480939,
+      "tag": "0078_tan_infant_terrible",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1774310400000,
+      "tag": "0079_sudden_midnight",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1774217717523,
+      "tag": "0080_sweet_war_machine",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1774329047535,
+      "tag": "0081_tidy_shatterstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1774401214558,
+      "tag": "0082_magical_killmonger",
+      "breakpoints": true
+    }
+  ]
+}
