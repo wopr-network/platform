@@ -57,7 +57,7 @@ COPY --from=build /app/services/platform-crypto-server/drizzle/ ./drizzle/
 # Package manifest
 COPY --from=build /app/services/platform-crypto-server/package.json ./
 # Drizzle migrations from platform-core (workspace dep)
-COPY --from=build /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
+COPY --from=pruner /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
 
 ENV NODE_ENV=production
 

@@ -58,7 +58,7 @@ COPY --chown=node:node --from=deps /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/platforms/paperclip-platform/dist ./dist
 COPY --chown=node:node --from=build /app/platforms/paperclip-platform/package.json ./
 # Drizzle migrations from platform-core (workspace dep, not in node_modules)
-COPY --chown=node:node --from=build /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
+COPY --chown=node:node --from=pruner /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
 
 ENV NODE_ENV=production \
   HOST=0.0.0.0 \

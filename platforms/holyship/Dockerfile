@@ -59,7 +59,7 @@ COPY --chown=holyship:holyship --from=build /app/platforms/holyship/drizzle/ ./d
 # Package manifest
 COPY --chown=holyship:holyship --from=build /app/platforms/holyship/package.json ./
 # Drizzle migrations from platform-core (workspace dep)
-COPY --from=build /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
+COPY --from=pruner /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
 
 # Gates directory for flow engine gate scripts
 RUN mkdir -p gates /tmp/fleet && chown holyship:holyship gates /tmp/fleet

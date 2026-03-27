@@ -63,7 +63,7 @@ COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/dis
 # Package manifest (needed by Node for ESM resolution)
 COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/package.json ./
 # Drizzle migrations from platform-core (workspace dep)
-COPY --from=build /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
+COPY --from=pruner /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
 
 # Migration files for schema versioning
 COPY --chown=nemoclaw:nemoclaw --from=build /app/platforms/nemoclaw-platform/drizzle/ ./drizzle/

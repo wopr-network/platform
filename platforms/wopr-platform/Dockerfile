@@ -70,7 +70,7 @@ COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/dist ./dist
 # Package manifest (needed by Node for ESM resolution)
 COPY --chown=wopr:wopr --from=build /app/sidecars/wopr/package.json ./
 # Drizzle migrations from platform-core (workspace dep)
-COPY --from=build /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
+COPY --from=pruner /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
 
 # Profile templates loaded at runtime by fleet module
 COPY --chown=wopr:wopr --from=build /app/platforms/wopr-platform/templates/ ./templates/
