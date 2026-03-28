@@ -9,6 +9,7 @@ dist/
 **/*.test.ts
 **/*.test.tsx
 **/*.spec.ts
+**/*.bench.ts
 **/tests/
 **/test/
 **/e2e/
