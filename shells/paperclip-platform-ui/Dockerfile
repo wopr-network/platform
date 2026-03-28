@@ -27,6 +27,7 @@ ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 # Copy entire shell directory (app/, components/, lib/, src/, public/, configs, etc.)
 COPY shells/paperclip-platform-ui/ ./
 
+COPY shells/paperclip-platform-ui/docker.env ./.env
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN pnpm run build

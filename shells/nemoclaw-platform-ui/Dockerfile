@@ -27,6 +27,7 @@ COPY shells/nemoclaw-platform-ui/ ./
 # Copy .env files for brand config (separate layer for cache efficiency)
 COPY shells/nemoclaw-platform-ui/.env* ./
 
+COPY shells/nemoclaw-platform-ui/docker.env ./.env
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 # Source .env.brand before build so NEXT_PUBLIC_* vars are available

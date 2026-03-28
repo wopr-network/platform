@@ -41,6 +41,7 @@ ENV NEXT_PUBLIC_BRAND_HOME_PATH=${NEXT_PUBLIC_BRAND_HOME_PATH}
 # Copy entire shell directory (app/, components/, lib/, src/, public/, configs, etc.)
 COPY shells/holyship-platform-ui/ ./
 
+COPY shells/holyship-platform-ui/docker.env ./.env
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN pnpm run build
