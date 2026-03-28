@@ -30,8 +30,8 @@ importers:
         specifier: ^11.13.4
         version: 11.13.4(typescript@5.9.3)
       '@wopr-network/platform-core':
-        specifier: ^1.71.0
-        version: 1.71.0(@aws-sdk/client-ses@3.1015.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(postgres@3.4.8)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(better-sqlite3@12.6.2)(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(tsx@4.21.0)(yaml@2.8.2)))(dockerode@4.0.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(hono@4.12.5)(pg@8.20.0)(resend@6.9.3)(stripe@18.5.0(@types/node@25.3.5))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)
+        specifier: ^1.72.1
+        version: 1.72.1(@aws-sdk/client-ses@3.1015.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(postgres@3.4.8)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(better-sqlite3@12.6.2)(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(tsx@4.21.0)(yaml@2.8.2)))(dockerode@4.0.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(hono@4.12.5)(pg@8.20.0)(resend@6.9.3)(stripe@18.5.0(@types/node@25.3.5))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)
       dockerode:
         specifier: ^4.0.9
         version: 4.0.9
@@ -1584,8 +1584,8 @@ packages:
     peerDependencies:
       '@wopr-network/platform-crypto-server': '*'
 
-  '@wopr-network/platform-core@1.71.0':
-    resolution: {integrity: sha512-8n2xqokcwWvf3z8kBCV+aTXf8wS1IjA3iKn64aWaeTtNbfunN5ILOe6jPq4HPS2yRoHeF9tsjgaZYNGDVGPaxA==}
+  '@wopr-network/platform-core@1.72.1':
+    resolution: {integrity: sha512-kHbZNO2f8sukwTUR1bIgb4QUsm2YQoJrXDO/OgR+7wZ/MZrqbqOplE7gcxz7AeeN6VwK8mV+KcQZl+47VwfrXA==}
     peerDependencies:
       '@aws-sdk/client-ses': '>=3'
       '@trpc/server': '>=11'
@@ -4554,14 +4554,14 @@ snapshots:
       '@scure/bip32': 2.0.1
       '@scure/bip39': 2.0.1
       '@wopr-network/platform-crypto-server': 1.1.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(postgres@3.4.8)(typescript@5.9.3)(zod@4.3.6)
-      viem: 2.47.4(typescript@5.9.3)(zod@4.3.6)
+      viem: 2.47.6(typescript@5.9.3)(zod@4.3.6)
     transitivePeerDependencies:
       - bufferutil
       - typescript
       - utf-8-validate
       - zod
 
-  '@wopr-network/platform-core@1.71.0(@aws-sdk/client-ses@3.1015.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(postgres@3.4.8)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(better-sqlite3@12.6.2)(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(tsx@4.21.0)(yaml@2.8.2)))(dockerode@4.0.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(hono@4.12.5)(pg@8.20.0)(resend@6.9.3)(stripe@18.5.0(@types/node@25.3.5))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)':
+  '@wopr-network/platform-core@1.72.1(@aws-sdk/client-ses@3.1015.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(postgres@3.4.8)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(better-sqlite3@12.6.2)(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@25.3.5)(tsx@4.21.0)(yaml@2.8.2)))(dockerode@4.0.9)(drizzle-orm@0.45.1(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.0)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.6.2)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(hono@4.12.5)(pg@8.20.0)(resend@6.9.3)(stripe@18.5.0(@types/node@25.3.5))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)':
     dependencies:
       '@aws-sdk/client-ses': 3.1015.0
       '@hono/node-server': 1.19.11(hono@4.12.5)
@@ -4582,7 +4582,7 @@ snapshots:
       postmark: 4.0.7
       resend: 6.9.3
       stripe: 18.5.0(@types/node@25.3.5)
-      viem: 2.47.4(typescript@5.9.3)(zod@4.3.6)
+      viem: 2.47.6(typescript@5.9.3)(zod@4.3.6)
       ws: 8.18.3
       yaml: 2.8.2
       zod: 4.3.6
