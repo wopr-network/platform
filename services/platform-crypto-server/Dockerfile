@@ -33,7 +33,7 @@ FROM deps AS build
 
 COPY --from=pruner /app/out/full/ .
 COPY --from=pruner /app/tooling ./tooling
-RUN pnpm --filter @wopr-network/platform-core run build && pnpm --filter @wopr-network/platform-crypto-server run build
+RUN pnpm turbo run build --filter=@wopr-network/platform-crypto-server...
 
 # Create self-contained deployment with all dependencies resolved (no workspace links)
 

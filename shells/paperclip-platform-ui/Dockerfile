@@ -29,7 +29,7 @@ COPY --from=pruner /app/shells/paperclip-platform-ui/.env* ./shells/paperclip-pl
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm --filter @wopr-network/paperclip-platform-ui run build
+RUN pnpm turbo run build --filter=@wopr-network/paperclip-platform-ui...
 
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
