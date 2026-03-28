@@ -198,9 +198,11 @@ if (container.fleet) {
 // ---------------------------------------------------------------------------
 {
   const { initBetterAuth, runAuthMigrations } = await import("@wopr-network/platform-core/auth/better-auth");
+  const productDomain = container.productConfig.product?.domain;
   initBetterAuth({
     pool: container.pool,
     db: container.db,
+    cookieDomain: productDomain ? `.${productDomain}` : undefined,
     onUserCreated: async (userId) => {
       try {
         const { grantSignupCredits } = await import("@wopr-network/platform-core/credits");
