@@ -4,18 +4,14 @@ RUN npm install -g pnpm@10
 
 FROM base AS deps
 WORKDIR /app
-COPY platforms/wopr-platform/package.json ./package.json
+COPY platforms/wopr-platform/docker.package.json ./package.json
 COPY platforms/wopr-platform/docker.pnpm-lock.yaml ./pnpm-lock.yaml
-COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
-RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --frozen-lockfile --ignore-scripts --prod
 
 FROM base AS build
 WORKDIR /app
-COPY platforms/wopr-platform/package.json ./package.json
+COPY platforms/wopr-platform/docker.package.json ./package.json
 COPY platforms/wopr-platform/docker.pnpm-lock.yaml ./pnpm-lock.yaml
-COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
-RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY platforms/wopr-platform/src ./src
 COPY platforms/wopr-platform/tsconfig.json ./tsconfig.json

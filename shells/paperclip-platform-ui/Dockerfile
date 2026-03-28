@@ -9,9 +9,7 @@ RUN corepack enable && corepack prepare pnpm@10 --activate
 # ---------------------------------------------------------------------------
 FROM base AS deps
 WORKDIR /app
-COPY scripts/docker-resolve-workspace.cjs ./scripts/
 COPY shells/paperclip-platform-ui/package.json ./
-RUN node scripts/docker-resolve-workspace.cjs
 RUN pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------

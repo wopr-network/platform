@@ -4,18 +4,14 @@ RUN npm install -g pnpm@10
 
 FROM base AS deps
 WORKDIR /app
-COPY services/platform-crypto-server/package.json ./package.json
+COPY services/platform-crypto-server/docker.package.json ./package.json
 COPY services/platform-crypto-server/docker.pnpm-lock.yaml ./pnpm-lock.yaml
-COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
-RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --frozen-lockfile --ignore-scripts --prod
 
 FROM base AS build
 WORKDIR /app
-COPY services/platform-crypto-server/package.json ./package.json
+COPY services/platform-crypto-server/docker.package.json ./package.json
 COPY services/platform-crypto-server/docker.pnpm-lock.yaml ./pnpm-lock.yaml
-COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
-RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY services/platform-crypto-server/src ./src
 COPY services/platform-crypto-server/tsconfig.json ./tsconfig.json
