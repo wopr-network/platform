@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Turbo prune — create minimal workspace subset
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS pruner
+FROM node:22-bookworm-slim AS pruner
 
 ARG PNPM_VERSION=10.31.0
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
@@ -14,7 +14,7 @@ RUN turbo prune @wopr-network/wopr-platform --docker
 # ---------------------------------------------------------------------------
 # Stage 2: Install dependencies from pruned workspace
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS deps
+FROM node:22-bookworm-slim AS deps
 
 ARG PNPM_VERSION=10.31.0
 
@@ -40,7 +40,7 @@ RUN pnpm --filter @wopr-network/platform-core run build && pnpm --filter @wopr-n
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 # curl for HEALTHCHECK, git for worktree provisioning
 RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/*

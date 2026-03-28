@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Turbo prune — extract only this package + its workspace deps
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS pruner
+FROM node:22-bookworm-slim AS pruner
 ARG PNPM_VERSION=10.31.0
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 RUN npm install -g turbo
@@ -12,7 +12,7 @@ RUN turbo prune @wopr-network/holyship-platform-ui --docker
 # ---------------------------------------------------------------------------
 # Stage 2: Install dependencies from pruned lockfile
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS deps
+FROM node:22-bookworm-slim AS deps
 ARG PNPM_VERSION=10.31.0
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 WORKDIR /app
@@ -48,7 +48,7 @@ RUN pnpm --filter @wopr-network/holyship-platform-ui run build
 # ---------------------------------------------------------------------------
 # Stage 4: Runtime
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS runtime
 
 RUN groupadd holyship && useradd -g holyship -m holyship
 

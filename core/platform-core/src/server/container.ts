@@ -131,7 +131,9 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   if (!bootConfig.pool) {
     const { migrate } = await import("drizzle-orm/node-postgres/migrator");
     const path = await import("node:path");
-    const migrationsFolder = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../drizzle");
+    const { fileURLToPath } = await import("node:url");
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const migrationsFolder = path.resolve(__dirname, "..", "..", "drizzle", "migrations");
     await migrate(db as never, { migrationsFolder });
   }
 

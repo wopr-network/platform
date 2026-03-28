@@ -48,5 +48,3 @@ export * from "./tenancy/index.js";
 
 // tRPC
 export * from "./trpc/index.js";
-// final e2e test
-// lockfile fix build

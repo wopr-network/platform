@@ -230,8 +230,8 @@ export class ProxyManager implements ProxyManagerInterface {
     try {
       await this.reload();
     } catch (err) {
+      logger.warn("Proxy manager failed to connect to Caddy — continuing without proxy management", { err });
       await this.stop();
-      throw err;
     }
   }
 

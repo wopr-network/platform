@@ -379,10 +379,11 @@ describe("ProxyManager", () => {
   });
 
   describe("start rollback on failure", () => {
-    it("calls stop() if reload fails during start()", async () => {
+    it("calls stop() and continues if reload fails during start()", async () => {
       vi.mocked(fetch).mockRejectedValueOnce(new Error("connection refused"));
 
-      await expect(manager.start()).rejects.toThrow("connection refused");
+      // start() should NOT throw — proxy failure is non-fatal
+      await expect(manager.start()).resolves.toBeUndefined();
       expect(manager.isRunning).toBe(false);
     });
   });
