@@ -5,16 +5,18 @@ RUN npm install -g pnpm@10
 FROM base AS deps
 WORKDIR /app
 COPY platforms/paperclip-platform/package.json ./package.json
+COPY platforms/paperclip-platform/docker.pnpm-lock.yaml ./pnpm-lock.yaml
 COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
 RUN node resolve.cjs && rm resolve.cjs
-RUN pnpm install --ignore-scripts --prod
+RUN pnpm install --frozen-lockfile --ignore-scripts --prod
 
 FROM base AS build
 WORKDIR /app
 COPY platforms/paperclip-platform/package.json ./package.json
+COPY platforms/paperclip-platform/docker.pnpm-lock.yaml ./pnpm-lock.yaml
 COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
 RUN node resolve.cjs && rm resolve.cjs
-RUN pnpm install --ignore-scripts
+RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY platforms/paperclip-platform/src ./src
 COPY platforms/paperclip-platform/tsconfig.json ./tsconfig.json
 RUN pnpm run build
