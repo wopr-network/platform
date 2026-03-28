@@ -1,0 +1,89 @@
+name: Upstream Sync — NemoClaw
+
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Sync mode"
+        required: true
+        default: "pr"
+        type: choice
+        options:
+          - pr
+          - push
+          - dry-run
+
+jobs:
+  sync:
+    runs-on: self-hosted
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout (full history for subtree)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local --unset-all credential.helper 2>/dev/null || true
+          git config --global --unset-all credential.helper 2>/dev/null || true
+
+      - name: Add upstream remote
+        run: |
+          git remote get-url nemoclaw-upstream 2>/dev/null || \
+            git remote add nemoclaw-upstream https://github.com/NVIDIA/NemoClaw.git
+          git fetch nemoclaw-upstream
+
+      - name: Install Agent SDK
+        run: |
+          rm -rf "$(npm root -g)/@anthropic-ai/.claude-code-"* "$(npm root -g)/@anthropic-ai/.claude-agent-sdk-"* 2>/dev/null || true
+          npm install -g @anthropic-ai/claude-code || true
+          npm install -g @anthropic-ai/claude-agent-sdk || true
+
+      - name: Write Claude credentials
+        run: |
+          mkdir -p ~/.claude
+          echo '${{ secrets.CLAUDE_CREDENTIALS_JSON }}' > ~/.claude/.credentials.json
+
+      - name: Check for upstream changes
+        id: check
+        run: |
+          # Compare upstream main HEAD against what's in our subtree
+          UPSTREAM_HEAD=$(git rev-parse nemoclaw-upstream/main)
+          echo "upstream_head=$UPSTREAM_HEAD" >> "$GITHUB_OUTPUT"
+          # Check if subtree pull would bring anything new
+          DIFF=$(git diff HEAD -- sidecars/nemoclaw | wc -l)
+          echo "diff_lines=$DIFF" >> "$GITHUB_OUTPUT"
+          echo "Upstream HEAD: $UPSTREAM_HEAD"
+
+      - name: Run upstream sync
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          MODE="${{ github.event.inputs.mode || 'pr' }}"
+          case "$MODE" in
+            push)    FLAG="--push" ;;
+            pr)      FLAG="--pr" ;;
+            dry-run) FLAG="--dry-run" ;;
+          esac
+          node scripts/upstream-sync-nemoclaw.mjs $FLAG
+
+      - name: Upload agent event log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nemoclaw-agent-events
+          path: agent-events.log
+          if-no-files-found: ignore
+          retention-days: 14
