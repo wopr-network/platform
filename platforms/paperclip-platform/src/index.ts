@@ -11,8 +11,13 @@ import { setAuthHelpersDeps } from "./trpc/auth-helpers.js";
 import {
   appRouter,
   setAdminRouterDeps,
+  setBillingRouterDeps,
   setFleetRouterDeps,
+  setOrgRouterDeps,
+  setPageContextRouterDeps,
   setProductConfigRouterDeps,
+  setProfileRouterDeps,
+  setSettingsRouterDeps,
   setTrpcDb,
 } from "./trpc/index.js";
 
@@ -46,6 +51,98 @@ setTrpcOrgMemberRepo(container.orgMemberRepo);
 setProductConfigRouterDeps(container.productConfigService as never, slug);
 setTrpcDb(container.db);
 setAuthHelpersDeps(container.orgMemberRepo);
+
+// ---------------------------------------------------------------------------
+// Wire billing, settings, profile, page-context, and org tRPC router deps
+// (dropped during PRs #47-49 refactor — restored here)
+// ---------------------------------------------------------------------------
+{
+  // --- Billing deps ---
+  if (container.stripe) {
+    const { loadCreditPriceMap } = await import("@wopr-network/platform-core/billing");
+    const { DrizzleMeterAggregator, DrizzleUsageSummaryRepository } = await import(
+      "@wopr-network/platform-core/metering"
+    );
+    const { DrizzleAutoTopupSettingsRepository } = await import("@wopr-network/platform-core/credits");
+    const { DrizzleSpendingLimitsRepository } = await import(
+      "@wopr-network/platform-core/monetization/drizzle-spending-limits-repository"
+    );
+    const { DrizzleDividendRepository } = await import(
+      "@wopr-network/platform-core/monetization/credits/dividend-repository"
+    );
+    const { DrizzleAffiliateRepository } = await import(
+      "@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository"
+    );
+
+    const priceMap = loadCreditPriceMap();
+    const usageSummaryRepo = new DrizzleUsageSummaryRepository(container.db);
+    const meterAggregator = new DrizzleMeterAggregator(usageSummaryRepo);
+    const autoTopupSettingsStore = new DrizzleAutoTopupSettingsRepository(container.db);
+    const spendingLimitsRepo = new DrizzleSpendingLimitsRepository(container.db);
+    const dividendRepo = new DrizzleDividendRepository(container.db);
+    const affiliateRepo = new DrizzleAffiliateRepository(container.db);
+
+    setBillingRouterDeps({
+      processor: container.stripe.processor as never,
+      tenantRepo: container.stripe.customerRepo as never,
+      creditLedger: container.creditLedger,
+      meterAggregator,
+      priceMap,
+      autoTopupSettingsStore,
+      dividendRepo,
+      spendingLimitsRepo,
+      affiliateRepo,
+      productConfig: container.productConfig,
+    });
+
+    // Wire org router with optional billing-related deps
+    const { BetterAuthUserRepository } = await import("@wopr-network/platform-core/db");
+    const authUserRepo = new BetterAuthUserRepository(container.pool);
+    setOrgRouterDeps({
+      orgService: container.orgService,
+      authUserRepo,
+      creditLedger: container.creditLedger,
+      meterAggregator,
+      processor: container.stripe.processor as never,
+      priceMap,
+    });
+
+    logger.info("Billing + org tRPC routers wired (Stripe + all repositories)");
+  } else {
+    // Wire org router without billing deps (Stripe not configured)
+    const { BetterAuthUserRepository } = await import("@wopr-network/platform-core/db");
+    const authUserRepo = new BetterAuthUserRepository(container.pool);
+    setOrgRouterDeps({
+      orgService: container.orgService,
+      authUserRepo,
+      creditLedger: container.creditLedger,
+    });
+    logger.warn("STRIPE_SECRET_KEY not set — billing tRPC procedures will fail until configured");
+  }
+
+  // --- Settings deps ---
+  const { DrizzleNotificationPreferencesStore } = await import("@wopr-network/platform-core/email");
+  const notificationPrefsStore = new DrizzleNotificationPreferencesStore(container.db);
+  setSettingsRouterDeps({
+    getNotificationPrefsStore: () => notificationPrefsStore,
+  });
+
+  // --- Profile deps (delegates to BetterAuth user table via raw SQL) ---
+  const { BetterAuthUserRepository: AuthUserRepo } = await import("@wopr-network/platform-core/db");
+  const profileAuthUserRepo = new AuthUserRepo(container.pool);
+  setProfileRouterDeps({
+    getUser: (userId) => profileAuthUserRepo.getUser(userId),
+    updateUser: (userId, data) => profileAuthUserRepo.updateUser(userId, data),
+    changePassword: (userId, currentPassword, newPassword) =>
+      profileAuthUserRepo.changePassword(userId, currentPassword, newPassword),
+  });
+
+  // --- Page context deps ---
+  const { DrizzlePageContextRepository } = await import("@wopr-network/platform-core/fleet/page-context-repository");
+  setPageContextRouterDeps({ repo: new DrizzlePageContextRepository(container.db) });
+
+  logger.info("tRPC router dependencies initialized (billing, settings, profile, page-context, org)");
+}
 
 if (container.fleet) {
   const { docker, profileStore, proxy, serviceKeyRepo } = container.fleet;
