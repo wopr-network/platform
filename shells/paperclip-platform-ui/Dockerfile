@@ -12,7 +12,7 @@ WORKDIR /app
 COPY scripts/docker-resolve-workspace.cjs ./scripts/
 COPY shells/paperclip-platform-ui/package.json ./
 RUN node scripts/docker-resolve-workspace.cjs
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # ---------------------------------------------------------------------------
 # Stage 3: Build — copy source and run next build
