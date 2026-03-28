@@ -17,6 +17,8 @@ RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --ignore-scripts
 COPY platforms/holyship/src ./src
 COPY platforms/holyship/tsconfig.json ./tsconfig.json
+COPY platforms/holyship/drizzle ./drizzle
+COPY platforms/holyship/gates ./gates
 RUN pnpm run build
 
 FROM base AS production

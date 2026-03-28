@@ -17,6 +17,7 @@ RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --ignore-scripts
 COPY services/platform-crypto-server/src ./src
 COPY services/platform-crypto-server/tsconfig.json ./tsconfig.json
+COPY services/platform-crypto-server/drizzle ./drizzle
 RUN pnpm run build
 
 FROM base AS production

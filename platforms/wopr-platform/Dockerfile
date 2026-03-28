@@ -17,6 +17,8 @@ RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --ignore-scripts
 COPY platforms/wopr-platform/src ./src
 COPY platforms/wopr-platform/tsconfig.json ./tsconfig.json
+COPY platforms/wopr-platform/drizzle ./drizzle
+COPY platforms/wopr-platform/templates ./templates
 RUN pnpm run build
 
 FROM base AS production

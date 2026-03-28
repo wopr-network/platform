@@ -17,6 +17,7 @@ RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --ignore-scripts
 COPY platforms/nemoclaw-platform/src ./src
 COPY platforms/nemoclaw-platform/tsconfig.json ./tsconfig.json
+COPY platforms/nemoclaw-platform/drizzle ./drizzle
 RUN pnpm run build
 
 FROM base AS production
