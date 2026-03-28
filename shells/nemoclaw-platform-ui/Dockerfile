@@ -9,7 +9,8 @@ RUN corepack enable && corepack prepare pnpm@10 --activate
 # ---------------------------------------------------------------------------
 FROM base AS deps
 WORKDIR /app
-COPY shells/nemoclaw-platform-ui/package.json ./
+COPY shells/nemoclaw-platform-ui/docker.package.json ./package.json
+COPY shells/nemoclaw-platform-ui/docker.pnpm-lock.yaml ./pnpm-lock.yaml
 RUN pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
