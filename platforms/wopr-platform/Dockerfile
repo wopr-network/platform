@@ -5,15 +5,15 @@ RUN npm install -g pnpm@10
 FROM base AS deps
 WORKDIR /app
 COPY platforms/wopr-platform/package.json ./package.json
-COPY scripts/docker-resolve-workspace.js ./resolve.js
-RUN node resolve.js && rm resolve.js
+COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
+RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --ignore-scripts --prod
 
 FROM base AS build
 WORKDIR /app
 COPY platforms/wopr-platform/package.json ./package.json
-COPY scripts/docker-resolve-workspace.js ./resolve.js
-RUN node resolve.js && rm resolve.js
+COPY scripts/docker-resolve-workspace.cjs ./resolve.cjs
+RUN node resolve.cjs && rm resolve.cjs
 RUN pnpm install --ignore-scripts
 COPY platforms/wopr-platform/src ./src
 COPY platforms/wopr-platform/tsconfig.json ./tsconfig.json
