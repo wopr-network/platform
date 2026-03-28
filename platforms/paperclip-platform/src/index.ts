@@ -96,6 +96,43 @@ if (container.fleet) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Initialize BetterAuth — must be called before start()
+// ---------------------------------------------------------------------------
+{
+  const { initBetterAuth, runAuthMigrations } = await import("@wopr-network/platform-core/auth/better-auth");
+  initBetterAuth({
+    pool: container.pool,
+    db: container.db,
+    onUserCreated: async (userId) => {
+      try {
+        const { grantSignupCredits } = await import("@wopr-network/platform-core/credits");
+        const granted = await grantSignupCredits(container.creditLedger, userId);
+        if (granted) logger.info(`Granted welcome credits to user ${userId}`);
+      } catch (err) {
+        logger.error("Failed to grant signup credits:", err);
+      }
+      try {
+        if (container.orgService) {
+          const org = await container.orgService.getOrCreatePersonalOrg(userId, "My Workspace");
+          logger.info(`Auto-created org ${org.id} for user ${userId}`);
+        }
+      } catch (err) {
+        logger.error("Failed to auto-create org:", err);
+      }
+    },
+  });
+  await runAuthMigrations();
+  logger.info("better-auth initialized and migrations applied");
+}
+
+// Mount auth routes
+{
+  const { createAuthRoutes } = await import("@wopr-network/platform-core/api/routes/auth");
+  const { getAuth } = await import("@wopr-network/platform-core/auth/better-auth");
+  platform.app.route("/api/auth", createAuthRoutes(getAuth()));
+}
+
 // Mount product-level tRPC router
 platform.app.all("/trpc/*", async (c) => {
   const response = await fetchRequestHandler({
