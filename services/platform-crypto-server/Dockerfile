@@ -1,69 +1,33 @@
-# ---------------------------------------------------------------------------
-# Stage 1: Turbo prune — create minimal workspace subset
-# ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS pruner
+FROM node:22-bookworm-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN npm install -g pnpm@10
 
-ARG PNPM_VERSION=10.31.0
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-RUN npm install -g turbo
-
+FROM base AS deps
 WORKDIR /app
-COPY . .
-RUN turbo prune @wopr-network/platform-crypto-server --docker
+COPY services/platform-crypto-server/package.json ./package.json
+COPY scripts/docker-resolve-workspace.js ./resolve.js
+RUN node resolve.js && rm resolve.js
+RUN pnpm install --ignore-scripts --prod
 
-# ---------------------------------------------------------------------------
-# Stage 2: Install dependencies from pruned workspace
-# ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS deps
-
-ARG PNPM_VERSION=10.31.0
-
-# Build tools for native modules
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-
+FROM base AS build
 WORKDIR /app
-COPY --from=pruner /app/out/json/ .
-RUN pnpm install --frozen-lockfile --shamefully-hoist
+COPY services/platform-crypto-server/package.json ./package.json
+COPY scripts/docker-resolve-workspace.js ./resolve.js
+RUN node resolve.js && rm resolve.js
+RUN pnpm install --ignore-scripts
+COPY services/platform-crypto-server/src ./src
+COPY services/platform-crypto-server/tsconfig.json ./tsconfig.json
+RUN pnpm run build
 
-# ---------------------------------------------------------------------------
-# Stage 3: Build
-# ---------------------------------------------------------------------------
-FROM deps AS build
-
-COPY --from=pruner /app/out/full/ .
-COPY --from=pruner /app/tooling ./tooling
-RUN pnpm turbo run build --filter=@wopr-network/platform-crypto-server...
-
-# Create self-contained deployment with all dependencies resolved (no workspace links)
-
-# ---------------------------------------------------------------------------
-# Stage 4: Runtime
-# ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
-
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-
+FROM base AS production
 WORKDIR /app
-
 COPY --from=deps /app/node_modules ./node_modules
-
-# Compiled output
-COPY --from=build /app/services/platform-crypto-server/dist ./dist
-
-# Migration files for schema versioning
-COPY --from=build /app/services/platform-crypto-server/drizzle/ ./drizzle/
-
-# Package manifest
-COPY --from=build /app/services/platform-crypto-server/package.json ./
-# Drizzle migrations from platform-core (workspace dep)
-COPY --from=pruner /app/core/platform-core/drizzle ./node_modules/@wopr-network/platform-core/drizzle
-
-ENV NODE_ENV=production
-
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/package.json ./
+COPY --from=build /app/drizzle/ ./drizzle/
+ENV NODE_ENV=production PORT=3100
 EXPOSE 3100
-
+USER node
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3100/health || exit 1
-
+  CMD curl -f http://localhost:${PORT}/health || exit 1
 CMD ["node", "dist/entry.js"]

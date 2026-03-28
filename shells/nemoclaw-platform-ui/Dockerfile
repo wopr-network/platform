@@ -1,59 +1,61 @@
 # ---------------------------------------------------------------------------
-# Stage 1: Turbo prune — extract only this package + its workspace deps
+# Stage 1: Base — Node 22 + pnpm
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS pruner
-ARG PNPM_VERSION=10.31.0
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
-RUN npm install -g turbo
-WORKDIR /app
-COPY . .
-RUN turbo prune @wopr-network/nemoclaw-platform-ui --docker
+FROM node:22-bookworm-slim AS base
+RUN corepack enable && corepack prepare pnpm@10 --activate
 
 # ---------------------------------------------------------------------------
-# Stage 2: Install dependencies from pruned lockfile
+# Stage 2: Dependencies — resolve workspace:* and install
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS deps
-ARG PNPM_VERSION=10.31.0
-RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+FROM base AS deps
 WORKDIR /app
-COPY --from=pruner /app/out/json/ .
+COPY scripts/docker-resolve-workspace.js ./scripts/
+COPY shells/nemoclaw-platform-ui/package.json ./
+RUN node scripts/docker-resolve-workspace.js
 RUN pnpm install --frozen-lockfile
 
 # ---------------------------------------------------------------------------
-# Stage 3: Build Next.js
+# Stage 3: Build — copy source and run next build
 # ---------------------------------------------------------------------------
-FROM deps AS build
-COPY --from=pruner /app/out/full/ .
-COPY --from=pruner /app/tooling ./tooling
-COPY --from=pruner /app/shells/nemoclaw-platform-ui/.env* ./shells/nemoclaw-platform-ui/
-# Brand config is loaded from .env.brand at build time
+FROM base AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./
+
+# Copy entire shell directory (app/, components/, lib/, src/, public/, configs, etc.)
+COPY shells/nemoclaw-platform-ui/ ./
+
+# Copy .env files for brand config (separate layer for cache efficiency)
+COPY shells/nemoclaw-platform-ui/.env* ./
+
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN set -a && . ./shells/nemoclaw-platform-ui/.env.brand && set +a && \
-    pnpm turbo run build --filter=@wopr-network/nemoclaw-platform-ui...
+
+# Source .env.brand before build so NEXT_PUBLIC_* vars are available
+RUN set -a && . ./.env.brand && set +a && pnpm run build
 
 # ---------------------------------------------------------------------------
-# Stage 4: Runtime
+# Stage 4: Production — standalone server
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS runtime
+FROM node:22-bookworm-slim AS production
 
 RUN groupadd nemoclaw && useradd -g nemoclaw -m nemoclaw
 
 WORKDIR /app
-ENV NODE_ENV=production
 
-# Standalone output mirrors the monorepo structure under /app
-COPY --from=build /app/shells/nemoclaw-platform-ui/.next/standalone ./
-COPY --from=build /app/shells/nemoclaw-platform-ui/.next/static ./shells/nemoclaw-platform-ui/.next/static
-COPY --from=build /app/shells/nemoclaw-platform-ui/public ./shells/nemoclaw-platform-ui/public
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+# Standalone output is FLAT (server.js at root) — single-package build
+COPY --from=build /app/.next/standalone/ ./
+COPY --from=build /app/.next/static ./.next/static
+COPY --from=build /app/public ./public
 
 USER nemoclaw
 
 EXPOSE 3000
 
-ENV HOSTNAME="0.0.0.0"
-ENV PORT=3000
-
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "shells/nemoclaw-platform-ui/server.js"]
+CMD ["node", "server.js"]
