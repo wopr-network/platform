@@ -1014,4 +1014,9 @@ export const billingRouter = router({
       message: `${totalCredits} credits granted`,
     };
   }),
+
+  // Account status — stub for platform-ui-core compatibility
+  accountStatus: tenantProcedure.query(async () => {
+    return { status: "active", status_reason: null, grace_deadline: null };
+  }),
 });
