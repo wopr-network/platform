@@ -36,7 +36,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 
 RUN groupadd -r holyship && useradd -r -g holyship -m holyship
-RUN mkdir -p /data/fleet && chown -R holyship:holyship /data
+RUN mkdir -p /data/fleet && chown -R holyship:holyship /data \
+    && ln -s /data /app/data
 
 COPY --chown=holyship:holyship --from=build /app/deploy/ .
 

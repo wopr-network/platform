@@ -40,7 +40,8 @@ RUN groupadd -r wopr \
     && useradd -r -g wopr -m wopr \
     && groupadd -f -g "${DOCKER_GID}" dockersock \
     && usermod -aG dockersock wopr
-RUN mkdir -p /data/fleet && chown -R wopr:wopr /data
+RUN mkdir -p /data/fleet && chown -R wopr:wopr /data \
+    && ln -s /data /app/data
 
 COPY --chown=wopr:wopr --from=build /app/deploy/ .
 
