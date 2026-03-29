@@ -11,35 +11,102 @@ Four products on shared infrastructure. Same GPUs, same platform-core, same cred
 | **Holy Ship** | holyship.wtf (canonical), holyship.dev (redirect) | Engineering teams | Guaranteed code shipping — issues in, merged PRs out |
 | **NemoClaw** | nemopod.com | ML/AI teams | One-click NVIDIA NemoClaw deployment with metered inference billing |
 
-## Repositories
+## Monorepo (source of truth)
 
-| Repo | Purpose | Registry Image |
-|------|---------|----------------|
-| **Shared** | | |
-| wopr-network/platform-core | DB schema, auth, billing, fleet, gateway, credits | npm: @wopr-network/platform-core |
-| wopr-network/platform-ui-core | Brand-agnostic Next.js UI components | npm: @wopr-network/platform-ui-core |
-| wopr-network/wopr-ops | This logbook | N/A |
-| **WOPR** | | |
-| wopr-network/wopr-platform | WOPR Hono API — fleet, billing, auth | ghcr.io/wopr-network/wopr-platform |
-| wopr-network/wopr-platform-ui | WOPR dashboard (thin shell on platform-ui-core) | ghcr.io/wopr-network/wopr-platform-ui |
-| wopr-network/wopr | WOPR bot core — one container per tenant | ghcr.io/wopr-network/wopr |
-| **Paperclip** | | |
-| wopr-network/paperclip-platform | Paperclip Hono API — fleet, billing, auth | ghcr.io/wopr-network/paperclip-platform |
-| wopr-network/paperclip-platform-ui | Paperclip dashboard (thin shell on platform-ui-core) | ghcr.io/wopr-network/paperclip-platform-ui |
-| wopr-network/paperclip | Paperclip managed bot — one container per tenant | ghcr.io/wopr-network/paperclip |
-| **Holy Ship** | | |
-| wopr-network/holyship | Flow engine + platform server (holyship-platform) | ghcr.io/wopr-network/holyship |
-| wopr-network/holyship-platform-ui | Holy Ship dashboard (thin shell on platform-ui-core) | ghcr.io/wopr-network/holyship-platform-ui |
-| wopr-network/holyshipper | Ephemeral agent containers — per-discipline worker images | ghcr.io/wopr-network/holyshipper-coder, holyshipper-devops |
-| **NemoClaw** | | |
-| wopr-network/nemoclaw-platform | NemoClaw Hono API — fleet, billing, auth, gateway | ghcr.io/wopr-network/nemoclaw-platform |
-| wopr-network/nemoclaw-platform-ui | NemoClaw dashboard (thin shell on platform-ui-core) | ghcr.io/wopr-network/nemoclaw-platform-ui |
-| wopr-network/nemoclaw | Fork of NVIDIA NemoClaw with WOPR sidecar | ghcr.io/wopr-network/nemoclaw |
+**All products build from `wopr-network/platform`** (consolidated 2026-03-28).
+
+```
+platform/
+  core/
+    platform-core/          # DB schema, auth, billing, fleet, gateway, credits
+    platform-ui-core/       # Brand-agnostic Next.js UI components
+  platforms/
+    wopr-platform/          # WOPR API server
+    paperclip-platform/     # Paperclip API server
+    holyship/               # Holy Ship flow engine + API
+    nemoclaw-platform/      # NemoPod API server
+  shells/
+    wopr-platform-ui/       # WOPR dashboard (thin shell re-exports from core)
+    paperclip-platform-ui/  # Paperclip dashboard
+    holyship-platform-ui/   # Holy Ship dashboard
+    nemoclaw-platform-ui/   # NemoPod dashboard
+  sidecars/
+    paperclip/              # Paperclip managed bot (one container per tenant)
+    nemoclaw/               # NemoPod managed bot
+    holyshipper/            # Holy Ship ephemeral agent workers
+    wopr/                   # WOPR bot core
+  services/
+    provision-client/       # Shared provisioning client
+  ops/                      # This logbook (was wopr-ops)
+  .github/workflows/
+    staging.yml             # Build + deploy all changed products to staging
+    promote.yml             # Retag :staging → :latest, deploy to production
+```
+
+### Standalone repos (npm publishing only — DO NOT edit source here)
+
+| Repo | Purpose |
+|------|---------|
+| wopr-network/platform-core | CI publishes to npm (semantic-release). Source of truth is monorepo `core/platform-core/`. |
+| wopr-network/platform-ui-core | CI publishes to npm. Source of truth is monorepo `core/platform-ui-core/`. |
+
+### Standalone repos (ARCHIVE PENDING — to be archived)
+
+The following repos were consolidated into the monorepo. They should be archived once all references are removed:
+wopr-platform, paperclip-platform, nemoclaw-platform, holyship, wopr-platform-ui, paperclip-platform-ui, nemoclaw-platform-ui, holyship-platform-ui, wopr-ops
+
+### Docker images (all built from monorepo)
+
+| Image | Source | VPS |
+|-------|--------|-----|
+| ghcr.io/wopr-network/wopr-platform | platforms/wopr-platform/Dockerfile | 138.68.30.247 |
+| ghcr.io/wopr-network/wopr-platform-ui | shells/wopr-platform-ui/Dockerfile | 138.68.30.247 |
+| ghcr.io/wopr-network/paperclip-platform | platforms/paperclip-platform/Dockerfile | 68.183.160.201 |
+| ghcr.io/wopr-network/paperclip-platform-ui | shells/paperclip-platform-ui/Dockerfile | 68.183.160.201 |
+| ghcr.io/wopr-network/holyship | platforms/holyship/Dockerfile | 138.68.46.192 |
+| ghcr.io/wopr-network/holyship-platform-ui | shells/holyship-platform-ui/Dockerfile | 138.68.46.192 |
+| ghcr.io/wopr-network/nemoclaw-platform | platforms/nemoclaw-platform/Dockerfile | 167.172.208.149 |
+| ghcr.io/wopr-network/nemoclaw-platform-ui | shells/nemoclaw-platform-ui/Dockerfile | 167.172.208.149 |
+
+## Deployment Pipeline
+
+### How code reaches production
+
+1. Push to `main` → staging.yml detects changed files → builds only affected products
+2. `turbo prune` creates minimal workspace → `pnpm deploy --legacy` bundles workspace deps
+3. Docker image pushed as `:staging` → SSH deploy to VPS → health check
+4. Manual promote: `gh workflow run promote.yml -f product=<name>`
+5. Promote retags `:staging` → `:latest` → SSH pull + restart → health check → auto-rollback on failure
+
+### Change detection
+
+- `core/` changes → ALL 4 products rebuild (core is a workspace dependency)
+- `platforms/<product>/` or `shells/<product>/` changes → only that product rebuilds
+- `ops/` changes → no build triggered
+
+### Dockerfile pattern (turbo prune)
+
+All API Dockerfiles use the same pattern:
+1. `turbo prune @wopr-network/<package> --docker` — extract dependency graph
+2. Auto-discover workspace packages from pruned output (not hardcoded list)
+3. `pnpm install --frozen-lockfile` from pruned lockfile
+4. `pnpm turbo run build --filter=@wopr-network/<package>...` — build in dependency order
+5. `pnpm deploy --filter=@wopr-network/<package> --legacy --prod` — create self-contained bundle
+6. Copy to slim production image
+
+### Key gotchas
+
+- **platform-core is a workspace dep**: Docker builds use the monorepo `core/platform-core/src/`, NOT the npm-published version. Changes to platform-core MUST be committed to the monorepo.
+- **Shell docker.env files**: Brand config (NEXT_PUBLIC_BRAND_*) and NEXT_PUBLIC_API_URL are baked into Next.js at build time via docker.env. Each shell has its own.
+- **NemoPod /app/data symlink**: The Dockerfile creates `ln -s /data /app/data` because the fleet profile store writes to `./data` (relative to WORKDIR /app) but the volume is at `/data`.
+- **Promote health check timeout**: The NemoPod VPS (1vCPU/1GB) is too slow for the default health check. Containers come up healthy after the CI times out. Manual deploy works: pull staging, tag as latest, `docker compose up -d --force-recreate`.
+- **product_billing_config must be seeded**: Gateway won't mount without `margin_config.default` in the DB. Products that were never deployed with platform-core >= 1.75.0 need manual seeding.
+- **Drizzle migrations run at boot**: But `buildContainer` queries the `products` table BEFORE migrations run. New DBs need the products table pre-created or the boot sequence fails.
 
 ## Shared Infrastructure
 
 ```
-platform-core (npm package — v1.50+)
+platform-core (workspace package, also published to npm — v1.75.1+)
     ├── BetterAuth (sessions, signup, login, GitHub OAuth)
     ├── Double-entry credit ledger (journal_entries + journal_lines + account_balances)
     │    ├── Credits are nanodollars, integer math only

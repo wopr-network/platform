@@ -4,9 +4,50 @@
 
 ## Current State
 
-**Status:** PRODUCTION — all 4 products live + DB-driven product config. Chain server: BTC synced, LTC synced, DOGE syncing (~9%, on external volume). Disk 60%.
-**Last Updated:** 2026-03-24
-**Last Operation:** Product config DB migration shipped across all 4 products. Crypto checkout 4-step flow deployed. Paperclip E2E verified.
+**Status:** PRODUCTION — all 4 products deployed from monorepo (wopr-network/platform). Full E2E verified on Paperclip + NemoPod. Billing pipeline working: signup grant → metered gateway → SSE credit debit → double-entry ledger.
+**Last Updated:** 2026-03-29
+**Last Operation:** Monorepo consolidation + all 4 products promoted. NemoPod billing E2E verified (balance drops on chat).
+
+## 2026-03-28/29 — Monorepo Consolidation + Billing Pipeline
+
+### What shipped
+
+**18 repos → 1 monorepo** (`wopr-network/platform`). All 4 products build and deploy from the monorepo via turbo prune.
+
+**platform-core 1.72.3 → 1.75.1** (8 releases in one session):
+- 1.72.3: resolveUser wired to BetterAuth for tenant proxy auth (PR #170)
+- 1.72.4: Profile-based fallback for container URL — survives restarts (PR #171)
+- 1.73.0: Runtime billing cron ($0.17/day/bot) in core lifecycle (PR #172)
+- 1.75.0: Gateway mounted in core mountRoutes — was never published before (PR #175)
+- 1.75.1: SSE streaming credit debit — was metering but not debiting (PR #176)
+
+**Per-product fixes:**
+- Paperclip: Full E2E — login → create instance → subdomain proxy → CEO agent → create issue. All 6 billing UI tabs.
+- NemoPod: Full E2E — signup → login → create instance → chat → AI responds → credits debited. Postmark email. All billing UI tabs. GATEWAY_DEFAULT_MODEL set. product_billing_config seeded (1.3x margin).
+- Holy Ship: Deployed, landing + GitHub OAuth working. products table seeded. promote.yml image name fixed.
+- WOPR: Deployed, promoted. Source synced from standalone.
+
+**Billing pipeline verified (NemoPod):**
+- Signup → $5.00 grant (journal entry: signup_grant)
+- Chat → OpenRouter inference → meter event recorded (cost + 1.3x margin)
+- SSE stream complete → debitCredits fires → journal entry: adapter_usage
+- Balance drops: 5,000,000,000 → 4,999,855,700 nano-dollars
+
+### DB seeding required for new deployments
+
+Holy Ship and NemoPod needed manual DB seeding because Drizzle migrations don't create the products table before `buildContainer` queries it. Required tables:
+```sql
+products, product_nav_items, product_billing_config, product_domains, product_features, product_fleet_config
+```
+Plus fleet_lifecycle and fleet_billing_model enum types.
+
+### Known issues
+- **bot_instances table empty**: Fleet creates YAML profiles, billing cron queries bot_instances DB table. Daily $0.17/bot billing runs but finds 0 bots.
+- **Promote health check timeout on NemoPod**: 1vCPU/1GB VPS too slow. Containers come up healthy after CI times out. Workaround: manual deploy (pull staging, tag latest, docker compose up).
+- **NemoPod disk**: 24GB disk fills up from managed instance images. Needs periodic `docker system prune`.
+- **Holy Ship/WOPR gateway**: Need product_billing_config seeded + staging rebuild to get SSE debit working.
+
+---
 
 ## 2026-03-24 — Product Config DB Migration (all products)
 

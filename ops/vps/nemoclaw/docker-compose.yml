@@ -1,96 +1,61 @@
 services:
   postgres:
     image: postgres:16-alpine
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
     environment:
-      - POSTGRES_USER=nemoclaw
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=nemoclaw_platform
+      POSTGRES_DB: nemoclaw_platform
+      POSTGRES_USER: nemoclaw
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nemoclaw"]
+      test: ["CMD-SHELL", "pg_isready -U nemoclaw -d nemoclaw_platform"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-
-  caddy:
-    build:
-      context: ./caddy
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      nemoclaw-platform:
-        condition: service_healthy
-      nemoclaw-ui:
-        condition: service_healthy
-    environment:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-    restart: unless-stopped
 
   nemoclaw-platform:
     image: ghcr.io/wopr-network/nemoclaw-platform:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - platform_data:/data
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://nemoclaw:${POSTGRES_PASSWORD}@postgres:5432/nemoclaw_platform
+      - PORT=3100
+      - PLATFORM_DOMAIN=nemopod.com
+      - PROVISION_SECRET=${PROVISION_SECRET}
+      - NEMOCLAW_IMAGE=${NEMOCLAW_IMAGE:-ghcr.io/wopr-network/nemoclaw:latest}
+      - NEMOCLAW_CONTAINER_PORT=3100
+      - FLEET_DOCKER_NETWORK=nemoclaw-platform_default
+      - GATEWAY_URL=https://api.nemopod.com/v1
+      - POOL_SIZE_DEFAULT=2
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=https://api.nemopod.com
+      - POSTMARK_API_KEY=${POSTMARK_API_KEY}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@nemopod.com}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - STRIPE_DEFAULT_PRICE_ID=${STRIPE_DEFAULT_PRICE_ID}
-      - STRIPE_CREDIT_PRICE_5=${STRIPE_CREDIT_PRICE_5}
-      - STRIPE_CREDIT_PRICE_10=${STRIPE_CREDIT_PRICE_10}
-      - STRIPE_CREDIT_PRICE_25=${STRIPE_CREDIT_PRICE_25}
-      - STRIPE_CREDIT_PRICE_50=${STRIPE_CREDIT_PRICE_50}
-      - STRIPE_CREDIT_PRICE_100=${STRIPE_CREDIT_PRICE_100}
-      - RESEND_API_KEY=${RESEND_API_KEY}
-      - RESEND_FROM_EMAIL=${RESEND_FROM_EMAIL:-noreply@nemopod.com}
-      - POSTMARK_API_KEY=933c7517-5a0c-429b-99fd-299ee5ad037c
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - EMAIL_FROM=${EMAIL_FROM:-noreply@nemopod.com}
-      - EMAIL_REPLY_TO=${EMAIL_REPLY_TO:-support@nemopod.com}
-      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-.nemopod.com}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=https://api.nemopod.com
-      - UI_ORIGIN=https://nemopod.com,https://app.nemopod.com
-      - PLATFORM_DOMAIN=nemopod.com
-      - FLEET_DATA_DIR=/data/fleet
-      - PLATFORM_SECRET=${PLATFORM_SECRET}
-      - PLATFORM_ENCRYPTION_SECRET=${PLATFORM_ENCRYPTION_SECRET}
-      - PLATFORM_UI_URL=https://app.nemopod.com
-      - NEMOCLAW_IMAGE=${NEMOCLAW_IMAGE:-ghcr.io/wopr-network/nemoclaw:latest}
-      - GATEWAY_URL=https://api.nemopod.com/v1
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - GATEWAY_DEFAULT_MODEL=minimax/minimax-m2.5
-      - PROVISION_SECRET=${PROVISION_SECRET}
-      - REGISTRY_USERNAME=wopr-network
-      - REGISTRY_PASSWORD=${GHCR_TOKEN}
-      - REGISTRY_SERVER=ghcr.io
-      - CRYPTO_SERVICE_URL=http://pay.wopr.bot:3100
-      - NODE_ENV=production
+    volumes:
+      - fleet_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3100/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
       interval: 30s
       timeout: 5s
       retries: 3
-    restart: unless-stopped
 
   nemoclaw-ui:
     image: ghcr.io/wopr-network/nemoclaw-platform-ui:latest
+    restart: unless-stopped
+    depends_on:
+      nemoclaw-platform:
+        condition: service_healthy
     environment:
       - NEXT_PUBLIC_API_URL=https://api.nemopod.com
       - BETTER_AUTH_URL=https://api.nemopod.com
@@ -99,7 +64,21 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  caddy:
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
     restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
   watchtower:
     image: containrrr/watchtower
@@ -113,11 +92,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  pgdata:
+  fleet_data:
   caddy_data:
   caddy_config:
-  platform_data:
-  postgres_data:
-
-networks:
-  default:
-    name: nemoclaw-platform
