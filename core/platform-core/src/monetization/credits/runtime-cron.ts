@@ -4,9 +4,25 @@ import { logger } from "../../config/logger.js";
 import type { IBotInstanceRepository } from "../../fleet/bot-instance-repository.js";
 import { RESOURCE_TIERS } from "../../fleet/resource-tiers.js";
 
+/** Monthly bot cost in dollars. */
+export const MONTHLY_BOT_COST_DOLLARS = 5;
+
 /**
- * Bot runtime cost: $5/bot/month prorated daily.
- * $5.00 / 30 ≈ $0.1667/day, rounded to $0.17.
+ * Compute the daily bot cost for a given date, prorated by the actual
+ * number of days in that month. Uses nano-dollar precision so totals
+ * sum to exactly $5.00/month (no over/under-billing).
+ */
+export function dailyBotCost(date: string): Credit {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  return Credit.fromDollars(MONTHLY_BOT_COST_DOLLARS / daysInMonth);
+}
+
+/**
+ * @deprecated Use dailyBotCost(date) for accurate per-month proration.
+ * Kept for backwards compat in tests.
  */
 export const DAILY_BOT_COST = Credit.fromCents(17);
 
@@ -118,7 +134,8 @@ export async function runRuntimeDeductions(cfg: RuntimeCronConfig): Promise<Runt
         continue;
       }
 
-      const totalCost = DAILY_BOT_COST.multiply(botCount);
+      const dailyCost = dailyBotCost(cfg.date);
+      const totalCost = dailyCost.multiply(botCount);
       let didBillAnything = false;
 
       // Bill runtime debit (skipped if already billed on a previous run)
@@ -126,7 +143,7 @@ export async function runRuntimeDeductions(cfg: RuntimeCronConfig): Promise<Runt
         if (!balance.lessThan(totalCost)) {
           // Full deduction
           await cfg.ledger.debit(tenantId, totalCost, "bot_runtime", {
-            description: `Daily runtime: ${botCount} bot(s) x $${DAILY_BOT_COST.toDollars().toFixed(2)}`,
+            description: `Daily runtime: ${botCount} bot(s) x $${dailyCost.toDollars().toFixed(4)}`,
             referenceId: runtimeRef,
           });
         } else {

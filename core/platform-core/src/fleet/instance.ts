@@ -109,6 +109,27 @@ export class Instance {
     this.emit("bot.created");
   }
 
+  /**
+   * Start billing for this instance ($5/month prorated daily).
+   * Call after creation for persistent, billable instances (e.g., Paperclip).
+   * Ephemeral instances (e.g., Holy Ship) skip this — they bill per-token at the gateway.
+   */
+  async startBilling(): Promise<void> {
+    if (!this.instanceRepo) {
+      logger.warn("startBilling() called but no instanceRepo available", { id: this.id });
+      return;
+    }
+    await this.instanceRepo.setBillingState(this.id, "active");
+    logger.info("Billing started for instance", { id: this.id, name: this.profile.name });
+  }
+
+  /** Stop billing for this instance (e.g., on suspend or downgrade). */
+  async stopBilling(): Promise<void> {
+    if (!this.instanceRepo) return;
+    await this.instanceRepo.setBillingState(this.id, "suspended");
+    logger.info("Billing stopped for instance", { id: this.id, name: this.profile.name });
+  }
+
   async start(): Promise<void> {
     this.assertLocal("start()");
     return this.withLock(async () => {

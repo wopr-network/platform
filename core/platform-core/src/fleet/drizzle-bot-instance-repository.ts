@@ -218,13 +218,26 @@ export class DrizzleBotInstanceRepository implements IBotInstanceRepository {
       .where(eq(botInstances.id, botId));
   }
 
-  async register(botId: string, tenantId: string, name: string): Promise<void> {
+  async register(
+    botId: string,
+    tenantId: string,
+    name: string,
+    billingState: BillingState = "inactive",
+  ): Promise<void> {
     await this.db.insert(botInstances).values({
       id: botId,
       tenantId,
       name,
-      billingState: "active",
+      billingState,
     });
+  }
+
+  async startBilling(botId: string): Promise<void> {
+    await this.db.update(botInstances).set({ billingState: "active" }).where(eq(botInstances.id, botId));
+  }
+
+  async stopBilling(botId: string): Promise<void> {
+    await this.db.update(botInstances).set({ billingState: "inactive" }).where(eq(botInstances.id, botId));
   }
 
   async getStorageTier(botId: string): Promise<string | null> {

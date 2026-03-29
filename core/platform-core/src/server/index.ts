@@ -56,7 +56,7 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
   const container = await buildContainer(config);
   const app = new Hono();
 
-  mountRoutes(
+  await mountRoutes(
     app,
     container,
     {

@@ -51,6 +51,8 @@ export interface StripeServices {
 
 export interface GatewayServices {
   serviceKeyRepo: IServiceKeyRepository;
+  meter: import("../metering/emitter.js").MeterEmitter;
+  budgetChecker: import("../monetization/budget/budget-checker.js").IBudgetChecker;
 }
 
 export interface HotPoolServices {
@@ -178,12 +180,17 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const profileStore: IProfileStore = new ProfileStore(fleetDataDir);
     const proxy: ProxyManagerInterface = new ProxyManager();
     const serviceKeyRepo: IServiceKeyRepository = new DrizzleServiceKeyRepository(db as never);
+    const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
+    const botInstanceRepo = new DrizzleBotInstanceRepository(db as never);
+
     const manager: FleetManager = new FleetManagerClass(
       docker,
       profileStore,
       undefined, // platformDiscovery
       undefined, // networkPolicy
       proxy,
+      undefined, // commandBus
+      botInstanceRepo,
     );
 
     fleet = { manager, docker, proxy, profileStore, serviceKeyRepo };
@@ -234,8 +241,14 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   let gateway: GatewayServices | null = null;
   if (bootConfig.features.gateway) {
     const { DrizzleServiceKeyRepository } = await import("../gateway/service-key-repository.js");
+    const { MeterEmitter } = await import("../metering/emitter.js");
+    const { DrizzleMeterEventRepository } = await import("../metering/meter-event-repository.js");
+    const { DrizzleBudgetChecker } = await import("../monetization/budget/budget-checker.js");
+
     const serviceKeyRepo: IServiceKeyRepository = new DrizzleServiceKeyRepository(db as never);
-    gateway = { serviceKeyRepo };
+    const meter = new MeterEmitter(new DrizzleMeterEventRepository(db as never), { flushIntervalMs: 5_000 });
+    const budgetChecker = new DrizzleBudgetChecker(db as never, { cacheTtlMs: 30_000 });
+    gateway = { serviceKeyRepo, meter, budgetChecker };
   }
 
   // 12. Build the container (hotPool bound after construction)

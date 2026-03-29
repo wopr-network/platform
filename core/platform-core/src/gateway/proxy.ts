@@ -29,7 +29,11 @@ import type { GatewayAuthEnv } from "./service-key-auth.js";
 import { proxySSEStream } from "./streaming.js";
 import type { FetchFn, GatewayConfig, ProviderConfig } from "./types.js";
 
-const DEFAULT_MARGIN = 1.3;
+/**
+ * Fallback only used when resolveMargin is not provided (tests only).
+ * Production MUST provide resolveMargin — mountRoutes enforces this.
+ */
+const TEST_ONLY_MARGIN = 1.3;
 
 /** Max call duration cap: 4 hours = 240 minutes. */
 const MAX_CALL_DURATION_MINUTES = 240;
@@ -96,7 +100,10 @@ export function buildProxyDeps(config: GatewayConfig): ProxyDeps {
     providers: config.providers,
     defaultModel: config.defaultModel,
     resolveDefaultModel: config.resolveDefaultModel,
-    defaultMargin: config.defaultMargin ?? DEFAULT_MARGIN,
+    get defaultMargin() {
+      if (config.resolveMargin) return config.resolveMargin();
+      return config.defaultMargin ?? TEST_ONLY_MARGIN;
+    },
     fetchFn: config.fetchFn ?? fetch,
     arbitrageRouter: config.arbitrageRouter,
     rateLookupFn: config.rateLookupFn,

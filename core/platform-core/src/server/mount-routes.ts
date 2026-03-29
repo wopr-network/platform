@@ -44,12 +44,12 @@ export interface MountConfig {
  *   6. Product-specific route plugins
  *   7. Tenant proxy middleware (catch-all — must be last)
  */
-export function mountRoutes(
+export async function mountRoutes(
   app: Hono,
   container: PlatformContainer,
   config: MountConfig,
   plugins: RoutePlugin[] = [],
-): void {
+): Promise<void> {
   // 1. CORS middleware
   const origins = deriveCorsOrigins(container.productConfig.product, container.productConfig.domains);
   app.use(
@@ -57,7 +57,7 @@ export function mountRoutes(
     cors({
       origin: origins,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization", "X-Request-ID"],
+      allowHeaders: ["Content-Type", "Authorization", "X-Request-ID", "X-Tenant-ID", "X-Session-ID"],
       credentials: true,
     }),
   );
@@ -95,7 +95,44 @@ export function mountRoutes(
     );
   }
 
-  // 6. Product-specific route plugins
+  // 6. Metered inference gateway (when gateway is enabled)
+  if (container.gateway) {
+    // Validate billing config exists in DB — fail hard, no silent defaults
+    const billingConfig = container.productConfig.billing;
+    const marginConfig = billingConfig?.marginConfig as { default?: number } | null;
+    if (!marginConfig?.default) {
+      throw new Error(
+        "Gateway enabled but product_billing_config.margin_config.default is not set. " +
+          "Seed the DB: INSERT INTO product_billing_config (product_id, margin_config) VALUES ('<id>', '{\"default\": 4.0}')",
+      );
+    }
+
+    // Live margin — reads from productConfig per-request (DB-cached with TTL)
+    const initialMargin = marginConfig.default;
+    const resolveMargin = (): number => {
+      const cfg = container.productConfig.billing?.marginConfig as { default?: number } | null;
+      return cfg?.default ?? initialMargin;
+    };
+
+    const { mountGateway } = await import("../gateway/index.js");
+    mountGateway(app, {
+      meter: container.gateway.meter,
+      budgetChecker: container.gateway.budgetChecker,
+      creditLedger: container.creditLedger,
+      resolveMargin,
+      providers: {
+        openrouter: process.env.OPENROUTER_API_KEY
+          ? { apiKey: process.env.OPENROUTER_API_KEY, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
+          : undefined,
+      },
+      resolveServiceKey: async (key: string) => {
+        const tenant = await container.gateway!.serviceKeyRepo.resolve(key);
+        return tenant;
+      },
+    });
+  }
+
+  // 7. Product-specific route plugins
   for (const plugin of plugins) {
     app.route(plugin.path, plugin.handler(container));
   }
@@ -106,7 +143,21 @@ export function mountRoutes(
       "*",
       createTenantProxyMiddleware(container, {
         platformDomain: config.platformDomain,
-        resolveUser: async () => undefined, // Products override via plugin or direct middleware
+        resolveUser: async (req: Request) => {
+          try {
+            const { getAuth } = await import("../auth/better-auth.js");
+            const auth = getAuth();
+            const session = await auth.api.getSession({ headers: req.headers });
+            if (!session?.user) return undefined;
+            return {
+              id: session.user.id,
+              email: session.user.email ?? undefined,
+              name: session.user.name ?? undefined,
+            };
+          } catch {
+            return undefined;
+          }
+        },
       }),
     );
   }

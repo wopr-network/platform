@@ -78,7 +78,7 @@ export interface SelfHostedNodeRegistration extends NodeRegistration {
 // ---------------------------------------------------------------------------
 
 /** Billing lifecycle states for a bot instance. */
-export type BillingState = "active" | "suspended" | "destroyed";
+export type BillingState = "active" | "inactive" | "suspended" | "destroyed";
 
 /** Plain domain object for a bot instance — mirrors `bot_instances` table. */
 export interface BotInstance {

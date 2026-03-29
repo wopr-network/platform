@@ -152,6 +152,16 @@ export class FleetManager {
 
       const instance = await this.buildInstance(profile);
       instance.emitCreated();
+
+      // Register in bot_instances DB table for billing
+      if (this.instanceRepo) {
+        try {
+          await this.instanceRepo.register(id, profile.tenantId, profile.name);
+        } catch (err) {
+          logger.warn("Failed to register bot instance in DB (non-fatal)", { id, err });
+        }
+      }
+
       return instance;
     };
 
@@ -237,6 +247,15 @@ export class FleetManager {
       // Clean up tenant network if no more containers remain
       if (this.networkPolicy) {
         await this.networkPolicy.cleanupAfterRemoval(profile.tenantId);
+      }
+
+      // Remove from bot_instances DB table
+      if (this.instanceRepo) {
+        try {
+          await this.instanceRepo.deleteById(id);
+        } catch (err) {
+          logger.warn("Failed to delete bot instance from DB (non-fatal)", { id, err });
+        }
       }
 
       await this.store.delete(id);

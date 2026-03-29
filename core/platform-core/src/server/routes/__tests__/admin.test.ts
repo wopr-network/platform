@@ -171,7 +171,7 @@ describe("createAdminRouter", () => {
             get: vi.fn(),
             delete: vi.fn(),
           },
-          serviceKeyRepo: {} as never,
+          serviceKeyRepo: {} as never, meter: {} as never, budgetChecker: {} as never,
         },
       });
 
@@ -218,7 +218,7 @@ describe("createAdminRouter", () => {
             get: vi.fn(),
             delete: vi.fn(),
           },
-          serviceKeyRepo: {} as never,
+          serviceKeyRepo: {} as never, meter: {} as never, budgetChecker: {} as never,
         },
       });
 
@@ -274,7 +274,7 @@ describe("createAdminRouter", () => {
       const container = createTestContainer({
         pool: mockPool as never,
         gateway: {
-          serviceKeyRepo: {} as never,
+          serviceKeyRepo: {} as never, meter: {} as never, budgetChecker: {} as never,
         },
       });
 

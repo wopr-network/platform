@@ -115,8 +115,10 @@ export interface GatewayConfig {
   graceBufferCents?: number;
   /** Upstream provider credentials */
   providers: ProviderConfig;
-  /** Default margin multiplier (default: 1.3 = 30%) */
+  /** Static margin (for tests only). Production should use resolveMargin. */
   defaultMargin?: number;
+  /** Live margin resolver — called per-request, reads from DB. Takes priority over defaultMargin. */
+  resolveMargin?: () => number;
   /** Optional arbitrage router for multi-provider cost optimization (WOP-463) */
   arbitrageRouter?: import("../monetization/arbitrage/router.js").ArbitrageRouter;
   /** Injectable fetch for testing */

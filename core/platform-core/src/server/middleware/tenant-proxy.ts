@@ -95,6 +95,7 @@ export function buildUpstreamHeaders(incoming: Headers, user: ProxyUserInfo, ten
   const host = incoming.get("host");
   if (host) headers.set("host", host);
   headers.set("x-platform-user-id", user.id);
+  headers.set("x-paperclip-user-id", user.id); // compat: Paperclip sidecar reads this header
   headers.set("x-platform-tenant", tenantSubdomain);
   if (user.email) headers.set("x-platform-user-email", user.email);
   if (user.name) headers.set("x-platform-user-name", user.name);
@@ -102,15 +103,31 @@ export function buildUpstreamHeaders(incoming: Headers, user: ProxyUserInfo, ten
 }
 
 /**
- * Resolve the upstream container URL for a tenant subdomain from the
- * proxy route table. Returns null if no route exists or is unhealthy.
+ * Resolve the upstream container URL for a tenant subdomain.
+ *
+ * First checks the in-memory proxy route table (populated during
+ * provisioning). Falls back to deriving from the persistent profile
+ * data so that routing survives server restarts without needing
+ * Caddy or in-memory state.
  */
-function resolveContainerUrl(container: PlatformContainer, subdomain: string): string | null {
+function resolveContainerUrl(
+  container: PlatformContainer,
+  subdomain: string,
+  profile: { name: string; env?: Record<string, string> },
+): string | null {
   if (!container.fleet) return null;
+
+  // Fast path: in-memory route table (populated during provisioning)
   const routes = container.fleet.proxy.getRoutes();
   const route = routes.find((r) => r.subdomain === subdomain);
-  if (!route || !route.healthy) return null;
-  return `http://${route.upstreamHost}:${route.upstreamPort}`;
+  if (route?.healthy) {
+    return `http://${route.upstreamHost}:${route.upstreamPort}`;
+  }
+
+  // Fallback: derive from persistent profile data (survives restarts)
+  const containerName = `wopr-${profile.name.replace(/_/g, "-")}`;
+  const port = profile.env?.PORT || "3100";
+  return `http://${containerName}:${port}`;
 }
 
 /**
@@ -161,10 +178,10 @@ export function createTenantProxyMiddleware(
       return c.json({ error: "Forbidden: not a member of this tenant" }, 403);
     }
 
-    // Resolve fleet container URL via proxy route table
-    const upstream = resolveContainerUrl(container, subdomain);
+    // Resolve fleet container URL (route table or profile fallback)
+    const upstream = resolveContainerUrl(container, subdomain, profile);
     if (!upstream) {
-      return c.json({ error: "Tenant not found" }, 404);
+      return c.json({ error: "Container unavailable" }, 503);
     }
 
     const url = new URL(c.req.url);
