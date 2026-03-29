@@ -9,6 +9,7 @@ import { instanceSettingsApi } from "../api/instanceSettings";
 import { issuesApi } from "../api/issues";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
@@ -175,6 +176,7 @@ function CopyableValue({ value, label, mono, className }: { value: string; label
 
 export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProps) {
   const { selectedCompanyId } = useCompany();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;
   const [assigneeOpen, setAssigneeOpen] = useState(false);
@@ -637,28 +639,30 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           {assigneeContent}
         </PropertyPicker>
 
-        <PropertyPicker
-          inline={inline}
-          label="Project"
-          open={projectOpen}
-          onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
-          triggerContent={projectTrigger}
-          triggerClassName="min-w-0 max-w-full"
-          popoverClassName="w-fit min-w-[11rem]"
-          extra={issue.projectId ? (
-            <Link
-              to={projectLink(issue.projectId)!}
-              className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          ) : undefined}
-        >
-          {projectContent}
-        </PropertyPicker>
+        {!isHosted && (
+          <PropertyPicker
+            inline={inline}
+            label="Project"
+            open={projectOpen}
+            onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
+            triggerContent={projectTrigger}
+            triggerClassName="min-w-0 max-w-full"
+            popoverClassName="w-fit min-w-[11rem]"
+            extra={issue.projectId ? (
+              <Link
+                to={projectLink(issue.projectId)!}
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            ) : undefined}
+          >
+            {projectContent}
+          </PropertyPicker>
+        )}
 
-        {currentProjectSupportsExecutionWorkspace && (
+        {!isHosted && currentProjectSupportsExecutionWorkspace && (
           <PropertyRow label="Workspace">
             <div className="w-full space-y-2">
               <select

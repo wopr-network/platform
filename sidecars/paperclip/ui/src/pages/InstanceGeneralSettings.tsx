@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SlidersHorizontal } from "lucide-react";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 
 export function InstanceGeneralSettings() {
+  const { isHosted } = useHostedMode();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
+
+  if (isHosted) return <Navigate to="/" replace />;
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {

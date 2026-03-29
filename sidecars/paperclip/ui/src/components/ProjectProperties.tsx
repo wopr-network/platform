@@ -8,6 +8,7 @@ import { goalsApi } from "../api/goals";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { statusBadge, statusBadgeDefault } from "../lib/status-colors";
 import { Separator } from "@/components/ui/separator";
@@ -217,6 +218,7 @@ function ArchiveDangerZone({
 
 export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSaveState, onArchive, archivePending }: ProjectPropertiesProps) {
   const { selectedCompanyId } = useCompany();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const [goalOpen, setGoalOpen] = useState(false);
   const [executionWorkspaceAdvancedOpen, setExecutionWorkspaceAdvancedOpen] = useState(false);
@@ -596,10 +598,11 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
 
       <Separator className="my-4" />
 
-      <div className="space-y-1 py-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span>Codebase</span>
+      {!isHosted && (
+        <div className="space-y-1 py-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span>Codebase</span>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
@@ -852,7 +855,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
           )}
         </div>
 
-        {isolatedWorkspacesEnabled ? (
+        {!isHosted && isolatedWorkspacesEnabled ? (
           <>
             <Separator className="my-4" />
 
@@ -1103,6 +1106,7 @@ export function ProjectProperties({ project, onUpdate, onFieldUpdate, getFieldSa
         ) : null}
 
       </div>
+      )}
 
       {onArchive && (
         <>

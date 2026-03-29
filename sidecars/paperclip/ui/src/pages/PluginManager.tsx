@@ -5,12 +5,14 @@
  * @see PLUGIN_SPEC.md §9 — Plugin Marketplace / Manager
  */
 import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PluginRecord } from "@paperclipai/shared";
 import { Link } from "@/lib/router";
 import { AlertTriangle, FlaskConical, Plus, Power, Puzzle, Settings, Trash } from "lucide-react";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { pluginsApi } from "@/api/plugins";
 import { queryKeys } from "@/lib/queryKeys";
 import { Button } from "@/components/ui/button";
@@ -61,10 +63,13 @@ function getPluginErrorSummary(plugin: PluginRecord): string {
  * @see doc/plugins/PLUGIN_SPEC.md §3 — Plugin Lifecycle for status semantics.
  */
 export function PluginManager() {
+  const { isHosted } = useHostedMode();
   const { selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
+
+  if (isHosted) return <Navigate to="/" replace />;
 
   const [installPackage, setInstallPackage] = useState("");
   const [installDialogOpen, setInstallDialogOpen] = useState(false);

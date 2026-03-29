@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { Navigate } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CompanyPortabilityCollisionStrategy,
@@ -9,6 +10,7 @@ import type {
 } from "@paperclipai/shared";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useToast } from "../context/ToastContext";
 import { companiesApi } from "../api/companies";
 import { agentsApi } from "../api/agents";
@@ -602,12 +604,15 @@ async function readLocalPackageZip(file: File): Promise<{
 // ── Main page ─────────────────────────────────────────────────────────
 
 export function CompanyImport() {
+  const { isHosted } = useHostedMode();
   const {
     selectedCompanyId,
     selectedCompany,
     setSelectedCompanyId,
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+
+  if (isHosted) return <Navigate to="/" replace />;
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const packageInputRef = useRef<HTMLInputElement | null>(null);

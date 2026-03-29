@@ -2,14 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Clock3, FlaskConical, Puzzle, Settings, SlidersHorizontal } from "lucide-react";
 import { NavLink } from "@/lib/router";
 import { pluginsApi } from "@/api/plugins";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { queryKeys } from "@/lib/queryKeys";
 import { SidebarNavItem } from "./SidebarNavItem";
 
 export function InstanceSidebar() {
+  const { isHosted } = useHostedMode();
   const { data: plugins } = useQuery({
     queryKey: queryKeys.plugins.all,
     queryFn: () => pluginsApi.list(),
   });
+
+  if (isHosted) return null;
 
   return (
     <aside className="w-60 h-full min-h-0 border-r border-border bg-background flex flex-col">
