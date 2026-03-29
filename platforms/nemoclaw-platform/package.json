@@ -6,7 +6,8 @@
     "node": ">=24.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "drizzle"
   ],
   "scripts": {
     "build": "tsc",

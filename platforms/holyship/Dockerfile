@@ -1,33 +1,43 @@
 FROM node:22-bookworm-slim AS base
+ENV CI=true
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl python3 make g++ && rm -rf /var/lib/apt/lists/*
-RUN npm install -g pnpm@10
+RUN npm install -g pnpm@10 turbo@2.8.20
 
+# --- Prune the monorepo to only packages needed by holyship ---
+FROM base AS pruner
+WORKDIR /app
+COPY . .
+RUN turbo prune @wopr-network/holyship --docker \
+    && printf "packages:\n  - core/platform-core\n  - platforms/holyship\n" > out/json/pnpm-workspace.yaml \
+    && cp out/json/pnpm-workspace.yaml out/full/pnpm-workspace.yaml
+
+# --- Install dependencies from the pruned lockfile ---
 FROM base AS deps
 WORKDIR /app
-COPY platforms/holyship/docker.package.json ./package.json
-COPY platforms/holyship/docker.pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile --ignore-scripts --prod
+COPY --from=pruner /app/out/json/ .
+RUN pnpm install --frozen-lockfile
 
+# --- Build all packages in dependency order ---
 FROM base AS build
 WORKDIR /app
-COPY platforms/holyship/docker.package.json ./package.json
-COPY platforms/holyship/docker.pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile --ignore-scripts
-COPY platforms/holyship/src ./src
-COPY platforms/holyship/tsconfig.json ./tsconfig.json
-COPY platforms/holyship/drizzle ./drizzle
-COPY platforms/holyship/gates ./gates
-RUN pnpm run build
+COPY --from=pruner /app/out/full/ .
+COPY --from=deps /app/ .
+RUN pnpm turbo run build --filter=@wopr-network/holyship...
 
-FROM base AS production
+# Create a self-contained deploy directory with production deps only.
+# --legacy is required for pnpm 10 workspaces without inject-workspace-packages.
+RUN pnpm deploy --filter=@wopr-network/holyship --legacy --prod /app/deploy
+
+# --- Production image (no build tools, no source, no dev deps) ---
+FROM node:22-bookworm-slim AS production
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+
 RUN groupadd -r holyship && useradd -r -g holyship -m holyship
 RUN mkdir -p /data/fleet && chown -R holyship:holyship /data
-COPY --chown=holyship:holyship --from=deps /app/node_modules ./node_modules
-COPY --chown=holyship:holyship --from=build /app/dist ./dist
-COPY --chown=holyship:holyship --from=build /app/package.json ./
-COPY --chown=holyship:holyship --from=build /app/drizzle/ ./drizzle/
-COPY --chown=holyship:holyship --from=build /app/gates/ ./gates/
+
+COPY --chown=holyship:holyship --from=build /app/deploy/ .
+
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001
 EXPOSE 3001
 USER holyship
