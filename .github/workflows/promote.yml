@@ -48,7 +48,7 @@ jobs:
               echo "products=wopr" >> "$GITHUB_OUTPUT"
               ;;
             holyship)
-              echo "images=holyship holyship-ui" >> "$GITHUB_OUTPUT"
+              echo "images=holyship holyship-platform-ui" >> "$GITHUB_OUTPUT"
               echo "hosts=138.68.46.192" >> "$GITHUB_OUTPUT"
               echo "products=holyship" >> "$GITHUB_OUTPUT"
               ;;
