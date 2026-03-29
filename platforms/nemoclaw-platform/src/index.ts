@@ -149,9 +149,7 @@ const { container } = platform;
   });
 
   // Page context
-  const { DrizzlePageContextRepository } = await import(
-    "@wopr-network/platform-core/fleet/page-context-repository"
-  );
+  const { DrizzlePageContextRepository } = await import("@wopr-network/platform-core/fleet/page-context-repository");
   setPageContextRouterDeps({ repo: new DrizzlePageContextRepository(container.db) });
 
   logger.info("tRPC router dependencies initialized (billing, settings, profile, page-context, org)");

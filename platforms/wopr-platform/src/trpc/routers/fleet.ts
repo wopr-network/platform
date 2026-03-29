@@ -13,6 +13,7 @@ import type { RoleStore } from "@wopr-network/platform-core/admin";
 import { createStripeClient, createVpsCheckoutSession, loadStripeConfig } from "@wopr-network/platform-core/billing";
 import type { ILedger as CreditLedger } from "@wopr-network/platform-core/credits";
 import { Credit } from "@wopr-network/platform-core/credits";
+import { isEmailVerified } from "@wopr-network/platform-core/email";
 import type { IBotInstanceRepository } from "@wopr-network/platform-core/fleet/bot-instance-repository";
 import { CAPABILITY_ENV_MAP } from "@wopr-network/platform-core/fleet/capability-env-map";
 import type { FleetManager } from "@wopr-network/platform-core/fleet/fleet-manager";
@@ -68,6 +69,7 @@ export interface FleetRouterDeps {
   getImagePoller?: () => ImagePoller | null;
   getUpdater?: () => ContainerUpdater | null;
   getServiceKeyRepo?: () => IServiceKeyRepository | null;
+  getPool?: () => import("pg").Pool;
 }
 
 let _deps: FleetRouterDeps | null = null;
@@ -151,6 +153,18 @@ export const fleetRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { getFleetManager, getCreditLedger } = deps();
       const fleet = getFleetManager();
+
+      // Email verification gate — must verify before creating instances
+      const pool = deps().getPool?.();
+      if (pool) {
+        const verified = await isEmailVerified(pool, ctx.user.id);
+        if (!verified) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Please verify your email address before creating an instance",
+          });
+        }
+      }
 
       // Payment gate (WOP-380): require minimum 17 cents (1 day of bot runtime)
       try {

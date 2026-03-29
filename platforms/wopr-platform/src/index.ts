@@ -1069,6 +1069,7 @@ if (process.env.NODE_ENV !== "test") {
       getImagePoller: () => imagePoller,
       getUpdater: () => updater,
       getServiceKeyRepo: () => getServiceKeyRepo(),
+      getPool: () => getPool(),
     });
     logger.info("tRPC fleet router initialized");
 

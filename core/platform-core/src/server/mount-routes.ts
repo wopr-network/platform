@@ -9,6 +9,7 @@
 
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createVerifyEmailRoutesLazy } from "../api/routes/verify-email.js";
 import { deriveCorsOrigins } from "../product-config/repository-types.js";
 import type { RoutePlugin } from "./boot-config.js";
 import type { PlatformContainer } from "./container.js";
@@ -64,6 +65,16 @@ export async function mountRoutes(
 
   // 2. Health endpoint (always available)
   app.get("/health", (c) => c.json({ ok: true }));
+
+  // 2b. Email verification endpoint (verify link from signup email)
+  app.route(
+    "/api/auth",
+    createVerifyEmailRoutesLazy(
+      () => container.pool,
+      () => container.creditLedger,
+      { uiOrigin: process.env.UI_ORIGIN },
+    ),
+  );
 
   // 3. Crypto webhook (when crypto payments are enabled)
   if (container.crypto) {

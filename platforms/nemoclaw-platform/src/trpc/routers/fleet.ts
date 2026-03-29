@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { logger } from "@wopr-network/platform-core/config/logger";
 import type { ILedger } from "@wopr-network/platform-core/credits";
-import { getUserEmail } from "@wopr-network/platform-core/email";
+import { getUserEmail, isEmailVerified } from "@wopr-network/platform-core/email";
 import type { IProfileStore } from "@wopr-network/platform-core/fleet/profile-store";
 import type { IServiceKeyRepository } from "@wopr-network/platform-core/gateway/service-key-repository";
 import type { ProductConfig } from "@wopr-network/platform-core/product-config";
@@ -150,6 +150,16 @@ export const fleetRouter = router({
     .mutation(async ({ input, ctx }) => {
       const tenant = input.orgId ?? tenantFromCtx(ctx);
       await assertOrgAdminOrOwner(tenant, ctx.user.id);
+
+      // Email verification gate — must verify before creating instances
+      const verified = await isEmailVerified(deps().pool, ctx.user.id);
+      if (!verified) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Please verify your email address before creating an instance",
+        });
+      }
+
       const pc = deps().productConfig;
       const maxInstances = pc.fleet?.maxInstances ?? Number(process.env.MAX_INSTANCES_PER_TENANT ?? 5);
       const containerPort = pc.fleet?.containerPort ?? Number(process.env.CONTAINER_PORT ?? 3100);

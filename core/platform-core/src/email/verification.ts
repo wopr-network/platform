@@ -86,9 +86,11 @@ export async function verifyToken(pool: Pool, token: string): Promise<{ userId: 
  * Check whether a user has verified their email.
  */
 export async function isEmailVerified(pool: Pool, userId: string): Promise<boolean> {
+  // Check BetterAuth's "emailVerified" column (camelCase, the authoritative source).
+  // Our custom email_verified (snake_case) is a secondary column set by the token flow.
   // raw SQL: better-auth manages its own schema outside Drizzle
-  const { rows } = await pool.query(`SELECT email_verified FROM "user" WHERE id = $1`, [userId]);
-  return rows[0]?.email_verified === true;
+  const { rows } = await pool.query(`SELECT "emailVerified" FROM "user" WHERE id = $1`, [userId]);
+  return rows[0]?.emailVerified === true;
 }
 
 /**
