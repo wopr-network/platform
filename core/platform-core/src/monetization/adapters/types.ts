@@ -193,14 +193,11 @@ export interface MeterEvent {
  *                          - A multiplier >= 1.0 (e.g., 1.3 for 30% margin, 2.0 for 2x - default 1.3)
  *                          - A percentage 3-100 (e.g., 20 for 20% markup, 10 for 10% - WOP-357)
  */
+/**
+ * Apply a margin multiplier to a cost.
+ * The multiplier is always a direct multiplier: 4.0 = 4x, 1.3 = 1.3x.
+ * No magic percentage conversion — what you set in the DB is what you get.
+ */
 export function withMargin(cost: Credit, marginMultiplier: number = 1.3): Credit {
-  let multiplier = marginMultiplier;
-
-  // If value is >= 3, treat as percentage (e.g., 20 for 20%, 10 for 10%)
-  // If value is >= 1 but < 3, treat as multiplier (e.g., 1.3 = 30%, 2.0 = 2x)
-  if (marginMultiplier >= 3 && marginMultiplier <= 100) {
-    multiplier = 1 + marginMultiplier / 100;
-  }
-
-  return cost.multiply(multiplier);
+  return cost.multiply(marginMultiplier);
 }
