@@ -114,6 +114,26 @@ export async function mountRoutes(
       return cfg?.default ?? initialMargin;
     };
 
+    // Resolve default model from tenant_model_selection DB
+    let cachedModel: string | null = null;
+    const loadModel = async () => {
+      try {
+        const result = await container.pool.query(
+          "SELECT default_model FROM tenant_model_selection WHERE tenant_id = '__platform__' LIMIT 1",
+        );
+        cachedModel = (result.rows[0]?.default_model as string) ?? null;
+      } catch {
+        // Non-fatal — model resolution will return null
+      }
+    };
+    await loadModel();
+    // Refresh every 60s for runtime changes
+    const modelRefresh = setInterval(() => void loadModel(), 60_000);
+    // Store for cleanup — not critical, process exit clears it
+    void modelRefresh;
+
+    const resolveDefaultModel = (): string | null => cachedModel;
+
     const gw = container.gateway;
     const { mountGateway } = await import("../gateway/index.js");
     mountGateway(app, {
@@ -121,6 +141,7 @@ export async function mountRoutes(
       budgetChecker: gw.budgetChecker,
       creditLedger: container.creditLedger,
       resolveMargin,
+      resolveDefaultModel,
       providers: {
         openrouter: process.env.OPENROUTER_API_KEY
           ? { apiKey: process.env.OPENROUTER_API_KEY, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
