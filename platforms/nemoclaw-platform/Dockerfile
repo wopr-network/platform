@@ -38,7 +38,8 @@ RUN groupadd -r nemoclaw \
     && useradd -r -g nemoclaw -m nemoclaw \
     && groupadd -f -g "${DOCKER_GID}" dockersock \
     && usermod -aG dockersock nemoclaw
-RUN mkdir -p /data/fleet && chown -R nemoclaw:nemoclaw /data
+RUN mkdir -p /data/fleet && chown -R nemoclaw:nemoclaw /data \
+    && ln -s /data /app/data
 
 COPY --chown=nemoclaw:nemoclaw --from=build /app/deploy/ .
 
