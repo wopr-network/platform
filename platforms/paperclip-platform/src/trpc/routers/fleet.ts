@@ -312,6 +312,7 @@ export const fleetRouter = router({
         releaseChannel: "stable",
         updatePolicy: "manual",
       });
+      await createdInstance.startBilling();
       const profile = createdInstance.profile;
 
       // Init volume permissions — chown /data to node (uid 1000) so the
