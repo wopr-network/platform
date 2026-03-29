@@ -1,312 +1,98 @@
-# Deployment Log
+# Deployment Guide
 
-> Append-only. DevOps agent adds an entry after every deploy.
+> All products deploy from the **wopr-network/platform** monorepo.
+> Standalone repos are archived. npm publishing is NOT part of the deploy pipeline.
 
-## Format
+## Deploy Flow
 
-```
-### YYYY-MM-DD HH:MM UTC — <what changed>
-**Repos:** list
-**Images deployed:** ghcr.io/wopr-network/<repo>@sha256:xxx
-**Result:** Success / Failed
-**Rollback needed:** No / Yes — reason
-**Notes:** anything relevant
-```
+### 1. Push to main
 
----
+Push code to the `main` branch of `wopr-network/platform`. The staging workflow
+(`.github/workflows/staging.yml`) automatically detects which products changed
+and builds only the affected Docker images using `turbo prune`.
 
-### 2026-03-17 23:30 UTC — Holy Ship production launch (DigitalOcean SFO2)
+### 2. Staging auto-build
 
-**Repos:** wopr-network/holyship, wopr-network/holyship-platform-ui, wopr-network/platform-core, wopr-network/holyshipper, wopr-network/wopr-ops
-**VPS:** DigitalOcean s-1vcpu-1gb ($6/mo), IP 138.68.46.192, sfo2
-**Images deployed:**
-- `ghcr.io/wopr-network/holyship:latest` (platform-core v1.42.1)
-- `ghcr.io/wopr-network/holyship-platform-ui:latest` (platform-ui-core v1.14.1)
-- `postgres:16-alpine`
-- `caddy:2-alpine` (custom build with caddy-dns/cloudflare for DNS-01 TLS)
+`staging.yml` runs on every push to `main`:
 
-**DNS:** holyship.wtf, api.holyship.wtf, www.holyship.wtf → 138.68.46.192 (Cloudflare proxy OFF, Caddy handles TLS)
-**TLS:** Let's Encrypt via Caddy DNS-01 challenge (Cloudflare API token), valid until 2026-06-15
+1. Detects changed files via `turbo prune` dependency graph
+2. `core/` changes rebuild ALL 4 products (shared dependency)
+3. `platforms/<product>/` or `shells/<product>/` changes rebuild only that product
+4. Images are pushed to GHCR as `:staging`
+5. SSH deploy to VPS, health check
 
-**Result:** Success — all 4 containers healthy, full stack verified
+### 3. Promote to production
 
-**Verified endpoints:**
-- `https://holyship.wtf` → 200 (landing page, "Holy Ship — Guaranteed Code Shipping")
-- `https://holyship.wtf/dashboard` → 200 (auth redirect works)
-- `https://api.holyship.wtf/health` → `{"status":"ok"}`
-- Gateway LLM call → 200 (Claude Haiku via OpenRouter, credits debited correctly)
-- Billing ledger → double-entry balanced (adapter_usage debits verified)
-
-**What shipped this session (17 issues, 15+ PRs):**
-- .holyship/ directory convention (flow.yaml, knowledge.md, ship.log)
-- Implicit learning (agents learn after every flow run)
-- Repo interrogation (prompt + parser + service)
-- Visual flow editor (conversational — frontend + backend)
-- Flow API (GET/POST /flow, /flow/edit, /flow/apply, /design-flow)
-- Platform billing (platform_service tenant, X-Attribute-To attribution, credit bypass)
-- Direct gateway LLM calls (no runner overhead for flow editing)
-- Gap → GitHub issue creation wiring
-- Dashboard repo listing (/api/github/repos)
-- VPS provisioning scripts (vps/holyship/)
-- Qwen3-Coder as test tier model in holyshipper
-
-**Issues found and fixed during deploy:**
-1. GHCR token expired — used `gh auth token` instead
-2. Caddy TLS challenge failed — DNS was pointing to Cloudflare Pages, not VPS. Fixed A records, proxy OFF.
-3. `/tmp/fleet` owned by root → meter WAL EACCES → silent billing failure. Fixed in Dockerfile (PR #242).
-4. Tenant ID mismatch — engine uses `"default"`, manual seed used `"tenant-default"`. Fixed in DB.
-5. No credits seeded — used `grantSignupCredits()` inside container to properly create ledger accounts.
-
-**Rollback needed:** No
-
-**Notes:**
-- Auto-pull cron (`auto-pull.sh`) runs every minute on the VPS, detects new GHCR images, restarts services.
-- Gateway service key: `sk-hs-97eeb...` (in /opt/holyship/.env on VPS, NOT in git).
-- Engineering flow auto-provisions on boot (flow_definitions table, initial_state: spec).
-- First repo onboarded: wopr-network/holyship (meta — Holy Ship shipped itself).
-
----
-
-## Local Dev Sessions
-
-### 2026-03-05 01:20 UTC — DinD local dev environment started (WSL2, Docker Desktop)
-
-**Repos:** wopr-network/wopr-platform-ui (built locally from main + fix/wop-1187-local-image next.config.ts)
-**Images deployed (inner VPS stack):**
-- `ghcr.io/wopr-network/wopr-platform:latest` (pulled from GHCR)
-- `ghcr.io/wopr-network/wopr-platform-ui:local` (built locally sha256:8fdcc03a553d8b3ae7e400eee30bb2690c254c10eb20098c8fa983396b507f56, pushed to GHCR)
-- `postgres:16-alpine`, `caddy:2-alpine`, `containrrr/watchtower:latest` (pulled from Docker Hub)
-
-**Result:** Success — all 5 inner VPS services healthy
-- `wopr-vps-postgres`: healthy
-- `wopr-vps-platform-api`: healthy — `curl http://localhost:3100/health` → `{"status":"ok","service":"wopr-platform","backups":{"staleCount":0,"totalTracked":0}}`
-- `wopr-vps-platform-ui`: healthy
-- `wopr-vps-caddy`: running — `curl -sI http://localhost` → HTTP/1.1 200 OK
-- `wopr-vps-watchtower`: healthy
-
-**Rollback needed:** No
-
-**Issues resolved this session:**
-1. `docker-credential-desktop.exe` not in DinD PATH — worked around with `/tmp/dockercfg` plain-auth config
-2. `platform-ui:local` didn't exist on GHCR — built locally, pushed with `docker push`
-3. `platform-ui` Next.js SSR validation rejects `localhost` in production mode even with `NODE_ENV=development` (Turbopack inlines NODE_ENV at build time) — bypassed with `PLAYWRIGHT_TESTING=true` in compose env
-4. `platform-ui` Dockerfile requires `output: "standalone"` in `next.config.ts` which is only on `fix/wop-1187-local-image` branch — cherry-picked `next.config.ts` for build, restored after
-5. `docker save | docker exec -i` piping fails in Docker Desktop WSL — worked around by pushing to GHCR and pulling from inside container
-
-**Notes:** GPU container not started — nvidia-smi was not in PATH; GPU confirmed absent at time of initial stack start. GPU started in subsequent operation (see entry below).
-
----
-
-### 2026-03-05 01:55 UTC — GPU container started (RTX 3070, CUDA 13.0)
-
-**Repos:** wopr-network/wopr-ops (gpu-seeder.sh)
-**Images deployed (inner GPU stack):**
-- `ghcr.io/ggml-org/llama.cpp:server-cuda` — llama-cpp port 8080
-- `travisvn/chatterbox-tts-api:gpu` — chatterbox port 8081
-- `fedirz/faster-whisper-server:0.6.0-rc.3-cuda` — whisper port 8082
-- `ghcr.io/ggml-org/llama.cpp:server-cuda` — qwen-embeddings port 8083
-
-**GPU:** NVIDIA RTX 3070 8GB, driver 581.08 (Windows), CUDA 13.0, WSL2
-
-**Result:** Success
-- `wopr-gpu-llama-cpp`: healthy — `curl http://localhost:8080/health` → `{"status":"ok"}`
-- `wopr-gpu-chatterbox`: healthy — `curl http://localhost:8081/health` → `OK`
-- `wopr-gpu-whisper`: health: starting (within start_period) — endpoint responding
-- `wopr-gpu-qwen-embeddings`: healthy — `curl http://localhost:8083/health` → `{"status":"ok"}`
-- GPU node seeded: `local-gpu-node-001` at `172.22.0.3`
-- InferenceWatchdog DB: `service_health = {"llama":"ok","qwen":"ok","chatterbox":"ok","whisper":"ok"}`
-
-**Rollback needed:** No
-
-**Notes:** First boot installed Docker + NVIDIA Container Toolkit inside the DinD container (~90s). Large CUDA image layers (1–1.4 GB each) produced containerd layer-lock error spam in logs — normal, resolved on completion. nvidia-smi is at `/usr/lib/wsl/lib/nvidia-smi`, not in PATH. GPU container was already running from prior outer compose up attempt; just needed time to complete pulls.
-
----
-
-## Paperclip Platform
-
-### 2026-03-12 — Paperclip Platform local testing stack committed (not yet tested)
-
-**Repos:** wopr-network/paperclip-platform (commit c0d1a6f on main)
-**Images:** `paperclip-managed:local` (built from ~/paperclip/Dockerfile.managed), `postgres:16-alpine`, `caddy:2-alpine`
-**Result:** Committed + pushed — not yet run end-to-end
-
-**What was added:**
-- `docker-compose.local.yml` — full local stack: Postgres + platform API (port 3200) + dashboard from platform-ui-core (port 3000) + Caddy (port 8080) + seed Paperclip container
-- `caddy/Caddyfile.local` — no-TLS local routing: `app.localhost:8080` → dashboard, `*.localhost:8080` → tenant proxy
-- `.env.local.example` — complete env template (Stripe test keys from ~/wopr-platform/.env, BetterAuth, branding)
-- `src/db/index.ts` + `src/db/migrate.ts` — Postgres pool + platform-core Drizzle migrations
-- `src/index.ts` — rewritten to wire BetterAuth, DrizzleCreditLedger, DrizzleUserRoleRepository, optional Stripe
-- `scripts/local-test.sh` — preflight checks, image build, compose up, health wait, access URLs
-
-**Stripe:** test-mode keys (`sk_test_*`) from `~/wopr-platform/.env`. Stripe SDK initialized when `STRIPE_SECRET_KEY` is set; webhook routes TBD.
-
-**Next steps:**
-1. Copy `.env.local.example` → `.env.local`, fill in Stripe test keys
-2. Build `paperclip-managed:local` image
-3. Run `bash scripts/local-test.sh` end-to-end
-4. Wire Stripe webhook + checkout flow routes
-
----
-
-### 2026-03-22 19:44 UTC — Chain server resized s-2vcpu-4gb → s-4vcpu-8gb (CPU-only, reversible)
-
-**Repos:** wopr-network/wopr-ops
-**VPS:** DigitalOcean chain-server (559531609), IP 167.71.118.221, sfo2
-**Previous size:** s-2vcpu-4gb ($24/mo) — load avg 5.5+ on 2 cores, 0% idle, 2.4GB swap
-**New size:** s-4vcpu-8gb ($48/mo) — CPU/RAM only resize (disk stays 80GB), fully reversible
-
-**Result:** Success — all 5 containers restarted automatically. BTC + LTC both syncing at full speed (~100% + ~93% CPU). No data loss.
-
-**docker-compose.yml committed** to `vps/chain-server/docker-compose.yml` (was only on server).
-
-**Downsize when LTC sync completes:**
-```
-doctl compute droplet-action resize 559531609 --size s-2vcpu-4gb --wait
-doctl compute droplet-action power-on 559531609 --wait
+```bash
+gh workflow run promote.yml -f product=paperclip
+# Options: paperclip | wopr | holyship | nemoclaw | all
 ```
 
-**Rollback needed:** No
+The promote workflow does:
+1. **DB backup** on the target VPS (via `ops/scripts/backup-prod.sh`)
+2. **Retag** `:staging` to `:latest` in GHCR (saves `:latest-previous` for rollback)
+3. **SSH deploy** to VPS: `docker compose pull && docker compose up -d --force-recreate`
+4. **Health check** with retry (API + UI containers)
+5. **Auto-rollback** on failure: restores previous images AND DB from backup
 
----
+### Product → VPS mapping
 
-### 2026-03-19 21:30 UTC — Shared chain server deployed (DigitalOcean SFO2)
+| Product | VPS IP | Deploy dir |
+|---------|--------|-----------|
+| paperclip | 68.183.160.201 | /opt/paperclip-platform |
+| wopr | 138.68.30.247 | /opt/wopr-platform |
+| holyship | 138.68.46.192 | /opt/holyship |
+| nemoclaw | 167.172.208.149 | /opt/nemoclaw-platform |
 
-**Repos:** wopr-network/wopr-ops
-**VPS:** DigitalOcean s-2vcpu-4gb ($24/mo), IP 167.71.118.221, Private IP 10.120.0.5, sfo2
-**Images deployed:**
-- `btcpayserver/bitcoin:30.2` (mainnet, pruned 550MB, custom wrapper entrypoint)
-- `nicolasdorier/nbxplorer:2.6.1`
-- `btcpayserver/btcpayserver:2.3.5`
-- `postgres:16-alpine` (databases: chain, nbxplorer, btcpayserver)
+### Docker images (all built from monorepo)
 
-**DNS:** pay.wopr.bot → 167.71.118.221 (Cloudflare, proxy OFF)
+| Image | Source |
+|-------|--------|
+| ghcr.io/wopr-network/paperclip-platform | platforms/paperclip-platform/Dockerfile |
+| ghcr.io/wopr-network/paperclip-platform-ui | shells/paperclip-platform-ui/Dockerfile |
+| ghcr.io/wopr-network/wopr-platform | platforms/wopr-platform/Dockerfile |
+| ghcr.io/wopr-network/wopr-platform-ui | shells/wopr-platform-ui/Dockerfile |
+| ghcr.io/wopr-network/holyship | platforms/holyship/Dockerfile |
+| ghcr.io/wopr-network/holyship-platform-ui | shells/holyship-platform-ui/Dockerfile |
+| ghcr.io/wopr-network/nemoclaw-platform | platforms/nemoclaw-platform/Dockerfile |
+| ghcr.io/wopr-network/nemoclaw-platform-ui | shells/nemoclaw-platform-ui/Dockerfile |
 
-**Result:** Success — UTXO snapshot (block 910,000, 9GB torrent) loaded via assumeutxo. Tip chain at 92%+, syncing to current. Background IBD validating old history.
+## What changed from the old flow
 
-**Architecture:** Shared chain node serving all 4 products via DO private networking (10.120.0.5:23002). Products point BTCPAY_BASE_URL at private IP.
+- **No standalone repos** in the deploy loop. All source of truth is in the monorepo.
+- **No npm publishing** for deploys. platform-core and platform-ui-core are workspace dependencies resolved at Docker build time via `turbo prune`.
+- **No Watchtower**. CI/CD handles image promotion. Watchtower has been removed from all compose files to prevent standalone repo pushes from overwriting monorepo images.
+- **Change detection** is automatic via turbo's dependency graph, not manual per-repo CI.
 
-**Issues encountered:**
-1. BTCPay UTXO snapshot server (utxo-sets.btcpayserver.org) unreachable — used community torrent instead
-2. BITCOIN_EXTRA_ARGS `\n` not expanding in compose env — BTCPay entrypoint writes literal `\n` to bitcoin.conf. Fixed with custom wrapper entrypoint that writes proper config and execs bitcoind directly.
-3. BTCPay `bitcoin-wallet -mainnet` bug (same as holyship VPS) — wrapper bypasses entrypoint entirely.
+## Manual deploy (escape hatch)
 
-**Next steps:**
-1. Wait for tip chain to fully sync (~31K blocks remaining)
-2. BTCPay admin setup at http://167.71.118.221:23002
-3. Create stores for holyship, wopr, paperclip, nemoclaw
-4. Update each product .env: BTCPAY_BASE_URL=http://10.120.0.5:23002
-5. Resize droplet to s-1vcpu-2gb ($12/mo) after full sync
+If CI is broken, deploy manually from a local machine:
 
-**Rollback needed:** No
+```bash
+# Build the image locally
+docker build -f platforms/paperclip-platform/Dockerfile -t ghcr.io/wopr-network/paperclip-platform:latest .
+docker push ghcr.io/wopr-network/paperclip-platform:latest
 
----
+# Deploy on VPS
+ssh root@68.183.160.201 'cd /opt/paperclip-platform && docker compose pull && docker compose up -d --force-recreate && docker image prune -f'
+```
 
-### 2026-03-23 05:30 UTC — NemoPod dashboard redesign + hot pool + chat persistence
+## Rollback
 
-**Repos:** wopr-network/nemoclaw-platform, wopr-network/nemoclaw-platform-ui, wopr-network/platform-ui-core
-**VPS:** DigitalOcean s-1vcpu-1gb ($6/mo), IP 167.172.208.149
-**Images deployed:**
-- `ghcr.io/wopr-network/nemoclaw-platform:latest` (11 commits: pool manager, claim, chat persistence)
-- `ghcr.io/wopr-network/nemoclaw-platform-ui:latest` (12 commits: tab UI, first-run, chat history)
-- `@wopr-network/platform-ui-core@1.21.0` (pool.claim type stub)
+If a promote fails, the workflow auto-rolls back. For manual rollback:
 
-**Result:** Success — full E2E verified
+```bash
+# Pull the previous image
+docker pull ghcr.io/wopr-network/paperclip-platform:latest-previous
+docker tag ghcr.io/wopr-network/paperclip-platform:latest-previous ghcr.io/wopr-network/paperclip-platform:latest
+docker push ghcr.io/wopr-network/paperclip-platform:latest
 
-**What shipped:**
-- **Hot instance pool**: Pre-warmed Docker containers for instant claim (no 2-min cold start)
-  - `pool_config` table (DB-configurable pool size, default 2)
-  - `pool_instances` table (warm/claimed/dead lifecycle)
-  - Pool manager: 60s replenish cycle, dead cleanup, chown UID 999, HOME=/data
-  - Atomic claim: `FOR UPDATE SKIP LOCKED`, container rename, fleet profile, proxy route
-- **Tab-based chat dashboard**: Replaced card grid with browser-like tab UX
-  - FirstRun: "Name your first NemoClaw" + subdomain preview
-  - ChatTabBar: tabs with health dots (green/gray/red) + [+] add
-  - ChatPanel from platform-ui-core renders full chat per tab
-  - useInstanceChat hook: per-instance SSE connection
-- **Chat persistence**: `chat_messages` table in Postgres
-  - Messages saved on send (user) and completion (assistant)
-  - `GET /api/chat/history?instanceId=xxx` returns paginated history
-  - Frontend loads history from DB on tab switch — survives switches, reloads, restarts
-- **Caddy API proxy**: `/trpc/*` and `/api/*` on `app.nemopod.com` proxied to platform API
-  - Fix for `NEXT_PUBLIC_API_URL` being build-time only in Next.js
-- **3 post-deploy bug fixes:**
-  1. `WOPR_PROVISION_SECRET` env var (sidecar reads different name than pool manager set)
-  2. Removed `ReadonlyRootfs` (openclaw init needs writable rootfs)
-  3. Health check timeout 30s → 90s (OpenClaw gateway takes ~60s to start)
+# Restart on VPS
+ssh root@68.183.160.201 'cd /opt/paperclip-platform && docker compose pull && docker compose up -d --force-recreate'
+```
 
-**Verified endpoints:**
-- `https://app.nemopod.com/instances` → tab UI with chat
-- `https://app.nemopod.com/trpc/fleet.listInstances` → JSON (Caddy proxy working)
-- Instant claim from hot pool → container renamed, provisioned, tab appears
-- Chat message → routed to correct container → response received
-- Tab switch → history loaded from DB → messages persist
-
-**DNS:** nemopod.com, app.nemopod.com, api.nemopod.com, *.nemopod.com → 167.172.208.149
-
-**CI/CD:** GitHub Actions build+push green. Deploy workflow SSH fails (connection refused). Deploy manually: `ssh root@167.172.208.149 'cd /opt/nemoclaw-platform && docker compose pull && docker compose up -d'`
-
-**Rollback needed:** No
-
----
-
-### 2026-03-23 07:30 UTC — NemoPod full UI rebrand + billing + inference routing
-
-**Repos:** wopr-network/nemoclaw-platform, wopr-network/nemoclaw-platform-ui, wopr-network/platform-ui-core
-**VPS:** 167.172.208.149
-
-**What shipped:**
-- **Full UI rebrand**: Indigo (#818cf8) palette replacing terminal green. Custom landing page, auth layout with NemoPod logo, all amber→indigo, CRT effects removed, system-ui font
-- **Brand config**: `.env.brand` + CI build args + `setBrandConfig()` all updated NemoClaw→NemoPod
-- **platform-ui-core v1.22.3**: BrandWordmark reads tagline from config; tRPC switched from httpBatchStreamLink to httpBatchLink (fixes batch corruption)
-- **Chat persistence**: `chat_messages` table, history endpoint, frontend loads on tab switch
-- **Tenant creation on signup**: `onUserCreated` hook calls `getOrCreatePersonalOrg`
-- **Billing working**: Credit balance page loads, $5 signup credits show, Stripe checkout redirects
-- **Caddy API proxy**: `/trpc/*` and `/api/*` on app.nemopod.com proxied to platform
-- **Inference routing**: Chat route now calls platform's metered `/v1` gateway with `deepseek/deepseek-v3.2`. OpenRouter key updated.
-
-**Verified:**
-- Landing, login, signup, billing/credits, Stripe checkout, chat tabs, claim, persistence
-
-**Still blocking:**
-- Inference returns 404 — metered gateway mounted at /v1 but chat route call gets "Not found". Debug: gateway key auth, model ID, or localhost resolution inside container.
-
-**Stripe dashboard (manual):** Account name + product name still say WOPR/NemoClaw — update in Stripe dashboard.
-
-**Rollback needed:** No
-
----
-
-### 2026-03-24 17:00-22:30 UTC — Product Config DB Migration (all 4 products)
-
-**Repos:** platform-core, platform-ui-core, paperclip-platform, wopr-platform, holyship, nemoclaw-platform, paperclip-platform-ui
-**PRs:** ~20 across all repos
-
-**platform-core (v1.59.0→1.63.0):**
-- #138: 6 DB tables, ProductConfigService, tRPC router, seed script
-- #141: Auto-seed on first boot (built-in presets)
-- #142: Package exports entry for product-config
-- #147: getEmailClient from/replyTo overrides
-- #149: Tron keccak-b58check + batch block fetches + journal fix
-
-**platform-ui-core (v1.25.0→1.26.0):**
-- #61: Admin products page + initBrandConfig
-- #62: CryptoCheckout 4-step flow (amount→coin/chain→deposit QR→confirm)
-- #63: Wire CryptoCheckout into billing page (replaces old flat token bar)
-
-**Product backends (platformBoot + email wiring):**
-- paperclip-platform: on main, deployed to 68.183.160.201
-- wopr-platform: #828 merged
-- holyship: #254, #255 merged
-- nemoclaw-platform: #19, #20 merged
-
-**paperclip-platform-ui:** bumped to platform-ui-core 1.26.0, deployed to 68.183.160.201
-
-**Verified E2E on Paperclip production:**
-- Admin products page live at /admin/products (all fields from DB)
-- Instance creation + provisioning works
-- Crypto checkout (BTC) generates address, oracle pricing correct
-- 4-step crypto flow deployed
-
-**Result:** Success
-**Rollback needed:** No
-**Notes:** platformBoot auto-seeds on first deploy — no manual seed scripts needed. Migration 0020 creates 6 product config tables. pnpm upgraded to 10.33.0 on paperclip-platform.
+For DB rollback, restore from the backup created during promote:
+```bash
+ssh root@68.183.160.201 'ls -t /opt/paperclip-platform/backups/*.sql.gz | head -1'
+# Then restore with pg_restore or gunzip | psql
+```

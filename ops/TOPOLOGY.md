@@ -139,15 +139,34 @@ platform-ui-core (npm package)
     └── Each brand is a thin shell (~30 files)
 ```
 
+## Droplets
+
+| Droplet | IP | Size | Purpose |
+|---------|-----|------|---------|
+| paperclip-platform | 68.183.160.201 | 24GB disk | Paperclip platform: API + UI + Caddy + managed instances |
+| wopr-platform | 138.68.30.247 | -- | WOPR platform |
+| holyship | 138.68.46.192 | -- | Holy Ship platform |
+| chain-server | 167.71.118.221 | s-4vcpu-8gb | Crypto chain nodes (BTC/LTC/DOGE/ETH) |
+| nemoclaw-platform-v2 | 167.172.208.149 | s-1vcpu-1gb ($6/mo) | NemoPod |
+
+All deploy from `wopr-network/platform` monorepo.
+
 ## CI/CD Pipeline
 
 ```
-push to main (any repo)
-  → GitHub Actions: lint + test + build (runs-on: self-hosted)
-  → docker build → push ghcr.io/wopr-network/<repo>:latest
-  → SSH to VPS
-  → docker compose pull && docker compose up -d
+push to main (wopr-network/platform monorepo)
+  → .github/workflows/staging.yml
+  → turbo prune detects changed products
+  → Docker build (only affected products)
+  → push ghcr.io/wopr-network/<image>:staging
+  → SSH deploy to VPS → health check
+
+promote to production:
+  gh workflow run promote.yml -f product=<name>
+  → DB backup → retag :staging → :latest → SSH deploy → health check → auto-rollback on failure
 ```
+
+No standalone repo CI in the loop. No npm publishing for deploys. No Watchtower.
 
 ## WOPR Architecture (wopr.bot)
 
@@ -168,7 +187,6 @@ VPS (DigitalOcean — wopr-platform, 138.68.30.247)
        │    ├─ staging.wopr.bot       → staging-ui:3000
        │    ├─ staging.app.wopr.bot   → staging-ui:3000
        │    └─ staging.api.wopr.bot   → staging-api:3100
-       ├─ watchtower (polls GHCR every 60s, auto-restarts on new images)
        ├─ platform-api (ghcr.io/wopr-network/wopr-platform:latest)  (3100)
        │    ├─ Docker socket mounted → spawns tenant containers
        │    ├─ wopr daemon (onboarding) on port 3847
@@ -191,7 +209,7 @@ GPU Node (DigitalOcean — separate droplet)
 
 White-label deployment using platform-core. Same pattern as WOPR but for managed bot hosting.
 
-**DO droplet:** `paperclip-platform`, s-1vcpu-1gb ($6/mo), sfo2, Ubuntu 24.04 LTS, 5GB swap. IP: 68.183.160.201.
+**DO droplet:** `paperclip-platform`, 24GB disk, sfo2, Ubuntu 24.04 LTS, 5GB swap. IP: 68.183.160.201.
 
 ```
 Internet
@@ -409,7 +427,7 @@ Internet
        ├─ app.nemopod.com      → 167.172.208.149
        └─ *.nemopod.com        → 167.172.208.149 (tenant subdomains)
 
-Production VPS (DigitalOcean — 167.172.208.149)
+Production VPS (DigitalOcean — s-1vcpu-1gb, $6/mo, 167.172.208.149)
   └─ docker-compose.yml
        ├─ caddy:2-alpine                (80, 443 — auto-TLS)
        │    ├─ nemopod.com        → marketing / UI

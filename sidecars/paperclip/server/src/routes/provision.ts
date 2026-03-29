@@ -43,6 +43,7 @@ async function ensureGatewayProviderConfig(gatewayUrl: string): Promise<void> {
   const configPath = path.join(GATEWAY_CONFIG_DIR, "opencode.json");
   const config = {
     $schema: "https://opencode.ai/config.json",
+    permission: "allow",
     provider: {
       "paperclip-gateway": {
         npm: "@ai-sdk/openai-compatible",
