@@ -10,7 +10,17 @@ import { setFleetResolverProxy } from "./proxy/fleet-resolver.js";
 import { chatRoutes, setChatRoutesDeps } from "./routes/chat.js";
 import { provisionWebhookRoutes, setProvisionWebhookDeps } from "./routes/provision-webhook.js";
 import { setAuthHelpersDeps } from "./trpc/auth-helpers.js";
-import { appRouter, setFleetRouterDeps, setProductConfigRouterDeps, setTrpcDb } from "./trpc/index.js";
+import {
+  appRouter,
+  setBillingRouterDeps,
+  setFleetRouterDeps,
+  setOrgRouterDeps,
+  setPageContextRouterDeps,
+  setProductConfigRouterDeps,
+  setProfileRouterDeps,
+  setSettingsRouterDeps,
+  setTrpcDb,
+} from "./trpc/index.js";
 
 const slug = process.env.PRODUCT_SLUG ?? "nemoclaw";
 
@@ -33,6 +43,119 @@ const platform = await bootPlatformServer({
 });
 
 const { container } = platform;
+
+// ---------------------------------------------------------------------------
+// Auth — BetterAuth session + cookie domain for subdomain proxy
+// ---------------------------------------------------------------------------
+{
+  const { initBetterAuth, runAuthMigrations } = await import("@wopr-network/platform-core/auth/better-auth");
+  const { createAuthRoutes } = await import("@wopr-network/platform-core/api/routes/auth");
+  const { getAuth } = await import("@wopr-network/platform-core/auth/better-auth");
+  const productDomain = container.productConfig.product?.domain;
+  initBetterAuth({
+    pool: container.pool,
+    db: container.db,
+    cookieDomain: productDomain ? `.${productDomain}` : undefined,
+    onUserCreated: async (userId) => {
+      try {
+        const { grantSignupCredits } = await import("@wopr-network/platform-core/credits");
+        const granted = await grantSignupCredits(container.creditLedger, userId);
+        if (granted) logger.info("Granted signup credits", { userId });
+      } catch (err) {
+        logger.error("Failed to grant signup credits", { userId, error: String(err) });
+      }
+    },
+  });
+  await runAuthMigrations();
+  platform.app.route("/api/auth", createAuthRoutes(getAuth()));
+  logger.info("better-auth initialized and migrations applied");
+}
+
+// ---------------------------------------------------------------------------
+// Billing + org tRPC router deps
+// ---------------------------------------------------------------------------
+{
+  if (container.stripe) {
+    const { loadCreditPriceMap } = await import("@wopr-network/platform-core/billing");
+    const { DrizzleMeterAggregator, DrizzleUsageSummaryRepository } = await import(
+      "@wopr-network/platform-core/metering"
+    );
+    const { DrizzleAutoTopupSettingsRepository } = await import("@wopr-network/platform-core/credits");
+    const { DrizzleSpendingLimitsRepository } = await import(
+      "@wopr-network/platform-core/monetization/drizzle-spending-limits-repository"
+    );
+    const { DrizzleDividendRepository } = await import(
+      "@wopr-network/platform-core/monetization/credits/dividend-repository"
+    );
+    const { DrizzleAffiliateRepository } = await import(
+      "@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository"
+    );
+
+    const priceMap = loadCreditPriceMap();
+    const usageSummaryRepo = new DrizzleUsageSummaryRepository(container.db);
+    const meterAggregator = new DrizzleMeterAggregator(usageSummaryRepo);
+    const autoTopupSettingsStore = new DrizzleAutoTopupSettingsRepository(container.db);
+    const spendingLimitsRepo = new DrizzleSpendingLimitsRepository(container.db);
+    const dividendRepo = new DrizzleDividendRepository(container.db);
+    const affiliateRepo = new DrizzleAffiliateRepository(container.db);
+
+    setBillingRouterDeps({
+      processor: container.stripe.processor as never,
+      tenantRepo: container.stripe.customerRepo as never,
+      creditLedger: container.creditLedger,
+      meterAggregator,
+      priceMap,
+      autoTopupSettingsStore,
+      dividendRepo,
+      spendingLimitsRepo,
+      affiliateRepo,
+    });
+
+    const { BetterAuthUserRepository } = await import("@wopr-network/platform-core/db");
+    const authUserRepo = new BetterAuthUserRepository(container.pool);
+    setOrgRouterDeps({
+      orgService: container.orgService,
+      authUserRepo,
+      creditLedger: container.creditLedger,
+      meterAggregator,
+      processor: container.stripe.processor as never,
+      priceMap,
+    });
+    logger.info("Billing + org tRPC routers wired (Stripe + all repositories)");
+  } else {
+    const { BetterAuthUserRepository } = await import("@wopr-network/platform-core/db");
+    const authUserRepo = new BetterAuthUserRepository(container.pool);
+    setOrgRouterDeps({
+      orgService: container.orgService,
+      authUserRepo,
+      creditLedger: container.creditLedger,
+    });
+    logger.warn("STRIPE_SECRET_KEY not set — billing tRPC procedures will fail until configured");
+  }
+
+  // Settings
+  const { DrizzleNotificationPreferencesStore } = await import("@wopr-network/platform-core/email");
+  const notificationPrefsStore = new DrizzleNotificationPreferencesStore(container.db);
+  setSettingsRouterDeps({ getNotificationPrefsStore: () => notificationPrefsStore });
+
+  // Profile
+  const { BetterAuthUserRepository: AuthUserRepo } = await import("@wopr-network/platform-core/db");
+  const profileAuthUserRepo = new AuthUserRepo(container.pool);
+  setProfileRouterDeps({
+    getUser: (userId) => profileAuthUserRepo.getUser(userId),
+    updateUser: (userId, data) => profileAuthUserRepo.updateUser(userId, data),
+    changePassword: (userId, currentPassword, newPassword) =>
+      profileAuthUserRepo.changePassword(userId, currentPassword, newPassword),
+  });
+
+  // Page context
+  const { DrizzlePageContextRepository } = await import(
+    "@wopr-network/platform-core/fleet/page-context-repository"
+  );
+  setPageContextRouterDeps({ repo: new DrizzlePageContextRepository(container.db) });
+
+  logger.info("tRPC router dependencies initialized (billing, settings, profile, page-context, org)");
+}
 
 // ---------------------------------------------------------------------------
 // Wire all product-level deps from the container
