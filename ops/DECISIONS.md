@@ -654,3 +654,39 @@ VALUES ('paperclip', 'Paperclip', 'Paperclip', 'AI agents that run your business
 **Context:** Sweep script had hardcoded Base mainnet token addresses. Couldn't sweep other chains (Sepolia, future chains).
 
 **Decision:** Script now fetches `/chains` from chain server, filters by `EVM_CHAIN` env var. Adding a new token to the chain server = automatically swept. No code changes.
+
+## 2026-03-28 — Monorepo turbo prune Docker builds
+
+**Context:** Docker builds used `docker.package.json` + `docker.pnpm-lock.yaml` from standalone repos, pulling platform-core from npm. Every core change required a 5-step pipeline: monorepo → standalone sync → npm publish → update lockfiles → rebuild Docker.
+
+**Decision:** All 4 backend Dockerfiles use `turbo prune --docker` to build from the monorepo workspace directly. A scoped `pnpm-workspace.yaml` is generated after prune to prevent glob leaks. turbo pinned at 2.8.20. `pnpm deploy --legacy --prod` creates self-contained runtime images. Deleted all `docker.package.json` + `docker.pnpm-lock.yaml` files (28K lines). Standalone repos are no longer in the deploy loop.
+
+## 2026-03-28 — DB-driven gateway margin (no hardcoded defaults)
+
+**Context:** Gateway margin was hardcoded as `DEFAULT_MARGIN = 1.3` in proxy.ts. Changing margin required a code change + deploy.
+
+**Decision:** Margin read from `product_billing_config.margin_config.default` in the DB. `resolveMargin` getter called per-request for runtime changes without restart. Gateway fails hard if billing config not seeded — no silent fallback to 1.3x. `withMargin()` is a direct multiplier (removed broken percentage conversion logic). Paperclip set to 4x.
+
+## 2026-03-28 — DB-driven model selection
+
+**Context:** Default model was set via `WOPR_PROVIDER=default` env var. Managed instances sent "default" as the model ID to OpenRouter which rejected it.
+
+**Decision:** Default model stored in `tenant_model_selection` DB table (`__platform__` row). Gateway's `resolveDefaultModel` reads from DB on every request (cached, 60s refresh). Gateway ALWAYS overrides client-specified model with the DB value. Set to `moonshotai/kimi-k2.5`.
+
+## 2026-03-28 — instance.startBilling() pattern
+
+**Context:** Fleet manager auto-registered all instances with `billingState: "active"`, billing both persistent (Paperclip) and ephemeral (Holy Ship) instances.
+
+**Decision:** Instances register with `billingState: "inactive"` by default. Products call `instance.startBilling()` explicitly after `fleet.create()` for billable instances. Paperclip, Nemoclaw, WOPR call it. Holy Ship skips it (bills per-token at gateway). Daily cost prorated by actual days in month ($5/daysInMonth using nano-dollar precision).
+
+## 2026-03-28 — Gateway mounted in platform-core, not products
+
+**Context:** Each product had to call `mountGateway()` manually with all the deps. Paperclip didn't mount it at all.
+
+**Decision:** Gateway mounted in core `mountRoutes()` when `container.gateway` is enabled. `MeterEmitter` + `DrizzleBudgetChecker` constructed in core container. Products get the gateway automatically — no manual wiring. `resolveServiceKey` wired to `serviceKeyRepo.resolve()`.
+
+## 2026-03-28 — OpenCode permission bypass for managed instances
+
+**Context:** OpenCode auto-rejected `external_directory` access in managed Paperclip containers, causing CEO agent runs to fail.
+
+**Decision:** Add `"permission": "allow"` to the OpenCode gateway config (`/data/.opencode-gateway/opencode.json`) on managed instances. These are our own containers running our own code — full permission bypass is appropriate. Also set `OPENCODE_DANGEROUSLY_SKIP_PERMISSIONS=true` env var on provisioned containers.
