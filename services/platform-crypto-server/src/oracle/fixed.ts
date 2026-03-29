@@ -13,6 +13,8 @@ export class FixedPriceOracle implements IPriceOracle {
 			BTC: 65_000_000_000, // $65,000 in microdollars
 			DOGE: 94_000, // $0.094 in microdollars
 			LTC: 55_000_000, // $55 in microdollars
+			SOL: 140_000_000, // $140 in microdollars
+			TON: 3_500_000, // $3.50 in microdollars
 			...prices,
 		};
 	}

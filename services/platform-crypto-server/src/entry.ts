@@ -14,6 +14,7 @@ import {
 	evmPlugin,
 	litecoinPlugin,
 	solanaPlugin,
+	tonPlugin,
 	tronPlugin,
 } from "@wopr-network/crypto-plugins";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -82,6 +83,7 @@ async function main(): Promise<void> {
 	registry.register(evmPlugin);
 	registry.register(tronPlugin);
 	registry.register(solanaPlugin);
+	registry.register(tonPlugin);
 	console.log(
 		`[crypto-key-server] Registered ${registry.list().length} chain plugins:`,
 		registry.list().map((p) => p.pluginId),
