@@ -362,7 +362,6 @@ fleetRoutes.post(
 
     try {
       const profile = await fleet.create({ ...parsed.data, nodeId }, resourceLimits);
-      await profile.startBilling();
 
       // Generate a per-instance gateway service key for metered inference.
       // Failures must not block instance creation — the key can be regenerated later.
