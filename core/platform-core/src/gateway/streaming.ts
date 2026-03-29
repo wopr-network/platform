@@ -9,6 +9,7 @@
 import { Credit } from "@wopr-network/platform-core/credits";
 import { logger } from "../config/logger.js";
 import { withMargin } from "../monetization/adapters/types.js";
+import { debitCredits } from "./credit-gate.js";
 import type { ProxyDeps } from "./proxy.js";
 import type { SellRateLookupFn } from "./rate-lookup.js";
 import { DEFAULT_TOKEN_RATES, resolveTokenRates } from "./rate-lookup.js";
@@ -119,6 +120,9 @@ export function proxySSEStream(
         provider,
         timestamp: Date.now(),
       });
+
+      // Debit credits (fire-and-forget, same as non-streaming path)
+      debitCredits(deps, tenant.id, accumulatedCost, deps.defaultMargin, capability, provider);
 
       logger.info("Gateway proxy: SSE stream completed", {
         tenant: tenant.id,

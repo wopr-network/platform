@@ -169,6 +169,8 @@ describe("createTestContainer", () => {
 
     const gateway: GatewayServices = {
       serviceKeyRepo: {} as never,
+      meter: {} as never,
+      budgetChecker: {} as never,
     };
 
     const hotPool: HotPoolServices = {
@@ -189,7 +191,9 @@ describe("createTestContainer", () => {
   });
 
   it("overrides merge without affecting other defaults", () => {
-    const c = createTestContainer({ gateway: { serviceKeyRepo: {} as never } });
+    const c = createTestContainer({
+      gateway: { serviceKeyRepo: {} as never, meter: {} as never, budgetChecker: {} as never },
+    });
 
     // Overridden field
     expect(c.gateway).not.toBeNull();

@@ -114,10 +114,11 @@ export async function mountRoutes(
       return cfg?.default ?? initialMargin;
     };
 
+    const gw = container.gateway;
     const { mountGateway } = await import("../gateway/index.js");
     mountGateway(app, {
-      meter: container.gateway.meter,
-      budgetChecker: container.gateway.budgetChecker,
+      meter: gw.meter,
+      budgetChecker: gw.budgetChecker,
       creditLedger: container.creditLedger,
       resolveMargin,
       providers: {
@@ -126,8 +127,8 @@ export async function mountRoutes(
           : undefined,
       },
       resolveServiceKey: async (key: string) => {
-        const tenant = await container.gateway!.serviceKeyRepo.resolve(key);
-        return tenant;
+        const tenant = await gw.serviceKeyRepo.resolve(key);
+        return tenant ?? null;
       },
     });
   }
