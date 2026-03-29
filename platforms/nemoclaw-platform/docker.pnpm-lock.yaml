@@ -18,8 +18,8 @@ importers:
         specifier: ^11.12.0
         version: 11.13.4(typescript@5.9.3)
       '@wopr-network/platform-core':
-        specifier: ^1.73.0
-        version: 1.73.0(@aws-sdk/client-ses@3.1014.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(drizzle-kit@0.31.10)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.1.0(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(vite@8.0.0(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.4)(tsx@4.21.0)(yaml@2.8.2))))(dockerode@4.0.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(hono@4.12.8)(pg@8.20.0)(resend@6.9.4)(stripe@20.4.1(@types/node@25.5.0))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)
+        specifier: ^1.75.0
+        version: 1.75.0(@aws-sdk/client-ses@3.1014.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(drizzle-kit@0.31.10)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.1.0(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(vite@8.0.0(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.4)(tsx@4.21.0)(yaml@2.8.2))))(dockerode@4.0.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(hono@4.12.8)(pg@8.20.0)(resend@6.9.4)(stripe@20.4.1(@types/node@25.5.0))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)
       '@wopr-network/provision-client':
         specifier: ^1.0.0
         version: 1.0.0(hono@4.12.8)
@@ -1543,8 +1543,14 @@ packages:
     peerDependencies:
       '@wopr-network/platform-crypto-server': '*'
 
-  '@wopr-network/platform-core@1.73.0':
-    resolution: {integrity: sha512-gSl3dKWIwEVHbewIjvo1JQLK0Wbwo4jNgjl4kNYUsM8SQmsKYlABpDhTsiffAN27MkhDzpBsCD34NlzD1r2O9A==}
+  '@wopr-network/crypto-plugins@1.2.0':
+    resolution: {integrity: sha512-M30LCOLg71k2ToJmq8sShb3HIPNafuRJ3fVho7rKbUSJU2BNOqLUcFDdweL2iMoBNy0oEinJsfyk2/mhEeLR7w==}
+    hasBin: true
+    peerDependencies:
+      '@wopr-network/platform-crypto-server': '*'
+
+  '@wopr-network/platform-core@1.75.0':
+    resolution: {integrity: sha512-xo8v2hiPKgZyCW5PWkzy7Hhy8iRkOH42ANGghHqtoN4hK/28wXN3LdQTB6kUFlTL6MmlJ1e2S+un68nZiEWkPw==}
     peerDependencies:
       '@aws-sdk/client-ses': '>=3'
       '@trpc/server': '>=11'
@@ -4398,7 +4404,21 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@wopr-network/platform-core@1.73.0(@aws-sdk/client-ses@3.1014.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(drizzle-kit@0.31.10)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.1.0(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(vite@8.0.0(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.4)(tsx@4.21.0)(yaml@2.8.2))))(dockerode@4.0.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(hono@4.12.8)(pg@8.20.0)(resend@6.9.4)(stripe@20.4.1(@types/node@25.5.0))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)':
+  '@wopr-network/crypto-plugins@1.2.0(@wopr-network/platform-crypto-server@1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6))(typescript@5.9.3)(zod@4.3.6)':
+    dependencies:
+      '@noble/curves': 2.0.1
+      '@noble/hashes': 2.0.1
+      '@scure/bip32': 2.0.1
+      '@scure/bip39': 2.0.1
+      '@wopr-network/platform-crypto-server': 1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6)
+      viem: 2.47.6(typescript@5.9.3)(zod@4.3.6)
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+
+  '@wopr-network/platform-core@1.75.0(@aws-sdk/client-ses@3.1014.0)(@trpc/server@11.13.4(typescript@5.9.3))(@wopr-network/platform-crypto-server@1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6))(better-auth@1.5.5(drizzle-kit@0.31.10)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(mongodb@7.1.0)(pg@8.20.0)(vitest@4.1.0(@opentelemetry/api@1.9.0)(@types/node@25.5.0)(vite@8.0.0(@emnapi/core@1.9.1)(@emnapi/runtime@1.9.1)(@types/node@25.5.0)(esbuild@0.27.4)(tsx@4.21.0)(yaml@2.8.2))))(dockerode@4.0.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0))(hono@4.12.8)(pg@8.20.0)(resend@6.9.4)(stripe@20.4.1(@types/node@25.5.0))(typescript@5.9.3)(ws@8.18.3)(zod@4.3.6)':
     dependencies:
       '@aws-sdk/client-ses': 3.1014.0
       '@hono/node-server': 1.19.11(hono@4.12.8)
@@ -4437,7 +4457,7 @@ snapshots:
       '@noble/hashes': 2.0.1
       '@scure/base': 1.2.6
       '@scure/bip32': 2.0.1
-      '@wopr-network/crypto-plugins': 1.1.1(@wopr-network/platform-crypto-server@1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6))(typescript@5.9.3)(zod@4.3.6)
+      '@wopr-network/crypto-plugins': 1.2.0(@wopr-network/platform-crypto-server@1.1.1(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(typescript@5.9.3)(zod@4.3.6))(typescript@5.9.3)(zod@4.3.6)
       drizzle-orm: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.18.0)(kysely@0.28.12)(pg@8.20.0)
       hono: 4.12.9
       pg: 8.20.0
