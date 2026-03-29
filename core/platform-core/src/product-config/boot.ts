@@ -50,7 +50,7 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     }
 
     // Auto-seed from preset
-    const { navItems, fleet, ...productData } = preset;
+    const { navItems, fleet, marginDefault, defaultModel, ...productData } = preset;
     const product = await repo.upsertProduct(slug, productData);
     await repo.replaceNavItems(
       product.id,
@@ -64,6 +64,14 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     );
     await repo.upsertFleetConfig(product.id, fleet);
     await repo.upsertFeatures(product.id, {});
+    await repo.upsertBillingConfig(product.id, { marginConfig: { default: marginDefault } });
+
+    // Seed default model for gateway
+    await db.execute(
+      `INSERT INTO tenant_model_selection (tenant_id, default_model, updated_at)
+       VALUES ('__platform__', '${defaultModel}', now())
+       ON CONFLICT (tenant_id) DO NOTHING`,
+    );
 
     // Re-fetch to get the complete config
     config = await service.getBySlug(slug);

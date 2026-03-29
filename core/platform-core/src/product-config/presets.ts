@@ -35,6 +35,10 @@ export interface ProductPreset {
   storagePrefix: string;
   navItems: NavItemPreset[];
   fleet: FleetPreset;
+  /** Margin multiplier for billing (e.g. 4 = 4x cost). */
+  marginDefault: number;
+  /** Default LLM model for the gateway (e.g. "moonshotai/kimi-k2.5"). */
+  defaultModel: string;
 }
 
 export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
@@ -54,6 +58,8 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     fromEmail: "noreply@wopr.bot",
     homePath: "/marketplace",
     storagePrefix: "wopr",
+    marginDefault: 4,
+    defaultModel: "moonshotai/kimi-k2.5",
     navItems: [
       { label: "Dashboard", href: "/dashboard", sortOrder: 0 },
       { label: "Chat", href: "/chat", sortOrder: 1 },
@@ -92,6 +98,8 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     fromEmail: "noreply@runpaperclip.com",
     homePath: "/instances",
     storagePrefix: "paperclip",
+    marginDefault: 4,
+    defaultModel: "moonshotai/kimi-k2.5",
     navItems: [
       { label: "Instances", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },
@@ -121,6 +129,8 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     fromEmail: "noreply@holyship.wtf",
     homePath: "/dashboard",
     storagePrefix: "holyship",
+    marginDefault: 4,
+    defaultModel: "moonshotai/kimi-k2.5",
     navItems: [
       { label: "Dashboard", href: "/dashboard", sortOrder: 0 },
       { label: "Ship", href: "/ship", sortOrder: 1 },
@@ -153,6 +163,8 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     fromEmail: "noreply@nemopod.com",
     homePath: "/instances",
     storagePrefix: "nemopod",
+    marginDefault: 4,
+    defaultModel: "moonshotai/kimi-k2.5",
     navItems: [
       { label: "NemoClaws", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },
