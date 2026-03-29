@@ -8,8 +8,10 @@ FROM base AS pruner
 WORKDIR /app
 COPY . .
 RUN turbo prune @wopr-network/nemoclaw-platform --docker \
-    && printf "packages:\n  - core/platform-core\n  - platforms/nemoclaw-platform\n" > out/json/pnpm-workspace.yaml \
-    && cp out/json/pnpm-workspace.yaml out/full/pnpm-workspace.yaml
+    && cd out/json \
+    && printf "packages:\n" > pnpm-workspace.yaml \
+    && find . -mindepth 2 -name "package.json" -exec dirname {} \; | sed 's|^./||' | sort | awk '{print "  - "$0}' >> pnpm-workspace.yaml \
+    && cp pnpm-workspace.yaml ../full/pnpm-workspace.yaml
 
 # --- Install dependencies from the pruned lockfile ---
 FROM base AS deps
