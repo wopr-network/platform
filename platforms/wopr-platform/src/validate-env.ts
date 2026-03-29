@@ -8,37 +8,41 @@ import { logger } from "@wopr-network/platform-core/config/logger";
  */
 export function validateRequiredEnvVars(): void {
   if (process.env.NODE_ENV === "test") return;
+  // When Vault is configured, secrets are injected at runtime — skip env checks for them
+  const vaultMode = !!process.env.VAULT_ADDR;
 
   const errors: string[] = [];
   const warnings: string[] = [];
 
   // --- Critical (server won't function without these) ---
 
-  const platformSecret = process.env.PLATFORM_SECRET;
-  if (!platformSecret) {
-    errors.push("PLATFORM_SECRET is required but not set");
-  } else if (platformSecret.length < 32) {
-    errors.push("PLATFORM_SECRET must be at least 32 characters");
+  if (!vaultMode) {
+    const platformSecret = process.env.PLATFORM_SECRET;
+    if (!platformSecret) {
+      errors.push("PLATFORM_SECRET is required but not set");
+    } else if (platformSecret.length < 32) {
+      errors.push("PLATFORM_SECRET must be at least 32 characters");
+    }
+
+    if (!process.env.DATABASE_URL) {
+      errors.push("DATABASE_URL is required but not set");
+    }
+
+    const betterAuthSecret = process.env.BETTER_AUTH_SECRET;
+    if (!betterAuthSecret) {
+      errors.push("BETTER_AUTH_SECRET is required but not set");
+    } else if (betterAuthSecret.length < 32) {
+      errors.push("BETTER_AUTH_SECRET must be at least 32 characters");
+    }
+
+    const encSecret = (process.env.PLATFORM_ENCRYPTION_SECRET ?? "").trim();
+    if (!encSecret || encSecret === "REPLACE_ME" || encSecret.length < 32) {
+      errors.push("PLATFORM_ENCRYPTION_SECRET must be set to a real secret of at least 32 characters");
+    }
   }
 
-  if (!process.env.DATABASE_URL) {
-    errors.push("DATABASE_URL is required but not set");
-  }
-
-  const betterAuthSecret = process.env.BETTER_AUTH_SECRET;
-  if (!betterAuthSecret) {
-    errors.push("BETTER_AUTH_SECRET is required but not set");
-  } else if (betterAuthSecret.length < 32) {
-    errors.push("BETTER_AUTH_SECRET must be at least 32 characters");
-  }
-
-  if (!process.env.BETTER_AUTH_URL) {
+  if (!process.env.BETTER_AUTH_URL && !vaultMode) {
     errors.push("BETTER_AUTH_URL is required but not set (default: http://localhost:3100)");
-  }
-
-  const encSecret = (process.env.PLATFORM_ENCRYPTION_SECRET ?? "").trim();
-  if (!encSecret || encSecret === "REPLACE_ME" || encSecret.length < 32) {
-    errors.push("PLATFORM_ENCRYPTION_SECRET must be set to a real secret of at least 32 characters");
   }
 
   // --- Recommended (billing will break without these) ---
@@ -58,60 +62,17 @@ export function validateRequiredEnvVars(): void {
     );
   }
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    warnings.push("STRIPE_SECRET_KEY is not set — Stripe payments will fail at runtime");
-  }
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    warnings.push("STRIPE_WEBHOOK_SECRET is not set — Stripe webhook verification will fail");
-  }
-
-  // --- Recommended (URLs will fall back to wopr.bot defaults) ---
-
-  if (!process.env.PLATFORM_UI_URL && !process.env.APP_BASE_URL) {
-    warnings.push(
-      "PLATFORM_UI_URL is not set — falling back to https://app.wopr.bot. " + "Set this for custom domains.",
-    );
-  }
-
-  if (!process.env.PLATFORM_URL) {
-    warnings.push("PLATFORM_URL is not set — falling back to https://api.wopr.bot. " + "Set this for custom domains.");
-  }
-
-  if (!process.env.PLATFORM_DOMAIN) {
-    warnings.push("PLATFORM_DOMAIN is not set — falling back to wopr.bot. " + "Set this for custom domains.");
-  }
-
-  // --- COOKIE_DOMAIN: must start with '.' and be a valid domain ---
-
-  const cookieDomain = process.env.COOKIE_DOMAIN;
-  if (cookieDomain !== undefined && cookieDomain !== "") {
-    const leadingDotDomainRe = /^\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$/;
-    if (!cookieDomain.startsWith(".")) {
-      errors.push(`COOKIE_DOMAIN must start with a leading '.' for cross-subdomain cookies (got: "${cookieDomain}")`);
-    } else if (!leadingDotDomainRe.test(cookieDomain)) {
-      errors.push(`COOKIE_DOMAIN is not a valid domain (got: "${cookieDomain}")`);
+  // When Vault is active, all secrets/config come from Vault — skip env warnings
+  if (!vaultMode) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      warnings.push("STRIPE_SECRET_KEY is not set — Stripe payments will fail at runtime");
     }
-  } else {
-    warnings.push("COOKIE_DOMAIN is not set — falling back to .wopr.bot. Set this for custom domains.");
-  }
-
-  // --- POSTMARK_API_KEY: optional but required for transactional email ---
-
-  const postmarkApiKey = (process.env.POSTMARK_API_KEY ?? "").trim();
-  if (!postmarkApiKey || postmarkApiKey === "REPLACE_ME") {
-    warnings.push(
-      "POSTMARK_API_KEY is not set — transactional emails (billing notices, etc.) will fail silently. " +
-        "Set this to enable Postmark email delivery.",
-    );
-  }
-
-  // --- OPENROUTER_API_KEY: optional but required for hosted inference ---
-
-  if (!process.env.OPENROUTER_API_KEY) {
-    warnings.push(
-      "OPENROUTER_API_KEY is not set — hosted OpenRouter inference will be disabled. " +
-        "Set this to enable the hosted LLM inference gateway.",
-    );
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      warnings.push("STRIPE_WEBHOOK_SECRET is not set — Stripe webhook verification will fail");
+    }
+    if (!process.env.OPENROUTER_API_KEY) {
+      warnings.push("OPENROUTER_API_KEY is not set — hosted OpenRouter inference will be disabled");
+    }
   }
 
   // --- Emit ---

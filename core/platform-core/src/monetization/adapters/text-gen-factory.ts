@@ -112,18 +112,3 @@ export function createTextGenAdapters(config: TextGenFactoryConfig): TextGenFact
  *
  * Accepts optional per-adapter overrides for pricing, base URL, etc.
  */
-export function createTextGenAdaptersFromEnv(
-  overrides?: Omit<
-    TextGenFactoryConfig,
-    "deepseekApiKey" | "geminiApiKey" | "minimaxApiKey" | "kimiApiKey" | "openrouterApiKey"
-  >,
-): TextGenFactoryResult {
-  return createTextGenAdapters({
-    deepseekApiKey: process.env.DEEPSEEK_API_KEY,
-    geminiApiKey: process.env.GEMINI_API_KEY,
-    minimaxApiKey: process.env.MINIMAX_API_KEY,
-    kimiApiKey: process.env.KIMI_API_KEY,
-    openrouterApiKey: process.env.OPENROUTER_API_KEY,
-    ...overrides,
-  });
-}

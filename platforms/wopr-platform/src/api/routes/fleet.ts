@@ -1090,7 +1090,8 @@ fleetRoutes.post("/bots/:id/upgrade-to-vps", writeAuth, async (c) => {
   const { createVpsCheckoutSession } = await import("@wopr-network/platform-core/billing");
   const { createStripeClient, loadStripeConfig } = await import("@wopr-network/platform-core/billing");
 
-  const stripeConfig = loadStripeConfig();
+  const { getSecrets } = await import("../../fleet/services.js");
+  const stripeConfig = loadStripeConfig(getSecrets());
   if (!stripeConfig) {
     return c.json({ error: "Stripe not configured" }, 503);
   }

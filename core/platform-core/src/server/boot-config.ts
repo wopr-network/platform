@@ -6,6 +6,7 @@
  */
 
 import type { Hono } from "hono";
+import type { PlatformSecrets } from "../config/secrets.js";
 import type { PlatformContainer } from "./container.js";
 
 // ---------------------------------------------------------------------------
@@ -37,7 +38,16 @@ export interface BootConfig {
   /** Short product identifier (e.g. "paperclip", "wopr", "holyship"). */
   slug: string;
 
-  /** PostgreSQL connection string. Required unless `pool` is provided. */
+  /**
+   * Secrets resolved from Vault (production) or env fallback (local dev).
+   * Call resolveSecrets(slug) before constructing BootConfig.
+   */
+  secrets: PlatformSecrets;
+
+  /**
+   * PostgreSQL connection string. Built from secrets.dbPassword + infra.
+   * In local dev, pass DATABASE_URL directly.
+   */
   databaseUrl: string;
 
   /**
@@ -63,17 +73,21 @@ export interface BootConfig {
   /** Additional Hono sub-apps mounted after core routes. */
   routes?: RoutePlugin[];
 
-  /** Required when features.stripe is true. */
+  // ---- Deprecated: use secrets instead ----
+  // These remain for backward compat during migration. Once all products
+  // pass secrets, these will be removed.
+
+  /** @deprecated Use secrets.stripeSecretKey */
   stripeSecretKey?: string;
 
-  /** Required when features.stripe is true. */
+  /** @deprecated Use secrets.stripeWebhookSecret */
   stripeWebhookSecret?: string;
 
-  /** Service key for the crypto chain server webhook endpoint. */
+  /** @deprecated Use secrets.cryptoServiceKey */
   cryptoServiceKey?: string;
 
-  /** Shared secret used to authenticate provision requests. */
-  provisionSecret: string;
+  /** @deprecated Use secrets.provisionSecret */
+  provisionSecret?: string;
 }
 
 // ---------------------------------------------------------------------------

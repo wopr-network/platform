@@ -140,54 +140,53 @@ async function fetchGitHubPrimaryEmail(accessToken: string): Promise<string | nu
   }
 }
 
-/** Resolve OAuth providers from config or env vars. */
+/** Resolve OAuth providers from config. No env var fallback — pass providers explicitly. */
 function resolveSocialProviders(cfg: BetterAuthConfig): BetterAuthOptions["socialProviders"] {
-  if (cfg.socialProviders) return cfg.socialProviders;
-  return {
-    ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
-      ? {
-          github: {
-            clientId: process.env.GITHUB_CLIENT_ID,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET,
-            getUserInfo: async (token) => {
-              const accessToken = token.accessToken;
-              if (!accessToken) return null;
-              const res = await fetch("https://api.github.com/user", {
-                headers: { Authorization: `Bearer ${accessToken}` },
-              });
-              if (!res.ok) return null;
-              const profile = (await res.json()) as Record<string, unknown>;
-              let email = profile.email as string | null;
-              if (!email) {
-                email = await fetchGitHubPrimaryEmail(accessToken);
-              }
-              if (!email) return null;
-              return {
-                user: {
-                  id: String(profile.id),
-                  name: (profile.name as string) || (profile.login as string),
-                  email,
-                  image: profile.avatar_url as string,
-                  emailVerified: true,
-                },
-                data: profile,
-              };
-            },
-          },
+  if (!cfg.socialProviders) return {};
+  const providers: BetterAuthOptions["socialProviders"] = {};
+  if (cfg.socialProviders.github) {
+    const gh = cfg.socialProviders.github;
+    providers.github = {
+      clientId: gh.clientId,
+      clientSecret: gh.clientSecret,
+      getUserInfo: async (token) => {
+        const accessToken = token.accessToken;
+        if (!accessToken) return null;
+        const res = await fetch("https://api.github.com/user", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) return null;
+        const profile = (await res.json()) as Record<string, unknown>;
+        let email = profile.email as string | null;
+        if (!email) {
+          email = await fetchGitHubPrimaryEmail(accessToken);
         }
-      : {}),
-    ...(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET
-      ? { discord: { clientId: process.env.DISCORD_CLIENT_ID, clientSecret: process.env.DISCORD_CLIENT_SECRET } }
-      : {}),
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-      ? { google: { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET } }
-      : {}),
-  };
+        if (!email) return null;
+        return {
+          user: {
+            id: String(profile.id),
+            name: (profile.name as string) || (profile.login as string),
+            email,
+            image: profile.avatar_url as string,
+            emailVerified: true,
+          },
+          data: profile,
+        };
+      },
+    };
+  }
+  if (cfg.socialProviders.discord) {
+    providers.discord = cfg.socialProviders.discord;
+  }
+  if (cfg.socialProviders.google) {
+    providers.google = cfg.socialProviders.google;
+  }
+  return providers;
 }
 
 function authOptions(cfg: BetterAuthConfig): BetterAuthOptions {
   const pool = cfg.pool;
-  const secret = cfg.secret || process.env.BETTER_AUTH_SECRET;
+  const secret = cfg.secret;
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
       throw new Error("BETTER_AUTH_SECRET is required in production");
@@ -196,15 +195,10 @@ function authOptions(cfg: BetterAuthConfig): BetterAuthOptions {
   }
   _ephemeralSecret ??= randomBytes(32).toString("hex");
   const effectiveSecret = secret || _ephemeralSecret;
-  const baseURL = cfg.baseURL || process.env.BETTER_AUTH_URL || "http://localhost:3100";
+  const baseURL = cfg.baseURL || "http://localhost:3100";
   const basePath = cfg.basePath || "/api/auth";
-  const cookieDomain = cfg.cookieDomain || process.env.COOKIE_DOMAIN;
-  const trustedOrigins =
-    cfg.trustedOrigins ||
-    (process.env.UI_ORIGIN || "http://localhost:3001")
-      .split(",")
-      .map((o) => o.trim())
-      .filter(Boolean);
+  const cookieDomain = cfg.cookieDomain;
+  const trustedOrigins = cfg.trustedOrigins || ["http://localhost:3001"];
   // Default minPasswordLength: 12 — caller must explicitly override, not accidentally omit
   const emailAndPassword = cfg.emailAndPassword
     ? { minPasswordLength: 12, ...cfg.emailAndPassword }

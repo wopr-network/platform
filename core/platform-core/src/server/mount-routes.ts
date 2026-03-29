@@ -25,6 +25,7 @@ import { createStripeWebhookRoutes } from "./routes/stripe-webhook.js";
 export interface MountConfig {
   provisionSecret: string;
   cryptoServiceKey?: string;
+  openrouterApiKey?: string | null;
   platformDomain: string;
 }
 
@@ -154,8 +155,8 @@ export async function mountRoutes(
       resolveMargin,
       resolveDefaultModel,
       providers: {
-        openrouter: process.env.OPENROUTER_API_KEY
-          ? { apiKey: process.env.OPENROUTER_API_KEY, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
+        openrouter: config.openrouterApiKey
+          ? { apiKey: config.openrouterApiKey, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
           : undefined,
       },
       resolveServiceKey: async (key: string) => {

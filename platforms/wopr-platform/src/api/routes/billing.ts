@@ -19,6 +19,7 @@ import type { IAffiliateRepository } from "@wopr-network/platform-core/monetizat
 import { assertSafeRedirectUrl } from "@wopr-network/platform-core/security";
 import { Hono } from "hono";
 import { z } from "zod";
+import { getSecrets } from "../../fleet/services.js";
 
 export interface BillingRouteDeps {
   processor: IPaymentProcessor;
@@ -110,8 +111,9 @@ let cryptoClient: CryptoServiceClient | null = null;
 export function setBillingDeps(d: BillingRouteDeps): void {
   _deps = d;
 
-  // Crypto initialization (optional — only if env vars are set)
-  const cryptoConfig = loadCryptoConfig();
+  // Crypto initialization (optional — only if crypto service configured in Vault)
+  const s = getSecrets();
+  const cryptoConfig = loadCryptoConfig({ baseUrl: s.cryptoServiceUrl, serviceKey: s.cryptoServiceKey });
   if (cryptoConfig) {
     cryptoClient = new CryptoServiceClient(cryptoConfig);
   } else {

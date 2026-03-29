@@ -548,10 +548,7 @@ fi`,
 
     // Write a package.json that triggers the source-checkout path.
     // Must use spaces after colons to match the grep in install.sh.
-    fs.writeFileSync(
-      path.join(tmp, "package.json"),
-      JSON.stringify({ name: "nemoclaw", version: "0.1.0" }, null, 2),
-    );
+    fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ name: "nemoclaw", version: "0.1.0" }, null, 2));
     fs.mkdirSync(path.join(tmp, "nemoclaw"), { recursive: true });
     fs.writeFileSync(
       path.join(tmp, "nemoclaw", "package.json"),
@@ -758,22 +755,15 @@ describe("installer release-tag resolution", () => {
    * `fakeBin` must contain a `curl` stub (and optionally `node`).
    */
   function callResolveReleaseTag(fakeBin, env = {}) {
-    return spawnSync(
-      "bash",
-      [
-        "-c",
-        `source "${INSTALLER}" 2>/dev/null; resolve_release_tag`,
-      ],
-      {
-        cwd: path.join(import.meta.dirname, ".."),
-        encoding: "utf-8",
-        env: {
-          HOME: os.tmpdir(),
-          PATH: `${fakeBin}:${TEST_SYSTEM_PATH}`,
-          ...env,
-        },
+    return spawnSync("bash", ["-c", `source "${INSTALLER}" 2>/dev/null; resolve_release_tag`], {
+      cwd: path.join(import.meta.dirname, ".."),
+      encoding: "utf-8",
+      env: {
+        HOME: os.tmpdir(),
+        PATH: `${fakeBin}:${TEST_SYSTEM_PATH}`,
+        ...env,
       },
-    );
+    });
   }
 
   it("returns the tag_name from the GitHub releases API", () => {
@@ -1065,19 +1055,15 @@ describe("installer pure helpers", () => {
    * Helper: source install.sh and call a function, returning stdout.
    */
   function callInstallerFn(fnCall, env = {}) {
-    return spawnSync(
-      "bash",
-      ["-c", `source "${INSTALLER}" 2>/dev/null; ${fnCall}`],
-      {
-        cwd: path.join(import.meta.dirname, ".."),
-        encoding: "utf-8",
-        env: {
-          HOME: os.tmpdir(),
-          PATH: TEST_SYSTEM_PATH,
-          ...env,
-        },
+    return spawnSync("bash", ["-c", `source "${INSTALLER}" 2>/dev/null; ${fnCall}`], {
+      cwd: path.join(import.meta.dirname, ".."),
+      encoding: "utf-8",
+      env: {
+        HOME: os.tmpdir(),
+        PATH: TEST_SYSTEM_PATH,
+        ...env,
       },
-    );
+    });
   }
 
   // -- version_gte --
@@ -1226,19 +1212,15 @@ describe("installer runtime checks (sourced)", () => {
    * This avoids triggering install_nodejs() which would download real nvm.
    */
   function callEnsureSupportedRuntime(fakeBin, env = {}) {
-    return spawnSync(
-      "bash",
-      ["-c", `source "${INSTALLER}" 2>/dev/null; ensure_supported_runtime`],
-      {
-        cwd: path.join(import.meta.dirname, ".."),
-        encoding: "utf-8",
-        env: {
-          HOME: os.tmpdir(),
-          PATH: `${fakeBin}:${TEST_SYSTEM_PATH}`,
-          ...env,
-        },
+    return spawnSync("bash", ["-c", `source "${INSTALLER}" 2>/dev/null; ensure_supported_runtime`], {
+      cwd: path.join(import.meta.dirname, ".."),
+      encoding: "utf-8",
+      env: {
+        HOME: os.tmpdir(),
+        PATH: `${fakeBin}:${TEST_SYSTEM_PATH}`,
+        ...env,
       },
-    );
+    });
   }
 
   it("fails with clear message when node is missing entirely", () => {
@@ -1249,11 +1231,24 @@ describe("installer runtime checks (sourced)", () => {
     // npm exists but node does not
     writeExecutable(
       path.join(fakeBin, "npm"),
-      `#!/usr/bin/env bash
+      `#!/bin/bash
 echo "10.9.2"`,
     );
 
-    const result = callEnsureSupportedRuntime(fakeBin);
+    // Source with full PATH so install.sh loads, then restrict PATH before
+    // calling ensure_supported_runtime so system node/npm are hidden.
+    const result = spawnSync(
+      "/bin/bash",
+      ["-c", `source "${INSTALLER}" 2>/dev/null; PATH="${fakeBin}" ensure_supported_runtime`],
+      {
+        cwd: path.join(import.meta.dirname, ".."),
+        encoding: "utf-8",
+        env: {
+          HOME: os.tmpdir(),
+          PATH: `${fakeBin}:${TEST_SYSTEM_PATH}`,
+        },
+      },
+    );
 
     expect(result.status).not.toBe(0);
     expect(`${result.stdout}${result.stderr}`).toMatch(/Node\.js was not found on PATH/);
@@ -1266,12 +1261,25 @@ echo "10.9.2"`,
 
     writeExecutable(
       path.join(fakeBin, "node"),
-      `#!/usr/bin/env bash
+      `#!/bin/bash
 if [ "$1" = "--version" ]; then echo "v22.14.0"; exit 0; fi
 exit 0`,
     );
 
-    const result = callEnsureSupportedRuntime(fakeBin);
+    // Source with full PATH so install.sh loads, then restrict PATH before
+    // calling ensure_supported_runtime so system node/npm are hidden.
+    const result = spawnSync(
+      "/bin/bash",
+      ["-c", `source "${INSTALLER}" 2>/dev/null; PATH="${fakeBin}" ensure_supported_runtime`],
+      {
+        cwd: path.join(import.meta.dirname, ".."),
+        encoding: "utf-8",
+        env: {
+          HOME: os.tmpdir(),
+          PATH: `${fakeBin}:${TEST_SYSTEM_PATH}`,
+        },
+      },
+    );
 
     expect(result.status).not.toBe(0);
     expect(`${result.stdout}${result.stderr}`).toMatch(/npm was not found on PATH/);

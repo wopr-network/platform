@@ -21,12 +21,15 @@ export function createStripeClient(config: StripeBillingConfig): Stripe {
 }
 
 /**
- * Load Stripe billing config from environment variables.
- * Returns null if required vars are missing.
+ * Load Stripe billing config from explicit secrets.
+ * Returns null if required values are missing.
  */
-export function loadStripeConfig(): StripeBillingConfig | null {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+export function loadStripeConfig(secrets: {
+  stripeSecretKey?: string | null;
+  stripeWebhookSecret?: string | null;
+}): StripeBillingConfig | null {
+  const secretKey = secrets.stripeSecretKey;
+  const webhookSecret = secrets.stripeWebhookSecret;
 
   if (!secretKey || !webhookSecret) {
     return null;

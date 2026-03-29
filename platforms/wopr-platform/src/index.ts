@@ -4,6 +4,7 @@ import { RateStore } from "@wopr-network/platform-core/admin/rates/rate-store";
 import { DrizzleSigPenaltyRepository } from "@wopr-network/platform-core/api/drizzle-sig-penalty-repository";
 import { buildTokenMetadataMap, scopedBearerAuthWithTenant } from "@wopr-network/platform-core/auth";
 import { DrizzleWebhookSeenRepository } from "@wopr-network/platform-core/billing";
+import { resolveSecrets } from "@wopr-network/platform-core/config";
 import { logger } from "@wopr-network/platform-core/config/logger";
 import { Credit, runCreditExpiryCron, runTrialBalanceCron } from "@wopr-network/platform-core/credits";
 import { eq, gte, sql } from "@wopr-network/platform-core/db/index";
@@ -98,7 +99,10 @@ import {
   getSetupSessionRepo,
   getSystemResourceMonitor,
   getTenantAddonRepo,
+  initDOClient,
   initFleet,
+  initPool,
+  initSecrets,
 } from "./fleet/services.js";
 import {
   setAddonRouterDeps,
@@ -116,6 +120,22 @@ import {
   setTrpcOrgMemberRepo,
 } from "./trpc/index.js";
 import { validateRequiredEnvVars } from "./validate-env.js";
+
+// Resolve secrets from Vault (production) or env fallback (local dev)
+const slug = config.productSlug;
+const secrets = await resolveSecrets(slug);
+
+// Build DATABASE_URL from Vault secrets + compose infra
+const dbHost = process.env.DB_HOST ?? "postgres";
+const dbName = process.env.DB_NAME ?? `${slug}_platform`;
+const dbPort = process.env.DB_PORT ?? "5432";
+const databaseUrl =
+  process.env.DATABASE_URL ?? `postgresql://${slug}:${secrets.dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+
+// Initialize singletons before anything calls getPool(), getSecrets(), or getDOClient()
+initPool(databaseUrl);
+initSecrets(secrets);
+if (secrets.doApiToken) initDOClient(secrets.doApiToken);
 
 validateRequiredEnvVars();
 
@@ -258,9 +278,9 @@ if (process.env.NODE_ENV !== "test") {
   const { buildContainer } = await import("@wopr-network/platform-core/server");
   const container = await buildContainer({
     slug: config.productSlug,
-    databaseUrl: process.env.DATABASE_URL ?? "",
+    secrets,
+    databaseUrl,
     pool: getPool(),
-    provisionSecret: process.env.PROVISION_SECRET ?? "",
     features: { fleet: false, crypto: false, stripe: false, gateway: false, hotPool: false },
   });
 
@@ -276,20 +296,18 @@ if (process.env.NODE_ENV !== "test") {
   // Store for use across notification pipeline and email client wiring below.
   _productConfig = productConfig;
 
-  // Wire the email client singleton with DB-driven from/replyTo overrides so
-  // all transactional emails use the product's configured sender address.
-  const postmarkApiKey = (process.env.POSTMARK_API_KEY ?? "").trim();
-  if (productConfig.product.fromEmail && postmarkApiKey) {
+  // Wire the email client singleton with Resend + DB-driven from/replyTo
+  if (productConfig.product.fromEmail && secrets.resendApiKey) {
     setEmailClient(
       new EmailClient({
-        apiKey: postmarkApiKey,
+        apiKey: secrets.resendApiKey,
         from: productConfig.product.fromEmail,
         replyTo: productConfig.product.emailSupport || undefined,
       }),
     );
-    logger.info(`Email client configured: from=${productConfig.product.fromEmail}`);
-  } else if (productConfig.product.fromEmail && !postmarkApiKey) {
-    logger.warn("Email client not initialized: POSTMARK_API_KEY is not set");
+    logger.info(`Email client configured (Resend): from=${productConfig.product.fromEmail}`);
+  } else if (productConfig.product.fromEmail && !secrets.resendApiKey) {
+    logger.warn("Email client not initialized: resendApiKey not in Vault");
   }
 
   // ── Gateway wiring ──────────────────────────────────────────────────────────
@@ -364,7 +382,7 @@ if (process.env.NODE_ENV !== "test") {
     const resolveServiceKey = (key: string) => serviceKeyRepo.resolve(key);
 
     // Wire hosted credential injection for plugin install route
-    const vaultKey = getVaultEncryptionKey(process.env.PLATFORM_SECRET);
+    const vaultKey = getVaultEncryptionKey(secrets.platformSecret);
     const credentialRepo = new DrizzleCredentialRepository(getDb());
     const credentialVault = new CredentialVaultStore(credentialRepo, vaultKey, undefined, getSecretAuditRepo());
     setBotPluginDeps({ credentialVault, meterEmitter: meter, botInstanceRepo: getBotInstanceRepo() });
@@ -383,8 +401,8 @@ if (process.env.NODE_ENV !== "test") {
       spendingLimitsRepo,
       metrics,
       providers: {
-        openrouter: process.env.OPENROUTER_API_KEY
-          ? { apiKey: process.env.OPENROUTER_API_KEY, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
+        openrouter: secrets.openrouterApiKey
+          ? { apiKey: secrets.openrouterApiKey, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
           : undefined,
         deepgram: process.env.DEEPGRAM_API_KEY ? { apiKey: process.env.DEEPGRAM_API_KEY } : undefined,
         elevenlabs: process.env.ELEVENLABS_API_KEY ? { apiKey: process.env.ELEVENLABS_API_KEY } : undefined,
@@ -594,7 +612,7 @@ if (process.env.NODE_ENV !== "test") {
     const { resolveApiKey, buildPooledKeysMap } = await import("@wopr-network/platform-core/security");
     const { DrizzleKeyResolutionRepository } = await import("@wopr-network/platform-core/security");
     const { validateProviderKey, PROVIDER_ENDPOINTS } = await import("@wopr-network/platform-core/security");
-    const vaultEncKey = getVaultEncryptionKey(process.env.PLATFORM_SECRET);
+    const vaultEncKey = getVaultEncryptionKey(secrets.platformSecret);
     const pooledKeys = buildPooledKeysMap();
 
     setPageContextRouterDeps({ repo: getPageContextRepo() });
@@ -639,7 +657,7 @@ if (process.env.NODE_ENV !== "test") {
     const { RoleStore } = await import("@wopr-network/platform-core/admin");
     const orgKeysTenantKeyRepository = new TenantKeyRepository(getDb());
     const roleStore = new RoleStore(getDb());
-    const orgVaultEncKey = getVaultEncryptionKey(process.env.PLATFORM_SECRET);
+    const orgVaultEncKey = getVaultEncryptionKey(secrets.platformSecret);
     const deriveTenantKey2 = (tenantId: string, platformSecret: string) =>
       createHmac("sha256", platformSecret).update(`tenant:${tenantId}`).digest();
     const { buildPooledKeysMap: buildPooledKeysMap2, resolveApiKey: resolveApiKey2 } = await import(
@@ -654,7 +672,7 @@ if (process.env.NODE_ENV !== "test") {
       getTenantKeyRepository: () => orgKeysTenantKeyRepository as never,
       encrypt,
       deriveTenantKey: deriveTenantKey2,
-      platformSecret: process.env.PLATFORM_SECRET,
+      platformSecret: secrets.platformSecret,
       getOrgTenantIdForUser: (_userId: string, memberTenantId: string) => {
         return getOrgMembershipRepo().getOrgTenantIdForMember(memberTenantId);
       },
@@ -684,10 +702,7 @@ if (process.env.NODE_ENV !== "test") {
           validProvider,
           orgVaultEncKey,
           pooledKeys2,
-          (tid) =>
-            createHmac("sha256", process.env.PLATFORM_SECRET ?? "")
-              .update(`tenant:${tid}`)
-              .digest(),
+          (tid) => createHmac("sha256", secrets.platformSecret).update(`tenant:${tid}`).digest(),
           getOrgMembershipRepo(),
         );
         if (!resolved) {
@@ -735,8 +750,8 @@ if (process.env.NODE_ENV !== "test") {
     // setAddonRouterDeps has no Stripe dependency — always wire it.
     setAddonRouterDeps({ addonRepo: getTenantAddonRepo() });
 
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const stripeKey = secrets.stripeSecretKey;
+    const stripeWebhookSecret = secrets.stripeWebhookSecret;
     if (stripeKey) {
       const Stripe = (await import("stripe")).default;
       const stripe = new Stripe(stripeKey);
@@ -870,7 +885,10 @@ if (process.env.NODE_ENV !== "test") {
         let cryptoClient: import("@wopr-network/platform-core/billing").CryptoServiceClient | undefined;
         if (process.env.CRYPTO_SERVICE_URL) {
           const { CryptoServiceClient, loadCryptoConfig } = await import("@wopr-network/platform-core/billing");
-          const cryptoConfig = loadCryptoConfig();
+          const cryptoConfig = loadCryptoConfig({
+            baseUrl: process.env.CRYPTO_SERVICE_URL,
+            serviceKey: secrets.cryptoServiceKey,
+          });
           if (cryptoConfig) {
             cryptoClient = new CryptoServiceClient(cryptoConfig);
           }
@@ -966,7 +984,10 @@ if (process.env.NODE_ENV !== "test") {
         let cryptoClientForTrpc: import("@wopr-network/platform-core/billing").CryptoServiceClient | undefined;
         if (process.env.CRYPTO_SERVICE_URL) {
           const { CryptoServiceClient, loadCryptoConfig } = await import("@wopr-network/platform-core/billing");
-          const cryptoConfig = loadCryptoConfig();
+          const cryptoConfig = loadCryptoConfig({
+            baseUrl: process.env.CRYPTO_SERVICE_URL,
+            serviceKey: secrets.cryptoServiceKey,
+          });
           if (cryptoConfig) {
             cryptoClientForTrpc = new CryptoServiceClient(cryptoConfig);
           }
@@ -1084,6 +1105,7 @@ if (process.env.NODE_ENV !== "test") {
       initBetterAuth({
         pool: getPool(),
         db: getDb(),
+        secret: secrets.betterAuthSecret,
         cookieDomain: `.${productDomain}`,
         onUserCreated: async (userId) => {
           try {
@@ -1328,7 +1350,7 @@ if (process.env.NODE_ENV !== "test") {
       dispatchPluginInstall: (botId, npmPackage) => dispatchPluginInstallFn(botId, npmPackage),
       dispatchPluginConfig: (botId, pluginId, config) => dispatchPluginConfigFn(botId, pluginId, config),
       fetchPluginDependencies: (botId, pluginName) => fetchPluginDependenciesFn(botId, pluginName),
-      platformEncryptionSecret: process.env.PLATFORM_ENCRYPTION_SECRET ?? "",
+      platformEncryptionSecret: secrets.platformEncryptionSecret,
     });
 
     // Setup session cleanup — rolls back sessions stale >30 minutes (WOP-1037)

@@ -25,28 +25,25 @@ services:
       staging-postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://holyship:${STAGING_POSTGRES_PASSWORD:-staging-pw}@staging-postgres:5432/holyship
+      # Vault secrets management (zero secrets in compose)
+      - VAULT_ADDR=https://vault.wopr.bot
+      - VAULT_ROLE_ID=${VAULT_ROLE_ID}
+      - VAULT_SECRET_ID=${VAULT_SECRET_ID}
+      # Infra config (non-secret)
+      - DB_HOST=staging-postgres
+      - DB_NAME=holyship
       - PORT=3001
       - HOST=0.0.0.0
+      - BETTER_AUTH_URL=https://staging.api.holyship.wtf
+      - COOKIE_DOMAIN=.staging.holyship.wtf
+      - UI_ORIGIN=https://staging.holyship.wtf
+      - APP_BASE_URL=https://staging.api.holyship.wtf
+      # GitHub App ID (not a secret)
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_CLIENT_ID=${GITHUB_APP_CLIENT_ID}
+      # Fleet/worker config (deployment tokens)
       - HOLYSHIP_ADMIN_TOKEN=${HOLYSHIP_ADMIN_TOKEN}
       - HOLYSHIP_WORKER_TOKEN=${HOLYSHIP_WORKER_TOKEN}
-      - GITHUB_APP_ID=${GITHUB_APP_ID}
-      - GITHUB_APP_PRIVATE_KEY=${GITHUB_APP_PRIVATE_KEY}
-      - GITHUB_APP_CLIENT_ID=${GITHUB_APP_CLIENT_ID}
-      - GITHUB_APP_CLIENT_SECRET=${GITHUB_APP_CLIENT_SECRET}
-      - GITHUB_CLIENT_ID=${GITHUB_APP_CLIENT_ID}
-      - GITHUB_CLIENT_SECRET=${GITHUB_APP_CLIENT_SECRET}
-      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
-      - RESEND_API_KEY=re_staging_disabled
-      - EMAIL_DISABLED=true
-      - SKIP_EMAIL_VERIFICATION=true
-      - BETTER_AUTH_SECRET=${STAGING_BETTER_AUTH_SECRET}
-      - COOKIE_DOMAIN=.staging.holyship.wtf
-      - BETTER_AUTH_URL=https://staging.api.holyship.wtf
-      - UI_ORIGIN=https://staging.holyship.wtf
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STAGING_STRIPE_WEBHOOK_SECRET:-${STRIPE_WEBHOOK_SECRET}}
       - HOLYSHIP_GATEWAY_KEY=${HOLYSHIP_GATEWAY_KEY}
       - HOLYSHIP_PLATFORM_SERVICE_KEY=${HOLYSHIP_PLATFORM_SERVICE_KEY:-}
       - HOLYSHIP_WORKER_IMAGE=ghcr.io/wopr-network/wopr-holyshipper-coder:latest
@@ -56,6 +53,8 @@ services:
       - REGISTRY_PASSWORD=${REGISTRY_PASSWORD}
       - REGISTRY_SERVER=${REGISTRY_SERVER}
       - FLEET_DATA_DIR=/tmp/fleet
+      - EMAIL_DISABLED=true
+      - SKIP_EMAIL_VERIFICATION=true
       - NODE_ENV=production
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3001/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]

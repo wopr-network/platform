@@ -993,7 +993,8 @@ export const fleetRouter = router({
         });
       }
 
-      const stripeConfig = loadStripeConfig();
+      const { getSecrets } = await import("../../fleet/services.js");
+      const stripeConfig = loadStripeConfig(getSecrets());
       if (!stripeConfig) {
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
       }

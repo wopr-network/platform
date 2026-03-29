@@ -44,13 +44,12 @@ export async function sendEmail(
   apiKey?: string,
   from?: string,
 ): Promise<{ id: string; success: boolean }> {
-  const key = apiKey || process.env.RESEND_API_KEY;
-  if (!key) {
-    throw new Error("RESEND_API_KEY environment variable is required");
+  if (!apiKey) {
+    throw new Error("Resend API key is required — pass it explicitly");
   }
 
-  const fromEmail = from || process.env.RESEND_FROM_EMAIL || "noreply@wopr.bot";
-  const resend = new Resend(key);
+  const fromEmail = from || "noreply@wopr.bot";
+  const resend = new Resend(apiKey);
 
   const { data, error } = await resend.emails.send({
     from: fromEmail,

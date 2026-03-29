@@ -68,22 +68,3 @@ export function createImageGenAdapters(config: ImageGenFactoryConfig): ImageGenF
 
   return { adapters, adapterMap, skipped };
 }
-
-/**
- * Create image generation adapters from environment variables.
- *
- * Reads config from:
- *   - GEMINI_API_KEY (for Nano Banana)
- *   - REPLICATE_API_TOKEN
- *
- * Accepts optional per-adapter overrides.
- */
-export function createImageGenAdaptersFromEnv(
-  overrides?: Omit<ImageGenFactoryConfig, "geminiApiKey" | "replicateApiToken">,
-): ImageGenFactoryResult {
-  return createImageGenAdapters({
-    geminiApiKey: process.env.GEMINI_API_KEY,
-    replicateApiToken: process.env.REPLICATE_API_TOKEN,
-    ...overrides,
-  });
-}

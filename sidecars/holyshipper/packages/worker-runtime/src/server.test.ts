@@ -194,6 +194,278 @@ describe("POST /dispatch", () => {
     const error = events.find((e) => (e as { type: string }).type === "error") as { type: string; message: string };
     expect(error?.message).toContain("SDK exploded");
   });
+
+  it("forwards tool_use SSE events from event stream", async () => {
+    mockSessionCreate.mockResolvedValue({
+      data: { id: "session-tool", title: "test" },
+      error: undefined,
+    });
+    mockEventSubscribe.mockResolvedValue({
+      stream: (async function* () {
+        yield {
+          type: "message.part.updated",
+          properties: {
+            sessionID: "session-tool",
+            part: {
+              type: "tool",
+              tool: "Edit",
+              state: { status: "running", input: { file: "a.ts" } },
+            },
+          },
+        };
+        yield {
+          type: "message.part.updated",
+          properties: {
+            sessionID: "session-tool",
+            part: {
+              type: "tool",
+              tool: "Edit",
+              state: { status: "completed", title: "edited file" },
+            },
+          },
+        };
+        yield {
+          type: "message.part.updated",
+          properties: {
+            sessionID: "session-tool",
+            part: {
+              type: "tool",
+              tool: "Edit",
+              state: { status: "error", error: "permission denied" },
+            },
+          },
+        };
+      })(),
+    });
+    mockSessionPrompt.mockResolvedValue({
+      data: {
+        info: { id: "msg-t", cost: 0, finish: "end_turn", tokens: {} },
+        parts: [{ type: "text", text: "done" }],
+      },
+      error: undefined,
+    });
+
+    const res = await fetch(`${url}/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "do work", modelTier: "haiku" }),
+    });
+
+    const events = await parseSSE(res);
+    const toolEvents = events.filter((e) => (e as { type: string }).type === "tool_use");
+    expect(toolEvents.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("forwards text SSE events from event stream", async () => {
+    mockSessionCreate.mockResolvedValue({
+      data: { id: "session-txt", title: "test" },
+      error: undefined,
+    });
+    mockEventSubscribe.mockResolvedValue({
+      stream: (async function* () {
+        yield {
+          type: "message.part.updated",
+          properties: {
+            sessionID: "session-txt",
+            delta: "streaming ",
+            part: { type: "text", text: "streaming " },
+          },
+        };
+        yield {
+          type: "message.part.updated",
+          properties: {
+            sessionID: "session-txt",
+            part: { type: "step-start" },
+          },
+        };
+        yield {
+          type: "message.part.updated",
+          properties: {
+            sessionID: "session-txt",
+            part: { type: "step-finish" },
+          },
+        };
+      })(),
+    });
+    mockSessionPrompt.mockResolvedValue({
+      data: {
+        info: { id: "msg-s", cost: 0, finish: "end_turn", tokens: {} },
+        parts: [{ type: "text", text: "done" }],
+      },
+      error: undefined,
+    });
+
+    const res = await fetch(`${url}/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "do work", modelTier: "haiku" }),
+    });
+
+    const events = await parseSSE(res);
+    const textEvents = events.filter((e) => (e as { type: string }).type === "text");
+    expect(textEvents.length).toBeGreaterThanOrEqual(1);
+    const systemEvents = events.filter((e) => (e as { type: string }).type === "system");
+    expect(systemEvents.length).toBe(2);
+  });
+
+  it("handles message.updated, session.status, session.idle, and session.error events", async () => {
+    mockSessionCreate.mockResolvedValue({
+      data: { id: "session-meta", title: "test" },
+      error: undefined,
+    });
+    mockEventSubscribe.mockResolvedValue({
+      stream: (async function* () {
+        yield {
+          type: "message.updated",
+          properties: {
+            sessionID: "session-meta",
+            info: { role: "assistant", id: "m-1", cost: 0.01, tokens: {}, time: { completed: true } },
+          },
+        };
+        yield {
+          type: "session.status",
+          properties: { sessionID: "session-meta", status: { type: "busy" } },
+        };
+        yield {
+          type: "session.idle",
+          properties: { sessionID: "session-meta" },
+        };
+        yield {
+          type: "session.error",
+          properties: { sessionID: "session-meta", message: "oops" },
+        };
+        yield {
+          type: "some.unknown.event",
+          properties: { sessionID: "session-meta" },
+        };
+        // Event for different session — should be filtered out
+        yield {
+          type: "message.part.updated",
+          properties: {
+            sessionID: "other-session",
+            part: { type: "text", text: "should be ignored" },
+          },
+        };
+        // Event with no type — should be skipped
+        yield { properties: {} };
+        // Event with part but no part content
+        yield {
+          type: "message.part.updated",
+          properties: { sessionID: "session-meta" },
+        };
+      })(),
+    });
+    mockSessionPrompt.mockResolvedValue({
+      data: {
+        info: { id: "msg-m", cost: 0, finish: "end_turn", tokens: {} },
+        parts: [{ type: "text", text: "ok" }],
+      },
+      error: undefined,
+    });
+
+    const res = await fetch(`${url}/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "do work", modelTier: "haiku" }),
+    });
+
+    expect(res.status).toBe(200);
+    const events = await parseSSE(res);
+    const result = events.find((e) => (e as { type: string }).type === "result");
+    expect(result).toBeDefined();
+  });
+
+  it("auto-accepts permission events", async () => {
+    const mockPostPermission = vi.fn().mockResolvedValue({});
+    mockSessionCreate.mockResolvedValue({
+      data: { id: "session-perm", title: "test" },
+      error: undefined,
+    });
+    // Override the mocked client to include the permission endpoint
+    vi.mocked(createOpencode).mockResolvedValueOnce({
+      client: {
+        session: { create: mockSessionCreate, prompt: mockSessionPrompt },
+        event: { subscribe: mockEventSubscribe },
+        postSessionIdPermissionsPermissionId: mockPostPermission,
+      } as never,
+      server: { url: "http://localhost:4096", close: vi.fn() },
+    });
+    // Force re-import to pick up new mock
+    vi.resetModules();
+    const { makeHandler: makeHandler2 } = await import("./server.js");
+    const handler2 = makeHandler2();
+    const { createServer: createServer2 } = await import("node:http");
+    const server2 = createServer2(handler2);
+    await new Promise<void>((resolve) => server2.listen(0, "127.0.0.1", resolve));
+    const port2 = (server2.address() as AddressInfo).port;
+    const url2 = `http://127.0.0.1:${port2}`;
+
+    mockEventSubscribe.mockResolvedValue({
+      stream: (async function* () {
+        yield {
+          type: "permission.updated",
+          properties: {
+            sessionID: "session-perm",
+            id: "perm-1",
+            tool: "Bash",
+          },
+        };
+      })(),
+    });
+    mockSessionPrompt.mockResolvedValue({
+      data: {
+        info: { id: "msg-p", cost: 0, finish: "end_turn", tokens: {} },
+        parts: [{ type: "text", text: "permitted" }],
+      },
+      error: undefined,
+    });
+
+    const res = await fetch(`${url2}/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "do work", modelTier: "haiku" }),
+    });
+
+    expect(res.status).toBe(200);
+    await new Promise((r) => server2.close(r));
+  });
+
+  it("streams error when session create fails", async () => {
+    mockSessionCreate.mockResolvedValue({
+      data: undefined,
+      error: { name: "CreateError", data: { message: "session limit" } },
+    });
+    mockEventSubscribe.mockResolvedValue({
+      stream: (async function* () {})(),
+    });
+
+    const res = await fetch(`${url}/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "do work", modelTier: "haiku" }),
+    });
+
+    const events = await parseSSE(res);
+    const error = events.find((e) => (e as { type: string }).type === "error") as { type: string; message: string };
+    expect(error).toBeDefined();
+  });
+
+  it("returns 400 for empty body", async () => {
+    const res = await fetch(`${url}/dispatch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 for oversized body", async () => {
+    const res = await fetch(`${url}/dispatch`, {
+      method: "POST",
+      body: "x".repeat(1024 * 1024 + 1),
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("POST /credentials", () => {

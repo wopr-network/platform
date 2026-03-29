@@ -5,7 +5,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_USER=wopr
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       - POSTGRES_DB=wopr_platform
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U wopr"]
@@ -44,35 +44,34 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://wopr:${POSTGRES_PASSWORD}@postgres:5432/wopr_platform
+      # Vault secrets management (zero secrets in compose)
+      - VAULT_ADDR=https://vault.wopr.bot
+      - VAULT_ROLE_ID=${VAULT_ROLE_ID}
+      - VAULT_SECRET_ID=${VAULT_SECRET_ID}
+      # Infra config (non-secret)
+      - DB_HOST=postgres
+      - DB_NAME=wopr_platform
       - METER_WAL_PATH=/data/meter-wal.jsonl
       - METER_DLQ_PATH=/data/meter-dlq.jsonl
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-      - STRIPE_DEFAULT_PRICE_ID=${STRIPE_DEFAULT_PRICE_ID}
-      - STRIPE_CREDIT_PRICE_5=${STRIPE_CREDIT_PRICE_5}
-      - STRIPE_CREDIT_PRICE_10=${STRIPE_CREDIT_PRICE_10}
-      - STRIPE_CREDIT_PRICE_25=${STRIPE_CREDIT_PRICE_25}
-      - STRIPE_CREDIT_PRICE_50=${STRIPE_CREDIT_PRICE_50}
-      - STRIPE_CREDIT_PRICE_100=${STRIPE_CREDIT_PRICE_100}
-      - POSTMARK_API_KEY=${POSTMARK_API_KEY}
-      - EMAIL_FROM=noreply@wopr.bot
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=https://api.wopr.bot
       - UI_ORIGIN=https://wopr.bot,https://app.wopr.bot
       - PLATFORM_DOMAIN=wopr.bot
       - COOKIE_DOMAIN=.wopr.bot
-      - PLATFORM_SECRET=${PLATFORM_SECRET}
-      - PLATFORM_ENCRYPTION_SECRET=${PLATFORM_ENCRYPTION_SECRET}
+      - EMAIL_FROM=noreply@wopr.bot
       - WOPR_BOT_IMAGE=ghcr.io/wopr-network/wopr:latest
-      - DO_API_TOKEN=${DO_API_TOKEN}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-172.16.0.0/12}
       - NODE_ENV=production
       - FLEET_API_TOKEN=${FLEET_API_TOKEN}
       - REGISTRY_USERNAME=wopr-network
       - REGISTRY_PASSWORD=${GHCR_TOKEN}
       - REGISTRY_SERVER=ghcr.io
+      # Stripe price IDs (billing config — will move to DB later)
+      - STRIPE_DEFAULT_PRICE_ID=${STRIPE_DEFAULT_PRICE_ID}
+      - STRIPE_CREDIT_PRICE_5=${STRIPE_CREDIT_PRICE_5}
+      - STRIPE_CREDIT_PRICE_10=${STRIPE_CREDIT_PRICE_10}
+      - STRIPE_CREDIT_PRICE_25=${STRIPE_CREDIT_PRICE_25}
+      - STRIPE_CREDIT_PRICE_50=${STRIPE_CREDIT_PRICE_50}
+      - STRIPE_CREDIT_PRICE_100=${STRIPE_CREDIT_PRICE_100}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3100/health"]
       interval: 30s

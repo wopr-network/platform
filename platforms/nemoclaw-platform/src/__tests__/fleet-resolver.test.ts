@@ -23,7 +23,16 @@ vi.mock("@wopr-network/platform-core/config/logger", () => ({
 vi.stubEnv("PROVISION_SECRET", "test-secret");
 vi.stubEnv("GATEWAY_URL", "https://gateway.test/v1");
 
-import { getRoutes, registerRoute, removeRoute, resolveContainerUrl, setRouteHealth } from "../proxy/fleet-resolver.js";
+import {
+  getRoutes,
+  registerRoute,
+  removeRoute,
+  resolveContainerUrl,
+  setFleetResolverProxy,
+  setRouteHealth,
+} from "../proxy/fleet-resolver.js";
+
+setFleetResolverProxy(mockProxyManager as never);
 
 afterAll(() => {
   vi.unstubAllEnvs();

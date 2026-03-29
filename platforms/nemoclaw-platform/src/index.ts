@@ -1,4 +1,5 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { resolveSecrets } from "@wopr-network/platform-core/config";
 import { logger } from "@wopr-network/platform-core/config/logger";
 import { bootPlatformServer } from "@wopr-network/platform-core/server";
 import { createTRPCContext, setTrpcOrgMemberRepo } from "@wopr-network/platform-core/trpc";
@@ -24,21 +25,28 @@ import {
 
 const slug = process.env.PRODUCT_SLUG ?? "nemoclaw";
 
+// Resolve secrets from Vault (production) or env fallback (local dev)
+const secrets = await resolveSecrets(slug);
+
+// Build DATABASE_URL from Vault secret + compose infra
+const dbHost = process.env.DB_HOST ?? "postgres";
+const dbName = process.env.DB_NAME ?? `${slug}_platform`;
+const dbPort = process.env.DB_PORT ?? "5432";
+const databaseUrl =
+  process.env.DATABASE_URL ?? `postgresql://${slug}:${secrets.dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+
 const platform = await bootPlatformServer({
   slug,
-  databaseUrl: process.env.DATABASE_URL ?? "",
+  secrets,
+  databaseUrl,
   host: process.env.HOST ?? "0.0.0.0",
   port: Number(process.env.PORT ?? 3001),
-  provisionSecret: process.env.PROVISION_SECRET ?? "",
-  cryptoServiceKey: process.env.CRYPTO_SERVICE_KEY,
-  stripeSecretKey: process.env.STRIPE_SECRET_KEY,
-  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
   features: {
-    fleet: !!process.env.DATABASE_URL,
-    crypto: !!process.env.DATABASE_URL,
-    stripe: !!process.env.STRIPE_SECRET_KEY,
-    gateway: !!process.env.DATABASE_URL,
-    hotPool: !!process.env.DATABASE_URL,
+    fleet: !!databaseUrl,
+    crypto: !!databaseUrl,
+    stripe: !!secrets.stripeSecretKey,
+    gateway: !!databaseUrl,
+    hotPool: !!databaseUrl,
   },
 });
 
@@ -55,6 +63,7 @@ const { container } = platform;
   initBetterAuth({
     pool: container.pool,
     db: container.db,
+    secret: secrets.betterAuthSecret,
     cookieDomain: productDomain ? `.${productDomain}` : undefined,
     onUserCreated: async (userId) => {
       try {

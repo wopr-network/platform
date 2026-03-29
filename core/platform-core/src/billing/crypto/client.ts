@@ -127,21 +127,20 @@ export class CryptoServiceClient {
 }
 
 /**
- * Load crypto service config from environment.
- * Returns null if CRYPTO_SERVICE_URL is not set.
- *
- * Also supports legacy BTCPay env vars for backwards compat during migration.
+ * Load crypto service config from explicit params.
+ * Returns null if baseUrl is not provided.
  */
-export function loadCryptoConfig(): CryptoServiceConfig | null {
-  const baseUrl = process.env.CRYPTO_SERVICE_URL;
-  if (baseUrl) {
-    return {
-      baseUrl,
-      serviceKey: process.env.CRYPTO_SERVICE_KEY,
-      tenantId: process.env.TENANT_ID,
-    };
-  }
-  return null;
+export function loadCryptoConfig(params: {
+  baseUrl?: string | null;
+  serviceKey?: string | null;
+  tenantId?: string;
+}): CryptoServiceConfig | null {
+  if (!params.baseUrl) return null;
+  return {
+    baseUrl: params.baseUrl,
+    serviceKey: params.serviceKey ?? undefined,
+    tenantId: params.tenantId,
+  };
 }
 
 // Legacy type alias for backwards compat

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: nemoclaw_platform
       POSTGRES_USER: nemoclaw
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -21,26 +21,25 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://nemoclaw:${POSTGRES_PASSWORD}@postgres:5432/nemoclaw_platform
+      # Vault secrets management (zero secrets in compose)
+      - VAULT_ADDR=https://vault.wopr.bot
+      - VAULT_ROLE_ID=${VAULT_ROLE_ID}
+      - VAULT_SECRET_ID=${VAULT_SECRET_ID}
+      # Infra config (non-secret)
+      - DB_HOST=postgres
+      - DB_NAME=nemoclaw_platform
       - PORT=3100
       - PLATFORM_DOMAIN=nemopod.com
-      - PROVISION_SECRET=${PROVISION_SECRET}
+      - BETTER_AUTH_URL=https://api.nemopod.com
       - NEMOCLAW_IMAGE=${NEMOCLAW_IMAGE:-ghcr.io/wopr-network/nemoclaw:latest}
       - NEMOCLAW_CONTAINER_PORT=3100
       - FLEET_DOCKER_NETWORK=nemoclaw-platform_default
       - GATEWAY_URL=https://api.nemopod.com/v1
       - POOL_SIZE_DEFAULT=2
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=https://api.nemopod.com
-      - POSTMARK_API_KEY=${POSTMARK_API_KEY}
       - EMAIL_FROM=${EMAIL_FROM:-noreply@nemopod.com}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
-      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - NODE_ENV=production
     volumes:
       - fleet_data:/data
       - /var/run/docker.sock:/var/run/docker.sock

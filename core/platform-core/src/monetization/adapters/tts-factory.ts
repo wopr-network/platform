@@ -82,12 +82,3 @@ export function createTTSAdapters(config: TTSFactoryConfig): TTSFactoryResult {
  *
  * Accepts optional per-adapter overrides.
  */
-export function createTTSAdaptersFromEnv(
-  overrides?: Omit<TTSFactoryConfig, "chatterboxBaseUrl" | "elevenlabsApiKey">,
-): TTSFactoryResult {
-  return createTTSAdapters({
-    chatterboxBaseUrl: process.env.CHATTERBOX_BASE_URL,
-    elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
-    ...overrides,
-  });
-}

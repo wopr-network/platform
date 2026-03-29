@@ -83,12 +83,3 @@ export function createEmbeddingsAdapters(config: EmbeddingsFactoryConfig): Embed
  *
  * Accepts optional per-adapter overrides.
  */
-export function createEmbeddingsAdaptersFromEnv(
-  overrides?: Omit<EmbeddingsFactoryConfig, "ollamaBaseUrl" | "openrouterApiKey">,
-): EmbeddingsFactoryResult {
-  return createEmbeddingsAdapters({
-    ollamaBaseUrl: process.env.OLLAMA_BASE_URL,
-    openrouterApiKey: process.env.OPENROUTER_API_KEY,
-    ...overrides,
-  });
-}

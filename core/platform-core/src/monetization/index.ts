@@ -34,7 +34,6 @@ export {
   type BootstrapConfig,
   type BootstrapResult,
   bootstrapAdapters,
-  bootstrapAdaptersFromEnv,
 } from "./adapters/bootstrap.js";
 // Adapters (WOP-301, WOP-353, WOP-377, WOP-386, WOP-387, WOP-497)
 export { type ChatterboxTTSAdapterConfig, createChatterboxTTSAdapter } from "./adapters/chatterbox-tts.js";
@@ -44,7 +43,6 @@ export { createElevenLabsAdapter, type ElevenLabsAdapterConfig } from "./adapter
 // Embeddings adapter factory (WOP-2190)
 export {
   createEmbeddingsAdapters,
-  createEmbeddingsAdaptersFromEnv,
   type EmbeddingsFactoryConfig,
   type EmbeddingsFactoryResult,
 } from "./adapters/embeddings-factory.js";
@@ -52,7 +50,6 @@ export { createGeminiAdapter, type GeminiAdapterConfig } from "./adapters/gemini
 // Image-generation adapter factory (WOP-2188)
 export {
   createImageGenAdapters,
-  createImageGenAdaptersFromEnv,
   type ImageGenFactoryConfig,
   type ImageGenFactoryResult,
 } from "./adapters/image-gen-factory.js";
@@ -82,21 +79,18 @@ export { checkHealth, type FetchFn, type SelfHostedAdapterConfig } from "./adapt
 // Text-generation adapter factory (WOP-463)
 export {
   createTextGenAdapters,
-  createTextGenAdaptersFromEnv,
   type TextGenFactoryConfig,
   type TextGenFactoryResult,
 } from "./adapters/text-gen-factory.js";
 // Transcription adapter factory
 export {
   createTranscriptionAdapters,
-  createTranscriptionAdaptersFromEnv,
   type TranscriptionFactoryConfig,
   type TranscriptionFactoryResult,
 } from "./adapters/transcription-factory.js";
 // TTS adapter factory
 export {
   createTTSAdapters,
-  createTTSAdaptersFromEnv,
   type TTSFactoryConfig,
   type TTSFactoryResult,
 } from "./adapters/tts-factory.js";

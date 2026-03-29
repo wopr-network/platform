@@ -155,16 +155,20 @@ function envInt(key: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+/** Pre-initialize the pool with an explicit connection string (from Vault). */
+export function initPool(connectionString: string): void {
+  if (_pool) return;
+  _pool = new Pool({
+    connectionString,
+    max: envInt("DB_POOL_MAX", 20),
+    idleTimeoutMillis: envInt("DB_POOL_IDLE_TIMEOUT_MS", 30_000),
+    connectionTimeoutMillis: envInt("DB_POOL_CONNECTION_TIMEOUT_MS", 5_000),
+  });
+}
+
 export function getPool(): Pool {
   if (!_pool) {
-    const connectionString = process.env.DATABASE_URL;
-    if (!connectionString) throw new Error("DATABASE_URL environment variable is required");
-    _pool = new Pool({
-      connectionString,
-      max: envInt("DB_POOL_MAX", 20),
-      idleTimeoutMillis: envInt("DB_POOL_IDLE_TIMEOUT_MS", 30_000),
-      connectionTimeoutMillis: envInt("DB_POOL_CONNECTION_TIMEOUT_MS", 5_000),
-    });
+    throw new Error("Pool not initialized — call initPool(connectionString) first");
   }
   return _pool;
 }
@@ -458,11 +462,15 @@ export function getInferenceWatchdog(): InferenceWatchdog {
 // Infrastructure
 // ---------------------------------------------------------------------------
 
+/** Pre-initialize the DO client with an explicit token (from Vault). */
+export function initDOClient(token: string): void {
+  if (_doClient) return;
+  _doClient = new DOClient(token);
+}
+
 export function getDOClient(): DOClient {
   if (!_doClient) {
-    const token = process.env.DO_API_TOKEN;
-    if (!token) throw new Error("DO_API_TOKEN environment variable is required for node provisioning");
-    _doClient = new DOClient(token);
+    throw new Error("DOClient not initialized — call initDOClient(token) first");
   }
   return _doClient;
 }

@@ -9,6 +9,7 @@
  */
 
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import { resolveSecrets } from "@wopr-network/platform-core/config";
 import { bootPlatformServer } from "@wopr-network/platform-core/server";
 import { createTRPCContext, setTrpcOrgMemberRepo } from "@wopr-network/platform-core/trpc";
 import { createShipItRoutes } from "./api/ship-it.js";
@@ -73,20 +74,34 @@ function parseRepoFullName(entity: Entity): { owner: string; repo: string } {
 async function main() {
   const config = getConfig();
 
+  // ─── 0. Resolve secrets from Vault (production) or env fallback ───────
+  const secrets = await resolveSecrets(config.PRODUCT_SLUG);
+
+  // Build DATABASE_URL from Vault secrets + compose infra
+  const dbHost = process.env.DB_HOST ?? "postgres";
+  const dbName = process.env.DB_NAME ?? `${config.PRODUCT_SLUG}_platform`;
+  const dbPort = process.env.DB_PORT ?? "5432";
+  const databaseUrl =
+    config.DATABASE_URL ?? `postgresql://${config.PRODUCT_SLUG}:${secrets.dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+
+  // Use Vault secrets, fall back to config (env) for local dev
+  const stripeSecretKey = secrets.stripeSecretKey ?? config.STRIPE_SECRET_KEY ?? null;
+  const openrouterApiKey = secrets.openrouterApiKey ?? config.OPENROUTER_API_KEY ?? null;
+  const githubAppPrivateKey = secrets.githubAppPrivateKey ?? config.GITHUB_APP_PRIVATE_KEY ?? null;
+  const githubWebhookSecret = secrets.githubWebhookSecret ?? config.GITHUB_WEBHOOK_SECRET ?? null;
+
   // ─── 1. Platform boot (DB, migrations, product config, credits, org) ──
   const platform = await bootPlatformServer({
     slug: config.PRODUCT_SLUG,
-    databaseUrl: process.env.DATABASE_URL ?? "",
+    secrets,
+    databaseUrl,
     host: config.HOST,
     port: config.PORT,
-    provisionSecret: process.env.PROVISION_SECRET ?? "",
-    stripeSecretKey: config.STRIPE_SECRET_KEY,
-    stripeWebhookSecret: config.STRIPE_WEBHOOK_SECRET,
     features: {
       fleet: !!(config.HOLYSHIP_WORKER_IMAGE && config.HOLYSHIP_GATEWAY_KEY),
       crypto: !!(config.CRYPTO_SERVICE_URL && config.CRYPTO_WEBHOOK_SECRET),
-      stripe: !!config.STRIPE_SECRET_KEY,
-      gateway: !!config.OPENROUTER_API_KEY,
+      stripe: !!stripeSecretKey,
+      gateway: !!openrouterApiKey,
       hotPool: false,
     },
   });
@@ -118,6 +133,7 @@ async function main() {
   initBetterAuth({
     pool: container.pool,
     db: platformDb,
+    secret: secrets.betterAuthSecret,
     cookieDomain: productDomain ? `.${productDomain}` : undefined,
     onUserCreated: async (userId: string) => {
       try {
@@ -172,7 +188,7 @@ async function main() {
   }
 
   // ─── 7. Gateway (OpenRouter metered proxy) ───────────────────────────
-  if (config.OPENROUTER_API_KEY) {
+  if (openrouterApiKey) {
     const { mountGateway } = await import("@wopr-network/platform-core/gateway");
     const { DrizzleMeterEventRepository, MeterEmitter } = await import("@wopr-network/platform-core/metering");
     const { DrizzleBudgetChecker } = await import("@wopr-network/platform-core/monetization");
@@ -187,7 +203,7 @@ async function main() {
       meter,
       budgetChecker,
       creditLedger: container.creditLedger,
-      providers: { openrouter: { apiKey: config.OPENROUTER_API_KEY } },
+      providers: { openrouter: { apiKey: openrouterApiKey } },
       resolveServiceKey: async (key: string) => {
         const serviceKeyRepo = container.gateway?.serviceKeyRepo;
         if (!serviceKeyRepo) return null;
@@ -214,10 +230,9 @@ async function main() {
     setOrgRouterDeps({ orgService: container.orgService, authUserRepo, creditLedger: container.creditLedger });
 
     // Billing deps (Stripe)
-    const stripeKey = config.STRIPE_SECRET_KEY;
-    if (stripeKey) {
+    if (stripeSecretKey) {
       const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(stripeKey);
+      const stripe = new Stripe(stripeSecretKey);
 
       const { DrizzleTenantCustomerRepository, loadCreditPriceMap, StripePaymentProcessor } = await import(
         "@wopr-network/platform-core/billing"
@@ -241,7 +256,7 @@ async function main() {
       const processor = new StripePaymentProcessor({
         stripe,
         tenantRepo,
-        webhookSecret: config.STRIPE_WEBHOOK_SECRET ?? "",
+        webhookSecret: secrets.stripeWebhookSecret ?? config.STRIPE_WEBHOOK_SECRET ?? "",
         priceMap,
         creditLedger: container.creditLedger,
       });
@@ -318,7 +333,7 @@ async function main() {
   eventEmitter.register(new DomainEventPersistAdapter(repos.domainEvents));
 
   // GitHub primitive op handler (for gate evaluation)
-  const hasGitHubApp = !!(config.GITHUB_APP_ID && config.GITHUB_APP_PRIVATE_KEY);
+  const hasGitHubApp = !!(config.GITHUB_APP_ID && githubAppPrivateKey);
   const installationRepo = new DrizzleGitHubInstallationRepository(engineDb, tenantId);
 
   const primitiveOpHandler: PrimitiveOpHandler | undefined = hasGitHubApp
@@ -327,7 +342,7 @@ async function main() {
           entity,
           installationRepo,
           config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppPrivateKey as string,
         );
         const { owner, repo } = parseRepoFullName(entity);
         const ctx = { token, owner, repo };
@@ -427,7 +442,7 @@ async function main() {
           if (installations.length === 0) return null;
           const { token } = await getInstallationAccessToken(
             config.GITHUB_APP_ID as string,
-            config.GITHUB_APP_PRIVATE_KEY as string,
+            githubAppPrivateKey as string,
             installations[0].installationId,
           );
           return token;
@@ -470,7 +485,7 @@ async function main() {
         }
         const { token } = await getInstallationAccessToken(
           config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppPrivateKey as string,
           installations[0].installationId,
         );
         const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, {
@@ -490,12 +505,12 @@ async function main() {
   );
 
   // ─── 12. GitHub webhook routes ───────────────────────────────────────
-  if (config.GITHUB_WEBHOOK_SECRET) {
+  if (githubWebhookSecret) {
     app.route(
       "/api/github/webhook",
       createGitHubWebhookRoutes({
         installationRepo,
-        webhookSecret: config.GITHUB_WEBHOOK_SECRET,
+        webhookSecret: githubWebhookSecret,
         tenantId,
         onIssueOpened: async (payload) => {
           logger.info(`Issue opened: ${payload.owner}/${payload.repo}#${payload.issueNumber}`);
@@ -521,7 +536,7 @@ async function main() {
         }
         const { token } = await getInstallationAccessToken(
           config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppPrivateKey as string,
           installations[0].installationId,
         );
         const res = await fetch("https://api.github.com/installation/repositories?per_page=100", {
@@ -558,7 +573,7 @@ async function main() {
         }
         const { token } = await getInstallationAccessToken(
           config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppPrivateKey as string,
           installations[0].installationId,
         );
         const res = await fetch(
@@ -606,7 +621,7 @@ async function main() {
       if (!installation.accessToken || !installation.tokenExpiresAt || installation.tokenExpiresAt < new Date()) {
         const { token, expiresAt } = await getInstallationAccessToken(
           config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppPrivateKey as string,
           installation.installationId,
         );
         await installationRepo.updateToken(installation.installationId, token, expiresAt);
@@ -647,7 +662,7 @@ async function main() {
             if (installations.length === 0) return null;
             const { token } = await getInstallationAccessToken(
               config.GITHUB_APP_ID as string,
-              config.GITHUB_APP_PRIVATE_KEY as string,
+              githubAppPrivateKey as string,
               installations[0].installationId,
             );
             return token;

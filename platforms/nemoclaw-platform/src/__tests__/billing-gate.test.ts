@@ -55,9 +55,32 @@ vi.mock("@wopr-network/platform-core/config/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-const { provisionWebhookRoutes } = await import("../routes/provision-webhook.js");
+const { provisionWebhookRoutes, setProvisionWebhookDeps } = await import("../routes/provision-webhook.js");
+
+function initDeps() {
+  setProvisionWebhookDeps({
+    creditLedger: ledgerEnabled ? ({ balance: mockBalance } as never) : null,
+    profileStore: { list: mockProfileStoreList } as never,
+    productConfig: {
+      product: { domain: "nemopod.com" },
+      fleet: { maxInstances: 3, containerPort: 3100, containerImage: "ghcr.io/wopr-network/platform:latest" },
+    } as never,
+    nodeRegistry: {
+      list: () => [{ config: { id: "local", name: "local", host: "localhost" }, docker: {}, fleet: mockFleet }],
+      getContainerCounts: () => new Map([["local", 0]]),
+      assignContainer: vi.fn(),
+      unassignContainer: vi.fn(),
+      resolveUpstreamHost: (_id: string, name: string) => name,
+      getContainerNode: () => "local",
+      getFleetManager: () => mockFleet,
+    } as never,
+    placementStrategy: { selectNode: (nodes: unknown[]) => nodes[0] } as never,
+    serviceKeyRepo: null,
+  });
+}
 
 function createApp() {
+  initDeps();
   const app = new Hono();
   app.route("/api/provision", provisionWebhookRoutes);
   return app;

@@ -69,11 +69,3 @@ export function createTranscriptionAdapters(config: TranscriptionFactoryConfig):
  *
  * Accepts optional per-adapter overrides.
  */
-export function createTranscriptionAdaptersFromEnv(
-  overrides?: Omit<TranscriptionFactoryConfig, "deepgramApiKey">,
-): TranscriptionFactoryResult {
-  return createTranscriptionAdapters({
-    deepgramApiKey: process.env.DEEPGRAM_API_KEY,
-    ...overrides,
-  });
-}

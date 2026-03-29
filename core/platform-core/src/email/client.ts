@@ -9,8 +9,6 @@
 
 import { Resend } from "resend";
 import { logger } from "../config/logger.js";
-import { PostmarkTransport } from "./postmark-transport.js";
-import { SesTransport } from "./ses-transport.js";
 
 export interface EmailClientConfig {
   apiKey: string;
@@ -175,6 +173,10 @@ export interface EmailClientOverrides {
   from?: string;
   /** Reply-to address — overrides EMAIL_REPLY_TO env var. */
   replyTo?: string;
+  /** Postmark API key — from Vault secrets. Overrides POSTMARK_API_KEY env var. */
+  postmarkApiKey?: string | null;
+  /** Resend API key — from Vault secrets. Overrides RESEND_API_KEY env var. */
+  resendApiKey?: string | null;
 }
 
 /**
@@ -186,42 +188,15 @@ export interface EmailClientOverrides {
  */
 export function getEmailClient(overrides?: EmailClientOverrides): EmailClient {
   if (!_client) {
-    if (process.env.EMAIL_DISABLED === "true") {
-      _client = new EmailClient(new NoopTransport());
-      logger.info("Email client disabled (EMAIL_DISABLED=true)");
-      return _client;
-    }
+    const from = overrides?.from || "noreply@wopr.bot";
+    const replyTo = overrides?.replyTo || "support@wopr.bot";
 
-    const from = overrides?.from || process.env.EMAIL_FROM || process.env.RESEND_FROM || "noreply@wopr.bot";
-    const replyTo =
-      overrides?.replyTo || process.env.EMAIL_REPLY_TO || process.env.RESEND_REPLY_TO || "support@wopr.bot";
-
-    const sesRegion = process.env.AWS_SES_REGION;
-    if (sesRegion) {
-      const transport = new SesTransport({
-        region: sesRegion,
-        from,
-        replyTo,
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      });
-      _client = new EmailClient(transport);
-      logger.info("Email client initialized with AWS SES", { region: sesRegion, from });
-    } else if (process.env.POSTMARK_API_KEY) {
-      const transport = new PostmarkTransport({
-        apiKey: process.env.POSTMARK_API_KEY,
-        from,
-        replyTo,
-      });
-      _client = new EmailClient(transport);
-      logger.info("Email client initialized with Postmark", { from });
-    } else {
-      const apiKey = process.env.RESEND_API_KEY;
-      if (!apiKey) {
-        throw new Error("Set AWS_SES_REGION, POSTMARK_API_KEY, or RESEND_API_KEY environment variable");
-      }
-      _client = new EmailClient({ apiKey, from, replyTo });
+    if (overrides?.resendApiKey) {
+      _client = new EmailClient({ apiKey: overrides.resendApiKey, from, replyTo });
       logger.info("Email client initialized with Resend", { from });
+    } else {
+      _client = new EmailClient(new NoopTransport());
+      logger.warn("No email API key provided — email disabled");
     }
   }
   return _client;

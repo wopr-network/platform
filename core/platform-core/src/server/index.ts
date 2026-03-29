@@ -56,12 +56,24 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
   const container = await buildContainer(config);
   const app = new Hono();
 
+  const secrets = config.secrets;
+
+  // Initialize email client from Vault secrets before auth routes are mounted
+  if (secrets?.resendApiKey) {
+    const { getEmailClient } = await import("../email/client.js");
+    getEmailClient({
+      resendApiKey: secrets.resendApiKey,
+      from: container.productConfig.product?.fromEmail || undefined,
+      replyTo: container.productConfig.product?.emailSupport || undefined,
+    });
+  }
   await mountRoutes(
     app,
     container,
     {
-      provisionSecret: config.provisionSecret,
-      cryptoServiceKey: config.cryptoServiceKey,
+      provisionSecret: secrets?.provisionSecret ?? config.provisionSecret ?? "",
+      cryptoServiceKey: secrets?.cryptoServiceKey ?? config.cryptoServiceKey,
+      openrouterApiKey: secrets?.openrouterApiKey,
       platformDomain: container.productConfig.product?.domain ?? "localhost",
     },
     config.routes,

@@ -26,25 +26,28 @@ const sharedOpts = {
   singleLine: true,
 };
 
-export const logger = pino({
-  level: "debug",
-}, pino.transport({
-  targets: [
-    {
-      target: "pino-pretty",
-      options: { ...sharedOpts, ignore: "pid,hostname,req,res,responseTime", colorize: true, destination: 1 },
-      level: "info",
-    },
-    {
-      target: "pino-pretty",
-      options: { ...sharedOpts, colorize: false, destination: logFile, mkdir: true },
-      level: "debug",
-    },
-  ],
-}));
+export const logger = pino(
+  {
+    level: "debug",
+  },
+  pino.transport({
+    targets: [
+      {
+        target: "pino-pretty",
+        options: { ...sharedOpts, ignore: "pid,hostname,req,res,responseTime", colorize: true, destination: 1 },
+        level: "info",
+      },
+      {
+        target: "pino-pretty",
+        options: { ...sharedOpts, colorize: false, destination: logFile, mkdir: true },
+        level: "debug",
+      },
+    ],
+  }),
+);
 
 export const httpLogger = pinoHttp({
-  logger,
+  logger: logger as never,
   customLogLevel(_req, res, err) {
     if (err || res.statusCode >= 500) return "error";
     if (res.statusCode >= 400) return "warn";

@@ -19,7 +19,16 @@ vi.mock("@wopr-network/platform-core/config/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { getRoutes, registerRoute, removeRoute, resolveContainerUrl, setRouteHealth } from "../proxy/fleet-resolver.js";
+import {
+  getRoutes,
+  registerRoute,
+  removeRoute,
+  resolveContainerUrl,
+  setFleetResolverProxy,
+  setRouteHealth,
+} from "../proxy/fleet-resolver.js";
+
+setFleetResolverProxy(mockProxyManager as never);
 
 describe("fleet-resolver (ProxyManager-backed)", () => {
   beforeEach(() => {

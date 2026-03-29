@@ -10,23 +10,23 @@ const optStr = z
 const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   HOST: z.string().default("0.0.0.0"),
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: optStr, // Built from Vault in production
 
-  // Auth
+  // Auth (from Vault in production)
   BETTER_AUTH_SECRET: optStr,
 
   // Platform
   UI_ORIGIN: z.string().default("https://holyship.wtf"),
   APP_BASE_URL: z.string().url().default("https://api.holyship.wtf"),
 
-  // Billing
+  // Billing (from Vault in production)
   STRIPE_SECRET_KEY: optStr,
   STRIPE_WEBHOOK_SECRET: optStr,
 
-  // Gateway (metered inference proxy)
+  // Gateway (from Vault in production)
   OPENROUTER_API_KEY: optStr,
 
-  // GitHub App
+  // GitHub App (secrets from Vault, IDs can stay in env)
   GITHUB_APP_ID: optStr,
   GITHUB_APP_PRIVATE_KEY: optStr,
   GITHUB_WEBHOOK_SECRET: optStr,

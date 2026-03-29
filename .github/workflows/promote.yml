@@ -58,7 +58,7 @@ jobs:
               echo "products=nemoclaw" >> "$GITHUB_OUTPUT"
               ;;
             all)
-              echo "images=paperclip-platform paperclip-platform-ui wopr-platform wopr-platform-ui holyship holyship-ui nemoclaw-platform nemoclaw-platform-ui" >> "$GITHUB_OUTPUT"
+              echo "images=paperclip-platform paperclip-platform-ui wopr-platform wopr-platform-ui holyship holyship-platform-ui nemoclaw-platform nemoclaw-platform-ui" >> "$GITHUB_OUTPUT"
               echo "hosts=68.183.160.201 138.68.30.247 138.68.46.192 167.172.208.149" >> "$GITHUB_OUTPUT"
               echo "products=paperclip wopr holyship nemoclaw" >> "$GITHUB_OUTPUT"
               ;;
@@ -113,8 +113,14 @@ jobs:
               nemoclaw)  host=167.172.208.149; dir=/opt/nemoclaw-platform ;;
             esac
             echo "Deploying $product on $host..."
+            case "$product" in
+              wopr)      API_SVC=platform-api; UI_SVC=platform-ui ;;
+              paperclip) API_SVC=platform-api; UI_SVC=platform-ui ;;
+              holyship)  API_SVC=api;          UI_SVC=ui ;;
+              nemoclaw)  API_SVC=nemoclaw-platform; UI_SVC=nemoclaw-ui ;;
+            esac
             ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$host" \
-              "cd $dir && docker compose pull && docker compose up -d --force-recreate platform-api platform-ui 2>/dev/null || docker compose up -d && docker image prune -f"
+              "cd $dir && docker compose pull $API_SVC $UI_SVC && docker compose up -d --force-recreate $API_SVC $UI_SVC && docker image prune -f"
             echo "✓ $product containers restarted"
           done
 
@@ -136,6 +142,12 @@ jobs:
               holyship)  host=138.68.46.192;  dir=/opt/holyship ;;
               nemoclaw)  host=167.172.208.149; dir=/opt/nemoclaw-platform ;;
             esac
+            case "$product" in
+              wopr)      API_SVC=platform-api; UI_SVC=platform-ui ;;
+              paperclip) API_SVC=platform-api; UI_SVC=platform-ui ;;
+              holyship)  API_SVC=api;          UI_SVC=ui ;;
+              nemoclaw)  API_SVC=nemoclaw-platform; UI_SVC=nemoclaw-ui ;;
+            esac
             echo "Health checking $product on $host..."
             echo "  Waiting 30s for container startup..."
             sleep 30
@@ -143,7 +155,7 @@ jobs:
             API_HEALTHY=false
             for i in 1 2 3 4 5 6 7 8 9 10; do
               STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
-                "root@$host" "cd $dir && docker compose exec -T platform-api curl -sf http://localhost:3200/health 2>/dev/null || docker compose exec -T platform-api curl -sf http://localhost:3100/health 2>/dev/null" || true)
+                "root@$host" "cd $dir && docker compose exec -T $API_SVC curl -sf http://localhost:3200/health 2>/dev/null || docker compose exec -T $API_SVC curl -sf http://localhost:3100/health 2>/dev/null" || true)
               if [ -n "$STATUS" ]; then
                 echo "✓ $product API is healthy"
                 API_HEALTHY=true
@@ -156,7 +168,7 @@ jobs:
             UI_HEALTHY=false
             for i in 1 2 3 4 5 6 7 8 9 10; do
               UI_STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
-                "root@$host" "cd $dir && docker compose exec -T platform-ui node -e \"require('http').get('http://localhost:3000/', r => { process.exit(r.statusCode === 200 ? 0 : 1) })\" 2>/dev/null && echo OK" || true)
+                "root@$host" "cd $dir && docker compose exec -T $UI_SVC node -e \"require('http').get('http://localhost:3000/', r => { process.exit(r.statusCode === 200 ? 0 : 1) })\" 2>/dev/null && echo OK" || true)
               if [ "$UI_STATUS" = "OK" ]; then
                 echo "✓ $product UI is healthy"
                 UI_HEALTHY=true
@@ -164,7 +176,7 @@ jobs:
               fi
               # Also check if UI container is crash-looping
               UI_STATE=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
-                "root@$host" "cd $dir && docker compose ps platform-ui --format '{{.State}}'" 2>/dev/null || true)
+                "root@$host" "cd $dir && docker compose ps $UI_SVC --format '{{.State}}'" 2>/dev/null || true)
               if echo "$UI_STATE" | grep -qi "restarting"; then
                 echo "::error::$product UI is crash-looping"
                 break
@@ -205,7 +217,12 @@ jobs:
             ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$host" bash -s <<ROLLBACK
           set -euo pipefail
           cd $dir
-          docker compose stop platform-api 2>/dev/null || true
+          case "$product" in
+            wopr|paperclip) API_SVC=platform-api ;;
+            holyship) API_SVC=api ;;
+            nemoclaw) API_SVC=nemoclaw-platform ;;
+          esac
+          docker compose stop \$API_SVC 2>/dev/null || true
           BACKUP=\$(ls -t $dir/backups/${db}-*.sql.gz 2>/dev/null | head -1)
           if [ -n "\$BACKUP" ]; then
             echo "Restoring DB from \$BACKUP..."

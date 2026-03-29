@@ -210,10 +210,12 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
 
   // 10. Stripe services (when enabled)
   let stripe: StripeServices | null = null;
-  if (bootConfig.features.stripe && bootConfig.stripeSecretKey) {
+  const stripeKey = bootConfig.secrets?.stripeSecretKey ?? bootConfig.stripeSecretKey;
+  const stripeWhSecret = bootConfig.secrets?.stripeWebhookSecret ?? bootConfig.stripeWebhookSecret ?? "";
+  if (bootConfig.features.stripe && stripeKey) {
     const StripeModule = await import("stripe");
     const StripeClass = StripeModule.default;
-    const stripeClient: Stripe = new StripeClass(bootConfig.stripeSecretKey);
+    const stripeClient: Stripe = new StripeClass(stripeKey);
 
     const { DrizzleTenantCustomerRepository } = await import("../billing/stripe/tenant-store.js");
     const { loadCreditPriceMap } = await import("../billing/stripe/credit-prices.js");
@@ -224,14 +226,14 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const processor = new StripePaymentProcessor({
       stripe: stripeClient,
       tenantRepo: customerRepo,
-      webhookSecret: bootConfig.stripeWebhookSecret ?? "",
+      webhookSecret: stripeWhSecret,
       priceMap,
       creditLedger,
     });
 
     stripe = {
       stripe: stripeClient,
-      webhookSecret: bootConfig.stripeWebhookSecret ?? "",
+      webhookSecret: stripeWhSecret,
       customerRepo,
       processor,
     };
@@ -275,7 +277,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
     const poolRepo = new DrizzlePoolRepository(pool);
 
-    const hotPoolConfig = { provisionSecret: bootConfig.provisionSecret };
+    const hotPoolConfig = { provisionSecret: bootConfig.secrets?.provisionSecret ?? bootConfig.provisionSecret ?? "" };
     result.hotPool = {
       start: () => startHotPool(result, poolRepo, hotPoolConfig),
       claim: (name, tenantId, adminUser) =>

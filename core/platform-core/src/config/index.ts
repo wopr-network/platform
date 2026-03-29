@@ -44,3 +44,10 @@ export const config = platformConfigSchema.parse({
 });
 
 export type PlatformConfig = z.infer<typeof platformConfigSchema>;
+
+export { resolveSecrets } from "./resolve-secrets.js";
+export type { PlatformSecrets } from "./secrets.js";
+export { mapSecrets, mapSecretsFromPaths, secretsFromEnv } from "./secrets.js";
+export type { VaultConfig } from "./vault-provider.js";
+// Vault secrets
+export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-provider.js";
