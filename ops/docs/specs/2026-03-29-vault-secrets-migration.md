@@ -132,5 +132,21 @@ VAULT_SECRET_ID=<from vault-role file>
 - `wopr-platform/src/validate-env.ts` — skips secret checks in Vault mode
 
 ### Compose/CI
-- `ops/vps/*/docker-compose.yml` — secrets replaced with Vault env vars
-- `.github/workflows/promote.yml` — product-specific service names
+- `ops/vps/*/docker-compose.yml` — secrets replaced with Vault env vars, images from `registry.wopr.bot`
+- `.github/workflows/staging.yml` — switched from GHCR to `registry.wopr.bot`, plain `docker build`+`push`
+- `.github/workflows/promote.yml` — product-specific service names, `registry.wopr.bot`
+
+## Self-Hosted Container Registry (2026-03-30)
+
+GHCR pushes hung from self-hosted runner due to Docker BuildKit deadlock. Deployed own registry.
+
+| Component | Detail |
+|-----------|--------|
+| URL | `registry.wopr.bot` |
+| Host | chain-server (167.71.118.221) |
+| Storage | 100GB DO volume at `/mnt/registry` ($10/mo) |
+| Auth | htpasswd, creds in Vault `shared/registry` |
+| TLS | Caddy (same instance as Vault) |
+| Compose | `/opt/registry/docker-compose.yml` |
+
+All VPS compose files updated from `ghcr.io/wopr-network/` to `registry.wopr.bot/`. CI org secret `REGISTRY_PASSWORD` set.
