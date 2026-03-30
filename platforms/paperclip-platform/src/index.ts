@@ -212,6 +212,14 @@ if (container.fleet) {
     db: container.db,
     secret: secrets.betterAuthSecret,
     cookieDomain: productDomain ? `.${productDomain}` : undefined,
+    socialProviders: {
+      ...(secrets.githubClientId && secrets.githubClientSecret
+        ? { github: { clientId: secrets.githubClientId, clientSecret: secrets.githubClientSecret } }
+        : {}),
+      ...(secrets.googleClientId && secrets.googleClientSecret
+        ? { google: { clientId: secrets.googleClientId, clientSecret: secrets.googleClientSecret } }
+        : {}),
+    },
     onUserCreated: async (userId) => {
       try {
         const { grantSignupCredits } = await import("@wopr-network/platform-core/credits");

@@ -1107,6 +1107,14 @@ if (process.env.NODE_ENV !== "test") {
         db: getDb(),
         secret: secrets.betterAuthSecret,
         cookieDomain: `.${productDomain}`,
+        socialProviders: {
+          ...(secrets.githubClientId && secrets.githubClientSecret
+            ? { github: { clientId: secrets.githubClientId, clientSecret: secrets.githubClientSecret } }
+            : {}),
+          ...(secrets.googleClientId && secrets.googleClientSecret
+            ? { google: { clientId: secrets.googleClientId, clientSecret: secrets.googleClientSecret } }
+            : {}),
+        },
         onUserCreated: async (userId) => {
           try {
             const { grantSignupCredits } = await import("@wopr-network/platform-core/credits");

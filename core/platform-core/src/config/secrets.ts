@@ -31,6 +31,7 @@ export interface PlatformSecrets {
   ghcrToken: string | null;
 
   // GitHub App
+  githubClientId: string | null;
   githubClientSecret: string | null;
   githubAppPrivateKey: string | null;
   githubWebhookSecret: string | null;
@@ -44,6 +45,7 @@ export interface PlatformSecrets {
   cryptoServiceUrl: string | null;
 
   // OAuth (Google social login)
+  googleClientId: string | null;
   googleClientSecret: string | null;
 
   // Fleet
@@ -81,6 +83,7 @@ export function mapSecrets(raw: Record<string, string>): PlatformSecrets {
     ghcrToken: raw.token ?? null,
 
     // GitHub App
+    githubClientId: raw.client_id ?? null,
     githubClientSecret: raw.client_secret ?? null,
     githubAppPrivateKey: raw.private_key ?? null,
     githubWebhookSecret: raw.webhook_secret ?? null,
@@ -94,6 +97,7 @@ export function mapSecrets(raw: Record<string, string>): PlatformSecrets {
     cryptoServiceUrl: raw.crypto_service_url ?? null,
 
     // OAuth
+    googleClientId: raw.google_client_id ?? null,
     googleClientSecret: raw.google_client_secret ?? null,
 
     // Fleet
@@ -128,13 +132,15 @@ export function mapSecretsFromPaths(paths: Record<string, Record<string, string>
     openrouterApiKey: openrouter.api_key ?? null,
     doApiToken: digitalocean.api_token ?? null,
     ghcrToken: ghcr.token ?? null,
-    githubClientSecret: github.client_secret ?? null,
+    githubClientId: prod.github_client_id ?? github.client_id ?? null,
+    githubClientSecret: prod.github_client_secret ?? github.client_secret ?? null,
     githubAppPrivateKey: github.private_key ?? null,
     githubWebhookSecret: github.webhook_secret ?? null,
     cloudflareDnsToken: cloudflare.dns_edit ?? null,
     cloudflareTunnelToken: cloudflare.tunnel_edit ?? null,
     cryptoServiceKey: prod.crypto_service_key ?? null,
     cryptoServiceUrl: prod.crypto_service_url ?? null,
+    googleClientId: prod.google_client_id ?? null,
     googleClientSecret: prod.google_client_secret ?? null,
     provisionSecret: requireFrom(prod, "provision_secret"),
   };
@@ -171,6 +177,7 @@ export function secretsFromEnv(): PlatformSecrets {
     openrouterApiKey: null,
     doApiToken: null,
     ghcrToken: null,
+    githubClientId: null,
     githubClientSecret: null,
     githubAppPrivateKey: null,
     githubWebhookSecret: null,
@@ -178,6 +185,7 @@ export function secretsFromEnv(): PlatformSecrets {
     cloudflareTunnelToken: null,
     cryptoServiceKey: null,
     cryptoServiceUrl: null,
+    googleClientId: null,
     googleClientSecret: null,
     provisionSecret: "dev-provision-secret",
   };

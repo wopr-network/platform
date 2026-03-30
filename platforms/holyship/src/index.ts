@@ -135,6 +135,14 @@ async function main() {
     db: platformDb,
     secret: secrets.betterAuthSecret,
     cookieDomain: productDomain ? `.${productDomain}` : undefined,
+    socialProviders: {
+      ...(secrets.githubClientId && secrets.githubClientSecret
+        ? { github: { clientId: secrets.githubClientId, clientSecret: secrets.githubClientSecret } }
+        : {}),
+      ...(secrets.googleClientId && secrets.googleClientSecret
+        ? { google: { clientId: secrets.googleClientId, clientSecret: secrets.googleClientSecret } }
+        : {}),
+    },
     onUserCreated: async (userId: string) => {
       try {
         const granted = await grantSignupCredits(container.creditLedger, userId);
