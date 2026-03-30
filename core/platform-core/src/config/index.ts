@@ -51,3 +51,4 @@ export { mapSecrets, mapSecretsFromPaths, secretsFromEnv } from "./secrets.js";
 export type { VaultConfig } from "./vault-provider.js";
 // Vault secrets
 export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-provider.js";
+// no-cache rebuild
