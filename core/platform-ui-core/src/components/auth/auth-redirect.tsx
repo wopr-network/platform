@@ -1,19 +1,25 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
-import { getBrandConfig } from "@/lib/brand-config";
+import { sanitizeRedirectUrl } from "@/lib/utils";
 
+/**
+ * Redirects authenticated users away from auth pages.
+ * Checks callbackUrl param first, falls back to /instances.
+ */
 export function AuthRedirect() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!isPending && session) {
-      router.replace(getBrandConfig().homePath);
+      const callback = searchParams.get("callbackUrl");
+      router.replace(callback ? sanitizeRedirectUrl(callback) : "/instances");
     }
-  }, [isPending, session, router]);
+  }, [isPending, session, router, searchParams]);
 
   return null;
 }

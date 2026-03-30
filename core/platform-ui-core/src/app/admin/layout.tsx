@@ -5,9 +5,13 @@ import { usePathname } from "next/navigation";
 import { AdminGuard } from "@/components/admin/admin-guard";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Sidebar } from "@/components/sidebar";
+import { useRequireAdmin } from "@/lib/require-auth";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { isPending, isAuthed } = useRequireAdmin();
   const pathname = usePathname();
+
+  if (isPending || !isAuthed) return null;
 
   return (
     <>

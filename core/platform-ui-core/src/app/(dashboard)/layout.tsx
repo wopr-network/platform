@@ -26,14 +26,18 @@ import { usePageContext } from "@/hooks/use-page-context";
 import { useWebMCP } from "@/hooks/use-webmcp";
 import { getBrandConfig, productName } from "@/lib/brand-config";
 import { ChatProvider } from "@/lib/chat/chat-context";
+import { useRequireAuth } from "@/lib/require-auth";
 
 export default function DashboardLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { isPending, isAuthed } = useRequireAuth();
   useWebMCP();
   usePageContext();
+
+  if (isPending || !isAuthed) return null;
 
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
