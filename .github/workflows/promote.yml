@@ -116,7 +116,7 @@ jobs:
               nemoclaw)  API_SVC=nemoclaw-platform; UI_SVC=nemoclaw-ui ;;
             esac
             ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$host" \
-              "cd $dir && docker compose pull $API_SVC $UI_SVC && docker compose up -d --force-recreate $API_SVC $UI_SVC && docker image prune -f"
+              "cd $dir && docker system prune -af && docker compose pull $API_SVC $UI_SVC && docker compose up -d --force-recreate $API_SVC $UI_SVC"
             echo "✓ $product containers restarted"
           done
 
