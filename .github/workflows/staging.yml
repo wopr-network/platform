@@ -67,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-      max-parallel: 3
+      max-parallel: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -95,10 +95,14 @@ jobs:
           context: .
           file: ${{ matrix.api_dockerfile }}
           push: true
+          no-cache: true
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.api }}:staging
             ${{ env.REGISTRY }}/${{ matrix.api }}:${{ steps.version.outputs.short_sha }}
-          cache-from: type=gha,scope=${{ matrix.api }}
+
+      # --- Cleanup between builds ---
+      - name: Docker cleanup between builds
+        run: docker system prune -af 2>/dev/null || true
 
       # --- Build & push UI image ---
       - name: Build and push UI :staging
@@ -107,10 +111,10 @@ jobs:
           context: .
           file: ${{ matrix.ui_dockerfile }}
           push: true
+          no-cache: true
           tags: |
             ${{ env.REGISTRY }}/${{ matrix.ui }}:staging
             ${{ env.REGISTRY }}/${{ matrix.ui }}:${{ steps.version.outputs.short_sha }}
-          cache-from: type=gha,scope=${{ matrix.ui }}
 
       # --- Deploy to staging VPS ---
       - name: Deploy staging
