@@ -101,7 +101,7 @@ export async function mountRoutes(
       if (c.req.path.startsWith("/api/auth")) return next();
       // Health check endpoint must be public (used by docker healthcheck / LB)
       if (c.req.path === "/api/health" || c.req.path === "/health") return next();
-      return authMiddleware(c, next);
+      return authMiddleware(c as never, next);
     });
 
     // Wire org member repo into tRPC middleware
