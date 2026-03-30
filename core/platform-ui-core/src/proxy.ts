@@ -240,7 +240,10 @@ export default async function middleware(request: NextRequest) {
         return withCsp(NextResponse.redirect(appUrl));
       }
       // On app subdomain (or no configured app domain) — redirect to home
-      return withCsp(NextResponse.redirect(new URL(HOME_PATH, request.url)));
+      // Skip redirect when HOME_PATH is "/" to avoid infinite loop
+      if (HOME_PATH !== "/") {
+        return withCsp(NextResponse.redirect(new URL(HOME_PATH, request.url)));
+      }
     }
   }
 
