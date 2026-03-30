@@ -16,9 +16,15 @@ export interface Logger {
   error(message: string, ...args: unknown[]): void;
 }
 
-export function logger(_namespace: string): Logger {
+export function logger(namespace: string): Logger {
   return {
-    warn(_message: string, ..._args: unknown[]) {},
-    error(_message: string, ..._args: unknown[]) {},
+    warn(message: string, ...args: unknown[]) {
+      // biome-ignore lint/suspicious/noConsole: logger is the approved console wrapper
+      console.warn(`[${namespace}] ${message}`, ...args);
+    },
+    error(message: string, ...args: unknown[]) {
+      // biome-ignore lint/suspicious/noConsole: logger is the approved console wrapper
+      console.error(`[${namespace}] ${message}`, ...args);
+    },
   };
 }
