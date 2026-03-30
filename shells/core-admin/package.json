@@ -11,7 +11,7 @@
     "lint": "biome check src/",
     "format": "biome format --write src/",
     "check": "biome check src/ && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",
