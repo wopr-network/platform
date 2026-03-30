@@ -33,6 +33,46 @@ const tenantUnknownAuthHeader = { Authorization: `Bearer ${TEST_TENANT_UNKNOWN_T
 
 // Import AFTER env stub
 const { billingRoutes, setBillingDeps } = await import("./billing.js");
+const { initSecrets } = await import("../../fleet/services.js");
+
+const TEST_SECRETS_BASE = {
+  betterAuthSecret: "a".repeat(32),
+  platformSecret: "b".repeat(32),
+  platformEncryptionSecret: "c".repeat(32),
+  dbPassword: "test",
+  provisionSecret: "d".repeat(32),
+  stripeSecretKey: null,
+  stripeWebhookSecret: null,
+  stripePublishableKey: null,
+  postmarkApiKey: null,
+  resendApiKey: null,
+  openrouterApiKey: null,
+  doApiToken: null,
+  ghcrToken: null,
+  githubClientId: null,
+  githubClientSecret: null,
+  githubAppPrivateKey: null,
+  githubWebhookSecret: null,
+  cloudflareDnsToken: null,
+  cloudflareTunnelToken: null,
+  cryptoServiceKey: null as string | null,
+  cryptoServiceUrl: null as string | null,
+  googleClientId: null,
+  googleClientSecret: null,
+};
+
+// Initialize secrets with test values so setBillingDeps() can call getSecrets()
+initSecrets({ ...TEST_SECRETS_BASE });
+
+/** Re-init secrets with crypto service enabled */
+function enableCryptoSecrets(): void {
+  initSecrets({ ...TEST_SECRETS_BASE, cryptoServiceUrl: "http://localhost:3100", cryptoServiceKey: "test-service-key" });
+}
+
+/** Restore default secrets (no crypto) */
+function resetSecrets(): void {
+  initSecrets({ ...TEST_SECRETS_BASE });
+}
 
 function createTestSigPenaltyRepo(db: DrizzleDb): ISigPenaltyRepository {
   return new DrizzleSigPenaltyRepository(db);
@@ -1102,7 +1142,7 @@ describe("billing routes", () => {
 
     it("returns 400 for invalid JSON body (when crypto service is configured)", async () => {
       // Configure crypto service so that the JSON parsing path is reached
-      vi.stubEnv("CRYPTO_SERVICE_URL", "http://localhost:3100");
+      enableCryptoSecrets();
       setBillingDeps({
         processor: createMockProcessor(),
         creditLedger: new DrizzleLedger(db),
@@ -1123,6 +1163,7 @@ describe("billing routes", () => {
         });
       } finally {
         vi.unstubAllEnvs();
+        resetSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1139,7 +1180,7 @@ describe("billing routes", () => {
 
     it("persists charge locally after successful createCharge and returns chargeId/address", async () => {
       const chargeId = crypto.randomUUID();
-      vi.stubEnv("CRYPTO_SERVICE_URL", "http://localhost:3100");
+      enableCryptoSecrets();
       const chargeRepo = new DrizzleCryptoChargeRepository(db);
       setBillingDeps({
         processor: createMockProcessor(),
@@ -1172,6 +1213,7 @@ describe("billing routes", () => {
       } finally {
         createChargeSpy.mockRestore();
         vi.unstubAllEnvs();
+        resetSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1231,7 +1273,7 @@ describe("billing routes", () => {
     });
 
     it("returns 503 when CRYPTO_WEBHOOK_SECRET is not set but crypto is configured", async () => {
-      vi.stubEnv("CRYPTO_SERVICE_URL", "http://localhost:3100");
+      enableCryptoSecrets();
       setBillingDeps({
         processor: createMockProcessor(),
         creditLedger: new DrizzleLedger(db),
@@ -1260,6 +1302,7 @@ describe("billing routes", () => {
         });
       } finally {
         vi.unstubAllEnvs();
+        resetSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1279,7 +1322,7 @@ describe("billing routes", () => {
 
       beforeEach(() => {
         vi.stubEnv("CRYPTO_WEBHOOK_SECRET", WEBHOOK_SECRET);
-        vi.stubEnv("CRYPTO_SERVICE_URL", "http://localhost:3100");
+        enableCryptoSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1294,6 +1337,7 @@ describe("billing routes", () => {
 
       afterEach(() => {
         vi.unstubAllEnvs();
+        resetSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1367,7 +1411,7 @@ describe("billing routes", () => {
     describe("IP allowlist", () => {
       beforeEach(() => {
         vi.stubEnv("CRYPTO_WEBHOOK_ALLOWED_IPS", "203.0.113.5,203.0.113.6");
-        vi.stubEnv("CRYPTO_SERVICE_URL", "http://localhost:3100");
+        enableCryptoSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1382,6 +1426,7 @@ describe("billing routes", () => {
 
       afterEach(() => {
         vi.unstubAllEnvs();
+        resetSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1416,6 +1461,7 @@ describe("billing routes", () => {
     describe("sig-penalty backoff", () => {
       afterEach(() => {
         vi.unstubAllEnvs();
+        resetSecrets();
         setBillingDeps({
           processor: createMockProcessor(),
           creditLedger: new DrizzleLedger(db),
@@ -1428,7 +1474,7 @@ describe("billing routes", () => {
       });
 
       it("returns 429 when IP is in penalty backoff", async () => {
-        vi.stubEnv("CRYPTO_SERVICE_URL", "http://localhost:3100");
+        enableCryptoSecrets();
 
         // Use a real penalty repo but pre-seed a blocked entry
         const penaltyRepo = createTestSigPenaltyRepo(db);
