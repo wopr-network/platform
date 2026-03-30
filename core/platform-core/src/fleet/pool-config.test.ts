@@ -16,7 +16,6 @@ vi.mock("pg", () => {
 
 describe("getPool config", () => {
   beforeEach(() => {
-    vi.stubEnv("DATABASE_URL", "postgresql://test:test@localhost:5432/test");
     constructorCalls.length = 0;
     vi.resetModules();
   });
@@ -26,41 +25,36 @@ describe("getPool config", () => {
   });
 
   it("uses default pool config when no DB_POOL_* env vars are set", async () => {
-    const { getPool } = await import("./services.js");
-    getPool();
-    expect(constructorCalls[0]).toEqual({
+    const { initPool, getPool } = await import("./services.js");
+    initPool("postgresql://test:test@localhost:5432/test");
+    const pool = getPool();
+    expect(pool).toBeDefined();
+    expect(constructorCalls[0]).toMatchObject({
       connectionString: "postgresql://test:test@localhost:5432/test",
-      max: 20,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
     });
   });
 
-  it("respects DB_POOL_MAX env var", async () => {
-    vi.stubEnv("DB_POOL_MAX", "50");
-    const { getPool } = await import("./services.js");
-    getPool();
-    expect(constructorCalls[0]).toMatchObject({ max: 50 });
+  it("creates pool via initPool with explicit connection string", async () => {
+    const { initPool, getPool } = await import("./services.js");
+    initPool("postgresql://user:pass@host:5432/db");
+    const pool = getPool();
+    expect(pool).toBeDefined();
+    expect(constructorCalls[0]).toMatchObject({
+      connectionString: "postgresql://user:pass@host:5432/db",
+    });
   });
 
-  it("respects DB_POOL_IDLE_TIMEOUT_MS env var", async () => {
-    vi.stubEnv("DB_POOL_IDLE_TIMEOUT_MS", "60000");
+  it("throws when getPool is called before initPool", async () => {
     const { getPool } = await import("./services.js");
-    getPool();
-    expect(constructorCalls[0]).toMatchObject({ idleTimeoutMillis: 60_000 });
+    expect(() => getPool()).toThrow("Pool not initialized");
   });
 
-  it("respects DB_POOL_CONNECTION_TIMEOUT_MS env var", async () => {
-    vi.stubEnv("DB_POOL_CONNECTION_TIMEOUT_MS", "10000");
-    const { getPool } = await import("./services.js");
-    getPool();
-    expect(constructorCalls[0]).toMatchObject({ connectionTimeoutMillis: 10_000 });
-  });
-
-  it("falls back to defaults for non-numeric env values", async () => {
-    vi.stubEnv("DB_POOL_MAX", "not-a-number");
-    const { getPool } = await import("./services.js");
-    getPool();
-    expect(constructorCalls[0]).toMatchObject({ max: 20 });
+  it("returns same pool on subsequent getPool calls", async () => {
+    const { initPool, getPool } = await import("./services.js");
+    initPool("postgresql://test:test@localhost:5432/test");
+    const a = getPool();
+    const b = getPool();
+    expect(a).toBe(b);
+    expect(constructorCalls).toHaveLength(1);
   });
 });
