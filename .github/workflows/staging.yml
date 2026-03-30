@@ -65,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-      max-parallel: 1
+      max-parallel: 4
     steps:
       - uses: actions/checkout@v4
 
