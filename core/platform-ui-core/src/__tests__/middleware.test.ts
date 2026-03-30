@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import middleware, { config, validateCsrfOrigin } from "../proxy";
 
 /**
@@ -38,118 +38,36 @@ function buildRequest(
   return req;
 }
 
-function isRedirect(res: Response): boolean {
-  return res.status >= 300 && res.status < 400;
-}
-
-function redirectPath(res: Response): string {
-  const loc = res.headers.get("location");
-  if (!loc) return "";
-  try {
-    const u = new URL(loc);
-    return u.pathname + (u.search ? u.search : "");
-  } catch {
-    // Non-URL location string (e.g. relative path) — return as-is
-    return loc;
-  }
-}
-
 function isPassThrough(res: Response): boolean {
   return res.headers.get("x-middleware-next") === "1";
 }
 
 describe("middleware", () => {
-  beforeEach(() => {
-    // Reset to a safe no-session mock by default.
-    // Tests that need fetch (admin routes) stub it themselves.
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
-    delete process.env.NEXT_PUBLIC_APP_DOMAIN;
-  });
-
   afterEach(() => {
     vi.unstubAllGlobals();
-    delete process.env.NEXT_PUBLIC_APP_DOMAIN;
   });
 
   // ---------------------------------------------------------------------------
-  // Unauthenticated redirects
+  // Pass-through with CSP (middleware no longer does auth — useRequireAuth handles it)
   // ---------------------------------------------------------------------------
-  describe("unauthenticated redirects", () => {
-    it("redirects /dashboard to /login with callbackUrl", async () => {
+  describe("pass-through with CSP", () => {
+    it("passes /dashboard through without session cookie", async () => {
       const req = buildRequest("/dashboard");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      const loc = redirectPath(res);
-      expect(loc).toContain("/login");
-      expect(loc).toContain("callbackUrl=%2Fdashboard");
+      expect(isPassThrough(res)).toBe(true);
+      expect(res.headers.get("content-security-policy")).not.toBeNull();
     });
 
-    it("redirects /marketplace to /login with callbackUrl", async () => {
+    it("passes /marketplace through without session cookie", async () => {
       const req = buildRequest("/marketplace");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
-      expect(redirectPath(res)).toContain("callbackUrl=%2Fmarketplace");
+      expect(isPassThrough(res)).toBe(true);
     });
 
-    it("redirects /settings to /login", async () => {
+    it("passes /settings through without session cookie", async () => {
       const req = buildRequest("/settings");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
-    });
-
-    it("does not treat an empty session cookie as authenticated", async () => {
-      const req = buildRequest("/dashboard", {
-        cookies: { "better-auth.session_token": "" },
-      });
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
-    });
-
-    it("does not treat a whitespace-only session cookie as authenticated", async () => {
-      const req = buildRequest("/dashboard", {
-        cookies: { "better-auth.session_token": "   " },
-      });
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Open redirect prevention — callbackUrl sanitization
-  // ---------------------------------------------------------------------------
-  describe("callbackUrl sanitization (open redirect prevention)", () => {
-    it("sanitizes percent-encoded protocol-relative pathname in callbackUrl", async () => {
-      // /%2F%2Fevil-redirect decodes to //evil-redirect — must be rejected.
-      // Path has no dot so it reaches the session check (not static-file bypass).
-      const req = buildRequest("/%2F%2Fevil-redirect");
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      const loc = redirectPath(res);
-      expect(loc).toContain("/login");
-      // callbackUrl must be "/" (sanitized), not the malicious path
-      expect(loc).toContain("callbackUrl=%2F");
-      expect(loc).not.toContain("evil-redirect");
-    });
-
-    it("preserves legitimate callbackUrl for normal paths", async () => {
-      const req = buildRequest("/settings/profile");
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      const loc = redirectPath(res);
-      expect(loc).toContain("callbackUrl=%2Fsettings%2Fprofile");
-    });
-
-    it("sanitizes mixed-case percent-encoded bypass attempts", async () => {
-      // /%2f%2Fevil-redirect also decodes to //evil-redirect — path has no dot.
-      const req = buildRequest("/%2f%2Fevil-redirect");
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      const loc = redirectPath(res);
-      expect(loc).not.toContain("evil-redirect");
+      expect(isPassThrough(res)).toBe(true);
     });
   });
 
@@ -277,68 +195,42 @@ describe("middleware", () => {
       expect(isPassThrough(res)).toBe(true);
     });
 
-    it("does NOT allow /terms/extra (exact match only, no prefix)", async () => {
+    it("passes /terms/extra through (auth handled client-side)", async () => {
       const req = buildRequest("/terms/extra");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
+      expect(isPassThrough(res)).toBe(true);
     });
 
-    it("does NOT allow /pricing/enterprise (exact match only)", async () => {
+    it("passes /pricing/enterprise through (auth handled client-side)", async () => {
       const req = buildRequest("/pricing/enterprise");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
+      expect(isPassThrough(res)).toBe(true);
     });
 
-    it("does NOT allow /privacy/policy (exact match only)", async () => {
+    it("passes /privacy/policy through (auth handled client-side)", async () => {
       const req = buildRequest("/privacy/policy");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
+      expect(isPassThrough(res)).toBe(true);
     });
   });
 
   // ---------------------------------------------------------------------------
   // Root path (/) — special handling
   // ---------------------------------------------------------------------------
-  describe("root path special handling", () => {
-    it("allows unauthenticated GET / (public exact path)", async () => {
+  describe("root path", () => {
+    it("passes GET / through with CSP (auth handled client-side)", async () => {
       const req = buildRequest("/");
       const res = await middleware(req);
       expect(isPassThrough(res)).toBe(true);
+      expect(res.headers.get("content-security-policy")).not.toBeNull();
     });
 
-    it("redirects authenticated GET / to /marketplace (no app domain configured)", async () => {
+    it("passes authenticated GET / through with CSP", async () => {
       const req = buildRequest("/", {
         cookies: { "better-auth.session_token": "valid-token" },
       });
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toBe("/marketplace");
-    });
-
-    it("redirects authenticated GET / to app domain when NEXT_PUBLIC_APP_DOMAIN is set and host is the marketing domain", async () => {
-      process.env.NEXT_PUBLIC_APP_DOMAIN = "app.localhost";
-      const req = buildRequest("/", {
-        cookies: { "better-auth.session_token": "valid-token" },
-        host: "localhost",
-      });
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      const loc = res.headers.get("location");
-      expect(loc).toBe("https://app.localhost/marketplace");
-    });
-
-    it("redirects authenticated GET / to /marketplace when already on app subdomain", async () => {
-      process.env.NEXT_PUBLIC_APP_DOMAIN = "app.localhost";
-      const req = buildRequest("/", {
-        cookies: { "better-auth.session_token": "valid-token" },
-        host: "app.localhost",
-      });
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toBe("/marketplace");
+      expect(isPassThrough(res)).toBe(true);
     });
   });
 
@@ -370,11 +262,10 @@ describe("middleware", () => {
       expect(isPassThrough(res)).toBe(true);
     });
 
-    it("redirects unauthenticated GET /api/something to /login", async () => {
+    it("passes /api/something through (auth handled client-side)", async () => {
       const req = buildRequest("/api/something");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
+      expect(isPassThrough(res)).toBe(true);
     });
 
     it("passes /api/something through with a valid session cookie", async () => {
@@ -393,81 +284,20 @@ describe("middleware", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Admin route authorization — combined with session check
+  // All routes pass through (auth is handled client-side by useRequireAuth)
   // ---------------------------------------------------------------------------
-  describe("admin route authorization", () => {
-    it("redirects unauthenticated /admin to /login (not /marketplace)", async () => {
+  describe("all routes pass through with CSP", () => {
+    it("passes /admin through (auth handled client-side)", async () => {
       const req = buildRequest("/admin");
       const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toContain("/login");
+      expect(isPassThrough(res)).toBe(true);
+      expect(res.headers.get("content-security-policy")).not.toBeNull();
     });
 
-    it("redirects authenticated non-admin to /marketplace when accessing /admin", async () => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({ user: { role: "user" } }),
-        }),
-      );
-      const req = buildRequest("/admin", {
-        cookies: { "better-auth.session_token": "valid-token" },
-      });
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toBe("/marketplace");
-    });
-
-    it("allows platform_admin through to /admin", async () => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({ user: { role: "platform_admin" } }),
-        }),
-      );
-      const req = buildRequest("/admin", {
-        cookies: { "better-auth.session_token": "valid-token" },
-      });
+    it("passes /admin/users through", async () => {
+      const req = buildRequest("/admin/users");
       const res = await middleware(req);
       expect(isPassThrough(res)).toBe(true);
-    });
-
-    it("redirects non-admin from /admin/users to /marketplace", async () => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: async () => ({ user: { role: "user" } }),
-        }),
-      );
-      const req = buildRequest("/admin/users", {
-        cookies: { "better-auth.session_token": "valid-token" },
-      });
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toBe("/marketplace");
-    });
-
-    it("redirects to /marketplace when session fetch fails (fail closed)", async () => {
-      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network error")));
-      const req = buildRequest("/admin", {
-        cookies: { "better-auth.session_token": "valid-token" },
-      });
-      const res = await middleware(req);
-      expect(isRedirect(res)).toBe(true);
-      expect(redirectPath(res)).toBe("/marketplace");
-    });
-
-    it("does not call fetch for non-admin routes", async () => {
-      const fetchSpy = vi.fn().mockResolvedValue({ ok: false });
-      vi.stubGlobal("fetch", fetchSpy);
-      const req = buildRequest("/marketplace", {
-        cookies: { "better-auth.session_token": "valid-token" },
-      });
-      await middleware(req);
-      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -676,19 +506,6 @@ describe("CSP nonce in middleware", () => {
     const req = buildRequest("/login");
     const res = await middleware(req);
     expect(res.headers.get("vary")).toBe("*");
-  });
-
-  it("does not overwrite stricter Cache-Control on admin routes", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: { role: "platform_admin" } }), { status: 200 })),
-    );
-    const req = buildRequest("/admin/dashboard", {
-      cookies: { "better-auth.session_token": "valid-token" },
-    });
-    const res = await middleware(req);
-    // Admin route sets stricter cache headers; withCsp should not overwrite
-    expect(res.headers.get("cache-control")).toBe("no-store, no-cache, must-revalidate");
   });
 });
 

@@ -233,14 +233,6 @@ describe("Plans page", () => {
     expect(screen.getByText(/\/month/)).toBeInTheDocument();
   });
 
-  it("shows BYOK callout", async () => {
-    const { default: PlansPage } = await import("../app/(dashboard)/billing/plans/page");
-    render(<PlansPage />);
-
-    expect(await screen.findByText("Bring Your Own Keys")).toBeInTheDocument();
-    expect(screen.getAllByText(/Platform never touches your inference/).length).toBeGreaterThanOrEqual(1);
-  });
-
   it("links to full pricing page", async () => {
     const { default: PlansPage } = await import("../app/(dashboard)/billing/plans/page");
     render(<PlansPage />);
@@ -253,10 +245,10 @@ describe("Plans page", () => {
     const { default: PlansPage } = await import("../app/(dashboard)/billing/plans/page");
     render(<PlansPage />);
 
-    expect(screen.getByText(/signup credit included/)).toBeInTheDocument();
+    expect(screen.getByText(/Signup credit included/)).toBeInTheDocument();
     expect(screen.getByText("All channels")).toBeInTheDocument();
     expect(screen.getByText("All plugins")).toBeInTheDocument();
-    expect(screen.getByText("All providers")).toBeInTheDocument();
+    expect(screen.getByText(/Hosted AI/)).toBeInTheDocument();
   });
 });
 

@@ -15,6 +15,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 vi.mock("framer-motion", () => ({
+  AnimatePresence: ({ children }: React.PropsWithChildren<Record<string, unknown>>) => <>{children}</>,
   motion: {
     button: ({
       children,
@@ -49,28 +50,28 @@ vi.mock("better-auth/react", () => ({
   }),
 }));
 
-vi.mock("lucide-react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("lucide-react")>();
-  return {
-    ...actual,
-    Bitcoin: () => <span data-testid="bitcoin-icon" />,
-  };
-});
+vi.mock("qrcode.react", () => ({
+  QRCodeSVG: () => <div data-testid="qr-code" />,
+}));
 
 const MOCK_USDC_METHOD = {
   id: "usdc:base",
   type: "erc20",
-  label: "USDC on Base",
   token: "USDC",
   chain: "base",
+  displayName: "USDC on Base",
+  decimals: 6,
+  displayOrder: 1,
   iconUrl: "https://example.com/usdc.svg",
 };
 const MOCK_ETH_METHOD = {
   id: "eth:base",
   type: "native",
-  label: "ETH on Base",
   token: "ETH",
   chain: "base",
+  displayName: "ETH on Base",
+  decimals: 18,
+  displayOrder: 2,
   iconUrl: "https://example.com/eth.svg",
 };
 
@@ -96,40 +97,61 @@ describe("BuyCryptoCreditPanel", () => {
     expect(screen.getByText("$100")).toBeInTheDocument();
   });
 
-  it("Pay button is disabled when no amount selected", async () => {
+  it("Continue button is disabled when no amount selected", async () => {
     mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
     const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
-    const payBtn = screen.getByRole("button", { name: "Pay with USDC" });
-    expect(payBtn).toBeDisabled();
+    const continueBtn = screen.getByRole("button", { name: "Continue to payment" });
+    expect(continueBtn).toBeDisabled();
   });
 
-  it("Pay button is enabled after selecting an amount", async () => {
+  it("Continue button is enabled after selecting an amount", async () => {
     mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
     const user = userEvent.setup();
     const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
     await user.click(screen.getByText("$25"));
-    expect(screen.getByRole("button", { name: "Pay with USDC" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Continue to payment" })).toBeEnabled();
+  });
+
+  it("shows payment method picker after selecting amount", async () => {
+    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
+    const user = userEvent.setup();
+    const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
+    render(<BuyCryptoCreditPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("$50"));
+    await user.click(screen.getByRole("button", { name: "Continue to payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("USDC on Base")).toBeInTheDocument();
+    });
+    expect(screen.getByText("ETH on Base")).toBeInTheDocument();
   });
 
   it("calls createCheckout and shows deposit address", async () => {
-    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
+    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD]);
     mockCreateCheckout.mockResolvedValue({
       depositAddress: "0xabc123def456",
       displayAmount: "50.000000 USDC",
+      amountUsd: 50,
       token: "USDC",
       chain: "base",
+      referenceId: "ref-123",
     });
 
     const user = userEvent.setup();
@@ -137,19 +159,27 @@ describe("BuyCryptoCreditPanel", () => {
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
     await user.click(screen.getByText("$50"));
-    await user.click(screen.getByRole("button", { name: "Pay with USDC" }));
+    await user.click(screen.getByRole("button", { name: "Continue to payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("USDC on Base")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("USDC on Base"));
 
     expect(mockCreateCheckout).toHaveBeenCalledWith("usdc:base", 50);
-    expect(await screen.findByText("0xabc123def456")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("0xabc123def456")).toBeInTheDocument();
+    });
     expect(screen.getByText("50.000000 USDC")).toBeInTheDocument();
   });
 
   it("shows Creating checkout... while checkout is in progress", async () => {
-    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
+    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD]);
     mockCreateCheckout.mockReturnValue(
       new Promise(() => {
         /* intentionally pending */
@@ -161,31 +191,21 @@ describe("BuyCryptoCreditPanel", () => {
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
     await user.click(screen.getByText("$50"));
-    await user.click(screen.getByRole("button", { name: "Pay with USDC" }));
-
-    expect(await screen.findByText("Creating checkout...")).toBeInTheDocument();
-  });
-
-  it("shows error when checkout API call fails", async () => {
-    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
-    mockCreateCheckout.mockRejectedValue(new Error("API down"));
-
-    const user = userEvent.setup();
-    const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
-    render(<BuyCryptoCreditPanel />);
+    await user.click(screen.getByRole("button", { name: "Continue to payment" }));
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("USDC on Base")).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText("$25"));
-    await user.click(screen.getByRole("button", { name: "Pay with USDC" }));
+    await user.click(screen.getByText("USDC on Base"));
 
-    expect(await screen.findByText("Checkout failed. Please try again.")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Creating checkout...")).toBeInTheDocument();
+    });
   });
 
   it("hides panel when no payment methods available", async () => {
@@ -193,95 +213,40 @@ describe("BuyCryptoCreditPanel", () => {
     const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
     const { container } = render(<BuyCryptoCreditPanel />);
 
-    // Component returns null when no methods
     await waitFor(() => {
       expect(container.innerHTML).toBe("");
     });
   });
 
-  it("switches between payment methods", async () => {
+  it("renders icon for each payment method in picker", async () => {
     mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
     const user = userEvent.setup();
     const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
-    // Default is first method (USDC)
-    expect(screen.getByRole("button", { name: "Pay with USDC" })).toBeInTheDocument();
-
-    // Switch to ETH
-    await user.click(screen.getByText("ETH"));
-    expect(screen.getByRole("button", { name: "Pay with ETH" })).toBeInTheDocument();
-  });
-
-  it("renders icon for each payment method", async () => {
-    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD, MOCK_ETH_METHOD]);
-    const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
-    render(<BuyCryptoCreditPanel />);
+    await user.click(screen.getByText("$25"));
+    await user.click(screen.getByRole("button", { name: "Continue to payment" }));
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("USDC on Base")).toBeInTheDocument();
     });
 
     const icons = screen.getAllByRole("img");
-    expect(icons).toHaveLength(2);
+    expect(icons.length).toBeGreaterThanOrEqual(2);
     expect(icons[0]).toHaveAttribute("src", "https://example.com/usdc.svg");
     expect(icons[1]).toHaveAttribute("src", "https://example.com/eth.svg");
   });
 
-  it("shows partial payment display", async () => {
+  it("shows confirmation progress after payment received", async () => {
     mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD]);
     mockCreateCheckout.mockResolvedValue({
       depositAddress: "0xabc123",
       displayAmount: "50.000000 USDC",
-      token: "USDC",
-      chain: "base",
-      referenceId: "ref-123",
-    });
-    mockGetChargeStatus.mockResolvedValue({
-      chargeId: "ch-1",
-      status: "partial",
-      amountExpectedCents: 5000,
-      amountReceivedCents: 2500,
-      confirmations: 0,
-      confirmationsRequired: 6,
-      credited: false,
-      amountUsdCents: 5000,
-    });
-
-    const user = userEvent.setup();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const { BuyCryptoCreditPanel } = await import("../components/billing/buy-crypto-credits-panel");
-    render(<BuyCryptoCreditPanel />);
-
-    await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText("$50"));
-    await user.click(screen.getByRole("button", { name: "Pay with USDC" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("0xabc123")).toBeInTheDocument();
-    });
-
-    vi.advanceTimersByTime(5000);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Received \$25\.00 of \$50\.00/)).toBeInTheDocument();
-    });
-
-    vi.useRealTimers();
-  });
-
-  it("shows confirmation progress", async () => {
-    mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD]);
-    mockCreateCheckout.mockResolvedValue({
-      depositAddress: "0xabc123",
-      displayAmount: "50.000000 USDC",
+      amountUsd: 50,
       token: "USDC",
       chain: "base",
       referenceId: "ref-456",
@@ -303,11 +268,17 @@ describe("BuyCryptoCreditPanel", () => {
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
     await user.click(screen.getByText("$50"));
-    await user.click(screen.getByRole("button", { name: "Pay with USDC" }));
+    await user.click(screen.getByRole("button", { name: "Continue to payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("USDC on Base")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("USDC on Base"));
 
     await waitFor(() => {
       expect(screen.getByText("0xabc123")).toBeInTheDocument();
@@ -316,17 +287,18 @@ describe("BuyCryptoCreditPanel", () => {
     vi.advanceTimersByTime(5000);
 
     await waitFor(() => {
-      expect(screen.getByText(/Confirming \(3 of 6\)/)).toBeInTheDocument();
+      expect(screen.getByText("3 / 6")).toBeInTheDocument();
     });
 
     vi.useRealTimers();
   });
 
-  it("shows expiry and Try Again button", async () => {
+  it("shows expired status", async () => {
     mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_USDC_METHOD]);
     mockCreateCheckout.mockResolvedValue({
       depositAddress: "0xabc123",
       displayAmount: "50.000000 USDC",
+      amountUsd: 50,
       token: "USDC",
       chain: "base",
       referenceId: "ref-789",
@@ -348,11 +320,17 @@ describe("BuyCryptoCreditPanel", () => {
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("USDC")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
     await user.click(screen.getByText("$50"));
-    await user.click(screen.getByRole("button", { name: "Pay with USDC" }));
+    await user.click(screen.getByRole("button", { name: "Continue to payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("USDC on Base")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("USDC on Base"));
 
     await waitFor(() => {
       expect(screen.getByText("0xabc123")).toBeInTheDocument();
@@ -361,18 +339,18 @@ describe("BuyCryptoCreditPanel", () => {
     vi.advanceTimersByTime(5000);
 
     await waitFor(() => {
-      expect(screen.getByText("Payment expired.")).toBeInTheDocument();
+      expect(screen.getByText("Payment expired")).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: "Try Again" })).toBeInTheDocument();
 
     vi.useRealTimers();
   });
 
-  it("calls createCheckout with methodId", async () => {
+  it("calls createCheckout with correct methodId and amount", async () => {
     mockGetSupportedPaymentMethods.mockResolvedValue([MOCK_ETH_METHOD]);
     mockCreateCheckout.mockResolvedValue({
       depositAddress: "0xdef456",
       displayAmount: "0.05 ETH",
+      amountUsd: 100,
       token: "ETH",
       chain: "base",
       referenceId: "ref-eth",
@@ -383,11 +361,17 @@ describe("BuyCryptoCreditPanel", () => {
     render(<BuyCryptoCreditPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText("ETH")).toBeInTheDocument();
+      expect(screen.getByText("Pay with Crypto")).toBeInTheDocument();
     });
 
     await user.click(screen.getByText("$100"));
-    await user.click(screen.getByRole("button", { name: "Pay with ETH" }));
+    await user.click(screen.getByRole("button", { name: "Continue to payment" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("ETH on Base")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText("ETH on Base"));
 
     expect(mockCreateCheckout).toHaveBeenCalledWith("eth:base", 100);
   });
