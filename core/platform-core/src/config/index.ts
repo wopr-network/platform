@@ -59,3 +59,4 @@ export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-pro
 // docker config mount
 // push works
 // docker daemon restart fix
+// runner auth fix
