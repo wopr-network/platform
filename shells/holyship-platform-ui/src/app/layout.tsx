@@ -24,7 +24,7 @@ setBrandConfig({
   ],
   tagline: "It's what you'll say when you see the results.",
   storagePrefix: "holyship",
-  homePath: "/dashboard",
+  homePath: "/",
   navItems: [
     { label: "Dashboard", href: "/dashboard" },
     { label: "Ship It", href: "/ship" },

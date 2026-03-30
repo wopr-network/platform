@@ -21,11 +21,11 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 setBrandConfig({
-  homePath: "/instances",
+  homePath: "/",
   productName: "NemoPod",
   brandName: "NemoPod",
   domain: "nemopod.com",
-  appDomain: "app.nemopod.com",
+  appDomain: "",
   tagline: "NVIDIA NeMo, one click away",
   price: "$5 free credits",
   storagePrefix: "nemopod",
