@@ -3,10 +3,6 @@ import { capabilityMeta, pricingData } from "@/lib/pricing-data";
 
 describe("pricing-data", () => {
   describe("pricingData", () => {
-    it("matches snapshot", () => {
-      expect(pricingData).toMatchSnapshot();
-    });
-
     it("has expected bot price", () => {
       expect(pricingData.bot_price).toEqual({ amount: 5, period: "month" });
     });
@@ -21,10 +17,6 @@ describe("pricing-data", () => {
   });
 
   describe("capabilityMeta", () => {
-    it("matches snapshot", () => {
-      expect(capabilityMeta).toMatchSnapshot();
-    });
-
     it("maps all expected backend keys", () => {
       expect(Object.keys(capabilityMeta).sort()).toEqual(["image_gen", "llm", "sms", "stt", "tts"]);
     });

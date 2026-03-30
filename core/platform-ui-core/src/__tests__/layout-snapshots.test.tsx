@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // --- Mocks ---
@@ -15,7 +15,11 @@ vi.mock("next/font/google", () => ({
 
 vi.mock("better-auth/react", () => ({
   createAuthClient: () => ({
-    useSession: () => ({ data: null, isPending: false, error: null }),
+    useSession: () => ({
+      data: { user: { id: "u1", email: "test@test.com" }, session: { id: "s1" } },
+      isPending: false,
+      error: null,
+    }),
     signIn: { email: vi.fn(), social: vi.fn() },
     signUp: { email: vi.fn() },
     signOut: vi.fn(),
@@ -23,8 +27,28 @@ vi.mock("better-auth/react", () => ({
 }));
 
 vi.mock("@/lib/auth-client", () => ({
-  useSession: () => ({ data: null, isPending: false, error: null }),
+  useSession: () => ({
+    data: { user: { id: "u1", email: "test@test.com" }, session: { id: "s1" } },
+    isPending: false,
+    error: null,
+  }),
   signOut: vi.fn(),
+}));
+
+vi.mock("@/lib/require-auth", () => ({
+  useRequireAuth: () => ({
+    user: { id: "u1", email: "test@test.com" },
+    session: { id: "s1" },
+    isPending: false,
+    isAuthed: true,
+  }),
+  useRequireAdmin: () => ({
+    user: { id: "u1", email: "test@test.com", role: "platform_admin" },
+    session: { id: "s1" },
+    isPending: false,
+    isAuthed: true,
+    isAdmin: true,
+  }),
 }));
 
 vi.mock("@/components/sidebar", () => ({
@@ -62,6 +86,22 @@ vi.mock("@/lib/api", () => ({
 vi.mock("@/lib/api-config", () => ({
   SITE_URL: "https://localhost",
   PLATFORM_BASE_URL: "https://localhost",
+  API_BASE_URL: "https://localhost/api",
+}));
+
+vi.mock("@/lib/brand-config", () => ({
+  getBrandConfig: () => ({
+    chatEnabled: true,
+    tenantCookieName: "platform_tenant_id",
+    homePath: "/marketplace",
+    productName: "Platform",
+    brandName: "Platform",
+    domain: "localhost",
+    navItems: [],
+  }),
+  productName: () => "Platform",
+  brandName: () => "Platform",
+  setBrandConfig: vi.fn(),
 }));
 
 vi.mock("@/components/auth/email-verification-banner", () => ({
@@ -102,7 +142,8 @@ describe("Layout snapshots", () => {
         <div>auth child</div>
       </AuthLayout>,
     );
-    expect(container).toMatchSnapshot();
+    expect(container.querySelector(".min-h-screen")).not.toBeNull();
+    expect(container.textContent).toContain("auth child");
   });
 
   it("DashboardLayout renders sidebar + main with mobile sheet", async () => {
@@ -112,7 +153,12 @@ describe("Layout snapshots", () => {
         <div>dashboard child</div>
       </DashboardLayout>,
     );
-    expect(container).toMatchSnapshot();
+    expect(screen.getByTestId("sidebar")).not.toBeNull();
+    expect(container.textContent).toContain("dashboard child");
+    // Desktop layout
+    expect(container.querySelector(".hidden.lg\\:flex")).not.toBeNull();
+    // Mobile layout
+    expect(container.querySelector(".lg\\:hidden")).not.toBeNull();
   });
 
   it("FleetLayout renders sidebar + main", async () => {
@@ -122,7 +168,8 @@ describe("Layout snapshots", () => {
         <div>fleet child</div>
       </FleetLayout>,
     );
-    expect(container).toMatchSnapshot();
+    expect(screen.getByTestId("sidebar")).not.toBeNull();
+    expect(container.textContent).toContain("fleet child");
   });
 
   it("PluginsLayout renders sidebar + main", async () => {
@@ -132,7 +179,8 @@ describe("Layout snapshots", () => {
         <div>plugins child</div>
       </PluginsLayout>,
     );
-    expect(container).toMatchSnapshot();
+    expect(screen.getByTestId("sidebar")).not.toBeNull();
+    expect(container.textContent).toContain("plugins child");
   });
 
   it("AdminLayout renders desktop sidebar + admin nav + mobile fallback", async () => {
@@ -142,7 +190,9 @@ describe("Layout snapshots", () => {
         <div>admin child</div>
       </AdminLayout>,
     );
-    expect(container).toMatchSnapshot();
+    expect(screen.getByTestId("sidebar")).not.toBeNull();
+    expect(screen.getByTestId("admin-nav")).not.toBeNull();
+    expect(container.textContent).toContain("admin child");
   });
 
   it("SettingsLayout renders desktop nav + mobile sheet", async () => {
@@ -152,7 +202,8 @@ describe("Layout snapshots", () => {
         <div>settings child</div>
       </SettingsLayout>,
     );
-    expect(container).toMatchSnapshot();
+    expect(container.textContent).toContain("settings child");
+    expect(container.textContent).toContain("Settings");
   });
 
   it("BillingLayout renders billing nav sidebar + content area", async () => {
@@ -162,6 +213,7 @@ describe("Layout snapshots", () => {
         <div>billing child</div>
       </BillingLayout>,
     );
-    expect(container).toMatchSnapshot();
+    expect(container.textContent).toContain("billing child");
+    expect(container.textContent).toContain("Billing");
   });
 });

@@ -1,14 +1,11 @@
 /**
- * Tests for api-config.ts — validateProductionApiUrl guard behaviour.
+ * Tests for api-config.ts — URL resolution behaviour.
  *
- * The module throws at import time if validation fails, so each test
+ * The module resolves API URL at import time, so each test
  * uses vi.resetModules() + a dynamic import to re-evaluate the module
  * with the desired environment variables.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const VALID_PRODUCTION_URL = "https://api.example.com";
-const INTERNAL_URL = "http://localhost:3001";
 
 function setEnv(vars: Record<string, string | undefined>) {
   for (const [k, v] of Object.entries(vars)) {
@@ -20,7 +17,7 @@ function setEnv(vars: Record<string, string | undefined>) {
   }
 }
 
-describe("validateProductionApiUrl", () => {
+describe("api-config URL resolution", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
@@ -35,55 +32,38 @@ describe("validateProductionApiUrl", () => {
     Object.assign(process.env, originalEnv);
   });
 
-  it("does NOT throw in development regardless of URL", async () => {
+  it("uses NEXT_PUBLIC_API_URL when set", async () => {
     setEnv({
-      NODE_ENV: "development",
-      NEXT_RUNTIME: undefined,
-      NEXT_PHASE: undefined,
-      NEXT_PUBLIC_API_URL: INTERNAL_URL,
+      NEXT_PUBLIC_API_URL: "https://api.example.com",
     });
-    await expect(import("../lib/api-config")).resolves.toHaveProperty("API_BASE_URL");
+    const mod = await import("../lib/api-config");
+    expect(mod.PLATFORM_BASE_URL).toBe("https://api.example.com");
+    expect(mod.API_BASE_URL).toBe("https://api.example.com/api");
   });
 
-  it("does NOT throw during the Next.js build phase (NEXT_PHASE=phase-production-build)", async () => {
-    // This is the key regression test: CI sets NODE_ENV=production and
-    // NEXT_PUBLIC_API_URL=http://localhost:3001. The build must not crash.
+  it("falls back to localhost:3001 when no env var and no window", async () => {
     setEnv({
-      NODE_ENV: "production",
-      NEXT_PHASE: "phase-production-build",
-      NEXT_RUNTIME: "nodejs",
-      NEXT_PUBLIC_API_URL: INTERNAL_URL,
-    });
-    await expect(import("../lib/api-config")).resolves.toHaveProperty("API_BASE_URL");
-  });
-
-  it("throws at production runtime with an internal URL", async () => {
-    setEnv({
-      NODE_ENV: "production",
-      NEXT_PHASE: undefined,
-      NEXT_RUNTIME: "nodejs",
-      NEXT_PUBLIC_API_URL: INTERNAL_URL,
-    });
-    await expect(import("../lib/api-config")).rejects.toThrow(/contains an internal hostname/);
-  });
-
-  it("throws at production runtime when NEXT_PUBLIC_API_URL is not set", async () => {
-    setEnv({
-      NODE_ENV: "production",
-      NEXT_PHASE: undefined,
-      NEXT_RUNTIME: "nodejs",
       NEXT_PUBLIC_API_URL: undefined,
     });
-    await expect(import("../lib/api-config")).rejects.toThrow(/NEXT_PUBLIC_API_URL is not set/);
+    const mod = await import("../lib/api-config");
+    // In test env (jsdom with localhost), should resolve to localhost
+    expect(mod.PLATFORM_BASE_URL).toContain("localhost");
   });
 
-  it("does NOT throw at production runtime with a valid public HTTPS URL", async () => {
+  it("exports SITE_URL from NEXT_PUBLIC_SITE_URL env var", async () => {
     setEnv({
-      NODE_ENV: "production",
-      NEXT_PHASE: undefined,
-      NEXT_RUNTIME: "nodejs",
-      NEXT_PUBLIC_API_URL: VALID_PRODUCTION_URL,
+      NEXT_PUBLIC_SITE_URL: "https://mysite.com",
+      NEXT_PUBLIC_API_URL: "http://localhost:3001",
     });
-    await expect(import("../lib/api-config")).resolves.toHaveProperty("API_BASE_URL");
+    const mod = await import("../lib/api-config");
+    expect(mod.SITE_URL).toBe("https://mysite.com");
+  });
+
+  it("exports API_BASE_URL as PLATFORM_BASE_URL + /api", async () => {
+    setEnv({
+      NEXT_PUBLIC_API_URL: "https://api.test.com",
+    });
+    const mod = await import("../lib/api-config");
+    expect(mod.API_BASE_URL).toBe(`${mod.PLATFORM_BASE_URL}/api`);
   });
 });

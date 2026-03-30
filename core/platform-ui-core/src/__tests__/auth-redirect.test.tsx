@@ -4,6 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mockReplace }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+vi.mock("@/lib/utils", () => ({
+  sanitizeRedirectUrl: (url: string) => url,
+  cn: (...args: unknown[]) => args.filter(Boolean).join(" "),
 }));
 
 const mockUseSession = vi.fn();
@@ -27,7 +33,7 @@ describe("AuthRedirect", () => {
     });
     render(<AuthRedirect />);
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/marketplace");
+      expect(mockReplace).toHaveBeenCalledWith("/instances");
     });
   });
 
