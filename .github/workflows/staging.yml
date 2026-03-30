@@ -90,35 +90,24 @@ jobs:
 
       # --- Build & push API image ---
       - name: Build and push API :staging
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.api_dockerfile }}
-          push: true
-          no-cache: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ matrix.api }}:staging
-            ${{ env.REGISTRY }}/${{ matrix.api }}:${{ steps.version.outputs.short_sha }}
-
-      # --- Kill buildx and cleanup between builds ---
-      - name: Docker cleanup between builds
         run: |
-          docker buildx stop default 2>/dev/null || true
-          docker buildx rm default 2>/dev/null || true
-          docker buildx create --use --name default 2>/dev/null || true
-          docker system prune -af 2>/dev/null || true
+          docker build --no-cache -f ${{ matrix.api_dockerfile }} \
+            -t ${{ env.REGISTRY }}/${{ matrix.api }}:staging \
+            -t ${{ env.REGISTRY }}/${{ matrix.api }}:${{ steps.version.outputs.short_sha }} .
+          docker push ${{ env.REGISTRY }}/${{ matrix.api }}:staging
+          docker push ${{ env.REGISTRY }}/${{ matrix.api }}:${{ steps.version.outputs.short_sha }}
+
+      - name: Docker cleanup between builds
+        run: docker system prune -af 2>/dev/null || true
 
       # --- Build & push UI image ---
       - name: Build and push UI :staging
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.ui_dockerfile }}
-          push: true
-          no-cache: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ matrix.ui }}:staging
-            ${{ env.REGISTRY }}/${{ matrix.ui }}:${{ steps.version.outputs.short_sha }}
+        run: |
+          docker build --no-cache -f ${{ matrix.ui_dockerfile }} \
+            -t ${{ env.REGISTRY }}/${{ matrix.ui }}:staging \
+            -t ${{ env.REGISTRY }}/${{ matrix.ui }}:${{ steps.version.outputs.short_sha }} .
+          docker push ${{ env.REGISTRY }}/${{ matrix.ui }}:staging
+          docker push ${{ env.REGISTRY }}/${{ matrix.ui }}:${{ steps.version.outputs.short_sha }}
 
       # --- Deploy to staging VPS ---
       - name: Deploy staging
