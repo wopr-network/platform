@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   staging-api:
-    image: ghcr.io/wopr-network/holyship:staging
+    image: registry.wopr.bot/holyship:staging
     group_add:
       - "988"
     volumes:
@@ -46,7 +46,7 @@ services:
       - HOLYSHIP_WORKER_TOKEN=${HOLYSHIP_WORKER_TOKEN}
       - HOLYSHIP_GATEWAY_KEY=${HOLYSHIP_GATEWAY_KEY}
       - HOLYSHIP_PLATFORM_SERVICE_KEY=${HOLYSHIP_PLATFORM_SERVICE_KEY:-}
-      - HOLYSHIP_WORKER_IMAGE=ghcr.io/wopr-network/wopr-holyshipper-coder:latest
+      - HOLYSHIP_WORKER_IMAGE=registry.wopr.bot/wopr-holyshipper-coder:latest
       - HOLYSHIP_MODEL_TIER_OVERRIDE=${HOLYSHIP_MODEL_TIER_OVERRIDE:-}
       - DOCKER_NETWORK=holyship
       - REGISTRY_USERNAME=${REGISTRY_USERNAME}
@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
 
   staging-ui:
-    image: ghcr.io/wopr-network/holyship-ui:staging
+    image: registry.wopr.bot/holyship-ui:staging
     environment:
       - NEXT_PUBLIC_API_URL=https://staging.api.holyship.wtf
       - BETTER_AUTH_URL=https://staging.api.holyship.wtf

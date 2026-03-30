@@ -15,7 +15,7 @@ services:
       retries: 5
 
   nemoclaw-platform:
-    image: ghcr.io/wopr-network/nemoclaw-platform:latest
+    image: registry.wopr.bot/nemoclaw-platform:latest
     restart: unless-stopped
     depends_on:
       postgres:
@@ -31,7 +31,7 @@ services:
       - PORT=3100
       - PLATFORM_DOMAIN=nemopod.com
       - BETTER_AUTH_URL=https://api.nemopod.com
-      - NEMOCLAW_IMAGE=${NEMOCLAW_IMAGE:-ghcr.io/wopr-network/nemoclaw:latest}
+      - NEMOCLAW_IMAGE=${NEMOCLAW_IMAGE:-registry.wopr.bot/nemoclaw:latest}
       - NEMOCLAW_CONTAINER_PORT=3100
       - FLEET_DOCKER_NETWORK=nemoclaw-platform_default
       - GATEWAY_URL=https://api.nemopod.com/v1
@@ -50,7 +50,7 @@ services:
       retries: 3
 
   nemoclaw-ui:
-    image: ghcr.io/wopr-network/nemoclaw-platform-ui:latest
+    image: registry.wopr.bot/nemoclaw-platform-ui:latest
     restart: unless-stopped
     depends_on:
       nemoclaw-platform:

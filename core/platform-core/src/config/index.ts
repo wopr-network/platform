@@ -55,3 +55,4 @@ export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-pro
 // buildx fix
 // plain docker build
 // fresh runners
+// registry.wopr.bot

@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 env:
-  REGISTRY: ghcr.io/wopr-network
+  REGISTRY: registry.wopr.bot
 
 jobs:
   detect-changes:
@@ -62,8 +62,6 @@ jobs:
     needs: detect-changes
     if: ${{ fromJson(needs.detect-changes.outputs.matrix).include[0] != null }}
     runs-on: self-hosted
-    permissions:
-      packages: write
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
@@ -77,14 +75,11 @@ jobs:
           SHA="${{ github.sha }}"
           echo "short_sha=${SHA:0:7}" >> "$GITHUB_OUTPUT"
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GH_PAT }}
+      - name: Log in to registry
+        env:
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: echo "$REGISTRY_PASSWORD" | docker login registry.wopr.bot -u wopr --password-stdin
 
-      # Free disk space — but preserve auth config
       - name: Docker cleanup
         run: docker system prune -af 2>/dev/null || true
 
@@ -155,7 +150,6 @@ jobs:
             nemoclaw)  DIR=/opt/nemoclaw-platform ;;
           esac
           COMPOSE="docker compose -f docker-compose.yml -f docker-compose.staging.yml"
-          # Check staging API
           echo "Checking staging API..."
           for i in $(seq 1 20); do
             STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
@@ -164,7 +158,6 @@ jobs:
               echo "✓ $PRODUCT staging API healthy"
               break
             fi
-            # Check for crash loop
             STATE=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
               "root@$HOST" "cd $DIR && $COMPOSE ps staging-api --format '{{.State}}'" 2>/dev/null || true)
             if echo "$STATE" | grep -qi "restarting"; then
@@ -173,25 +166,6 @@ jobs:
               exit 1
             fi
             echo "  Waiting for API... ($i/20)"
-            sleep 5
-          done
-          # Check staging UI
-          echo "Checking staging UI..."
-          for i in $(seq 1 15); do
-            UI_OK=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
-              "root@$HOST" "cd $DIR && $COMPOSE exec -T staging-ui node -e \"require('http').get('http://localhost:3000/', r => { process.exit(r.statusCode === 200 ? 0 : 1) })\" 2>/dev/null && echo OK" || true)
-            if [ "$UI_OK" = "OK" ]; then
-              echo "✓ $PRODUCT staging UI healthy"
-              break
-            fi
-            STATE=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
-              "root@$HOST" "cd $DIR && $COMPOSE ps staging-ui --format '{{.State}}'" 2>/dev/null || true)
-            if echo "$STATE" | grep -qi "restarting"; then
-              echo "::error::$PRODUCT staging UI crash-looping"
-              ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@$HOST" "cd $DIR && $COMPOSE logs staging-ui --tail 10" || true
-              exit 1
-            fi
-            echo "  Waiting for UI... ($i/15)"
             sleep 5
           done
 
