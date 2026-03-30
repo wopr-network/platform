@@ -28,10 +28,9 @@ const dmSans = DM_Sans({
 });
 
 setBrandConfig({
-  homePath: "/dashboard",
+  homePath: "/",
   chatEnabled: false,
   navItems: [
-    { label: "Dashboard", href: "/dashboard" },
     { label: "Paperclips", href: "/instances" },
     { label: "Billing", href: "/billing/plans" },
     { label: "Settings", href: "/settings/profile" },
