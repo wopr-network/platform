@@ -100,9 +100,13 @@ jobs:
             ${{ env.REGISTRY }}/${{ matrix.api }}:staging
             ${{ env.REGISTRY }}/${{ matrix.api }}:${{ steps.version.outputs.short_sha }}
 
-      # --- Cleanup between builds ---
+      # --- Kill buildx and cleanup between builds ---
       - name: Docker cleanup between builds
-        run: docker system prune -af 2>/dev/null || true
+        run: |
+          docker buildx stop default 2>/dev/null || true
+          docker buildx rm default 2>/dev/null || true
+          docker buildx create --use --name default 2>/dev/null || true
+          docker system prune -af 2>/dev/null || true
 
       # --- Build & push UI image ---
       - name: Build and push UI :staging
