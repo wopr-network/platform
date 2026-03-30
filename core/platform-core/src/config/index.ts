@@ -52,3 +52,4 @@ export type { VaultConfig } from "./vault-provider.js";
 // Vault secrets
 export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-provider.js";
 // no-cache rebuild
+// buildx fix
