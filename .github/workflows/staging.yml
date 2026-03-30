@@ -65,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
-      max-parallel: 2
+      max-parallel: 4
     steps:
       - uses: actions/checkout@v4
 
@@ -80,8 +80,7 @@ jobs:
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: echo "$REGISTRY_PASSWORD" | docker login registry.wopr.bot -u wopr --password-stdin
 
-      - name: Docker cleanup
-        run: docker image prune -f 2>/dev/null || true
+      # No prune — shared daemon, parallel jobs would delete each other's layers
 
       # --- Build & push API image ---
       - name: Build and push API :staging
@@ -94,8 +93,6 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ matrix.api }}:staging
           docker push ${{ env.REGISTRY }}/${{ matrix.api }}:${{ steps.version.outputs.short_sha }}
 
-      - name: Docker cleanup between builds
-        run: docker image prune -f 2>/dev/null || true
 
       # --- Build & push UI image ---
       - name: Build and push UI :staging

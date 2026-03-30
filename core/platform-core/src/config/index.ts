@@ -62,3 +62,4 @@ export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-pro
 // runner auth fix
 // DOCKER_BUILDKIT=0
 // max-parallel 2
+// parallel 4 no prune
