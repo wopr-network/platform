@@ -58,3 +58,4 @@ export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-pro
 // registry.wopr.bot
 // docker config mount
 // push works
+// docker daemon restart fix
