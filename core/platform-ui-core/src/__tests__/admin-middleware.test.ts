@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 // We test the middleware function directly by importing from the module.
 import middleware, { validateCsrfOrigin } from "../proxy";
