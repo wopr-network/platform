@@ -9,15 +9,13 @@ import {
 } from "./verification.js";
 
 /** Minimal Pool-like wrapper around PGlite for testing. */
-// biome-ignore lint/suspicious/noExplicitAny: test helper wrapping PGlite as Pool
 function pgliteAsPool(pg: PGlite): any {
   return { query: (text: string, params?: unknown[]) => pg.query(text, params) };
 }
 
 describe("email verification", () => {
   let pg: PGlite;
-  // biome-ignore lint/suspicious/noExplicitAny: test pool wrapper
-  let pool: any;
+    let pool: any;
 
   beforeEach(async () => {
     pg = new PGlite();

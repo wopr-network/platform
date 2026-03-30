@@ -28,8 +28,7 @@ describe("getChainConfig", () => {
   });
 
   it("throws on unknown chain", () => {
-    // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
-    expect(() => getChainConfig("solana" as any)).toThrow("Unsupported chain");
+        expect(() => getChainConfig("solana" as any)).toThrow("Unsupported chain");
   });
 });
 
@@ -85,8 +84,7 @@ describe("getTokenConfig", () => {
   });
 
   it("throws on unsupported chain", () => {
-    // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
-    expect(() => getTokenConfig("USDC" as any, "solana" as any)).toThrow("Unsupported token");
+        expect(() => getTokenConfig("USDC" as any, "solana" as any)).toThrow("Unsupported token");
   });
 });
 

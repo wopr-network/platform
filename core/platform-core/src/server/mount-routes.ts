@@ -156,7 +156,7 @@ export async function mountRoutes(
               productConfig: container.productConfig, // Fleet uses boot-time config for defaults; per-product image comes from ProductFleetConfig at provision time
               serviceKeyRepo: container.fleet.serviceKeyRepo,
               assertOrgAdminOrOwner,
-              getFleetForInstance: (_instanceId: string) => container.fleet!.manager,
+              getFleetForInstance: (_instanceId: string) => container.fleet?.manager,
             },
           }
         : {}),
