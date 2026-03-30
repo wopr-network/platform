@@ -37,6 +37,13 @@ export { createProductConfigRouter } from "./product-config-router.js";
 // Internal service context factory (standalone mode)
 export { createInternalTRPCContext } from "./internal-context.js";
 // New core routers (DI-only — no singleton)
+export {
+  type AdminCoreRouterDeps,
+  createAdminCoreRouter,
+  type IAccountDeletionStore,
+  type IAccountExportStore,
+  type IAdminUserStore,
+} from "./routers/admin.js";
 export { type BillingRouterDeps, createBillingRouter } from "./routers/billing.js";
 export { type CoreRouterDeps, createCoreRouter } from "./routers/core-router.js";
 export { createFleetCoreRouter, type FleetCoreRouterDeps } from "./routers/fleet-core.js";

@@ -6,6 +6,7 @@
  */
 
 import { router } from "../init.js";
+import { type AdminCoreRouterDeps, createAdminCoreRouter } from "./admin.js";
 import { type BillingRouterDeps, createBillingRouter } from "./billing.js";
 import { createFleetCoreRouter, type FleetCoreRouterDeps } from "./fleet-core.js";
 import { createOrgRouter, type OrgRouterDeps } from "./org.js";
@@ -24,6 +25,7 @@ export interface CoreRouterDeps {
   pageContext: PageContextRouterDeps;
   org: OrgRouterDeps;
   fleet?: FleetCoreRouterDeps;
+  admin?: AdminCoreRouterDeps;
 }
 
 // ---------------------------------------------------------------------------
@@ -55,5 +57,6 @@ export function createCoreRouter(deps: CoreRouterDeps) {
     pageContext: createPageContextRouter(deps.pageContext),
     org: createOrgRouter(deps.org),
     ...(deps.fleet ? { fleet: createFleetCoreRouter(deps.fleet) } : {}),
+    ...(deps.admin ? { admin: createAdminCoreRouter(deps.admin) } : {}),
   });
 }
