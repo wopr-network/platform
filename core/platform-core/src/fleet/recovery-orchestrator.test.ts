@@ -82,11 +82,11 @@ function createMocks() {
 
 function createOrchestrator(mocks: ReturnType<typeof createMocks>) {
   return new RecoveryOrchestrator(
-        mocks.nodeRepo as any,
-        mocks.profileRepo as any,
-        mocks.recoveryRepo as any,
-        mocks.commandBus as any,
-        mocks.notifier as any,
+    mocks.nodeRepo as any,
+    mocks.profileRepo as any,
+    mocks.recoveryRepo as any,
+    mocks.commandBus as any,
+    mocks.notifier as any,
     mocks.getTenants,
     mocks.findBestTarget,
     mocks.reassignTenant,
@@ -138,7 +138,8 @@ describe("RecoveryOrchestrator", () => {
       (args) => (args[1] as { type: string }).type === "bot.import",
     );
     expect(importCall).toBeDefined();
-        const [_nodeId, importCmd] = importCall!;
+    // biome-ignore lint/style/noNonNullAssertion: guarded by expect().toBeDefined() above
+    const [_nodeId, importCmd] = importCall!;
     expect(importCmd.payload.image).toBe("ghcr.io/wopr-network/wopr:v1.2.3");
     expect(importCmd.payload.env).toEqual({ TOKEN: "secret-123", DEBUG: "1" });
 
@@ -204,8 +205,10 @@ describe("RecoveryOrchestrator", () => {
       (args) => (args[1] as { type: string }).type === "bot.import",
     );
     expect(importCall).toBeDefined();
-        expect(importCall![1].payload.image).toBe("ghcr.io/wopr-network/wopr:latest");
-        expect(importCall![1].payload.env).toEqual({});
+    // biome-ignore lint/style/noNonNullAssertion: guarded by expect().toBeDefined() above
+    expect(importCall![1].payload.image).toBe("ghcr.io/wopr-network/wopr:latest");
+    // biome-ignore lint/style/noNonNullAssertion: guarded by expect().toBeDefined() above
+    expect(importCall![1].payload.env).toEqual({});
   });
 
   it("records tenant as waiting when no target node has capacity", async () => {

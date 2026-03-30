@@ -15,7 +15,7 @@ function pgliteAsPool(pg: PGlite): any {
 
 describe("email verification", () => {
   let pg: PGlite;
-    let pool: any;
+  let pool: any;
 
   beforeEach(async () => {
     pg = new PGlite();

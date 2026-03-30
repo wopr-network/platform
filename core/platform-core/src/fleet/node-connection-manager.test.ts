@@ -444,7 +444,7 @@ describe("NodeConnectionManager.processHeartbeat — state machine integration",
     );
 
     // Access private method via type cast to verify rethrow behavior
-        const ncmAny = ncm as any;
+    const ncmAny = ncm as any;
     await expect(
       ncmAny.processHeartbeat("node-1", { type: "heartbeat", containers: [] }) as Promise<void>,
     ).rejects.toThrow("unexpected db failure");

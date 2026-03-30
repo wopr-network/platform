@@ -112,24 +112,30 @@ export async function mountRoutes(
     const { createAssertOrgAdminOrOwner } = await import("../trpc/auth-helpers.js");
     const assertOrgAdminOrOwner = createAssertOrgAdminOrOwner(container.orgMemberRepo);
 
+    /** Assert a container field exists (guaranteed in standalone mode). */
+    function need<T>(value: T | null | undefined, name: string): T {
+      if (value == null) throw new Error(`Standalone mode requires ${name} — check BootConfig.features`);
+      return value;
+    }
+
     const { createCoreRouter } = await import("../trpc/routers/core-router.js");
     const coreRouter = createCoreRouter({
       billing: {
-        processor: container.processor!,
+        processor: need(container.processor, "processor"),
         tenantRepo: container.tenantCustomerRepo as never,
         creditLedger: container.creditLedger,
-        meterAggregator: container.meterAggregator!,
+        meterAggregator: need(container.meterAggregator, "meterAggregator"),
         priceMap: container.priceMap ?? undefined,
-        autoTopupSettingsStore: container.autoTopupSettingsRepo!,
-        dividendRepo: container.dividendRepo!,
-        spendingLimitsRepo: container.spendingLimitsRepo!,
-        affiliateRepo: container.affiliateRepo!,
+        autoTopupSettingsStore: need(container.autoTopupSettingsRepo, "autoTopupSettingsRepo"),
+        dividendRepo: need(container.dividendRepo, "dividendRepo"),
+        spendingLimitsRepo: need(container.spendingLimitsRepo, "spendingLimitsRepo"),
+        affiliateRepo: need(container.affiliateRepo, "affiliateRepo"),
         productConfig: container.productConfig,
         assertOrgAdminOrOwner,
       },
       settings: {
         serviceName: `${bootConfig.slug ?? "core"}-platform`,
-        getNotificationPrefsStore: () => container.notificationPrefsRepo!,
+        getNotificationPrefsStore: () => need(container.notificationPrefsRepo, "notificationPrefsRepo"),
       },
       profile: {
         getUser: (userId) => container.authUserRepo.getUser(userId),
@@ -138,7 +144,7 @@ export async function mountRoutes(
           container.authUserRepo.changePassword(userId, currentPassword, newPassword),
       },
       pageContext: {
-        repo: container.pageContextRepo!,
+        repo: need(container.pageContextRepo, "pageContextRepo"),
       },
       org: {
         orgService: container.orgService,

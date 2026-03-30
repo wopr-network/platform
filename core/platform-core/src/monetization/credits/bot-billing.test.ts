@@ -83,11 +83,11 @@ describe("BotBilling", () => {
       await repo.startBilling("bot-1");
       const info = await billing.getBotBilling("bot-1");
       expect(info).not.toBeNull();
-            expect((info as any)?.billingState).toBe("active");
-            expect((info as any)?.tenantId).toBe("tenant-1");
-            expect((info as any)?.name).toBe("my-bot");
-            expect((info as any)?.suspendedAt).toBeNull();
-            expect((info as any)?.destroyAfter).toBeNull();
+      expect((info as any)?.billingState).toBe("active");
+      expect((info as any)?.tenantId).toBe("tenant-1");
+      expect((info as any)?.name).toBe("my-bot");
+      expect((info as any)?.suspendedAt).toBeNull();
+      expect((info as any)?.destroyAfter).toBeNull();
     });
   });
 
@@ -134,9 +134,9 @@ describe("BotBilling", () => {
       await billing.suspendBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("suspended");
-            expect((info as any)?.suspendedAt).not.toBeNull();
-            expect((info as any)?.destroyAfter).not.toBeNull();
+      expect((info as any)?.billingState).toBe("suspended");
+      expect((info as any)?.suspendedAt).not.toBeNull();
+      expect((info as any)?.destroyAfter).not.toBeNull();
     });
 
     it("sets destroyAfter to 30 days after suspension", async () => {
@@ -146,8 +146,8 @@ describe("BotBilling", () => {
 
       const info = await billing.getBotBilling("bot-1");
       expect(info).not.toBeNull();
-            const suspendedAt = new Date((info as any)?.suspendedAt ?? "");
-            const destroyAfter = new Date((info as any)?.destroyAfter ?? "");
+      const suspendedAt = new Date((info as any)?.suspendedAt ?? "");
+      const destroyAfter = new Date((info as any)?.destroyAfter ?? "");
       const diffDays = Math.round((destroyAfter.getTime() - suspendedAt.getTime()) / (1000 * 60 * 60 * 24));
       expect(diffDays).toBe(SUSPENSION_GRACE_DAYS);
     });
@@ -183,9 +183,9 @@ describe("BotBilling", () => {
       await billing.reactivateBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("active");
-            expect((info as any)?.suspendedAt).toBeNull();
-            expect((info as any)?.destroyAfter).toBeNull();
+      expect((info as any)?.billingState).toBe("active");
+      expect((info as any)?.suspendedAt).toBeNull();
+      expect((info as any)?.destroyAfter).toBeNull();
     });
 
     it("does not reactivate a destroyed bot", async () => {
@@ -195,7 +195,7 @@ describe("BotBilling", () => {
       await billing.reactivateBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("destroyed");
+      expect((info as any)?.billingState).toBe("destroyed");
     });
 
     it("does not affect already-active bots", async () => {
@@ -204,7 +204,7 @@ describe("BotBilling", () => {
       await billing.reactivateBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("active");
+      expect((info as any)?.billingState).toBe("active");
     });
   });
 
@@ -271,7 +271,7 @@ describe("BotBilling", () => {
       await billing.destroyBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("destroyed");
+      expect((info as any)?.billingState).toBe("destroyed");
     });
   });
 
@@ -294,7 +294,7 @@ describe("BotBilling", () => {
       expect(destroyed).toEqual(["bot-1"]);
 
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("destroyed");
+      expect((info as any)?.billingState).toBe("destroyed");
     });
 
     it("does not destroy bots still within grace period", async () => {
@@ -306,7 +306,7 @@ describe("BotBilling", () => {
       expect(destroyed).toEqual([]);
 
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("suspended");
+      expect((info as any)?.billingState).toBe("suspended");
     });
 
     it("does not touch active bots", async () => {
@@ -433,7 +433,7 @@ describe("BotBilling", () => {
       await billing.suspendBot("bot-2");
 
       const bots = await billing.listForTenant("tenant-1");
-            expect((bots as any[]).length).toBe(2);
+      expect((bots as any[]).length).toBe(2);
     });
   });
 
@@ -441,16 +441,16 @@ describe("BotBilling", () => {
     it("active -> suspended -> reactivated -> active", async () => {
       await billing.registerBot("bot-1", "tenant-1", "my-bot");
       await repo.startBilling("bot-1");
-            expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("active");
+      expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("active");
 
       await billing.suspendBot("bot-1");
-            expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("suspended");
+      expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("suspended");
 
       await billing.reactivateBot("bot-1");
       const info = await billing.getBotBilling("bot-1");
-            expect((info as any)?.billingState).toBe("active");
-            expect((info as any)?.suspendedAt).toBeNull();
-            expect((info as any)?.destroyAfter).toBeNull();
+      expect((info as any)?.billingState).toBe("active");
+      expect((info as any)?.suspendedAt).toBeNull();
+      expect((info as any)?.destroyAfter).toBeNull();
     });
 
     it("active -> suspended -> destroyed (after grace period)", async () => {
@@ -461,7 +461,7 @@ describe("BotBilling", () => {
       await db.update(botInstances).set({ destroyAfter: sql`now() - interval '1 day'` }).where(sql`id = 'bot-1'`);
 
       await billing.destroyExpiredBots();
-            expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("destroyed");
+      expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("destroyed");
     });
   });
 });
