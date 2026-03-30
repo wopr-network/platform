@@ -50,15 +50,13 @@ describe("sendEmail", () => {
   });
 
   it("should send email with required options", async () => {
-    process.env.RESEND_API_KEY = "test-api-key";
-
     const options: EmailOptions = {
       to: "user@example.com",
       subject: "Test Subject",
       html: "<p>Test HTML</p>",
     };
 
-    const result = await sendEmail(options);
+    const result = await sendEmail(options, "test-api-key");
 
     expect(result).toEqual({
       id: "test-email-id",
@@ -66,46 +64,29 @@ describe("sendEmail", () => {
     });
   });
 
-  it("should use custom API key when provided", async () => {
-    const options: EmailOptions = {
-      to: "user@example.com",
-      subject: "Test Subject",
-      html: "<p>Test HTML</p>",
-    };
-
-    const result = await sendEmail(options, "custom-api-key");
-
-    expect(result.success).toBe(true);
-  });
-
   it("should use custom from address when provided", async () => {
-    process.env.RESEND_API_KEY = "test-api-key";
-
     const options: EmailOptions = {
       to: "user@example.com",
       subject: "Test Subject",
       html: "<p>Test HTML</p>",
     };
 
-    const result = await sendEmail(options, undefined, "custom@example.com");
+    const result = await sendEmail(options, "test-api-key", "custom@example.com");
 
     expect(result.success).toBe(true);
   });
 
-  it("should throw error when RESEND_API_KEY is missing", async () => {
+  it("should throw error when API key is missing", async () => {
     const options: EmailOptions = {
       to: "user@example.com",
       subject: "Test Subject",
       html: "<p>Test HTML</p>",
     };
 
-    await expect(sendEmail(options)).rejects.toThrow("RESEND_API_KEY environment variable is required");
+    await expect(sendEmail(options)).rejects.toThrow("Resend API key is required");
   });
 
   it("should handle Resend API errors", async () => {
-    process.env.RESEND_API_KEY = "test-api-key";
-
-    // Mock Resend to return an error for this specific test
     mockSend.mockResolvedValueOnce({
       data: null,
       error: { message: "API error" },
@@ -117,27 +98,10 @@ describe("sendEmail", () => {
       html: "<p>Test HTML</p>",
     };
 
-    await expect(sendEmail(options)).rejects.toThrow("Failed to send email: API error");
-  });
-
-  it("should use default from email when env var is set", async () => {
-    process.env.RESEND_API_KEY = "test-api-key";
-    process.env.RESEND_FROM_EMAIL = "default@example.com";
-
-    const options: EmailOptions = {
-      to: "user@example.com",
-      subject: "Test Subject",
-      html: "<p>Test HTML</p>",
-    };
-
-    const result = await sendEmail(options);
-
-    expect(result.success).toBe(true);
+    await expect(sendEmail(options, "test-api-key")).rejects.toThrow("Failed to send email: API error");
   });
 
   it("should include text version when provided", async () => {
-    process.env.RESEND_API_KEY = "test-api-key";
-
     const options: EmailOptions = {
       to: "user@example.com",
       subject: "Test Subject",
@@ -145,7 +109,7 @@ describe("sendEmail", () => {
       text: "Test plain text",
     };
 
-    const result = await sendEmail(options);
+    const result = await sendEmail(options, "test-api-key");
 
     expect(result.success).toBe(true);
   });

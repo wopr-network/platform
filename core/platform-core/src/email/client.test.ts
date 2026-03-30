@@ -116,8 +116,9 @@ describe("getEmailClient / setEmailClient / resetEmailClient", () => {
     delete process.env.RESEND_REPLY_TO;
   });
 
-  it("should throw if no email provider is configured", () => {
-    expect(() => getEmailClient()).toThrow("Set AWS_SES_REGION, POSTMARK_API_KEY, or RESEND_API_KEY");
+  it("should return a noop client when no email provider is configured", () => {
+    const client = getEmailClient();
+    expect(client).toBeInstanceOf(EmailClient);
   });
 
   it("should create client from env vars", () => {
