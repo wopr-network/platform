@@ -7,7 +7,6 @@
  * Call once at the top of platformBoot(), before any service construction.
  */
 
-import { logger } from "./logger.js";
 import type { PlatformSecrets } from "./secrets.js";
 import { mapSecretsFromPaths, secretsFromEnv } from "./secrets.js";
 import { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-provider.js";
@@ -19,7 +18,7 @@ export async function resolveSecrets(slug: string): Promise<PlatformSecrets> {
     return secretsFromEnv();
   }
 
-  logger.info(`Fetching secrets from Vault for ${slug}`);
+  console.log(`[secrets] Fetching from Vault for ${slug}`);
   const vault = new VaultConfigProvider(vaultConfig);
 
   // Read each path individually to avoid key collisions
@@ -35,6 +34,6 @@ export async function resolveSecrets(slug: string): Promise<PlatformSecrets> {
     totalKeys += Object.keys(results[i]).length;
   }
 
-  logger.info(`Loaded ${totalKeys} keys from ${paths.length} Vault paths`);
+  console.log(`[secrets] Loaded ${totalKeys} keys from ${paths.length} paths`);
   return mapSecretsFromPaths(bySegment);
 }
