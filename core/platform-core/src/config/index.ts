@@ -57,3 +57,4 @@ export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-pro
 // fresh runners
 // registry.wopr.bot
 // docker config mount
+// push works
