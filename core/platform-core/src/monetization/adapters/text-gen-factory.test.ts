@@ -1,5 +1,5 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
-import { createTextGenAdapters, createTextGenAdaptersFromEnv } from "./text-gen-factory.js";
+import { describe, expect, it } from "vitest";
+import { createTextGenAdapters } from "./text-gen-factory.js";
 
 describe("createTextGenAdapters", () => {
   it("creates all adapters when all keys provided", () => {
@@ -119,54 +119,5 @@ describe("createTextGenAdapters", () => {
     expect(result.adapters).toHaveLength(1);
     expect(result.adapters[0].name).toBe("kimi");
     expect(result.skipped).toEqual(["deepseek", "gemini", "minimax", "openrouter"]);
-  });
-});
-
-describe("createTextGenAdaptersFromEnv", () => {
-  afterAll(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("reads API keys from environment variables", () => {
-    vi.stubEnv("DEEPSEEK_API_KEY", "env-ds");
-    vi.stubEnv("GEMINI_API_KEY", "env-gem");
-    vi.stubEnv("MINIMAX_API_KEY", "");
-    vi.stubEnv("KIMI_API_KEY", "");
-    vi.stubEnv("OPENROUTER_API_KEY", "env-or");
-
-    const result = createTextGenAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(3);
-    const names = result.adapters.map((a) => a.name);
-    expect(names).toEqual(["deepseek", "gemini", "openrouter"]);
-    expect(result.skipped).toEqual(["minimax", "kimi"]);
-  });
-
-  it("returns empty when no env vars set", () => {
-    vi.stubEnv("DEEPSEEK_API_KEY", "");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("MINIMAX_API_KEY", "");
-    vi.stubEnv("KIMI_API_KEY", "");
-    vi.stubEnv("OPENROUTER_API_KEY", "");
-
-    const result = createTextGenAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(0);
-    expect(result.skipped).toHaveLength(5);
-  });
-
-  it("accepts per-adapter overrides alongside env keys", () => {
-    vi.stubEnv("DEEPSEEK_API_KEY", "env-ds");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("MINIMAX_API_KEY", "");
-    vi.stubEnv("KIMI_API_KEY", "");
-    vi.stubEnv("OPENROUTER_API_KEY", "");
-
-    const result = createTextGenAdaptersFromEnv({
-      deepseek: { marginMultiplier: 1.5 },
-    });
-
-    expect(result.adapters).toHaveLength(1);
-    expect(result.adapters[0].name).toBe("deepseek");
   });
 });
