@@ -29,6 +29,33 @@ export {
   type OrgRemovePaymentMethodDeps,
 } from "./org-remove-payment-method-router.js";
 export { createProductConfigRouter } from "./product-config-router.js";
-export { type PageContextRouterDeps, pageContextRouter, setPageContextRouterDeps } from "./routers/page-context.js";
-export { type ProfileRouterDeps, profileRouter, setProfileRouterDeps } from "./routers/profile.js";
-export { type SettingsRouterDeps, setSettingsRouterDeps, settingsRouter } from "./routers/settings.js";
+
+// ---------------------------------------------------------------------------
+// Core routers — singleton (legacy) + DI-based factory (preferred)
+// ---------------------------------------------------------------------------
+
+// Internal service context factory (standalone mode)
+export { createInternalTRPCContext } from "./internal-context.js";
+// New core routers (DI-only — no singleton)
+export { type BillingRouterDeps, createBillingRouter } from "./routers/billing.js";
+export { type CoreRouterDeps, createCoreRouter } from "./routers/core-router.js";
+export { createFleetCoreRouter, type FleetCoreRouterDeps } from "./routers/fleet-core.js";
+export { createOrgRouter, type OrgRouterDeps } from "./routers/org.js";
+export {
+  createPageContextRouter,
+  type PageContextRouterDeps,
+  pageContextRouter,
+  setPageContextRouterDeps,
+} from "./routers/page-context.js";
+export {
+  createProfileRouter,
+  type ProfileRouterDeps,
+  profileRouter,
+  setProfileRouterDeps,
+} from "./routers/profile.js";
+export {
+  createSettingsRouter,
+  type SettingsRouterDeps,
+  setSettingsRouterDeps,
+  settingsRouter,
+} from "./routers/settings.js";

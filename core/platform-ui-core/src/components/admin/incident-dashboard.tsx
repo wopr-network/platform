@@ -267,6 +267,7 @@ function EscalationPanel() {
           <div className="space-y-2">
             {result.contacts.map((contact: EscalationContact, i: number) => (
               <div
+                // biome-ignore lint/suspicious/noArrayIndexKey: static list, index key is safe
                 key={`${contact.role}-${i}`}
                 className="flex items-center justify-between py-2 border-b border-border/50 last:border-0 text-sm"
               >
@@ -339,6 +340,7 @@ function ResponseProcedurePanel() {
         {procedure && (
           <ol className="space-y-2 list-decimal list-inside">
             {procedure.steps.map((step: string, index: number) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: static list, index key is safe
               <li key={`${index}-${step.slice(0, 20)}`} className="text-sm text-muted-foreground">
                 {step}
               </li>

@@ -209,6 +209,7 @@ export function HealthOverview({ instanceId }: { instanceId: string }) {
                 const c = healthColors[entry.status];
                 return (
                   <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: static list, index key is safe
                     key={`${entry.timestamp}-${i}`}
                     className={cn("h-8 flex-1 rounded-sm", c.dot)}
                     title={`${new Date(entry.timestamp).toLocaleTimeString()} - ${entry.status}`}

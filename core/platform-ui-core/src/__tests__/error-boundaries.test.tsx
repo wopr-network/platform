@@ -24,7 +24,6 @@ const boundaries = [
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  // biome-ignore lint/suspicious/noEmptyBlockStatements: intentional suppression of console.error in tests
   consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 

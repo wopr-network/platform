@@ -5,13 +5,19 @@
  * present on the PlatformContainer. Products call this after building the
  * container; tRPC routers (admin, fleet-update, etc.) are mounted
  * separately by products since they need product-specific auth context.
+ *
+ * When `standalone` config is provided, core also mounts:
+ *   - Internal service auth middleware on /trpc/* and /api/*
+ *   - Core tRPC router (billing, settings, profile, page-context, org, fleet)
+ *   - Product config endpoint GET /api/products/:slug
+ *   - BetterAuth routes at /api/auth/* (when auth config is provided)
  */
 
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createVerifyEmailRoutesLazy } from "../api/routes/verify-email.js";
 import { deriveCorsOrigins } from "../product-config/repository-types.js";
-import type { RoutePlugin } from "./boot-config.js";
+import type { BootConfig, RoutePlugin } from "./boot-config.js";
 import type { PlatformContainer } from "./container.js";
 import { createTenantProxyMiddleware } from "./middleware/tenant-proxy.js";
 import { createCryptoWebhookRoutes } from "./routes/crypto-webhook.js";
@@ -40,6 +46,8 @@ export interface MountConfig {
  * Mount order:
  *   1. CORS middleware (from productConfig domain list)
  *   2. Health endpoint (always)
+ *   2b. Internal service auth + tRPC + product config (standalone mode)
+ *   2c. BetterAuth routes (when auth config provided)
  *   3. Crypto webhook (if crypto enabled)
  *   4. Stripe webhook (if stripe enabled)
  *   5. Provision webhook (if fleet enabled)
@@ -51,6 +59,7 @@ export async function mountRoutes(
   container: PlatformContainer,
   config: MountConfig,
   plugins: RoutePlugin[] = [],
+  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "slug">,
 ): Promise<void> {
   // 1. CORS middleware
   const origins = deriveCorsOrigins(container.productConfig.product, container.productConfig.domains);
@@ -76,6 +85,136 @@ export async function mountRoutes(
       { uiOrigin: process.env.UI_ORIGIN },
     ),
   );
+
+  // 2c. Standalone mode — internal auth + core tRPC + product config endpoint
+  if (bootConfig?.standalone) {
+    const { internalServiceAuth } = await import("../auth/internal-service-auth.js");
+    const authMiddleware = internalServiceAuth({
+      allowedTokens: bootConfig.standalone.allowedServiceTokens,
+    });
+
+    // Apply internal auth to /trpc/* and /api/* (but NOT /v1/* — gateway has its own auth)
+    app.use("/trpc/*", authMiddleware);
+    app.use("/api/*", authMiddleware);
+
+    // Wire org member repo into tRPC middleware
+    const { setTrpcOrgMemberRepo } = await import("../trpc/init.js");
+    setTrpcOrgMemberRepo(container.orgMemberRepo);
+
+    // Build CoreRouterDeps from the container
+    const { createAssertOrgAdminOrOwner } = await import("../trpc/auth-helpers.js");
+    const assertOrgAdminOrOwner = createAssertOrgAdminOrOwner(container.orgMemberRepo);
+
+    const { createCoreRouter } = await import("../trpc/routers/core-router.js");
+    const coreRouter = createCoreRouter({
+      billing: {
+        processor: container.processor!,
+        tenantRepo: container.tenantCustomerRepo as never,
+        creditLedger: container.creditLedger,
+        meterAggregator: container.meterAggregator!,
+        priceMap: container.priceMap ?? undefined,
+        autoTopupSettingsStore: container.autoTopupSettingsRepo!,
+        dividendRepo: container.dividendRepo!,
+        spendingLimitsRepo: container.spendingLimitsRepo!,
+        affiliateRepo: container.affiliateRepo!,
+        productConfig: container.productConfig,
+        assertOrgAdminOrOwner,
+      },
+      settings: {
+        serviceName: `${bootConfig.slug ?? "core"}-platform`,
+        getNotificationPrefsStore: () => container.notificationPrefsRepo!,
+      },
+      profile: {
+        getUser: (userId) => container.authUserRepo.getUser(userId),
+        updateUser: (userId, data) => container.authUserRepo.updateUser(userId, data),
+        changePassword: (userId, currentPassword, newPassword) =>
+          container.authUserRepo.changePassword(userId, currentPassword, newPassword),
+      },
+      pageContext: {
+        repo: container.pageContextRepo!,
+      },
+      org: {
+        orgService: container.orgService,
+        authUserRepo: container.authUserRepo,
+        creditLedger: container.creditLedger,
+        meterAggregator: container.meterAggregator ?? undefined,
+        processor: container.processor ?? undefined,
+        priceMap: container.priceMap ?? undefined,
+      },
+      ...(container.fleet
+        ? {
+            fleet: {
+              creditLedger: container.creditLedger,
+              profileStore: container.fleet.profileStore,
+              productConfig: container.productConfig,
+              serviceKeyRepo: container.fleet.serviceKeyRepo,
+              assertOrgAdminOrOwner,
+              getFleetForInstance: (_instanceId: string) => container.fleet!.manager,
+            },
+          }
+        : {}),
+    });
+
+    // Mount tRPC endpoint with internal context
+    const { fetchRequestHandler } = await import("@trpc/server/adapters/fetch");
+    const { createInternalTRPCContext } = await import("../trpc/internal-context.js");
+    app.all("/trpc/*", async (c) => {
+      const response = await fetchRequestHandler({
+        endpoint: "/trpc",
+        req: c.req.raw,
+        router: coreRouter,
+        createContext: () => createInternalTRPCContext(c as never),
+      });
+      return response;
+    });
+
+    // Product config endpoint — UI servers call this on boot to get brand config
+    const { toBrandConfig } = await import("../product-config/repository-types.js");
+    app.get("/api/products/:slug", async (c) => {
+      const slug = c.req.param("slug");
+      const productConfig = await container.productConfigService.getBySlug(slug);
+      if (!productConfig) return c.json({ error: "Product not found" }, 404);
+      return c.json(toBrandConfig(productConfig));
+    });
+  }
+
+  // 2d. BetterAuth routes (when auth config provided)
+  if (bootConfig?.auth) {
+    const { initBetterAuth, runAuthMigrations, getAuth } = await import("../auth/better-auth.js");
+    const productDomain = container.productConfig.product?.domain;
+    initBetterAuth({
+      pool: container.pool,
+      db: container.db,
+      secret: bootConfig.auth.secret,
+      baseURL: productDomain ? `https://api.${productDomain}` : undefined,
+      cookieDomain: productDomain ? `.${productDomain}` : undefined,
+      trustedOrigins: productDomain ? [`https://${productDomain}`, `https://app.${productDomain}`] : undefined,
+      socialProviders: bootConfig.auth.socialProviders,
+      onUserCreated: async (userId) => {
+        try {
+          const { grantSignupCredits } = await import("../credits/signup-grant.js");
+          const granted = await grantSignupCredits(container.creditLedger, userId);
+          if (granted) {
+            const { logger } = await import("../config/logger.js");
+            logger.info(`Granted welcome credits to user ${userId}`);
+          }
+        } catch {
+          // Non-fatal — credit grant failure shouldn't block signup
+        }
+        try {
+          const org = await container.orgService.getOrCreatePersonalOrg(userId, "My Workspace");
+          const { logger } = await import("../config/logger.js");
+          logger.info(`Auto-created org ${org.id} for user ${userId}`);
+        } catch {
+          // Non-fatal — org creation failure shouldn't block signup
+        }
+      },
+    });
+    await runAuthMigrations();
+
+    const { createAuthRoutes } = await import("../api/routes/auth.js");
+    app.route("/api/auth", createAuthRoutes(getAuth()));
+  }
 
   // 3. Crypto webhook (when crypto payments are enabled)
   if (container.crypto) {

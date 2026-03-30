@@ -228,8 +228,8 @@ async function main() {
   }
 
   // ─── 8. tRPC dependency wiring ───────────────────────────────────────
+  // Billing is now proxied to core server via core-client (no local Stripe wiring).
   {
-    const { setBillingRouterDeps } = await import("./trpc/routers/billing.js");
     const { setSettingsRouterDeps } = await import("./trpc/routers/settings.js");
     const { setProfileRouterDeps } = await import("./trpc/routers/profile.js");
     const { setOrgRouterDeps } = await import("./trpc/routers/org.js");
@@ -238,71 +238,6 @@ async function main() {
     const { BetterAuthUserRepository } = await import("@wopr-network/platform-core/db");
     const authUserRepo = new BetterAuthUserRepository(container.pool);
     setOrgRouterDeps({ orgService: container.orgService, authUserRepo, creditLedger: container.creditLedger });
-
-    // Billing deps (Stripe)
-    if (stripeSecretKey) {
-      const Stripe = (await import("stripe")).default;
-      const stripe = new Stripe(stripeSecretKey);
-
-      const { DrizzleTenantCustomerRepository, loadCreditPriceMap, StripePaymentProcessor } = await import(
-        "@wopr-network/platform-core/billing"
-      );
-      const { DrizzleMeterAggregator, DrizzleUsageSummaryRepository } = await import(
-        "@wopr-network/platform-core/metering"
-      );
-      const { DrizzleAutoTopupSettingsRepository } = await import("@wopr-network/platform-core/credits");
-      const { DrizzleSpendingLimitsRepository } = await import(
-        "@wopr-network/platform-core/monetization/drizzle-spending-limits-repository"
-      );
-      const { DrizzleDividendRepository } = await import(
-        "@wopr-network/platform-core/monetization/credits/dividend-repository"
-      );
-      const { DrizzleAffiliateRepository } = await import(
-        "@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository"
-      );
-
-      const tenantRepo = new DrizzleTenantCustomerRepository(platformDb);
-      const priceMap = loadCreditPriceMap();
-      const processor = new StripePaymentProcessor({
-        stripe,
-        tenantRepo,
-        webhookSecret: secrets.stripeWebhookSecret ?? config.STRIPE_WEBHOOK_SECRET ?? "",
-        priceMap,
-        creditLedger: container.creditLedger,
-      });
-
-      const usageSummaryRepo = new DrizzleUsageSummaryRepository(platformDb);
-      const meterAggregator = new DrizzleMeterAggregator(usageSummaryRepo);
-      const autoTopupSettingsStore = new DrizzleAutoTopupSettingsRepository(platformDb);
-      const spendingLimitsRepo = new DrizzleSpendingLimitsRepository(platformDb);
-      const dividendRepo = new DrizzleDividendRepository(platformDb);
-      const affiliateRepo = new DrizzleAffiliateRepository(platformDb);
-
-      setBillingRouterDeps({
-        processor,
-        tenantRepo,
-        creditLedger: container.creditLedger,
-        meterAggregator,
-        priceMap,
-        autoTopupSettingsStore,
-        dividendRepo,
-        spendingLimitsRepo,
-        affiliateRepo,
-      });
-
-      // Re-wire org with billing deps
-      setOrgRouterDeps({
-        orgService: container.orgService,
-        authUserRepo,
-        creditLedger: container.creditLedger,
-        meterAggregator,
-        processor,
-        priceMap,
-      });
-      logger.info("Billing tRPC router wired (Stripe + all repositories)");
-    } else {
-      logger.warn("STRIPE_SECRET_KEY not set — billing tRPC procedures will fail until configured");
-    }
 
     // Settings deps
     const { DrizzleNotificationPreferencesStore } = await import("@wopr-network/platform-core/email");
@@ -319,7 +254,7 @@ async function main() {
         authUserRepo.changePassword(userId, currentPassword, newPassword),
     });
 
-    logger.info("tRPC router deps wired");
+    logger.info("tRPC router deps wired (billing proxied to core server)");
   }
 
   // ─── 8b. Mount tRPC ──────────────────────────────────────────────────

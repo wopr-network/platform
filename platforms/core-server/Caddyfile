@@ -1,0 +1,42 @@
+# Consolidated Caddyfile — all 4 product brands behind one Caddy instance.
+# Most api.* domains route to core. Holy Ship has its own flow engine.
+
+# --- WOPR ---
+
+app.wopr.bot {
+	reverse_proxy wopr-ui:3000
+}
+
+api.wopr.bot {
+	reverse_proxy core:3001
+}
+
+# --- Paperclip ---
+
+app.runpaperclip.com {
+	reverse_proxy paperclip-ui:3002
+}
+
+api.runpaperclip.com {
+	reverse_proxy core:3001
+}
+
+# --- NemoPod ---
+
+app.nemopod.com {
+	reverse_proxy nemoclaw-ui:3003
+}
+
+api.nemopod.com {
+	reverse_proxy core:3001
+}
+
+# --- Holy Ship ---
+
+app.holyship.wtf {
+	reverse_proxy holyship-ui:3004
+}
+
+api.holyship.wtf {
+	reverse_proxy holyship:3005
+}

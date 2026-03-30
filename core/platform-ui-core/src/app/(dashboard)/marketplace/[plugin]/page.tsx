@@ -83,6 +83,7 @@ export function TerminalLog({ plugin, onDone }: { plugin: PluginManifest; onDone
       <div ref={containerRef} className="max-h-48 overflow-y-auto space-y-1">
         {lines.map((line, idx) => (
           <motion.div
+            // biome-ignore lint/suspicious/noArrayIndexKey: static list, index key is safe
             key={`line-${idx}-${line.slice(0, 10)}`}
             initial={{ opacity: 0, x: -5 }}
             animate={{ opacity: 1, x: 0 }}

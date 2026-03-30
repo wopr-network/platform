@@ -35,7 +35,6 @@ describe("TerminalLog cleanup", () => {
     const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
     const onDone = vi.fn();
 
-    // biome-ignore lint/suspicious/noExplicitAny: test only
     const { unmount } = render(<TerminalLog plugin={fakePlugin as any} onDone={onDone} />);
 
     // Advance past all interval ticks + into the setTimeout territory

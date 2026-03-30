@@ -19,7 +19,6 @@ describe("TransactionHistory", () => {
 
   it("shows loading skeletons initially", () => {
     // Never resolve — keeps component in loading state
-    // biome-ignore lint/suspicious/noEmptyBlockStatements: intentionally never-resolving promise for loading state test
     mockGetCreditHistory.mockReturnValue(new Promise(() => {}));
     render(<TransactionHistory />);
     expect(screen.getByText("Transaction History")).toBeInTheDocument();

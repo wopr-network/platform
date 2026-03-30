@@ -52,7 +52,7 @@ export class HandlebarsRenderer {
    */
   async render(templateName: string, data: Record<string, unknown>): Promise<TemplateResult | null> {
     const template = await this.templateRepo.getByName(templateName);
-    if (!template || !template.active) return null;
+    if (!template?.active) return null;
 
     const ctx = { currentYear: new Date().getFullYear(), ...data };
     const subject = Handlebars.compile(template.subject)(ctx);

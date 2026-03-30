@@ -73,6 +73,29 @@ export interface BootConfig {
   /** Additional Hono sub-apps mounted after core routes. */
   routes?: RoutePlugin[];
 
+  /**
+   * Enable standalone server mode with internal auth.
+   * When set, core mounts tRPC + internal service auth routes itself.
+   * UI servers authenticate via service tokens in the Authorization header.
+   */
+  standalone?: {
+    /** Comma-separated allowed service tokens for internal auth. */
+    allowedServiceTokens: string;
+  };
+
+  /**
+   * BetterAuth configuration. When provided, core initializes better-auth
+   * and mounts /api/auth/* routes. Products that manage their own auth
+   * externally omit this field.
+   */
+  auth?: {
+    secret: string;
+    socialProviders?: {
+      github?: { clientId: string; clientSecret: string };
+      google?: { clientId: string; clientSecret: string };
+    };
+  };
+
   // ---- Deprecated: use secrets instead ----
   // These remain for backward compat during migration. Once all products
   // pass secrets, these will be removed.

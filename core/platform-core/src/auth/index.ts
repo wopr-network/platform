@@ -542,6 +542,8 @@ export {
   runAuthMigrations,
   setAuth,
 } from "./better-auth.js";
+export type { InternalServiceAuthConfig, InternalServiceAuthEnv, Product } from "./internal-service-auth.js";
+export { internalServiceAuth, parseAllowedTokens } from "./internal-service-auth.js";
 export type { ILoginHistoryRepository, LoginHistoryEntry } from "./login-history-repository.js";
 export { BetterAuthLoginHistoryRepository } from "./login-history-repository.js";
 export type { SessionAuthEnv } from "./middleware.js";

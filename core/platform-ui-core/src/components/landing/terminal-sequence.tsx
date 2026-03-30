@@ -368,6 +368,7 @@ export function TerminalSequence({ onComplete, onMilestone, onFadeStart }: Termi
             old lines overflow upward and are clipped + faded by the mask */}
         <div className="absolute bottom-0 flex w-full flex-col">
           {lines.map((line, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static list, index key is safe
             <div key={`${i}-${line}`} className={animationDone ? "text-terminal" : "text-terminal/30"}>
               {line || "\u00A0"}
             </div>

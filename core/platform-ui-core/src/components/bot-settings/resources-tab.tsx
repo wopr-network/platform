@@ -64,7 +64,6 @@ export function ResourcesTab({ botId }: { botId: string }) {
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // biome-ignore lint/suspicious/noEmptyBlockStatements: initial no-op placeholder replaced in useEffect
   const retryRef = useRef<() => void>(() => {});
 
   useEffect(() => {

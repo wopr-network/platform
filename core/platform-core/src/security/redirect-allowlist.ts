@@ -12,7 +12,6 @@ function parseExtraOrigins(): string[] {
         new URL(entry);
         return true;
       } catch {
-        console.warn(`[redirect-allowlist] Malformed entry in EXTRA_ALLOWED_REDIRECT_ORIGINS, skipping: ${entry}`);
         return false;
       }
     });

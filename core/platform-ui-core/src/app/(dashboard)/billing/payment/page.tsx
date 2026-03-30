@@ -596,6 +596,7 @@ function InvoiceRow({
                   <p className="mb-2 text-xs font-semibold text-muted-foreground">Hosted Usage Line Items</p>
                   <div className="space-y-1 text-xs">
                     {invoice.hostedLineItems?.map((item, i) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: static list, index key is safe
                       <div key={`${invoice.id}-item-${i}`} className="flex justify-between">
                         <span>
                           {item.capability} — {item.units.toLocaleString()} units @{" "}

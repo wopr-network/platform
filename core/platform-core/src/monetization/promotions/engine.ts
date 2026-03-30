@@ -69,7 +69,7 @@ export class PromotionEngine {
 
     // userSegment enforcement
     if (promo.userSegment === "tenant_list") {
-      if (!promo.eligibleTenantIds || !promo.eligibleTenantIds.includes(ctx.tenantId)) return null;
+      if (!promo.eligibleTenantIds?.includes(ctx.tenantId)) return null;
     }
 
     // Minimum purchase check — treat missing purchaseAmountCredits as zero

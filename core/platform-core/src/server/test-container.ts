@@ -122,6 +122,19 @@ export function createTestContainer(overrides?: Partial<PlatformContainer>): Pla
     orgMemberRepo: stubOrgMemberRepo(),
     orgService: {} as OrgService,
     userRoleRepo: stubUserRoleRepo(),
+    authUserRepo: { findById: async () => null, findByEmail: async () => null } as never,
+
+    // Billing/monetization repos default to null (not enabled)
+    meterAggregator: null,
+    autoTopupSettingsRepo: null,
+    dividendRepo: null,
+    spendingLimitsRepo: null,
+    affiliateRepo: null,
+    notificationPrefsRepo: null,
+    pageContextRepo: null,
+    priceMap: null,
+    processor: null,
+    tenantCustomerRepo: null,
 
     // Feature sub-containers default to null (not enabled)
     fleet: null,

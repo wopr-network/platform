@@ -77,6 +77,9 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
       platformDomain: container.productConfig.product?.domain ?? "localhost",
     },
     config.routes,
+    config.standalone || config.auth
+      ? { standalone: config.standalone, auth: config.auth, slug: config.slug }
+      : undefined,
   );
 
   let handles: BackgroundHandles | null = null;

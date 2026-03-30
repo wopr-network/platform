@@ -47,6 +47,6 @@ export function useRequireAdmin() {
 
   return {
     ...auth,
-    isAdmin: auth.user?.role === "platform_admin",
+    isAdmin: (auth.user as Record<string, unknown> | null)?.role === "platform_admin",
   };
 }

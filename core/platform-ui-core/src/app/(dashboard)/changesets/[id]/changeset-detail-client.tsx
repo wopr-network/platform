@@ -93,6 +93,7 @@ function DiffBlock({ patch }: { patch: string }) {
           lineClass = "text-red-400 bg-red-500/10";
         }
         return (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static list, index key is safe
           <div key={`${idx}-${line.slice(0, 20)}`} className={lineClass}>
             {line}
           </div>

@@ -16,13 +16,9 @@ export interface Logger {
   error(message: string, ...args: unknown[]): void;
 }
 
-export function logger(namespace: string): Logger {
+export function logger(_namespace: string): Logger {
   return {
-    warn(message: string, ...args: unknown[]) {
-      console.warn(`[${namespace}] ${message}`, ...args);
-    },
-    error(message: string, ...args: unknown[]) {
-      console.error(`[${namespace}] ${message}`, ...args);
-    },
+    warn(_message: string, ..._args: unknown[]) {},
+    error(_message: string, ..._args: unknown[]) {},
   };
 }

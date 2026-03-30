@@ -29,7 +29,7 @@ export function createAdminAuthMiddleware(config: AdminAuthConfig): MiddlewareHa
     }
 
     const authHeader = c.req.header("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return c.json({ error: "Unauthorized: admin authentication required" }, 401);
     }
 

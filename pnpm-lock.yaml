@@ -34,6 +34,22 @@ importers:
         specifier: ^4.0.18
         version: 4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
+  core/core-client:
+    dependencies:
+      '@trpc/client':
+        specifier: ^11.12.0
+        version: 11.15.1(@trpc/server@11.15.1(typescript@5.9.3))(typescript@5.9.3)
+      '@wopr-network/platform-core':
+        specifier: workspace:*
+        version: link:../platform-core
+    devDependencies:
+      '@trpc/server':
+        specifier: ^11.12.0
+        version: 11.15.1(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   core/platform-core:
     dependencies:
       '@hono/node-server':
@@ -300,6 +316,12 @@ importers:
         specifier: ^4.0.18
         version: 4.1.2(@opentelemetry/api@1.9.1)(@types/node@20.19.37)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@20.19.37)(typescript@5.9.3))(vite@8.0.3(@types/node@20.19.37)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
+  platforms/core-server:
+    dependencies:
+      '@wopr-network/platform-core':
+        specifier: workspace:*
+        version: link:../../core/platform-core
+
   platforms/holyship:
     dependencies:
       '@hono/node-server':
@@ -323,6 +345,9 @@ importers:
       '@trpc/server':
         specifier: ^11.13.4
         version: 11.15.1(typescript@5.9.3)
+      '@wopr-network/core-client':
+        specifier: workspace:*
+        version: link:../../core/core-client
       '@wopr-network/platform-core':
         specifier: workspace:*
         version: link:../../core/platform-core
@@ -350,9 +375,6 @@ importers:
       pino:
         specifier: ^10.3.1
         version: 10.3.1
-      stripe:
-        specifier: ^18.1.0
-        version: 18.5.0(@types/node@25.5.0)
       viem:
         specifier: ^2.47.4
         version: 2.47.6(typescript@5.9.3)(zod@4.3.6)
@@ -11030,15 +11052,6 @@ packages:
 
   strip-literal@3.1.0:
     resolution: {integrity: sha512-8r3mkIM/2+PpjHoOtiAW8Rg3jJLHaV7xPwG+YRGrv6FP0wwk/toTpATxWYOW0BKdWwl82VT2tFYi5DlROa0Mxg==}
-
-  stripe@18.5.0:
-    resolution: {integrity: sha512-Hp+wFiEQtCB0LlNgcFh5uVyKznpDjzyUZ+CNVEf+I3fhlYvh7rZruIg+jOwzJRCpy0ZTPMjlzm7J2/M2N6d+DA==}
-    engines: {node: '>=12.*'}
-    peerDependencies:
-      '@types/node': '>=12.x.x'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
 
   stripe@20.4.1:
     resolution: {integrity: sha512-axCguHItc8Sxt0HC6aSkdVRPffjYPV7EQqZRb2GkIa8FzWDycE7nHJM19C6xAIynH1Qp1/BHiopSi96jGBxT0w==}
@@ -24213,12 +24226,6 @@ snapshots:
   strip-literal@3.1.0:
     dependencies:
       js-tokens: 9.0.1
-
-  stripe@18.5.0(@types/node@25.5.0):
-    dependencies:
-      qs: 6.15.0
-    optionalDependencies:
-      '@types/node': 25.5.0
 
   stripe@20.4.1(@types/node@25.5.0):
     optionalDependencies:
