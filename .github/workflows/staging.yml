@@ -99,7 +99,16 @@ jobs:
         env:
           DOCKER_BUILDKIT: "0"
         run: |
+          case "${{ matrix.product }}" in
+            wopr)      API_URL=https://api.wopr.bot;       DOMAIN=wopr.bot;         BRAND="WOPR" ;;
+            paperclip) API_URL=https://api.runpaperclip.com; DOMAIN=runpaperclip.com; BRAND="Paperclip" ;;
+            holyship)  API_URL=https://api.holyship.wtf;   DOMAIN=holyship.wtf;     BRAND="Holy Ship" ;;
+            nemoclaw)  API_URL=https://api.nemopod.com;    DOMAIN=nemopod.com;      BRAND="NemoPod" ;;
+          esac
           docker build --no-cache -f ${{ matrix.ui_dockerfile }} \
+            --build-arg NEXT_PUBLIC_API_URL="$API_URL" \
+            --build-arg NEXT_PUBLIC_BRAND_DOMAIN="$DOMAIN" \
+            --build-arg NEXT_PUBLIC_BRAND_PRODUCT_NAME="$BRAND" \
             -t ${{ env.REGISTRY }}/${{ matrix.ui }}:staging \
             -t ${{ env.REGISTRY }}/${{ matrix.ui }}:${{ steps.version.outputs.short_sha }} .
           docker push ${{ env.REGISTRY }}/${{ matrix.ui }}:staging
