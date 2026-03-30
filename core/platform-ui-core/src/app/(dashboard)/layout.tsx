@@ -36,6 +36,9 @@ export default function DashboardLayout({
   const { isPending, isAuthed } = useRequireAuth();
   useWebMCP();
   usePageContext();
+
+  if (isPending || !isAuthed) return null;
+
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -44,8 +47,6 @@ export default function DashboardLayout({
   useEffect(() => {
     setSheetOpen(false);
   }, [pathname]);
-
-  if (isPending || !isAuthed) return null;
 
   return (
     <ChatProvider>
