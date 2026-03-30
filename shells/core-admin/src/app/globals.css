@@ -1,0 +1,31 @@
+@import "tailwindcss";
+@source "../../node_modules/@wopr-network/platform-ui-core/src";
+/* biome-ignore lint/correctness/noInvalidPositionAtImportRule: @source must precede @import for Tailwind v4 to scan core's source files */
+@import "../../node_modules/@wopr-network/platform-ui-core/src/app/globals.css";
+
+@theme {
+  --color-admin-blue: #3b82f6;
+  --color-near-black: #0a0a0a;
+  --color-off-white: #fafafa;
+}
+
+/* Core Admin brand: blue accent for internal tooling */
+:root {
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --ring: #3b82f6;
+  --terminal: #3b82f6;
+  --terminal-dim: #2563eb;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+}
+
+.dark {
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --ring: #3b82f6;
+  --terminal: #3b82f6;
+  --terminal-dim: #2563eb;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+}

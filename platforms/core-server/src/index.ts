@@ -9,7 +9,8 @@ const dbHost = process.env.DB_HOST ?? "postgres";
 const dbName = process.env.DB_NAME ?? "platform";
 const dbPort = process.env.DB_PORT ?? "5432";
 const databaseUrl =
-  process.env.DATABASE_URL ?? `postgresql://core:${secrets.dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+  process.env.DATABASE_URL ??
+  `postgresql://core:${encodeURIComponent(secrets.dbPassword ?? "changeme")}@${dbHost}:${dbPort}/${dbName}`;
 
 const platform = await bootPlatformServer({
   slug,
