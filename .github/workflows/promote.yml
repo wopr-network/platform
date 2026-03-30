@@ -151,7 +151,7 @@ jobs:
             API_HEALTHY=false
             for i in 1 2 3 4 5 6 7 8 9 10; do
               STATUS=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
-                "root@$host" "cd $dir && docker compose exec -T $API_SVC curl -sf http://localhost:3200/health 2>/dev/null || docker compose exec -T $API_SVC curl -sf http://localhost:3100/health 2>/dev/null" || true)
+                "root@$host" "cd $dir && docker compose exec -T $API_SVC curl -sf http://localhost:3200/health 2>/dev/null || docker compose exec -T $API_SVC curl -sf http://localhost:3100/health 2>/dev/null || docker compose exec -T $API_SVC curl -sf http://localhost:3001/health 2>/dev/null" || true)
               if [ -n "$STATUS" ]; then
                 echo "✓ $product API is healthy"
                 API_HEALTHY=true
