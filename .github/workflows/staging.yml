@@ -85,6 +85,8 @@ jobs:
 
       # --- Build & push API image ---
       - name: Build and push API :staging
+        env:
+          DOCKER_BUILDKIT: "0"
         run: |
           docker build --no-cache -f ${{ matrix.api_dockerfile }} \
             -t ${{ env.REGISTRY }}/${{ matrix.api }}:staging \
@@ -97,6 +99,8 @@ jobs:
 
       # --- Build & push UI image ---
       - name: Build and push UI :staging
+        env:
+          DOCKER_BUILDKIT: "0"
         run: |
           docker build --no-cache -f ${{ matrix.ui_dockerfile }} \
             -t ${{ env.REGISTRY }}/${{ matrix.ui }}:staging \
