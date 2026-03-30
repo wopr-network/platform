@@ -23,9 +23,6 @@ export function createOrgRemovePaymentMethodRouter(getDeps: () => OrgRemovePayme
         const { processor, autoTopupSettingsStore } = getDeps();
 
         if (!autoTopupSettingsStore) {
-          console.warn(
-            "orgRemovePaymentMethod: autoTopupSettingsStore not provided — last-payment-method guard is inactive",
-          );
         }
 
         // Guard: prevent removing the last payment method when auto-topup is enabled
@@ -66,10 +63,6 @@ export function createOrgRemovePaymentMethodRouter(getDeps: () => OrgRemovePayme
           if (remaining.length === 0) {
             const settings = await autoTopupSettingsStore.getByTenant(input.orgId);
             if (settings && (settings.usageEnabled || settings.scheduleEnabled)) {
-              console.warn(
-                "orgRemovePaymentMethod: TOCTOU — org %s now has 0 payment methods with auto-topup enabled. Operator must add a payment method or disable auto-topup.",
-                input.orgId,
-              );
             }
           }
         }

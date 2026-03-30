@@ -247,6 +247,34 @@ vi.mock("@wopr-network/platform-core/proxy/singleton", () => {
   };
 });
 
+// Initialize secrets before importing routes (setBillingDeps calls getSecrets)
+const { initSecrets } = await import("../../fleet/services.js");
+initSecrets({
+  betterAuthSecret: "a".repeat(32),
+  platformSecret: "b".repeat(32),
+  platformEncryptionSecret: "c".repeat(32),
+  dbPassword: "test",
+  provisionSecret: "d".repeat(32),
+  stripeSecretKey: null,
+  stripeWebhookSecret: null,
+  stripePublishableKey: null,
+  postmarkApiKey: null,
+  resendApiKey: null,
+  openrouterApiKey: null,
+  doApiToken: null,
+  ghcrToken: null,
+  githubClientId: null,
+  githubClientSecret: null,
+  githubAppPrivateKey: null,
+  githubWebhookSecret: null,
+  cloudflareDnsToken: null,
+  cloudflareTunnelToken: null,
+  cryptoServiceKey: null,
+  cryptoServiceUrl: null,
+  googleClientId: null,
+  googleClientSecret: null,
+});
+
 // Import AFTER mocks
 const { fleetRoutes, setFleetDeps } = await import("./fleet.js");
 const { billingRoutes, setBillingDeps } = await import("./billing.js");

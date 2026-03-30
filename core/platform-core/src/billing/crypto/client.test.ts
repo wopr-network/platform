@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CryptoServiceClient, loadCryptoConfig } from "./client.js";
 
 describe("CryptoServiceClient", () => {
@@ -79,26 +79,25 @@ describe("CryptoServiceClient", () => {
 });
 
 describe("loadCryptoConfig", () => {
-  beforeEach(() => {
-    delete process.env.CRYPTO_SERVICE_URL;
-    delete process.env.CRYPTO_SERVICE_KEY;
-    delete process.env.TENANT_ID;
-  });
-
-  afterEach(() => vi.unstubAllEnvs());
-
-  it("returns config when CRYPTO_SERVICE_URL is set", () => {
-    vi.stubEnv("CRYPTO_SERVICE_URL", "http://10.120.0.5:3100");
-    vi.stubEnv("CRYPTO_SERVICE_KEY", "sk-test");
-    vi.stubEnv("TENANT_ID", "tenant-1");
-    expect(loadCryptoConfig()).toEqual({
+  it("returns config when baseUrl is provided", () => {
+    expect(
+      loadCryptoConfig({
+        baseUrl: "http://10.120.0.5:3100",
+        serviceKey: "sk-test",
+        tenantId: "tenant-1",
+      }),
+    ).toEqual({
       baseUrl: "http://10.120.0.5:3100",
       serviceKey: "sk-test",
       tenantId: "tenant-1",
     });
   });
 
-  it("returns null when CRYPTO_SERVICE_URL is missing", () => {
-    expect(loadCryptoConfig()).toBeNull();
+  it("returns null when baseUrl is missing", () => {
+    expect(loadCryptoConfig({})).toBeNull();
+  });
+
+  it("returns null when baseUrl is null", () => {
+    expect(loadCryptoConfig({ baseUrl: null })).toBeNull();
   });
 });

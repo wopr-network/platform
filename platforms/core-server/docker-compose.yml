@@ -1,0 +1,201 @@
+## Consolidated platform deployment — one box runs everything.
+##
+## Services:
+##   postgres     — single Postgres 16 instance for all products
+##   core         — platform-core API server (serves all 4 brands)
+##   wopr-ui      — WOPR Next.js UI
+##   paperclip-ui — Paperclip Next.js UI
+##   nemoclaw-ui  — NemoPod Next.js UI
+##   holyship     — Holy Ship flow engine (talks to core for billing/auth)
+##   holyship-ui  — Holy Ship Next.js UI (talks to holyship, not core)
+##   caddy        — reverse proxy, automatic TLS
+##
+## Usage:
+##   cp .env.example .env   # fill in required values
+##   docker compose up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - platform
+
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      HOST: "0.0.0.0"
+      DATABASE_URL: ${DATABASE_URL}
+      CORE_ALLOWED_SERVICE_TOKENS: ${CORE_ALLOWED_SERVICE_TOKENS}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: https://api.wopr.bot
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      CRYPTO_SERVICE_URL: ${CRYPTO_SERVICE_URL}
+      CRYPTO_SERVICE_KEY: ${CRYPTO_SERVICE_KEY}
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.16.0.0/12}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - core_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - platform
+
+  wopr-ui:
+    image: ghcr.io/wopr-network/wopr-platform-ui:latest
+    depends_on:
+      core:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.wopr.bot
+      INTERNAL_API_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${WOPR_UI_SERVICE_TOKEN}
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - platform
+
+  paperclip-ui:
+    image: ghcr.io/wopr-network/paperclip-platform-ui:latest
+    depends_on:
+      core:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.runpaperclip.com
+      INTERNAL_API_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${PAPERCLIP_UI_SERVICE_TOKEN}
+      PORT: "3002"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3002', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - platform
+
+  nemoclaw-ui:
+    image: ghcr.io/wopr-network/nemoclaw-platform-ui:latest
+    depends_on:
+      core:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.nemopod.com
+      INTERNAL_API_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${NEMOCLAW_UI_SERVICE_TOKEN}
+      PORT: "3003"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3003', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - platform
+
+  holyship:
+    image: ghcr.io/wopr-network/holyship:latest
+    depends_on:
+      core:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3005"
+      DATABASE_URL: ${DATABASE_URL}
+      CORE_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${HOLYSHIP_SERVICE_TOKEN}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - platform
+
+  holyship-ui:
+    image: ghcr.io/wopr-network/holyship-ui:latest
+    depends_on:
+      holyship:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.holyship.wtf
+      INTERNAL_API_URL: http://holyship:3005
+      CORE_SERVICE_TOKEN: ${HOLYSHIP_UI_SERVICE_TOKEN}
+      PORT: "3004"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3004', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - platform
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      core:
+        condition: service_healthy
+      wopr-ui:
+        condition: service_healthy
+      paperclip-ui:
+        condition: service_healthy
+      nemoclaw-ui:
+        condition: service_healthy
+      holyship:
+        condition: service_healthy
+      holyship-ui:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - platform
+
+networks:
+  platform:
+    name: platform
+    driver: bridge
+
+volumes:
+  pgdata:
+  core_data:
+  caddy_data:
+  caddy_config:

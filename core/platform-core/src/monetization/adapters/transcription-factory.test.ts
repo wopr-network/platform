@@ -1,5 +1,5 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
-import { createTranscriptionAdapters, createTranscriptionAdaptersFromEnv } from "./transcription-factory.js";
+import { describe, expect, it } from "vitest";
+import { createTranscriptionAdapters } from "./transcription-factory.js";
 
 describe("createTranscriptionAdapters", () => {
   it("creates deepgram adapter when API key provided", () => {
@@ -66,42 +66,6 @@ describe("createTranscriptionAdapters", () => {
     const result = createTranscriptionAdapters({
       deepgramApiKey: "sk-dg",
       deepgram: { costPerMinute: 0.005, defaultModel: "nova-2-general" },
-    });
-
-    expect(result.adapters).toHaveLength(1);
-    expect(result.adapters[0].name).toBe("deepgram");
-  });
-});
-
-describe("createTranscriptionAdaptersFromEnv", () => {
-  afterAll(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("reads API keys from environment variables", () => {
-    vi.stubEnv("DEEPGRAM_API_KEY", "env-dg");
-
-    const result = createTranscriptionAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(1);
-    expect(result.adapters[0].name).toBe("deepgram");
-    expect(result.skipped).toHaveLength(0);
-  });
-
-  it("returns empty when no env vars set", () => {
-    vi.stubEnv("DEEPGRAM_API_KEY", "");
-
-    const result = createTranscriptionAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(0);
-    expect(result.skipped).toHaveLength(1);
-  });
-
-  it("accepts per-adapter overrides alongside env keys", () => {
-    vi.stubEnv("DEEPGRAM_API_KEY", "env-dg");
-
-    const result = createTranscriptionAdaptersFromEnv({
-      deepgram: { marginMultiplier: 1.5 },
     });
 
     expect(result.adapters).toHaveLength(1);

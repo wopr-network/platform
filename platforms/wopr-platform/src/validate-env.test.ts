@@ -159,54 +159,6 @@ describe("validateRequiredEnvVars", () => {
     warnSpy.mockRestore();
   });
 
-  it("warns when PLATFORM_UI_URL is not set", () => {
-    vi.stubEnv("PLATFORM_SECRET", "a".repeat(32));
-    vi.stubEnv("DATABASE_URL", "postgresql://x");
-    vi.stubEnv("BETTER_AUTH_SECRET", "a".repeat(32));
-    vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3100");
-    vi.stubEnv("PLATFORM_ENCRYPTION_SECRET", "b".repeat(32));
-    vi.stubEnv("STRIPE_CREDIT_PRICE_5", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_10", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_25", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_50", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_100", "price_x");
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
-    validateRequiredEnvVars();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("PLATFORM_UI_URL"));
-    warnSpy.mockRestore();
-  });
-
-  it("warns when PLATFORM_URL is not set", () => {
-    vi.stubEnv("PLATFORM_SECRET", "a".repeat(32));
-    vi.stubEnv("DATABASE_URL", "postgresql://x");
-    vi.stubEnv("BETTER_AUTH_SECRET", "a".repeat(32));
-    vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3100");
-    vi.stubEnv("PLATFORM_ENCRYPTION_SECRET", "b".repeat(32));
-    vi.stubEnv("STRIPE_CREDIT_PRICE_5", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_10", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_25", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_50", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_100", "price_x");
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
-    validateRequiredEnvVars();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("PLATFORM_URL"));
-    warnSpy.mockRestore();
-  });
-
-  it("warns when PLATFORM_DOMAIN is not set", () => {
-    vi.stubEnv("PLATFORM_SECRET", "a".repeat(32));
-    vi.stubEnv("DATABASE_URL", "postgresql://x");
-    vi.stubEnv("BETTER_AUTH_SECRET", "a".repeat(32));
-    vi.stubEnv("BETTER_AUTH_URL", "http://localhost:3100");
-    vi.stubEnv("PLATFORM_ENCRYPTION_SECRET", "b".repeat(32));
-    vi.stubEnv("STRIPE_CREDIT_PRICE_5", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_10", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_25", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_50", "price_x");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_100", "price_x");
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => logger);
-    validateRequiredEnvVars();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("PLATFORM_DOMAIN"));
-    warnSpy.mockRestore();
-  });
+  // PLATFORM_UI_URL, PLATFORM_URL, PLATFORM_DOMAIN warnings removed — those
+  // values are now sourced from Vault/config, not env vars.
 });

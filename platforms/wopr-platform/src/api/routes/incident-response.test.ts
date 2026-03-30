@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@wopr-network/platform-core/auth", () => ({
   buildTokenMetadataMap: vi.fn().mockReturnValue(new Map()),
-  // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
   scopedBearerAuthWithTenant: vi.fn().mockReturnValue(async (c: any, next: () => Promise<void>) => {
     c.set("user", { id: "test-admin" });
     await next();

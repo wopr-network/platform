@@ -582,34 +582,34 @@ describe("withMargin", () => {
   });
 
   describe("tier-specific markup (WOP-357)", () => {
-    it("applies 20% markup for free tier", () => {
+    it("applies 1.20x multiplier for free tier", () => {
       // 1.0 * 1.20 = 1.20
-      expect(withMargin(Credit.fromDollars(1.0), 20).toDollars()).toBeCloseTo(1.2, 6);
+      expect(withMargin(Credit.fromDollars(1.0), 1.2).toDollars()).toBeCloseTo(1.2, 6);
     });
 
-    it("applies 10% markup for pro tier", () => {
+    it("applies 1.10x multiplier for pro tier", () => {
       // 1.0 * 1.10 = 1.10
-      expect(withMargin(Credit.fromDollars(1.0), 10).toDollars()).toBeCloseTo(1.1, 6);
+      expect(withMargin(Credit.fromDollars(1.0), 1.1).toDollars()).toBeCloseTo(1.1, 6);
     });
 
-    it("applies 8% markup for team tier", () => {
+    it("applies 1.08x multiplier for team tier", () => {
       // 1.0 * 1.08 = 1.08
-      expect(withMargin(Credit.fromDollars(1.0), 8).toDollars()).toBeCloseTo(1.08, 6);
+      expect(withMargin(Credit.fromDollars(1.0), 1.08).toDollars()).toBeCloseTo(1.08, 6);
     });
 
-    it("applies 5% markup for enterprise tier", () => {
+    it("applies 1.05x multiplier for enterprise tier", () => {
       // 1.0 * 1.05 = 1.05
-      expect(withMargin(Credit.fromDollars(1.0), 5).toDollars()).toBeCloseTo(1.05, 6);
+      expect(withMargin(Credit.fromDollars(1.0), 1.05).toDollars()).toBeCloseTo(1.05, 6);
     });
 
-    it("handles percentage markup with real costs", () => {
-      // $0.05 cost with 10% markup = $0.055
-      expect(withMargin(Credit.fromDollars(0.05), 10).toDollars()).toBeCloseTo(0.055, 6);
+    it("handles multiplier with real costs", () => {
+      // $0.05 cost with 1.10x multiplier = $0.055
+      expect(withMargin(Credit.fromDollars(0.05), 1.1).toDollars()).toBeCloseTo(0.055, 6);
     });
 
-    it("handles percentage markup with precision", () => {
+    it("handles multiplier with precision", () => {
       // 0.000945 * 1.20 = 0.001134
-      const result = withMargin(Credit.fromDollars(0.000945), 20);
+      const result = withMargin(Credit.fromDollars(0.000945), 1.2);
       expect(result.toDollars()).toBeCloseTo(0.001134, 6);
     });
   });

@@ -9,9 +9,7 @@ import { getBrandConfig } from "@/lib/brand-config";
 
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-const CSRF_EXEMPT_AUTH_PATHS = [
-  "/api/auth/callback",
-];
+const CSRF_EXEMPT_AUTH_PATHS = ["/api/auth/callback"];
 
 const TENANT_COOKIE_NAME = getBrandConfig().tenantCookieName;
 

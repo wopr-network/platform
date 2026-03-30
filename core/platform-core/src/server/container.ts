@@ -11,13 +11,23 @@ import type { Pool } from "pg";
 import type Stripe from "stripe";
 import type { IUserRoleRepository } from "../auth/user-role-repository.js";
 import type { ICryptoChargeRepository } from "../billing/crypto/charge-store.js";
+import type { IPaymentProcessor } from "../billing/index.js";
 import type { IWebhookSeenRepository } from "../billing/webhook-seen-repository.js";
+import type { IAutoTopupSettingsRepository } from "../credits/auto-topup-settings-repository.js";
 import type { ILedger } from "../credits/ledger.js";
 import type { ITenantCustomerRepository } from "../credits/tenant-customer-repository.js";
+import type { IAuthUserRepository } from "../db/auth-user-repository.js";
 import type { DrizzleDb } from "../db/index.js";
+import type { INotificationPreferencesRepository } from "../email/index.js";
 import type { FleetManager } from "../fleet/fleet-manager.js";
+import type { IPageContextRepository } from "../fleet/page-context-repository.js";
 import type { IProfileStore } from "../fleet/profile-store.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
+import type { IMeterAggregator } from "../metering/index.js";
+import type { IAffiliateRepository } from "../monetization/affiliate/drizzle-affiliate-repository.js";
+import type { IDividendRepository } from "../monetization/credits/dividend-repository.js";
+import type { ISpendingLimitsRepository } from "../monetization/drizzle-spending-limits-repository.js";
+import type { CreditPriceMap } from "../monetization/index.js";
 import type { ProductConfig } from "../product-config/repository-types.js";
 import type { ProductConfigService } from "../product-config/service.js";
 import type { ProxyManagerInterface } from "../proxy/types.js";
@@ -83,6 +93,19 @@ export interface PlatformContainer {
   orgMemberRepo: IOrgMemberRepository;
   orgService: OrgService;
   userRoleRepo: IUserRoleRepository;
+  authUserRepo: IAuthUserRepository;
+
+  // Billing/monetization repos needed by core tRPC routers
+  meterAggregator: IMeterAggregator | null;
+  autoTopupSettingsRepo: IAutoTopupSettingsRepository | null;
+  dividendRepo: IDividendRepository | null;
+  spendingLimitsRepo: ISpendingLimitsRepository | null;
+  affiliateRepo: IAffiliateRepository | null;
+  notificationPrefsRepo: INotificationPreferencesRepository | null;
+  pageContextRepo: IPageContextRepository | null;
+  priceMap: CreditPriceMap | null;
+  processor: IPaymentProcessor | null;
+  tenantCustomerRepo: ITenantCustomerRepository | null;
 
   /** Null when the product does not use fleet management. */
   fleet: FleetServices | null;
@@ -164,6 +187,32 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   // 7. User role repository
   const { DrizzleUserRoleRepository } = await import("../auth/user-role-repository.js");
   const userRoleRepo: IUserRoleRepository = new DrizzleUserRoleRepository(db as never);
+
+  // 7a. Billing/monetization repos for core tRPC routers
+  const { DrizzleUsageSummaryRepository } = await import("../metering/drizzle-usage-summary-repository.js");
+  const { DrizzleMeterAggregator } = await import("../metering/aggregator.js");
+  const usageSummaryRepo = new DrizzleUsageSummaryRepository(db as never);
+  const meterAggregator: IMeterAggregator = new DrizzleMeterAggregator(usageSummaryRepo);
+
+  const { DrizzleAutoTopupSettingsRepository } = await import("../credits/auto-topup-settings-repository.js");
+  const autoTopupSettingsRepo: IAutoTopupSettingsRepository = new DrizzleAutoTopupSettingsRepository(db as never);
+
+  const { DrizzleSpendingLimitsRepository } = await import("../monetization/drizzle-spending-limits-repository.js");
+  const spendingLimitsRepo: ISpendingLimitsRepository = new DrizzleSpendingLimitsRepository(db as never);
+
+  const { DrizzleDividendRepository } = await import("../monetization/credits/dividend-repository.js");
+  const dividendRepo: IDividendRepository = new DrizzleDividendRepository(db as never);
+
+  const { DrizzleAffiliateRepository } = await import("../monetization/affiliate/drizzle-affiliate-repository.js");
+  const affiliateRepo: IAffiliateRepository = new DrizzleAffiliateRepository(db as never);
+
+  const { DrizzleNotificationPreferencesStore } = await import("../email/index.js");
+  const notificationPrefsRepo: INotificationPreferencesRepository = new DrizzleNotificationPreferencesStore(
+    db as never,
+  );
+
+  const { DrizzlePageContextRepository } = await import("../fleet/page-context-repository.js");
+  const pageContextRepo: IPageContextRepository = new DrizzlePageContextRepository(db as never);
 
   // 8. Fleet services (when enabled)
   let fleet: FleetServices | null = null;
@@ -253,7 +302,18 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     gateway = { serviceKeyRepo, meter, budgetChecker };
   }
 
-  // 12. Build the container (hotPool bound after construction)
+  // 12. Stripe-derived billing deps (only when stripe is enabled)
+  let priceMap: CreditPriceMap | null = null;
+  let processor: IPaymentProcessor | null = null;
+  let tenantCustomerRepo: ITenantCustomerRepository | null = null;
+  if (stripe) {
+    const { loadCreditPriceMap } = await import("../billing/stripe/credit-prices.js");
+    priceMap = loadCreditPriceMap();
+    processor = stripe.processor as unknown as IPaymentProcessor;
+    tenantCustomerRepo = stripe.customerRepo;
+  }
+
+  // 13. Build the container (hotPool bound after construction)
   const result: PlatformContainer = {
     db,
     pool,
@@ -263,6 +323,17 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     orgMemberRepo,
     orgService,
     userRoleRepo,
+    authUserRepo,
+    meterAggregator,
+    autoTopupSettingsRepo,
+    dividendRepo,
+    spendingLimitsRepo,
+    affiliateRepo,
+    notificationPrefsRepo,
+    pageContextRepo,
+    priceMap,
+    processor,
+    tenantCustomerRepo,
     fleet,
     crypto,
     stripe,

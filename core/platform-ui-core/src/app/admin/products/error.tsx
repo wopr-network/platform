@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export default function ProductsError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
+    // biome-ignore lint/suspicious/noConsole: error boundary diagnostic logging
     console.error("Admin products page error:", error);
   }, [error]);
 

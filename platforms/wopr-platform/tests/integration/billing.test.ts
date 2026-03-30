@@ -10,6 +10,35 @@ import { AUTH_HEADER, JSON_HEADERS } from "./setup.js";
 import { createTestDb, truncateAllTables } from "@wopr-network/platform-core/test/db";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 
+const { initSecrets } = await import("../../src/fleet/services.js");
+
+// Initialize secrets with test values so setBillingDeps() can call getSecrets()
+initSecrets({
+  betterAuthSecret: "a".repeat(32),
+  platformSecret: "b".repeat(32),
+  platformEncryptionSecret: "c".repeat(32),
+  dbPassword: "test",
+  provisionSecret: "d".repeat(32),
+  stripeSecretKey: null,
+  stripeWebhookSecret: null,
+  stripePublishableKey: null,
+  postmarkApiKey: null,
+  resendApiKey: null,
+  openrouterApiKey: null,
+  doApiToken: null,
+  ghcrToken: null,
+  githubClientId: null,
+  githubClientSecret: null,
+  githubAppPrivateKey: null,
+  githubWebhookSecret: null,
+  cloudflareDnsToken: null,
+  cloudflareTunnelToken: null,
+  cryptoServiceKey: null,
+  cryptoServiceUrl: null,
+  googleClientId: null,
+  googleClientSecret: null,
+});
+
 const { app } = await import("../../src/api/app.js");
 const { setBillingDeps } = await import("../../src/api/routes/billing.js");
 const { DrizzleSigPenaltyRepository } = await import("@wopr-network/platform-core/api/drizzle-sig-penalty-repository");

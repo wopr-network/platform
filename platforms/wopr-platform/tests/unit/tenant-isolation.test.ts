@@ -177,6 +177,34 @@ vi.mock("@wopr-network/platform-core/proxy/singleton", () => ({
   hydrateProxyRoutes: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Initialize secrets before importing routes (getNodeRepo path calls getSecrets)
+const { initSecrets } = await import("../../src/fleet/services.js");
+initSecrets({
+  betterAuthSecret: "a".repeat(32),
+  platformSecret: "test-platform-secret-32bytes!!ok",
+  platformEncryptionSecret: "c".repeat(32),
+  dbPassword: "test",
+  provisionSecret: "d".repeat(32),
+  stripeSecretKey: null,
+  stripeWebhookSecret: null,
+  stripePublishableKey: null,
+  postmarkApiKey: null,
+  resendApiKey: null,
+  openrouterApiKey: null,
+  doApiToken: null,
+  ghcrToken: null,
+  githubClientId: null,
+  githubClientSecret: null,
+  githubAppPrivateKey: null,
+  githubWebhookSecret: null,
+  cloudflareDnsToken: null,
+  cloudflareTunnelToken: null,
+  cryptoServiceKey: null,
+  cryptoServiceUrl: null,
+  googleClientId: null,
+  googleClientSecret: null,
+});
+
 // Dynamic import AFTER all mocks and stubEnv calls
 const { fleetRoutes, setFleetDeps } = await import("../../src/api/routes/fleet.js");
 

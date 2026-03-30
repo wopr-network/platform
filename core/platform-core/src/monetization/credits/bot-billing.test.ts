@@ -83,15 +83,10 @@ describe("BotBilling", () => {
       await repo.startBilling("bot-1");
       const info = await billing.getBotBilling("bot-1");
       expect(info).not.toBeNull();
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("active");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.tenantId).toBe("tenant-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.name).toBe("my-bot");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.suspendedAt).toBeNull();
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.destroyAfter).toBeNull();
     });
   });
@@ -139,11 +134,8 @@ describe("BotBilling", () => {
       await billing.suspendBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("suspended");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.suspendedAt).not.toBeNull();
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.destroyAfter).not.toBeNull();
     });
 
@@ -154,9 +146,7 @@ describe("BotBilling", () => {
 
       const info = await billing.getBotBilling("bot-1");
       expect(info).not.toBeNull();
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       const suspendedAt = new Date((info as any)?.suspendedAt ?? "");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       const destroyAfter = new Date((info as any)?.destroyAfter ?? "");
       const diffDays = Math.round((destroyAfter.getTime() - suspendedAt.getTime()) / (1000 * 60 * 60 * 24));
       expect(diffDays).toBe(SUSPENSION_GRACE_DAYS);
@@ -193,11 +183,8 @@ describe("BotBilling", () => {
       await billing.reactivateBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("active");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.suspendedAt).toBeNull();
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.destroyAfter).toBeNull();
     });
 
@@ -208,7 +195,6 @@ describe("BotBilling", () => {
       await billing.reactivateBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("destroyed");
     });
 
@@ -218,7 +204,6 @@ describe("BotBilling", () => {
       await billing.reactivateBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("active");
     });
   });
@@ -286,7 +271,6 @@ describe("BotBilling", () => {
       await billing.destroyBot("bot-1");
 
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("destroyed");
     });
   });
@@ -310,7 +294,6 @@ describe("BotBilling", () => {
       expect(destroyed).toEqual(["bot-1"]);
 
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("destroyed");
     });
 
@@ -323,7 +306,6 @@ describe("BotBilling", () => {
       expect(destroyed).toEqual([]);
 
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("suspended");
     });
 
@@ -451,7 +433,6 @@ describe("BotBilling", () => {
       await billing.suspendBot("bot-2");
 
       const bots = await billing.listForTenant("tenant-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((bots as any[]).length).toBe(2);
     });
   });
@@ -460,20 +441,15 @@ describe("BotBilling", () => {
     it("active -> suspended -> reactivated -> active", async () => {
       await billing.registerBot("bot-1", "tenant-1", "my-bot");
       await repo.startBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("active");
 
       await billing.suspendBot("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("suspended");
 
       await billing.reactivateBot("bot-1");
       const info = await billing.getBotBilling("bot-1");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.billingState).toBe("active");
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.suspendedAt).toBeNull();
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect((info as any)?.destroyAfter).toBeNull();
     });
 
@@ -485,7 +461,6 @@ describe("BotBilling", () => {
       await db.update(botInstances).set({ destroyAfter: sql`now() - interval '1 day'` }).where(sql`id = 'bot-1'`);
 
       await billing.destroyExpiredBots();
-      // biome-ignore lint/suspicious/noExplicitAny: intentional test cast
       expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("destroyed");
     });
   });

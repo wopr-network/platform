@@ -184,6 +184,37 @@ vi.mock("@wopr-network/platform-core/backup/retention", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Secrets — must be initialized before route modules call getSecrets()
+// ---------------------------------------------------------------------------
+
+const { initSecrets } = await import("../../src/fleet/services.js");
+initSecrets({
+  betterAuthSecret: "a".repeat(32),
+  platformSecret: TEST_PLATFORM_SECRET,
+  platformEncryptionSecret: "c".repeat(32),
+  dbPassword: "test",
+  provisionSecret: "d".repeat(32),
+  stripeSecretKey: null,
+  stripeWebhookSecret: null,
+  stripePublishableKey: null,
+  postmarkApiKey: null,
+  resendApiKey: null,
+  openrouterApiKey: null,
+  doApiToken: null,
+  ghcrToken: null,
+  githubClientId: null,
+  githubClientSecret: null,
+  githubAppPrivateKey: null,
+  githubWebhookSecret: null,
+  cloudflareDnsToken: null,
+  cloudflareTunnelToken: null,
+  cryptoServiceKey: null,
+  cryptoServiceUrl: null,
+  googleClientId: null,
+  googleClientSecret: null,
+});
+
+// ---------------------------------------------------------------------------
 // Fleet route deps — must be set before POST /fleet/bots is exercised
 // ---------------------------------------------------------------------------
 

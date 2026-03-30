@@ -11,7 +11,6 @@ vi.mock("../../fleet/services.js", () => ({
 }));
 vi.mock("@wopr-network/platform-core/auth", () => ({
   buildTokenMetadataMap: vi.fn().mockReturnValue(new Map()),
-  // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
   scopedBearerAuthWithTenant: vi.fn().mockReturnValue(async (c: any, next: () => Promise<void>) => {
     c.set("user", { id: "test-admin" });
     await next();
@@ -40,7 +39,6 @@ describe("adminMigrationRoutes", () => {
           targetNodeId: "node-2",
           downtimeMs: 1500,
         }),
-        // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
       } as any);
 
       const res = await adminMigrationRoutes.request("/bot-123", {
@@ -62,7 +60,6 @@ describe("adminMigrationRoutes", () => {
           targetNodeId: "node-auto",
           downtimeMs: 800,
         }),
-        // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
       } as any);
 
       const res = await adminMigrationRoutes.request("/bot-456", {
@@ -83,7 +80,6 @@ describe("adminMigrationRoutes", () => {
           targetNodeId: "node-auto",
           downtimeMs: 1200,
         }),
-        // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
       } as any);
 
       const res = await adminMigrationRoutes.request("/bot-789", {
@@ -98,7 +94,6 @@ describe("adminMigrationRoutes", () => {
           success: false,
           error: "No suitable target node available",
         }),
-        // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
       } as any);
 
       const res = await adminMigrationRoutes.request("/bot-fail", {
@@ -114,7 +109,6 @@ describe("adminMigrationRoutes", () => {
     it("returns 500 on unexpected error", async () => {
       vi.mocked(getMigrationOrchestrator).mockReturnValue({
         migrate: vi.fn().mockRejectedValue(new Error("orchestrator crashed")),
-        // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
       } as any);
 
       const res = await adminMigrationRoutes.request("/bot-error", {
@@ -138,7 +132,6 @@ describe("adminMigrationRoutes", () => {
           targetNodeId: "node-2",
           downtimeMs: 1000,
         }),
-        // biome-ignore lint/suspicious/noExplicitAny: vi.fn() mock context
       } as any);
 
       await adminMigrationRoutes.request("/bot-audit", {

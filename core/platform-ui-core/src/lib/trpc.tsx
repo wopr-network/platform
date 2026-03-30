@@ -5,6 +5,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { useState } from "react";
 import { PLATFORM_BASE_URL } from "./api-config";
+import { getBrandConfig } from "./brand-config";
 import { handleUnauthorized } from "./fetch-utils";
 import { getActiveTenantId, TenantProvider } from "./tenant-context";
 import type { AppRouter } from "./trpc-types";
@@ -35,7 +36,11 @@ export const trpcVanilla = createTRPCClient<AppRouter>({
       fetch: trpcFetchWithAuth,
       headers() {
         const tenantId = getActiveTenantId();
-        return tenantId ? { "x-tenant-id": tenantId } : {};
+        const product = process.env.NEXT_PUBLIC_PRODUCT_SLUG || getBrandConfig().storagePrefix;
+        return {
+          ...(tenantId ? { "x-tenant-id": tenantId } : {}),
+          ...(product ? { "x-product": product } : {}),
+        };
       },
     }),
   ],
@@ -86,7 +91,11 @@ export function TRPCProvider({
           fetch: trpcFetchWithAuth,
           headers() {
             const tenantId = getActiveTenantId();
-            return tenantId ? { "x-tenant-id": tenantId } : {};
+            const product = process.env.NEXT_PUBLIC_PRODUCT_SLUG || getBrandConfig().storagePrefix;
+            return {
+              ...(tenantId ? { "x-tenant-id": tenantId } : {}),
+              ...(product ? { "x-product": product } : {}),
+            };
           },
         }),
       ],

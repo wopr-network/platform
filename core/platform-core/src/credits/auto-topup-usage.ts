@@ -23,7 +23,7 @@ export interface UsageTopupDeps {
 export async function maybeTriggerUsageTopup(deps: UsageTopupDeps, tenantId: string): Promise<void> {
   // 1. Look up settings
   const settings = await deps.settingsRepo.getByTenant(tenantId);
-  if (!settings || !settings.usageEnabled) return;
+  if (!settings?.usageEnabled) return;
 
   // 1b. Check tenant status (skip banned/suspended accounts)
   if (deps.checkTenantStatus) {

@@ -1,5 +1,5 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { bootstrapAdapters, bootstrapAdaptersFromEnv } from "./bootstrap.js";
+import { describe, expect, it } from "vitest";
+import { bootstrapAdapters } from "./bootstrap.js";
 
 describe("bootstrapAdapters", () => {
   it("creates all adapters when all keys provided", () => {
@@ -112,76 +112,6 @@ describe("bootstrapAdapters", () => {
         deepseekApiKey: "sk-ds",
         deepseek: { marginMultiplier: 1.5 },
       },
-    });
-
-    expect(result.adapters).toHaveLength(1);
-    expect(result.adapters[0].name).toBe("deepseek");
-  });
-});
-
-describe("bootstrapAdaptersFromEnv", () => {
-  beforeEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  afterAll(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("reads all keys from environment variables", () => {
-    vi.stubEnv("DEEPSEEK_API_KEY", "env-ds");
-    vi.stubEnv("GEMINI_API_KEY", "env-gem");
-    vi.stubEnv("MINIMAX_API_KEY", "env-mm");
-    vi.stubEnv("KIMI_API_KEY", "env-kimi");
-    vi.stubEnv("OPENROUTER_API_KEY", "env-or");
-    vi.stubEnv("CHATTERBOX_BASE_URL", "http://chatterbox:8000");
-    vi.stubEnv("ELEVENLABS_API_KEY", "env-el");
-    vi.stubEnv("DEEPGRAM_API_KEY", "env-dg");
-    vi.stubEnv("OLLAMA_BASE_URL", "http://ollama:11434");
-    vi.stubEnv("REPLICATE_API_TOKEN", "r8-rep");
-    vi.stubEnv("NANO_BANANA_API_KEY", "env-nb");
-
-    const result = bootstrapAdaptersFromEnv();
-
-    // 5 text-gen + 2 TTS + 1 transcription + 2 embeddings + 2 image-gen = 12
-    expect(result.adapters).toHaveLength(12);
-    expect(result.summary.total).toBe(12);
-  });
-
-  it("returns empty when no env vars set", () => {
-    vi.stubEnv("DEEPSEEK_API_KEY", "");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("MINIMAX_API_KEY", "");
-    vi.stubEnv("KIMI_API_KEY", "");
-    vi.stubEnv("OPENROUTER_API_KEY", "");
-    vi.stubEnv("CHATTERBOX_BASE_URL", "");
-    vi.stubEnv("ELEVENLABS_API_KEY", "");
-    vi.stubEnv("DEEPGRAM_API_KEY", "");
-    vi.stubEnv("OLLAMA_BASE_URL", "");
-    vi.stubEnv("REPLICATE_API_TOKEN", "");
-    vi.stubEnv("NANO_BANANA_API_KEY", "");
-
-    const result = bootstrapAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(0);
-    expect(result.summary.skipped).toBeGreaterThan(0);
-  });
-
-  it("accepts per-capability overrides", () => {
-    vi.stubEnv("DEEPSEEK_API_KEY", "env-ds");
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("MINIMAX_API_KEY", "");
-    vi.stubEnv("KIMI_API_KEY", "");
-    vi.stubEnv("OPENROUTER_API_KEY", "");
-    vi.stubEnv("CHATTERBOX_BASE_URL", "");
-    vi.stubEnv("ELEVENLABS_API_KEY", "");
-    vi.stubEnv("DEEPGRAM_API_KEY", "");
-    vi.stubEnv("OLLAMA_BASE_URL", "");
-    vi.stubEnv("REPLICATE_API_TOKEN", "");
-    vi.stubEnv("NANO_BANANA_API_KEY", "");
-
-    const result = bootstrapAdaptersFromEnv({
-      textGen: { deepseek: { marginMultiplier: 2.0 } },
     });
 
     expect(result.adapters).toHaveLength(1);

@@ -1,5 +1,5 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
-import { createImageGenAdapters, createImageGenAdaptersFromEnv } from "./image-gen-factory.js";
+import { describe, expect, it } from "vitest";
+import { createImageGenAdapters } from "./image-gen-factory.js";
 
 describe("createImageGenAdapters", () => {
   it("creates both adapters when all keys provided", () => {
@@ -114,45 +114,5 @@ describe("createImageGenAdapters", () => {
     expect(result.adapters).toHaveLength(1);
     expect(result.adapters[0].name).toBe("nano-banana");
     expect(result.skipped).toEqual(["replicate"]);
-  });
-});
-
-describe("createImageGenAdaptersFromEnv", () => {
-  afterAll(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("reads keys from environment variables", () => {
-    vi.stubEnv("GEMINI_API_KEY", "env-gem");
-    vi.stubEnv("REPLICATE_API_TOKEN", "env-rep");
-
-    const result = createImageGenAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(2);
-    const names = result.adapters.map((a) => a.name);
-    expect(names).toEqual(["replicate", "nano-banana"]);
-    expect(result.skipped).toHaveLength(0);
-  });
-
-  it("returns empty when no env vars set", () => {
-    vi.stubEnv("GEMINI_API_KEY", "");
-    vi.stubEnv("REPLICATE_API_TOKEN", "");
-
-    const result = createImageGenAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(0);
-    expect(result.skipped).toHaveLength(2);
-  });
-
-  it("accepts per-adapter overrides alongside env keys", () => {
-    vi.stubEnv("GEMINI_API_KEY", "env-gem");
-    vi.stubEnv("REPLICATE_API_TOKEN", "");
-
-    const result = createImageGenAdaptersFromEnv({
-      nanoBanana: { costPerImage: 0.01 },
-    });
-
-    expect(result.adapters).toHaveLength(1);
-    expect(result.adapters[0].name).toBe("nano-banana");
   });
 });

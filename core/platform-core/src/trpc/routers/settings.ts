@@ -7,7 +7,10 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { INotificationPreferencesRepository } from "../../email/index.js";
-import { publicProcedure, router, tenantProcedure } from "../init.js";
+import { publicProcedure, router, type TRPCContext, tenantProcedure } from "../init.js";
+
+// Narrowed context after tenantProcedure middleware (user + tenantId non-optional)
+type TenantCtx = { user: NonNullable<TRPCContext["user"]>; tenantId: string };
 
 // ---------------------------------------------------------------------------
 // Deps
@@ -32,7 +35,60 @@ function deps(): SettingsRouterDeps {
 }
 
 // ---------------------------------------------------------------------------
-// Router
+// Factory — DI-based (preferred for new code)
+// ---------------------------------------------------------------------------
+
+export function createSettingsRouter(d: SettingsRouterDeps) {
+  return router({
+    health: publicProcedure.query(() => {
+      return { status: "ok" as const, service: d.serviceName };
+    }),
+
+    tenantConfig: tenantProcedure.query(({ ctx }: { ctx: TenantCtx }) => {
+      return { tenantId: ctx.tenantId, configured: true };
+    }),
+
+    ping: tenantProcedure.query(({ ctx }: { ctx: TenantCtx }) => {
+      return { ok: true as const, tenantId: ctx.tenantId, userId: ctx.user.id, timestamp: Date.now() };
+    }),
+
+    notificationPreferences: tenantProcedure.query(({ ctx }: { ctx: TenantCtx }) => {
+      const store = d.getNotificationPrefsStore();
+      return store.get(ctx.tenantId);
+    }),
+
+    testProvider: tenantProcedure
+      .input(z.object({ provider: z.string().min(1).max(64) }))
+      .mutation(async ({ input, ctx }: { input: { provider: string }; ctx: TenantCtx }) => {
+        const testFn = d.testProvider;
+        if (!testFn) {
+          return { ok: false as const, error: "Provider testing not configured" };
+        }
+        return testFn(input.provider, ctx.tenantId);
+      }),
+
+    updateNotificationPreferences: tenantProcedure
+      .input(
+        z.object({
+          billing_low_balance: z.boolean().optional(),
+          billing_receipts: z.boolean().optional(),
+          billing_auto_topup: z.boolean().optional(),
+          agent_channel_disconnect: z.boolean().optional(),
+          agent_status_changes: z.boolean().optional(),
+          account_role_changes: z.boolean().optional(),
+          account_team_invites: z.boolean().optional(),
+        }),
+      )
+      .mutation(async ({ input, ctx }: { input: Record<string, boolean | undefined>; ctx: TenantCtx }) => {
+        const store = d.getNotificationPrefsStore();
+        await store.update(ctx.tenantId, input);
+        return store.get(ctx.tenantId);
+      }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Singleton router (legacy — kept for backwards compat)
 // ---------------------------------------------------------------------------
 
 export const settingsRouter = router({
@@ -42,7 +98,7 @@ export const settingsRouter = router({
   }),
 
   /** Get tenant configuration summary. */
-  tenantConfig: tenantProcedure.query(({ ctx }) => {
+  tenantConfig: tenantProcedure.query(({ ctx }: { ctx: TenantCtx }) => {
     return {
       tenantId: ctx.tenantId,
       configured: true,
@@ -50,7 +106,7 @@ export const settingsRouter = router({
   }),
 
   /** Ping — verify auth and tenant context. */
-  ping: tenantProcedure.query(({ ctx }) => {
+  ping: tenantProcedure.query(({ ctx }: { ctx: TenantCtx }) => {
     return {
       ok: true as const,
       tenantId: ctx.tenantId,
@@ -60,7 +116,7 @@ export const settingsRouter = router({
   }),
 
   /** Get notification preferences for the authenticated tenant. */
-  notificationPreferences: tenantProcedure.query(({ ctx }) => {
+  notificationPreferences: tenantProcedure.query(({ ctx }: { ctx: TenantCtx }) => {
     const store = deps().getNotificationPrefsStore();
     return store.get(ctx.tenantId);
   }),
@@ -68,7 +124,7 @@ export const settingsRouter = router({
   /** Test connectivity to a provider. */
   testProvider: tenantProcedure
     .input(z.object({ provider: z.string().min(1).max(64) }))
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input, ctx }: { input: { provider: string }; ctx: TenantCtx }) => {
       const testFn = deps().testProvider;
       if (!testFn) {
         return { ok: false as const, error: "Provider testing not configured" };
@@ -89,7 +145,7 @@ export const settingsRouter = router({
         account_team_invites: z.boolean().optional(),
       }),
     )
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input, ctx }: { input: Record<string, boolean | undefined>; ctx: TenantCtx }) => {
       const store = deps().getNotificationPrefsStore();
       await store.update(ctx.tenantId, input);
       return store.get(ctx.tenantId);

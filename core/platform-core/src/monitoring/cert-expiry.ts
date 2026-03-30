@@ -23,7 +23,7 @@ export function checkCertExpiry(hostname: string, port: number, timeoutMs = 5000
         const cert = socket.getPeerCertificate();
         socket.destroy();
 
-        if (!cert || !cert.valid_to) {
+        if (!cert?.valid_to) {
           resolve({ hostname, port, valid: false, error: "No certificate returned" });
           return;
         }

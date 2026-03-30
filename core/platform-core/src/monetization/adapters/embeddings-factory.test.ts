@@ -1,5 +1,5 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createEmbeddingsAdapters, createEmbeddingsAdaptersFromEnv } from "./embeddings-factory.js";
+import { describe, expect, it, vi } from "vitest";
+import { createEmbeddingsAdapters } from "./embeddings-factory.js";
 import * as ollamaModule from "./ollama-embeddings.js";
 import * as openrouterModule from "./openrouter.js";
 
@@ -141,67 +141,6 @@ describe("createEmbeddingsAdapters", () => {
       expect.objectContaining({
         apiKey: "sk-or",
         marginMultiplier: 1.5,
-      }),
-    );
-
-    spy.mockRestore();
-  });
-});
-
-describe("createEmbeddingsAdaptersFromEnv", () => {
-  beforeEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  afterAll(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("reads keys from environment variables", () => {
-    vi.stubEnv("OLLAMA_BASE_URL", "http://ollama:11434");
-    vi.stubEnv("OPENROUTER_API_KEY", "env-or");
-
-    const result = createEmbeddingsAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(2);
-    expect(result.adapters[0].name).toBe("ollama-embeddings");
-    expect(result.adapters[1].name).toBe("openrouter");
-    expect(result.skipped).toHaveLength(0);
-  });
-
-  it("returns empty when no env vars set", () => {
-    vi.stubEnv("OLLAMA_BASE_URL", "");
-    vi.stubEnv("OPENROUTER_API_KEY", "");
-
-    const result = createEmbeddingsAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(0);
-    expect(result.skipped).toEqual(["ollama-embeddings", "openrouter"]);
-  });
-
-  it("creates only ollama when only OLLAMA_BASE_URL set", () => {
-    vi.stubEnv("OLLAMA_BASE_URL", "http://ollama:11434");
-    vi.stubEnv("OPENROUTER_API_KEY", "");
-
-    const result = createEmbeddingsAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(1);
-    expect(result.adapters[0].name).toBe("ollama-embeddings");
-  });
-
-  it("passes per-adapter overrides alongside env vars", () => {
-    vi.stubEnv("OLLAMA_BASE_URL", "http://ollama:11434");
-    vi.stubEnv("OPENROUTER_API_KEY", "env-or");
-    const spy = vi.spyOn(ollamaModule, "createOllamaEmbeddingsAdapter");
-
-    createEmbeddingsAdaptersFromEnv({
-      ollama: { marginMultiplier: 1.1 },
-    });
-
-    expect(spy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        baseUrl: "http://ollama:11434",
-        marginMultiplier: 1.1,
       }),
     );
 

@@ -9,7 +9,6 @@ import {
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 
-// biome-ignore lint/suspicious/noExplicitAny: test helper type for flexible Hono vars
 type AnyEnv = { Variables: Record<string, any> };
 
 // ---------------------------------------------------------------------------

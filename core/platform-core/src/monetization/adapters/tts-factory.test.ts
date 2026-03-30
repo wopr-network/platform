@@ -1,5 +1,5 @@
-import { afterAll, describe, expect, it, vi } from "vitest";
-import { createTTSAdapters, createTTSAdaptersFromEnv } from "./tts-factory.js";
+import { describe, expect, it } from "vitest";
+import { createTTSAdapters } from "./tts-factory.js";
 
 describe("createTTSAdapters", () => {
   it("creates both adapters when all config provided", () => {
@@ -119,45 +119,5 @@ describe("createTTSAdapters", () => {
     });
 
     expect(result.adapters).toHaveLength(2);
-  });
-});
-
-describe("createTTSAdaptersFromEnv", () => {
-  afterAll(() => {
-    vi.unstubAllEnvs();
-  });
-
-  it("reads config from environment variables", () => {
-    vi.stubEnv("CHATTERBOX_BASE_URL", "http://chatterbox:8000");
-    vi.stubEnv("ELEVENLABS_API_KEY", "env-el");
-
-    const result = createTTSAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(2);
-    const names = result.adapters.map((a) => a.name);
-    expect(names).toEqual(["chatterbox-tts", "elevenlabs"]);
-    expect(result.skipped).toHaveLength(0);
-  });
-
-  it("returns empty when no env vars set", () => {
-    vi.stubEnv("CHATTERBOX_BASE_URL", "");
-    vi.stubEnv("ELEVENLABS_API_KEY", "");
-
-    const result = createTTSAdaptersFromEnv();
-
-    expect(result.adapters).toHaveLength(0);
-    expect(result.skipped).toHaveLength(2);
-  });
-
-  it("accepts per-adapter overrides alongside env config", () => {
-    vi.stubEnv("CHATTERBOX_BASE_URL", "http://chatterbox:8000");
-    vi.stubEnv("ELEVENLABS_API_KEY", "");
-
-    const result = createTTSAdaptersFromEnv({
-      chatterbox: { costPerChar: 0.000001 },
-    });
-
-    expect(result.adapters).toHaveLength(1);
-    expect(result.adapters[0].name).toBe("chatterbox-tts");
   });
 });

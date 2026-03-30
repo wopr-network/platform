@@ -8,7 +8,7 @@ import { Recognition } from "../src/components/landing/recognition";
 describe("Hero", () => {
   it("renders the brand name", () => {
     render(<Hero />);
-    expect(screen.getByText(/Holy Ship/)).toBeDefined();
+    expect(screen.getAllByText(/Holy Ship/).length).toBeGreaterThan(0);
   });
 
   it("renders the CTA", () => {
