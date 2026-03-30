@@ -36,15 +36,7 @@ const fullscreenVariants = {
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
-export function ChatPanel({
-  messages,
-  mode,
-  isConnected,
-  isTyping,
-  onSend,
-  onClose,
-  onFullscreen,
-}: ChatPanelProps) {
+export function ChatPanel({ messages, mode, isConnected, isTyping, onSend, onClose, onFullscreen }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isFullscreen = mode === "fullscreen";
 
@@ -81,9 +73,7 @@ export function ChatPanel({
             className={`h-2 w-2 rounded-full inline-block ${isConnected ? "bg-terminal" : "bg-destructive"}`}
             aria-label={isConnected ? "Connected" : "Disconnected"}
           />
-          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            {brandName()}
-          </span>
+          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">{brandName()}</span>
         </div>
         <div className="flex items-center gap-1">
           {!isFullscreen && (
@@ -112,13 +102,9 @@ export function ChatPanel({
       </div>
 
       {/* Messages */}
-      <div
-        className={`flex-1 overflow-y-auto px-4 py-3 space-y-2 ${isFullscreen ? "max-w-2xl mx-auto w-full" : ""}`}
-      >
+      <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-2 ${isFullscreen ? "max-w-2xl mx-auto w-full" : ""}`}>
         {messages.length === 0 && !isConnected && (
-          <p className="text-center text-xs text-muted-foreground animate-ellipsis">
-            Connecting to {brandName()}
-          </p>
+          <p className="text-center text-xs text-muted-foreground animate-ellipsis">Connecting to {brandName()}</p>
         )}
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />

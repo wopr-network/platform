@@ -40,14 +40,10 @@ describe("sandbox setup execSync timeout (WOP-613)", () => {
       .mockReturnValueOnce(undefined) // docker pull
       .mockReturnValueOnce(undefined); // docker tag
 
-    const { buildSandboxImage } = await import(
-      "../../src/commands/onboard/steps/02b-sandbox.js"
-    );
+    const { buildSandboxImage } = await import("../../src/commands/onboard/steps/02b-sandbox.js");
     await buildSandboxImage();
 
-    const pullCall = execSyncMock.mock.calls.find((call) =>
-      String(call[0]).includes("docker pull"),
-    );
+    const pullCall = execSyncMock.mock.calls.find((call) => String(call[0]).includes("docker pull"));
     expect(pullCall).toBeDefined();
     expect(pullCall![1]).toMatchObject({ timeout: 120_000 });
   });
@@ -60,24 +56,17 @@ describe("sandbox setup execSync timeout (WOP-613)", () => {
       .mockReturnValueOnce(undefined) // docker pull
       .mockReturnValueOnce(undefined); // docker tag
 
-    const { buildSandboxImage } = await import(
-      "../../src/commands/onboard/steps/02b-sandbox.js"
-    );
+    const { buildSandboxImage } = await import("../../src/commands/onboard/steps/02b-sandbox.js");
     await buildSandboxImage();
 
-    const tagCall = execSyncMock.mock.calls.find((call) =>
-      String(call[0]).includes("docker tag"),
-    );
+    const tagCall = execSyncMock.mock.calls.find((call) => String(call[0]).includes("docker tag"));
     expect(tagCall).toBeDefined();
     expect(tagCall![1]).toMatchObject({ timeout: 120_000 });
   });
 
   it("returns false and does not throw when docker pull times out", async () => {
     // Node throws an Error with signal SIGTERM when execSync timeout is exceeded
-    const timeoutError = Object.assign(
-      new Error("spawnSync docker ETIMEDOUT"),
-      { signal: "SIGTERM", killed: true },
-    );
+    const timeoutError = Object.assign(new Error("spawnSync docker ETIMEDOUT"), { signal: "SIGTERM", killed: true });
 
     execSyncMock
       .mockImplementationOnce(() => {
@@ -87,9 +76,7 @@ describe("sandbox setup execSync timeout (WOP-613)", () => {
         throw timeoutError;
       }); // docker pull times out
 
-    const { buildSandboxImage } = await import(
-      "../../src/commands/onboard/steps/02b-sandbox.js"
-    );
+    const { buildSandboxImage } = await import("../../src/commands/onboard/steps/02b-sandbox.js");
     const result = await buildSandboxImage();
 
     // Should return false without throwing

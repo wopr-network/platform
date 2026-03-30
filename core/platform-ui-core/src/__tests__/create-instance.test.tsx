@@ -53,9 +53,7 @@ describe("CreateInstanceClient", () => {
 
   it("renders the create form heading", async () => {
     render(<CreateInstanceClient />);
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Create Instance" })).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Create Instance" })).toBeInTheDocument());
   });
 
   it("renders preset cards", async () => {

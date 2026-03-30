@@ -14,21 +14,10 @@ import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
 import { useToast } from "../context/ToastContext";
-import {
-  assigneeValueFromSelection,
-  currentUserAssigneeOption,
-  parseAssigneeValue,
-} from "../lib/assignees";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { assigneeValueFromSelection, currentUserAssigneeOption, parseAssigneeValue } from "../lib/assignees";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Maximize2,
   Minimize2,
@@ -93,7 +82,8 @@ type StagedIssueFile = {
 };
 
 const ISSUE_OVERRIDE_ADAPTER_TYPES = new Set(["claude_local", "codex_local", "opencode_local"]);
-const STAGED_FILE_ACCEPT = "image/*,application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,.md,.markdown";
+const STAGED_FILE_ACCEPT =
+  "image/*,application/pdf,text/plain,text/markdown,application/json,text/csv,text/html,.md,.markdown";
 
 const ISSUE_THINKING_EFFORT_OPTIONS = {
   claude_local: [
@@ -246,21 +236,29 @@ const EXECUTION_WORKSPACE_MODES = [
   { value: "reuse_existing", label: "Reuse existing workspace" },
 ] as const;
 
-function defaultProjectWorkspaceIdForProject(project: { workspaces?: Array<{ id: string; isPrimary: boolean }>; executionWorkspacePolicy?: { defaultProjectWorkspaceId?: string | null } | null } | null | undefined) {
+function defaultProjectWorkspaceIdForProject(
+  project:
+    | {
+        workspaces?: Array<{ id: string; isPrimary: boolean }>;
+        executionWorkspacePolicy?: { defaultProjectWorkspaceId?: string | null } | null;
+      }
+    | null
+    | undefined,
+) {
   if (!project) return "";
-  return project.executionWorkspacePolicy?.defaultProjectWorkspaceId
-    ?? project.workspaces?.find((workspace) => workspace.isPrimary)?.id
-    ?? project.workspaces?.[0]?.id
-    ?? "";
+  return (
+    project.executionWorkspacePolicy?.defaultProjectWorkspaceId ??
+    project.workspaces?.find((workspace) => workspace.isPrimary)?.id ??
+    project.workspaces?.[0]?.id ??
+    ""
+  );
 }
 
-function defaultExecutionWorkspaceModeForProject(project: { executionWorkspacePolicy?: { enabled?: boolean; defaultMode?: string | null } | null } | null | undefined) {
+function defaultExecutionWorkspaceModeForProject(
+  project: { executionWorkspacePolicy?: { enabled?: boolean; defaultMode?: string | null } | null } | null | undefined,
+) {
   const defaultMode = project?.executionWorkspacePolicy?.enabled ? project.executionWorkspacePolicy.defaultMode : null;
-  if (
-    defaultMode === "isolated_workspace" ||
-    defaultMode === "operator_branch" ||
-    defaultMode === "adapter_default"
-  ) {
+  if (defaultMode === "isolated_workspace" || defaultMode === "operator_branch" || defaultMode === "adapter_default") {
     return defaultMode === "adapter_default" ? "agent_default" : defaultMode;
   }
   return "shared_workspace";
@@ -356,10 +354,7 @@ export function NewIssueDialog() {
     enabled: newIssueOpen,
   });
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
-  const activeProjects = useMemo(
-    () => (projects ?? []).filter((p) => !p.archivedAt),
-    [projects],
-  );
+  const activeProjects = useMemo(() => (projects ?? []).filter((p) => !p.archivedAt), [projects]);
   const { orderedProjects } = useProjectOrder({
     projects: activeProjects,
     companyId: effectiveCompanyId,
@@ -371,9 +366,8 @@ export function NewIssueDialog() {
   const selectedAssigneeUserId = selectedAssignee.assigneeUserId;
 
   const assigneeAdapterType = (agents ?? []).find((agent) => agent.id === selectedAssigneeAgentId)?.adapterType ?? null;
-  const supportsAssigneeOverrides = !isHosted && Boolean(
-    assigneeAdapterType && ISSUE_OVERRIDE_ADAPTER_TYPES.has(assigneeAdapterType),
-  );
+  const supportsAssigneeOverrides =
+    !isHosted && Boolean(assigneeAdapterType && ISSUE_OVERRIDE_ADAPTER_TYPES.has(assigneeAdapterType));
   const mentionOptions = useMemo<MentionOption[]>(() => {
     const options: MentionOption[] = [];
     const activeAgents = [...(agents ?? [])]
@@ -421,7 +415,7 @@ export function NewIssueDialog() {
           if (stagedFile.kind === "document") {
             const body = await stagedFile.file.text();
             await issuesApi.upsertDocument(issue.id, stagedFile.documentKey ?? "document", {
-              title: stagedFile.documentKey === "plan" ? null : stagedFile.title ?? null,
+              title: stagedFile.documentKey === "plan" ? null : (stagedFile.title ?? null),
               format: "markdown",
               body,
               baseRevisionId: null,
@@ -449,9 +443,7 @@ export function NewIssueDialog() {
           title: `Created ${issueRef} with upload warnings`,
           body: `${failures.length} staged ${failures.length === 1 ? "file" : "files"} could not be added.`,
           tone: "warn",
-          action: prefix
-            ? { label: `Open ${issueRef}`, href: `/${prefix}/issues/${issueRef}` }
-            : undefined,
+          action: prefix ? { label: `Open ${issueRef}`, href: `/${prefix}/issues/${issueRef}` } : undefined,
         });
       }
       clearDraft();
@@ -468,15 +460,12 @@ export function NewIssueDialog() {
   });
 
   // Debounced draft saving
-  const scheduleSave = useCallback(
-    (draft: IssueDraft) => {
-      if (draftTimer.current) clearTimeout(draftTimer.current);
-      draftTimer.current = setTimeout(() => {
-        if (draft.title.trim()) saveDraft(draft);
-      }, DEBOUNCE_MS);
-    },
-    [],
-  );
+  const scheduleSave = useCallback((draft: IssueDraft) => {
+    if (draftTimer.current) clearTimeout(draftTimer.current);
+    draftTimer.current = setTimeout(() => {
+      if (draft.title.trim()) saveDraft(draft);
+    }, DEBOUNCE_MS);
+  }, []);
 
   // Save draft on meaningful changes
   useEffect(() => {
@@ -553,8 +542,10 @@ export function NewIssueDialog() {
       setAssigneeThinkingEffort(draft.assigneeThinkingEffort ?? "");
       setAssigneeChrome(draft.assigneeChrome ?? false);
       setExecutionWorkspaceMode(
-        draft.executionWorkspaceMode
-          ?? (draft.useIsolatedExecutionWorkspace ? "isolated_workspace" : defaultExecutionWorkspaceModeForProject(restoredProject)),
+        draft.executionWorkspaceMode ??
+          (draft.useIsolatedExecutionWorkspace
+            ? "isolated_workspace"
+            : defaultExecutionWorkspaceModeForProject(restoredProject)),
       );
       setSelectedExecutionWorkspaceId(draft.selectedExecutionWorkspaceId ?? "");
       executionWorkspaceDefaultProjectId.current = restoredProjectId || null;
@@ -654,7 +645,7 @@ export function NewIssueDialog() {
     const selectedProject = orderedProjects.find((project) => project.id === projectId);
     const executionWorkspacePolicy =
       experimentalSettings?.enableIsolatedWorkspaces === true
-        ? selectedProject?.executionWorkspacePolicy ?? null
+        ? (selectedProject?.executionWorkspacePolicy ?? null)
         : null;
     const selectedReusableExecutionWorkspace = deduplicatedReusableWorkspaces.find(
       (workspace) => workspace.id === selectedExecutionWorkspaceId,
@@ -759,18 +750,14 @@ export function NewIssueDialog() {
   const hasDraft = title.trim().length > 0 || description.trim().length > 0 || stagedFiles.length > 0;
   const currentStatus = statuses.find((s) => s.value === status) ?? statuses[1]!;
   const currentPriority = priorities.find((p) => p.value === priority);
-  const currentAssignee = selectedAssigneeAgentId
-    ? (agents ?? []).find((a) => a.id === selectedAssigneeAgentId)
-    : null;
+  const currentAssignee = selectedAssigneeAgentId ? (agents ?? []).find((a) => a.id === selectedAssigneeAgentId) : null;
   const currentProject = orderedProjects.find((project) => project.id === projectId);
   const currentProjectExecutionWorkspacePolicy =
-    experimentalSettings?.enableIsolatedWorkspaces === true
-      ? currentProject?.executionWorkspacePolicy ?? null
-      : null;
+    experimentalSettings?.enableIsolatedWorkspaces === true ? (currentProject?.executionWorkspacePolicy ?? null) : null;
   const currentProjectSupportsExecutionWorkspace = Boolean(currentProjectExecutionWorkspacePolicy?.enabled);
   const deduplicatedReusableWorkspaces = useMemo(() => {
     const workspaces = reusableExecutionWorkspaces ?? [];
-    const seen = new Map<string, typeof workspaces[number]>();
+    const seen = new Map<string, (typeof workspaces)[number]>();
     for (const ws of workspaces) {
       const key = ws.cwd ?? ws.id;
       const existing = seen.get(key);
@@ -790,13 +777,13 @@ export function NewIssueDialog() {
         ? "Codex options"
         : assigneeAdapterType === "opencode_local"
           ? "OpenCode options"
-        : "Agent options";
+          : "Agent options";
   const thinkingEffortOptions =
     assigneeAdapterType === "codex_local"
       ? ISSUE_THINKING_EFFORT_OPTIONS.codex_local
       : assigneeAdapterType === "opencode_local"
         ? ISSUE_THINKING_EFFORT_OPTIONS.opencode_local
-      : ISSUE_THINKING_EFFORT_OPTIONS.claude_local;
+        : ISSUE_THINKING_EFFORT_OPTIONS.claude_local;
   const recentAssigneeIds = useMemo(() => getRecentAssigneeIds(), [newIssueOpen]);
   const assigneeOptions = useMemo<InlineEntityOption[]>(
     () => [
@@ -829,14 +816,17 @@ export function NewIssueDialog() {
   const stagedDocuments = stagedFiles.filter((file) => file.kind === "document");
   const stagedAttachments = stagedFiles.filter((file) => file.kind === "attachment");
 
-  const handleProjectChange = useCallback((nextProjectId: string) => {
-    setProjectId(nextProjectId);
-    const nextProject = orderedProjects.find((project) => project.id === nextProjectId);
-    executionWorkspaceDefaultProjectId.current = nextProjectId || null;
-    setProjectWorkspaceId(defaultProjectWorkspaceIdForProject(nextProject));
-    setExecutionWorkspaceMode(defaultExecutionWorkspaceModeForProject(nextProject));
-    setSelectedExecutionWorkspaceId("");
-  }, [orderedProjects]);
+  const handleProjectChange = useCallback(
+    (nextProjectId: string) => {
+      setProjectId(nextProjectId);
+      const nextProject = orderedProjects.find((project) => project.id === nextProjectId);
+      executionWorkspaceDefaultProjectId.current = nextProjectId || null;
+      setProjectWorkspaceId(defaultProjectWorkspaceIdForProject(nextProject));
+      setExecutionWorkspaceMode(defaultExecutionWorkspaceModeForProject(nextProject));
+      setSelectedExecutionWorkspaceId("");
+    },
+    [orderedProjects],
+  );
 
   useEffect(() => {
     if (!newIssueOpen || !projectId || executionWorkspaceDefaultProjectId.current === projectId) {
@@ -849,24 +839,21 @@ export function NewIssueDialog() {
     setExecutionWorkspaceMode(defaultExecutionWorkspaceModeForProject(project));
     setSelectedExecutionWorkspaceId("");
   }, [newIssueOpen, orderedProjects, projectId]);
-  const modelOverrideOptions = useMemo<InlineEntityOption[]>(
-    () => {
-      return [...(assigneeAdapterModels ?? [])]
-        .sort((a, b) => {
-          const providerA = extractProviderIdWithFallback(a.id);
-          const providerB = extractProviderIdWithFallback(b.id);
-          const byProvider = providerA.localeCompare(providerB);
-          if (byProvider !== 0) return byProvider;
-          return a.id.localeCompare(b.id);
-        })
-        .map((model) => ({
-          id: model.id,
-          label: model.label,
-          searchText: `${model.id} ${extractProviderIdWithFallback(model.id)}`,
-        }));
-    },
-    [assigneeAdapterModels],
-  );
+  const modelOverrideOptions = useMemo<InlineEntityOption[]>(() => {
+    return [...(assigneeAdapterModels ?? [])]
+      .sort((a, b) => {
+        const providerA = extractProviderIdWithFallback(a.id);
+        const providerB = extractProviderIdWithFallback(b.id);
+        const byProvider = providerA.localeCompare(providerB);
+        if (byProvider !== 0) return byProvider;
+        return a.id.localeCompare(b.id);
+      })
+      .map((model) => ({
+        id: model.id,
+        label: model.label,
+        searchText: `${model.id} ${extractProviderIdWithFallback(model.id)}`,
+      }));
+  }, [assigneeAdapterModels]);
 
   return (
     <Dialog
@@ -880,9 +867,7 @@ export function NewIssueDialog() {
         aria-describedby={undefined}
         className={cn(
           "p-0 gap-0 flex flex-col max-h-[calc(100dvh-2rem)]",
-          expanded
-            ? "sm:max-w-2xl h-[calc(100dvh-2rem)]"
-            : "sm:max-w-lg"
+          expanded ? "sm:max-w-2xl h-[calc(100dvh-2rem)]" : "sm:max-w-lg",
         )}
         onKeyDown={handleKeyDown}
         onEscapeKeyDown={(event) => {
@@ -930,37 +915,39 @@ export function NewIssueDialog() {
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-1" align="start">
-                {companies.filter((c) => c.status !== "archived").map((c) => (
-                  <button
-                    key={c.id}
-                    className={cn(
-                      "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-                      c.id === effectiveCompanyId && "bg-accent",
-                    )}
-                    onClick={() => {
-                      handleCompanyChange(c.id);
-                      setCompanyOpen(false);
-                    }}
-                  >
-                    <span
+                {companies
+                  .filter((c) => c.status !== "archived")
+                  .map((c) => (
+                    <button
+                      key={c.id}
                       className={cn(
-                        "px-1 py-0.5 rounded text-[10px] font-semibold leading-none",
-                        !c.brandColor && "bg-muted",
+                        "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                        c.id === effectiveCompanyId && "bg-accent",
                       )}
-                      style={
-                        c.brandColor
-                          ? {
-                              backgroundColor: c.brandColor,
-                              color: getContrastTextColor(c.brandColor),
-                            }
-                          : undefined
-                      }
+                      onClick={() => {
+                        handleCompanyChange(c.id);
+                        setCompanyOpen(false);
+                      }}
                     >
-                      {c.name.slice(0, 3).toUpperCase()}
-                    </span>
-                    <span className="truncate">{c.name}</span>
-                  </button>
-                ))}
+                      <span
+                        className={cn(
+                          "px-1 py-0.5 rounded text-[10px] font-semibold leading-none",
+                          !c.brandColor && "bg-muted",
+                        )}
+                        style={
+                          c.brandColor
+                            ? {
+                                backgroundColor: c.brandColor,
+                                color: getContrastTextColor(c.brandColor),
+                              }
+                            : undefined
+                        }
+                      >
+                        {c.name.slice(0, 3).toUpperCase()}
+                      </span>
+                      <span className="truncate">{c.name}</span>
+                    </button>
+                  ))}
               </PopoverContent>
             </Popover>
             <span className="text-muted-foreground/60">&rsaquo;</span>
@@ -1002,12 +989,7 @@ export function NewIssueDialog() {
             }}
             readOnly={createIssue.isPending}
             onKeyDown={(e) => {
-              if (
-                e.key === "Enter" &&
-                !e.metaKey &&
-                !e.ctrlKey &&
-                !e.nativeEvent.isComposing
-              ) {
+              if (e.key === "Enter" && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 descriptionEditorRef.current?.focus();
               }
@@ -1077,7 +1059,9 @@ export function NewIssueDialog() {
                     : null;
                   return (
                     <>
-                      {assignee ? <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+                      {assignee ? (
+                        <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      ) : null}
                       <span className="truncate">{option.label}</span>
                     </>
                   );
@@ -1160,14 +1144,19 @@ export function NewIssueDialog() {
                   <option value="">Choose an existing workspace</option>
                   {deduplicatedReusableWorkspaces.map((workspace) => (
                     <option key={workspace.id} value={workspace.id}>
-                      {workspace.name} · {workspace.status} · {workspace.branchName ?? workspace.cwd ?? workspace.id.slice(0, 8)}
+                      {workspace.name} · {workspace.status} ·{" "}
+                      {workspace.branchName ?? workspace.cwd ?? workspace.id.slice(0, 8)}
                     </option>
                   ))}
                 </select>
               )}
               {executionWorkspaceMode === "reuse_existing" && selectedReusableExecutionWorkspace && (
                 <div className="text-[11px] text-muted-foreground">
-                  Reusing {selectedReusableExecutionWorkspace.name} from {selectedReusableExecutionWorkspace.branchName ?? selectedReusableExecutionWorkspace.cwd ?? "existing execution workspace"}.
+                  Reusing {selectedReusableExecutionWorkspace.name} from{" "}
+                  {selectedReusableExecutionWorkspace.branchName ??
+                    selectedReusableExecutionWorkspace.cwd ??
+                    "existing execution workspace"}
+                  .
                 </div>
               )}
             </div>
@@ -1206,7 +1195,7 @@ export function NewIssueDialog() {
                         key={option.value || "default"}
                         className={cn(
                           "px-2 py-1 rounded-md text-xs border border-border hover:bg-accent/50 transition-colors",
-                          assigneeThinkingEffort === option.value && "bg-accent"
+                          assigneeThinkingEffort === option.value && "bg-accent",
                         )}
                         onClick={() => setAssigneeThinkingEffort(option.value)}
                       >
@@ -1221,14 +1210,14 @@ export function NewIssueDialog() {
                     <button
                       className={cn(
                         "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                        assigneeChrome ? "bg-green-600" : "bg-muted"
+                        assigneeChrome ? "bg-green-600" : "bg-muted",
                       )}
                       onClick={() => setAssigneeChrome((value) => !value)}
                     >
                       <span
                         className={cn(
                           "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
-                          assigneeChrome ? "translate-x-4.5" : "translate-x-0.5"
+                          assigneeChrome ? "translate-x-4.5" : "translate-x-0.5",
                         )}
                       />
                     </button>
@@ -1247,12 +1236,7 @@ export function NewIssueDialog() {
           onDragLeave={handleFileDragLeave}
           onDrop={handleFileDrop}
         >
-          <div
-            className={cn(
-              "rounded-md transition-colors",
-              isFileDragOver && "bg-accent/20",
-            )}
-          >
+          <div className={cn("rounded-md transition-colors", isFileDragOver && "bg-accent/20")}>
             <MarkdownEditor
               ref={descriptionEditorRef}
               value={description}
@@ -1274,7 +1258,10 @@ export function NewIssueDialog() {
                   <div className="text-xs font-medium text-muted-foreground">Documents</div>
                   <div className="space-y-2">
                     {stagedDocuments.map((file) => (
-                      <div key={file.id} className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
+                      <div
+                        key={file.id}
+                        className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2"
+                      >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
@@ -1310,7 +1297,10 @@ export function NewIssueDialog() {
                   <div className="text-xs font-medium text-muted-foreground">Attachments</div>
                   <div className="space-y-2">
                     {stagedAttachments.map((file) => (
-                      <div key={file.id} className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
+                      <div
+                        key={file.id}
+                        className="flex items-start justify-between gap-3 rounded-md border border-border/70 px-3 py-2"
+                      >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -1355,9 +1345,12 @@ export function NewIssueDialog() {
                   key={s.value}
                   className={cn(
                     "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-                    s.value === status && "bg-accent"
+                    s.value === status && "bg-accent",
                   )}
-                  onClick={() => { setStatus(s.value); setStatusOpen(false); }}
+                  onClick={() => {
+                    setStatus(s.value);
+                    setStatusOpen(false);
+                  }}
                 >
                   <CircleDot className={cn("h-3 w-3", s.color)} />
                   {s.label}
@@ -1389,9 +1382,12 @@ export function NewIssueDialog() {
                   key={p.value}
                   className={cn(
                     "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-                    p.value === priority && "bg-accent"
+                    p.value === priority && "bg-accent",
                   )}
-                  onClick={() => { setPriority(p.value); setPriorityOpen(false); }}
+                  onClick={() => {
+                    setPriority(p.value);
+                    setPriorityOpen(false);
+                  }}
                 >
                   <p.icon className={cn("h-3 w-3", p.color)} />
                   {p.label}

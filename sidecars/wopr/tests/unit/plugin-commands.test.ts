@@ -108,12 +108,10 @@ describe("tryPluginCommand", () => {
       { name: "p2", enabled: true },
     ];
     mockGetInstalledPlugins.mockResolvedValue(plugins);
-    mockGetLoadedPlugin
-      .mockReturnValueOnce({ plugin: { commands: [] }, context: {} })
-      .mockReturnValueOnce({
-        plugin: { commands: [{ name: "hello", handler }] },
-        context: { id: 2 },
-      });
+    mockGetLoadedPlugin.mockReturnValueOnce({ plugin: { commands: [] }, context: {} }).mockReturnValueOnce({
+      plugin: { commands: [{ name: "hello", handler }] },
+      context: { id: 2 },
+    });
 
     const result = await tryPluginCommand("hello", []);
 

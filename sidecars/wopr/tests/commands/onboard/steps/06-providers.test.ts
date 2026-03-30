@@ -46,9 +46,7 @@ describe("06-providers step", () => {
 
   it("should skip when existing provider configured in quickstart mode", async () => {
     selectMock.mockResolvedValue("anthropic");
-    const { providersStep } = await import(
-      "../../../../src/commands/onboard/steps/06-providers.js"
-    );
+    const { providersStep } = await import("../../../../src/commands/onboard/steps/06-providers.js");
 
     const ctx = {
       opts: { flow: "quickstart" },
@@ -59,18 +57,13 @@ describe("06-providers step", () => {
 
     const result = await providersStep(ctx as Parameters<typeof providersStep>[0]);
     expect(result).toEqual({});
-    expect(noteMock).toHaveBeenCalledWith(
-      expect.stringContaining("anthropic"),
-      "AI Provider",
-    );
+    expect(noteMock).toHaveBeenCalledWith(expect.stringContaining("anthropic"), "AI Provider");
     expect(installPluginMock).not.toHaveBeenCalled();
   });
 
   it("should return empty when user selects 'skip'", async () => {
     selectMock.mockResolvedValue("skip");
-    const { providersStep } = await import(
-      "../../../../src/commands/onboard/steps/06-providers.js"
-    );
+    const { providersStep } = await import("../../../../src/commands/onboard/steps/06-providers.js");
 
     const ctx = {
       opts: { flow: "advanced" },
@@ -81,18 +74,13 @@ describe("06-providers step", () => {
 
     const result = await providersStep(ctx as Parameters<typeof providersStep>[0]);
     expect(result).toEqual({});
-    expect(noteMock).toHaveBeenCalledWith(
-      expect.stringContaining("configure a provider later"),
-      "Provider Skipped",
-    );
+    expect(noteMock).toHaveBeenCalledWith(expect.stringContaining("configure a provider later"), "Provider Skipped");
   });
 
   it("should install plugin and return provider config when provider not in registry", async () => {
     selectMock.mockResolvedValue("anthropic");
     listProvidersMock.mockReturnValue([]);
-    const { providersStep } = await import(
-      "../../../../src/commands/onboard/steps/06-providers.js"
-    );
+    const { providersStep } = await import("../../../../src/commands/onboard/steps/06-providers.js");
 
     const ctx = {
       opts: { flow: "advanced" },
@@ -111,9 +99,7 @@ describe("06-providers step", () => {
     installPluginMock.mockRejectedValue(new Error("network error"));
     confirmMock.mockResolvedValue(true);
     listProvidersMock.mockReturnValue([]);
-    const { providersStep } = await import(
-      "../../../../src/commands/onboard/steps/06-providers.js"
-    );
+    const { providersStep } = await import("../../../../src/commands/onboard/steps/06-providers.js");
 
     const ctx = {
       opts: { flow: "advanced" },
@@ -131,9 +117,7 @@ describe("06-providers step", () => {
 
   it("should throw for unknown provider id", async () => {
     selectMock.mockResolvedValue("nonexistent-provider");
-    const { providersStep } = await import(
-      "../../../../src/commands/onboard/steps/06-providers.js"
-    );
+    const { providersStep } = await import("../../../../src/commands/onboard/steps/06-providers.js");
 
     const ctx = {
       opts: { flow: "advanced" },
@@ -142,8 +126,8 @@ describe("06-providers step", () => {
       nextConfig: {},
     };
 
-    await expect(
-      providersStep(ctx as Parameters<typeof providersStep>[0]),
-    ).rejects.toThrow("Provider nonexistent-provider not found");
+    await expect(providersStep(ctx as Parameters<typeof providersStep>[0])).rejects.toThrow(
+      "Provider nonexistent-provider not found",
+    );
   });
 });

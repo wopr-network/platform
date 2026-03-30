@@ -49,18 +49,12 @@ describe("checkPluginDependencies", () => {
   });
 
   it("returns multiple missing deps", () => {
-    const result = checkPluginDependencies(
-      ["@wopr-network/plugin-discord", "@wopr-network/plugin-cron"],
-      [],
-    );
+    const result = checkPluginDependencies(["@wopr-network/plugin-discord", "@wopr-network/plugin-cron"], []);
     expect(result).toEqual({ ok: false, missing: ["discord", "cron"] });
   });
 
   it("returns only the missing subset when some deps are installed", () => {
-    const result = checkPluginDependencies(
-      ["@wopr-network/plugin-discord", "@wopr-network/plugin-cron"],
-      ["discord"],
-    );
+    const result = checkPluginDependencies(["@wopr-network/plugin-discord", "@wopr-network/plugin-cron"], ["discord"]);
     expect(result).toEqual({ ok: false, missing: ["cron"] });
   });
 

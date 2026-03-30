@@ -6,12 +6,7 @@ import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { brandName } from "@/lib/brand-config";
-import {
-  formatInstallCount,
-  getCapabilityColor,
-  hasHostedOption,
-  type PluginManifest,
-} from "@/lib/marketplace-data";
+import { formatInstallCount, getCapabilityColor, hasHostedOption, type PluginManifest } from "@/lib/marketplace-data";
 
 interface PluginCardProps {
   plugin: PluginManifest;
@@ -85,9 +80,7 @@ export function PluginCard({ plugin, index = 0, installed = false }: PluginCardP
                       v{plugin.version}
                     </Badge>
                   </div>
-                  <CardDescription className="mt-1 line-clamp-2">
-                    {plugin.description}
-                  </CardDescription>
+                  <CardDescription className="mt-1 line-clamp-2">{plugin.description}</CardDescription>
                 </div>
               </div>
             </CardHeader>

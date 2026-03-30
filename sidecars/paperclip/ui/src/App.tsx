@@ -59,7 +59,7 @@ function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: b
             : "No instance admin exists yet. Run this command in your Paperclip environment to generate the first admin invite URL:"}
         </p>
         <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-muted/30 p-3 text-xs">
-{`pnpm paperclipai auth bootstrap-ceo`}
+          {`pnpm paperclipai auth bootstrap-ceo`}
         </pre>
       </div>
     </div>
@@ -76,9 +76,7 @@ function CloudAccessGate() {
       const data = query.state.data as
         | { deploymentMode?: "local_trusted" | "authenticated"; bootstrapStatus?: "ready" | "bootstrap_pending" }
         | undefined;
-      return data?.deploymentMode === "authenticated" && data.bootstrapStatus === "bootstrap_pending"
-        ? 2000
-        : false;
+      return data?.deploymentMode === "authenticated" && data.bootstrapStatus === "bootstrap_pending" ? 2000 : false;
     },
     refetchIntervalInBackground: true,
   });
@@ -196,7 +194,7 @@ function OnboardingRoutePage() {
   const { openOnboarding } = useDialog();
   const { companyPrefix } = useParams<{ companyPrefix?: string }>();
   const matchedCompany = companyPrefix
-    ? companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null
+    ? (companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null)
     : null;
 
   const title = matchedCompany
@@ -218,9 +216,7 @@ function OnboardingRoutePage() {
         <div className="mt-4">
           <Button
             onClick={() =>
-              matchedCompany
-                ? openOnboarding({ initialStep: 2, companyId: matchedCompany.id })
-                : openOnboarding()
+              matchedCompany ? openOnboarding({ initialStep: 2, companyId: matchedCompany.id }) : openOnboarding()
             }
           >
             {matchedCompany ? "Add Agent" : "Start Onboarding"}
@@ -301,10 +297,7 @@ function UnprefixedBoardRedirect() {
   }
 
   return (
-    <Navigate
-      to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`}
-      replace
-    />
+    <Navigate to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`} replace />
   );
 }
 
@@ -315,9 +308,7 @@ function NoCompaniesStartPage() {
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
         <h1 className="text-xl font-semibold">Create your first company</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">Get started by creating a company.</p>
         <div className="mt-4">
           <Button onClick={() => openOnboarding()}>New Company</Button>
         </div>

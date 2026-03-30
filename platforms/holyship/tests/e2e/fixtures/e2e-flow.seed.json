@@ -12,7 +12,12 @@
   ],
   "states": [
     { "name": "backlog", "flowName": "e2e-pipeline", "mode": "passive" },
-    { "name": "coding", "flowName": "e2e-pipeline", "mode": "active", "promptTemplate": "Implement task for {{entity.id}}" },
+    {
+      "name": "coding",
+      "flowName": "e2e-pipeline",
+      "mode": "active",
+      "promptTemplate": "Implement task for {{entity.id}}"
+    },
     { "name": "reviewing", "flowName": "e2e-pipeline", "mode": "passive" },
     { "name": "done", "flowName": "e2e-pipeline", "mode": "passive" },
     { "name": "cancelled", "flowName": "e2e-pipeline", "mode": "passive" }
@@ -27,7 +32,14 @@
   ],
   "transitions": [
     { "flowName": "e2e-pipeline", "fromState": "backlog", "toState": "coding", "trigger": "assigned", "priority": 0 },
-    { "flowName": "e2e-pipeline", "fromState": "coding", "toState": "reviewing", "trigger": "submit", "gateName": "quality-check", "priority": 0 },
+    {
+      "flowName": "e2e-pipeline",
+      "fromState": "coding",
+      "toState": "reviewing",
+      "trigger": "submit",
+      "gateName": "quality-check",
+      "priority": 0
+    },
     { "flowName": "e2e-pipeline", "fromState": "reviewing", "toState": "done", "trigger": "approve", "priority": 0 }
   ]
 }

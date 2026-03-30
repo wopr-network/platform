@@ -54,10 +54,7 @@ async function seedTenant(pool: PGlite, tenantId: string): Promise<void> {
      VALUES ($1, $2, 'low-balance', 'user@example.com')`,
     [`nq-${tenantId}`, tenantId],
   );
-  await pool.query(
-    `INSERT INTO notification_preferences (tenant_id) VALUES ($1)`,
-    [tenantId],
-  );
+  await pool.query(`INSERT INTO notification_preferences (tenant_id) VALUES ($1)`, [tenantId]);
   await pool.query(
     `INSERT INTO email_notifications (id, tenant_id, email_type, sent_date)
      VALUES ($1, $2, 'low-balance', '2026-01-01')`,
@@ -82,22 +79,18 @@ async function seedTenant(pool: PGlite, tenantId: string): Promise<void> {
      VALUES ($1, $2, 'inst-1', $3, 'manual', '/data/snap')`,
     [`snap-${tenantId}`, tenantId, tenantId],
   );
-  await pool.query(
-    `INSERT INTO payram_charges (reference_id, tenant_id, amount_usd_cents) VALUES ($1, $2, 500)`,
-    [`pc-${tenantId}`, tenantId],
-  );
-  await pool.query(
-    `INSERT INTO tenant_status (tenant_id) VALUES ($1)`,
-    [tenantId],
-  );
+  await pool.query(`INSERT INTO payram_charges (reference_id, tenant_id, amount_usd_cents) VALUES ($1, $2, 500)`, [
+    `pc-${tenantId}`,
+    tenantId,
+  ]);
+  await pool.query(`INSERT INTO tenant_status (tenant_id) VALUES ($1)`, [tenantId]);
   await pool.query(
     `INSERT INTO user_roles (user_id, tenant_id, role, granted_at) VALUES ($1, $2, 'tenant_admin', 1700000000)`,
     [tenantId, tenantId],
   );
-  await pool.query(
-    `INSERT INTO backup_status (container_id, node_id) VALUES ($1, 'node-1')`,
-    [`tenant_${tenantId}_backup`],
-  );
+  await pool.query(`INSERT INTO backup_status (container_id, node_id) VALUES ($1, 'node-1')`, [
+    `tenant_${tenantId}_backup`,
+  ]);
 }
 
 async function seedAuthTables(pool: PGlite, tenantId: string): Promise<void> {
@@ -107,18 +100,16 @@ async function seedAuthTables(pool: PGlite, tenantId: string): Promise<void> {
     CREATE TABLE IF NOT EXISTS session (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, token TEXT NOT NULL, expires_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS account (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, provider TEXT NOT NULL, provider_account_id TEXT NOT NULL);
   `);
-  await pool.query(
-    `INSERT INTO "user" (id, email) VALUES ($1, $2)`,
-    [tenantId, `${tenantId}@example.com`],
-  );
-  await pool.query(
-    `INSERT INTO session (id, user_id, token, expires_at) VALUES ($1, $2, 'tok', '2099-01-01')`,
-    [`sess-${tenantId}`, tenantId],
-  );
-  await pool.query(
-    `INSERT INTO account (id, user_id, provider, provider_account_id) VALUES ($1, $2, 'email', $3)`,
-    [`acc-${tenantId}`, tenantId, `${tenantId}@example.com`],
-  );
+  await pool.query(`INSERT INTO "user" (id, email) VALUES ($1, $2)`, [tenantId, `${tenantId}@example.com`]);
+  await pool.query(`INSERT INTO session (id, user_id, token, expires_at) VALUES ($1, $2, 'tok', '2099-01-01')`, [
+    `sess-${tenantId}`,
+    tenantId,
+  ]);
+  await pool.query(`INSERT INTO account (id, user_id, provider, provider_account_id) VALUES ($1, $2, 'email', $3)`, [
+    `acc-${tenantId}`,
+    tenantId,
+    `${tenantId}@example.com`,
+  ]);
 }
 
 async function countRows(pool: PGlite, table: string, col: string, val: string): Promise<number> {

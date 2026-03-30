@@ -1,12 +1,9 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures/auth";
 
-const PLATFORM_BASE_URL =
-  process.env.BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const PLATFORM_BASE_URL = process.env.BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-const HAS_STRIPE_KEYS = !!(
-  process.env.STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-);
+const HAS_STRIPE_KEYS = !!(process.env.STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 // --- Shared mock data ---
 
@@ -107,8 +104,7 @@ async function mockBillingAPI(page: Page, overrides: Record<string, unknown> = {
   if (!("billing.creditsCheckout" in overrides)) {
     await page.route(
       (url) => {
-        if (!url.href.includes(PLATFORM_BASE_URL) || !url.pathname.startsWith("/trpc/"))
-          return false;
+        if (!url.href.includes(PLATFORM_BASE_URL) || !url.pathname.startsWith("/trpc/")) return false;
         const procPart = url.pathname.split("/trpc/")[1] ?? "";
         return procPart.split(",").some((p) => p === "billing.creditsCheckout");
       },
@@ -156,13 +152,14 @@ async function fillStripeCard(page: Page, cardNumber: string): Promise<void> {
   }
 
   // Stripe renders card fields inside cross-origin iframes — use frameLocator to reach them
-  const stripeFrame = page.frameLocator(
-    'iframe[name^="__privateStripeFrame"], iframe[src*="js.stripe.com"]',
-  );
+  const stripeFrame = page.frameLocator('iframe[name^="__privateStripeFrame"], iframe[src*="js.stripe.com"]');
 
   await stripeFrame.locator('[name="cardNumber"], input[placeholder*="card number" i]').first().fill(cardNumber);
   await stripeFrame.locator('[name="cardExpiry"], input[placeholder*="expir" i]').first().fill("12/30");
-  await stripeFrame.locator('[name="cardCvc"], input[placeholder*="cvc" i], input[placeholder*="cvv" i]').first().fill("123");
+  await stripeFrame
+    .locator('[name="cardCvc"], input[placeholder*="cvc" i], input[placeholder*="cvv" i]')
+    .first()
+    .fill("123");
 
   const nameField = page.locator('input[name="billingName"]');
   if (await nameField.isVisible({ timeout: 1000 }).catch(() => false)) {
@@ -202,9 +199,7 @@ test.describe("Payment Failure UX: Stripe Checkout Declines", () => {
     expect(page.url()).toContain("checkout.stripe.com");
   });
 
-  test("insufficient funds — specific decline messaging (card 4000000000009995)", async ({
-    authedPage: page,
-  }) => {
+  test("insufficient funds — specific decline messaging (card 4000000000009995)", async ({ authedPage: page }) => {
     await startCheckout(page);
     await fillStripeCard(page, "4000000000009995");
     await page.getByRole("button", { name: /Pay|Subscribe/i }).click();
@@ -233,9 +228,7 @@ test.describe("Payment Failure UX: Add Payment Method Error", () => {
   );
   test.setTimeout(60_000);
 
-  test("payment method add — inline Stripe Elements error on empty submit", async ({
-    authedPage: page,
-  }) => {
+  test("payment method add — inline Stripe Elements error on empty submit", async ({ authedPage: page }) => {
     const PAYMENT_TRPC_MOCKS: Record<string, unknown> = {
       "billing.billingInfo": {
         email: "e2e@wopr.test",
@@ -288,9 +281,7 @@ test.describe("Payment Failure UX: Add Payment Method Error", () => {
     );
 
     // Let setup-intent through to real backend for Stripe Elements
-    await page.route(`${PLATFORM_BASE_URL}/api/billing/setup-intent`, async (route) =>
-      route.continue(),
-    );
+    await page.route(`${PLATFORM_BASE_URL}/api/billing/setup-intent`, async (route) => route.continue());
 
     await page.route(`${PLATFORM_BASE_URL}/api/billing/dividend/stats`, async (route) => {
       await route.fulfill({
@@ -331,12 +322,10 @@ test.describe("Payment Failure UX: Add Payment Method Error", () => {
     });
 
     // Wait for Stripe Elements iframe to load
-    const stripeFrame = page.frameLocator(
-      'iframe[src*="js.stripe.com"], iframe[name*="__privateStripeFrame"]',
-    );
-    await expect(
-      stripeFrame.first().locator('[name="number"], [name="cardNumber"], input').first(),
-    ).toBeVisible({ timeout: 15000 });
+    const stripeFrame = page.frameLocator('iframe[src*="js.stripe.com"], iframe[name*="__privateStripeFrame"]');
+    await expect(stripeFrame.first().locator('[name="number"], [name="cardNumber"], input').first()).toBeVisible({
+      timeout: 15000,
+    });
 
     // Click "Save card" without filling anything — triggers validation error
     await page.getByRole("button", { name: "Save card" }).first().click();
@@ -351,9 +340,7 @@ test.describe("Payment Failure UX: Add Payment Method Error", () => {
 // ============================================================
 
 test.describe("Payment Failure UX: Network Error Recovery", () => {
-  test("network error — checkout fails, inline error shown, retry available", async ({
-    authedPage: page,
-  }) => {
+  test("network error — checkout fails, inline error shown, retry available", async ({ authedPage: page }) => {
     let callCount = 0;
 
     // Mock billing API but intercept creditsCheckout to fail
@@ -366,9 +353,7 @@ test.describe("Payment Failure UX: Network Error Recovery", () => {
       (url) =>
         url.href.includes(PLATFORM_BASE_URL) &&
         url.pathname.startsWith("/trpc/") &&
-        (url.pathname.split("/trpc/")[1] ?? "")
-          .split(",")
-          .some((p) => p === "billing.creditsCheckout"),
+        (url.pathname.split("/trpc/")[1] ?? "").split(",").some((p) => p === "billing.creditsCheckout"),
       async (route) => {
         callCount++;
         const procs = route.request().url().split("?")[0].split("/trpc/")[1]?.split(",") ?? [];
@@ -443,9 +428,7 @@ test.describe("Payment Failure UX: Network Error Recovery", () => {
 // ============================================================
 
 test.describe("Payment Failure UX: Suspended Account", () => {
-  test("suspended account — destructive banner with billing CTA visible", async ({
-    authedPage: page,
-  }) => {
+  test("suspended account — destructive banner with billing CTA visible", async ({ authedPage: page }) => {
     await mockBillingAPI(page, {
       "billing.accountStatus": {
         status: "suspended",
@@ -456,9 +439,7 @@ test.describe("Payment Failure UX: Suspended Account", () => {
 
     // Mock REST endpoints for DegradedStateBanner
     await page.route(
-      (url) =>
-        url.href.includes(PLATFORM_BASE_URL) &&
-        url.pathname.includes("/api/billing/account-status"),
+      (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("/api/billing/account-status"),
       async (route) => {
         await route.fulfill({
           status: 200,
@@ -473,9 +454,7 @@ test.describe("Payment Failure UX: Suspended Account", () => {
     );
 
     await page.route(
-      (url) =>
-        url.href.includes(PLATFORM_BASE_URL) &&
-        url.pathname.includes("/api/billing/credits/balance"),
+      (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("/api/billing/credits/balance"),
       async (route) => {
         await route.fulfill({
           status: 200,
@@ -486,8 +465,7 @@ test.describe("Payment Failure UX: Suspended Account", () => {
     );
 
     await page.route(
-      (url) =>
-        url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("/api/billing/usage-summary"),
+      (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("/api/billing/usage-summary"),
       async (route) => {
         await route.fulfill({
           status: 200,

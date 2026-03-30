@@ -12,11 +12,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { cn, agentRouteRef, agentUrl } from "../lib/utils";
 import { AgentIcon } from "./AgentIconPicker";
 import { BudgetSidebarMarker } from "./BudgetSidebarMarker";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { Agent } from "@paperclipai/shared";
 
 /** BFS sort: roots first (no reportsTo), then their direct reports, etc. */
@@ -76,16 +72,13 @@ export function SidebarAgents() {
   }, [liveRuns]);
 
   const visibleAgents = useMemo(() => {
-    const filtered = (agents ?? []).filter(
-      (a: Agent) => a.status !== "terminated"
-    );
+    const filtered = (agents ?? []).filter((a: Agent) => a.status !== "terminated");
     return sortByHierarchy(filtered);
   }, [agents]);
 
   const agentMatch = location.pathname.match(/^\/(?:[^/]+\/)?agents\/([^/]+)(?:\/([^/]+))?/);
   const activeAgentId = agentMatch?.[1] ?? null;
   const activeTab = agentMatch?.[2] ?? null;
-
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -95,23 +88,25 @@ export function SidebarAgents() {
             <ChevronRight
               className={cn(
                 "h-3 w-3 text-muted-foreground/60 transition-transform opacity-0 group-hover:opacity-100",
-                open && "rotate-90"
+                open && "rotate-90",
               )}
             />
             <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
               Agents
             </span>
           </CollapsibleTrigger>
-          {!isHosted && <button
-            onClick={(e) => {
-              e.stopPropagation();
-              openNewAgent();
-            }}
-            className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
-            aria-label="New agent"
-          >
-            <Plus className="h-3 w-3" />
-          </button>}
+          {!isHosted && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openNewAgent();
+              }}
+              className="flex items-center justify-center h-4 w-4 rounded text-muted-foreground/60 hover:text-foreground hover:bg-accent/50 transition-colors"
+              aria-label="New agent"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -130,16 +125,14 @@ export function SidebarAgents() {
                   "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
                   activeAgentId === agentRouteRef(agent)
                     ? "bg-accent text-foreground"
-                    : "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
+                    : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
                 )}
               >
                 <AgentIcon icon={agent.icon} className="shrink-0 h-3.5 w-3.5 text-muted-foreground" />
                 <span className="flex-1 truncate">{agent.name}</span>
                 {(agent.pauseReason === "budget" || runCount > 0) && (
                   <span className="ml-auto flex items-center gap-1.5 shrink-0">
-                    {agent.pauseReason === "budget" ? (
-                      <BudgetSidebarMarker title="Agent paused by budget" />
-                    ) : null}
+                    {agent.pauseReason === "budget" ? <BudgetSidebarMarker title="Agent paused by budget" /> : null}
                     {runCount > 0 ? (
                       <span className="relative flex h-2 w-2">
                         <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
@@ -147,9 +140,7 @@ export function SidebarAgents() {
                       </span>
                     ) : null}
                     {runCount > 0 ? (
-                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                        {runCount} live
-                      </span>
+                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{runCount} live</span>
                     ) : null}
                   </span>
                 )}

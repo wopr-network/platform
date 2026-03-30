@@ -150,19 +150,9 @@ export interface AdapterEnvironmentTestResult {
 
 export type AdapterSkillSyncMode = "unsupported" | "persistent" | "ephemeral";
 
-export type AdapterSkillState =
-  | "available"
-  | "configured"
-  | "installed"
-  | "missing"
-  | "stale"
-  | "external";
+export type AdapterSkillState = "available" | "configured" | "installed" | "missing" | "stale" | "external";
 
-export type AdapterSkillOrigin =
-  | "company_managed"
-  | "paperclip_required"
-  | "user_installed"
-  | "external_unknown";
+export type AdapterSkillOrigin = "company_managed" | "paperclip_required" | "user_installed" | "external_unknown";
 
 export interface AdapterSkillEntry {
   key: string;
@@ -300,7 +290,18 @@ export type TranscriptEntry =
   | { kind: "tool_call"; ts: string; name: string; input: unknown; toolUseId?: string }
   | { kind: "tool_result"; ts: string; toolUseId: string; toolName?: string; content: string; isError: boolean }
   | { kind: "init"; ts: string; model: string; sessionId: string }
-  | { kind: "result"; ts: string; text: string; inputTokens: number; outputTokens: number; cachedTokens: number; costUsd: number; subtype: string; isError: boolean; errors: string[] }
+  | {
+      kind: "result";
+      ts: string;
+      text: string;
+      inputTokens: number;
+      outputTokens: number;
+      cachedTokens: number;
+      costUsd: number;
+      subtype: string;
+      isError: boolean;
+      errors: string[];
+    }
   | { kind: "stderr"; ts: string; text: string }
   | { kind: "system"; ts: string; text: string }
   | { kind: "stdout"; ts: string; text: string };

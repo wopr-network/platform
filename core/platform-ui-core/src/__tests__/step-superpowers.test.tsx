@@ -167,9 +167,7 @@ describe("StepSuperpowers", () => {
     it("shows fleet-add description in fleet-add mode", () => {
       render(<StepSuperpowers selected={[]} onToggle={vi.fn()} mode="fleet-add" />);
 
-      expect(
-        screen.getByText("Pre-checked from your other bots. Add or remove as you like."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Pre-checked from your other bots. Add or remove as you like.")).toBeInTheDocument();
     });
   });
 

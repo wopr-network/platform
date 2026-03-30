@@ -18,22 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   createSecret,
@@ -141,9 +128,7 @@ export default function SecretsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Secrets Vault</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage encrypted credentials for plugins and integrations
-          </p>
+          <p className="text-sm text-muted-foreground">Manage encrypted credentials for plugins and integrations</p>
         </div>
         <CreateSecretDialog
           onCreated={(plaintextValue) => {
@@ -167,29 +152,18 @@ export default function SecretsPage() {
                   Your new secret has been created. Copy it now -- it will not be shown again.
                 </p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
-                    {revealedValue}
-                  </code>
+                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">{revealedValue}</code>
                   <Tooltip open={copied}>
                     <TooltipTrigger asChild>
                       <Button variant="outline" size="sm" onClick={handleCopy}>
-                        {copied ? (
-                          <CheckIcon className="size-4" />
-                        ) : (
-                          <CopyIcon className="size-4" />
-                        )}
+                        {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
                         {copied ? "Copied" : "Copy"}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Copied!</TooltipContent>
                   </Tooltip>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => setRevealedValue(null)}
-                >
+                <Button variant="ghost" size="sm" className="mt-2" onClick={() => setRevealedValue(null)}>
                   Dismiss
                 </Button>
               </CardContent>
@@ -280,9 +254,7 @@ export default function SecretsPage() {
                   key={secret.id}
                   secret={secret}
                   isAuditExpanded={expandedAudit === secret.id}
-                  onToggleAudit={() =>
-                    setExpandedAudit(expandedAudit === secret.id ? null : secret.id)
-                  }
+                  onToggleAudit={() => setExpandedAudit(expandedAudit === secret.id ? null : secret.id)}
                   onRotate={() => handleRotate(secret.id)}
                   onDelete={() => handleDelete(secret.id)}
                 />
@@ -332,12 +304,7 @@ function SecretRow({
           <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Access log"
-                  onClick={onToggleAudit}
-                >
+                <Button variant="ghost" size="icon-sm" aria-label="Access log" onClick={onToggleAudit}>
                   <HistoryIcon className="size-4" />
                 </Button>
               </TooltipTrigger>
@@ -399,9 +366,7 @@ function AuditPanel({ secretId }: { secretId: string }) {
 
   return (
     <div className="px-4 py-3 space-y-2">
-      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Access Log
-      </p>
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Access Log</p>
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 3 }, (_, i) => `audit-sk-${i}`).map((id) => (
@@ -409,9 +374,7 @@ function AuditPanel({ secretId }: { secretId: string }) {
           ))}
         </div>
       ) : unavailable ? (
-        <p className="py-4 text-center text-xs text-muted-foreground">
-          Audit log not available yet.
-        </p>
+        <p className="py-4 text-center text-xs text-muted-foreground">Audit log not available yet.</p>
       ) : entries.length === 0 ? (
         <p className="py-4 text-center text-xs text-muted-foreground">No access recorded yet.</p>
       ) : (
@@ -580,8 +543,7 @@ function RotateDialog({ secretName, onRotate }: { secretName: string; onRotate: 
         <DialogHeader>
           <DialogTitle>Rotate Secret</DialogTitle>
           <DialogDescription>
-            Generate a new value for <strong>{secretName}</strong>. The current value will be
-            immediately invalidated.
+            Generate a new value for <strong>{secretName}</strong>. The current value will be immediately invalidated.
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-sm border border-chart-3/20 bg-chart-3/10 px-3 py-2 text-sm text-chart-3">
@@ -606,13 +568,7 @@ function RotateDialog({ secretName, onRotate }: { secretName: string; onRotate: 
   );
 }
 
-function DeleteSecretDialog({
-  secretName,
-  onDelete,
-}: {
-  secretName: string;
-  onDelete: () => void;
-}) {
+function DeleteSecretDialog({ secretName, onDelete }: { secretName: string; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -631,8 +587,7 @@ function DeleteSecretDialog({
         <DialogHeader>
           <DialogTitle>Delete Secret</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong>{secretName}</strong>? This action cannot be
-            undone.
+            Are you sure you want to delete <strong>{secretName}</strong>? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-sm border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">

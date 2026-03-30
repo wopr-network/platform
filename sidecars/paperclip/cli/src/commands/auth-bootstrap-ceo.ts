@@ -68,9 +68,7 @@ export async function bootstrapCeoInvite(opts: {
 
   const dbUrl = resolveDbUrl(configPath, opts.dbUrl);
   if (!dbUrl) {
-    p.log.error(
-      "Could not resolve database connection for bootstrap.",
-    );
+    p.log.error("Could not resolve database connection for bootstrap.");
     return;
   }
 

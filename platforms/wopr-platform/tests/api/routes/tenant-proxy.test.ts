@@ -55,7 +55,7 @@ describe("buildUpstreamHeaders", () => {
   it("forwards allowed headers", () => {
     const incoming = new Headers({
       "content-type": "application/json",
-      "accept": "text/html",
+      accept: "text/html",
       "x-request-id": "abc-123",
     });
     const result = buildUpstreamHeaders(incoming, "user-1", "tenant-1");
@@ -67,7 +67,7 @@ describe("buildUpstreamHeaders", () => {
   it("strips cookie header", () => {
     const incoming = new Headers({
       "content-type": "application/json",
-      "cookie": "better-auth.session_token=secret123",
+      cookie: "better-auth.session_token=secret123",
     });
     const result = buildUpstreamHeaders(incoming, "user-1", "tenant-1");
     expect(result.has("cookie")).toBe(false);
@@ -76,7 +76,7 @@ describe("buildUpstreamHeaders", () => {
   it("strips authorization header", () => {
     const incoming = new Headers({
       "content-type": "application/json",
-      "authorization": "Bearer sk-secret-key",
+      authorization: "Bearer sk-secret-key",
     });
     const result = buildUpstreamHeaders(incoming, "user-1", "tenant-1");
     expect(result.has("authorization")).toBe(false);
@@ -84,7 +84,7 @@ describe("buildUpstreamHeaders", () => {
 
   it("strips host header", () => {
     const incoming = new Headers({
-      "host": "alice.wopr.bot",
+      host: "alice.wopr.bot",
       "content-type": "text/plain",
     });
     const result = buildUpstreamHeaders(incoming, "user-1", "tenant-1");

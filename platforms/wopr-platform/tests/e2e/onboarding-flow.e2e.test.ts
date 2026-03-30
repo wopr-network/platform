@@ -95,12 +95,7 @@ describe("E2E: onboarding flow — new user → setup wizard → first bot runni
   // =========================================================================
 
   it("creates an onboarding session and advances through active state", async () => {
-    const onboarding = new OnboardingService(
-      sessionRepo,
-      stubWoprClient(),
-      testConfig(),
-      stubDaemon(),
-    );
+    const onboarding = new OnboardingService(sessionRepo, stubWoprClient(), testConfig(), stubDaemon());
 
     const session = await onboarding.createSession({ userId: USER_ID });
     expect(session.status).toBe("active");
@@ -136,20 +131,11 @@ describe("E2E: onboarding flow — new user → setup wizard → first bot runni
     await botBilling.registerBot(BOT_ID, USER_ID, BOT_NAME);
 
     // Create onboarding session
-    const onboarding = new OnboardingService(
-      sessionRepo,
-      stubWoprClient(),
-      testConfig(),
-      stubDaemon(),
-    );
+    const onboarding = new OnboardingService(sessionRepo, stubWoprClient(), testConfig(), stubDaemon());
     const session = await onboarding.createSession({ userId: USER_ID });
 
     // Graduate
-    const gradService = new GraduationService(
-      sessionRepo,
-      new DrizzleBotInstanceRepository(db),
-      usageRepo,
-    );
+    const gradService = new GraduationService(sessionRepo, new DrizzleBotInstanceRepository(db), usageRepo);
     const result = await gradService.graduate(session.id, "hosted");
 
     expect(result.graduated).toBe(true);
@@ -178,12 +164,7 @@ describe("E2E: onboarding flow — new user → setup wizard → first bot runni
     expect((await ledger.balance(TENANT_ID)).equals(SIGNUP_GRANT)).toBe(true);
 
     // 3. Create onboarding session
-    const onboarding = new OnboardingService(
-      sessionRepo,
-      stubWoprClient(),
-      testConfig(),
-      stubDaemon(),
-    );
+    const onboarding = new OnboardingService(sessionRepo, stubWoprClient(), testConfig(), stubDaemon());
     const session = await onboarding.createSession({ userId: USER_ID });
     expect(session.status).toBe("active");
 
@@ -193,11 +174,7 @@ describe("E2E: onboarding flow — new user → setup wizard → first bot runni
     expect(bot!.billingState).toBe("active");
 
     // 5. Graduate
-    const gradService = new GraduationService(
-      sessionRepo,
-      new DrizzleBotInstanceRepository(db),
-      usageRepo,
-    );
+    const gradService = new GraduationService(sessionRepo, new DrizzleBotInstanceRepository(db), usageRepo);
     const gradResult = await gradService.graduate(session.id, "hosted");
     expect(gradResult.graduated).toBe(true);
 

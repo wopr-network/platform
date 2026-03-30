@@ -75,11 +75,7 @@ describe("migrateAuthJson", () => {
 
     await migrateAuthJson(store);
 
-    expect(store.setCredential).toHaveBeenCalledWith(
-      "wopr-auth-state",
-      "wopr",
-      JSON.stringify(authData),
-    );
+    expect(store.setCredential).toHaveBeenCalledWith("wopr-auth-state", "wopr", JSON.stringify(authData));
     expect(renameSync).toHaveBeenCalledWith("/fake/auth.json", "/fake/auth.json.migrated");
   });
 
@@ -90,12 +86,7 @@ describe("migrateAuthJson", () => {
 
     await migrateAuthJson(store);
 
-    expect(store.setCredential).toHaveBeenCalledWith(
-      "wopr-auth-state",
-      "wopr",
-      encrypted,
-      "aes-256-gcm",
-    );
+    expect(store.setCredential).toHaveBeenCalledWith("wopr-auth-state", "wopr", encrypted, "aes-256-gcm");
     expect(renameSync).toHaveBeenCalled();
   });
 
@@ -209,8 +200,28 @@ describe("migrateAuthSqlite", () => {
     (existsSync as Mock).mockReturnValue(true);
 
     const rows = [
-      { id: "k1", user_id: "u1", name: "K1", key_hash: "h1", key_prefix: "p1", scope: "full", last_used_at: null, created_at: 1, expires_at: null },
-      { id: "k2", user_id: "u2", name: "K2", key_hash: "h2", key_prefix: "p2", scope: "full", last_used_at: null, created_at: 2, expires_at: null },
+      {
+        id: "k1",
+        user_id: "u1",
+        name: "K1",
+        key_hash: "h1",
+        key_prefix: "p1",
+        scope: "full",
+        last_used_at: null,
+        created_at: 1,
+        expires_at: null,
+      },
+      {
+        id: "k2",
+        user_id: "u2",
+        name: "K2",
+        key_hash: "h2",
+        key_prefix: "p2",
+        scope: "full",
+        last_used_at: null,
+        created_at: 2,
+        expires_at: null,
+      },
     ];
 
     dbState.prepare = (sql: string) => ({

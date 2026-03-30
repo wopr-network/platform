@@ -73,11 +73,7 @@ export function Issues() {
   }, [liveRuns]);
 
   const issueLinkState = useMemo(
-    () =>
-      createIssueDetailLocationState(
-        "Issues",
-        `${location.pathname}${location.search}${location.hash}`,
-      ),
+    () => createIssueDetailLocationState("Issues", `${location.pathname}${location.search}${location.hash}`),
     [location.pathname, location.search, location.hash],
   );
 
@@ -85,15 +81,18 @@ export function Issues() {
     setBreadcrumbs([{ label: "Issues" }]);
   }, [setBreadcrumbs]);
 
-  const { data: issues, isLoading, error } = useQuery({
+  const {
+    data: issues,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: queryKeys.issues.list(selectedCompanyId!),
     queryFn: () => issuesApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
   const updateIssue = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      issuesApi.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => issuesApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(selectedCompanyId!) });
     },

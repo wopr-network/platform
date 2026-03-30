@@ -63,8 +63,6 @@ describe("connectionTimestamps cleanup on session:destroy", () => {
       reason: "test",
     };
     await eventBus.emit("session:destroy", payload, "core");
-    await expect(
-      eventBus.emit("session:destroy", payload, "core"),
-    ).resolves.not.toThrow();
+    await expect(eventBus.emit("session:destroy", payload, "core")).resolves.not.toThrow();
   });
 });

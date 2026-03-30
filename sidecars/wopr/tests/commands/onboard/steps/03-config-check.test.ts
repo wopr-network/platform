@@ -43,9 +43,7 @@ describe("03-config-check step", () => {
 
   it("should return empty object when no existing config found", async () => {
     configMock.get.mockReturnValue({});
-    const { configCheckStep } = await import(
-      "../../../../src/commands/onboard/steps/03-config-check.js"
-    );
+    const { configCheckStep } = await import("../../../../src/commands/onboard/steps/03-config-check.js");
 
     const ctx = {
       opts: {},
@@ -54,14 +52,9 @@ describe("03-config-check step", () => {
       nextConfig: {},
     };
 
-    const result = await configCheckStep(
-      ctx as Parameters<typeof configCheckStep>[0],
-    );
+    const result = await configCheckStep(ctx as Parameters<typeof configCheckStep>[0]);
     expect(result).toEqual({});
-    expect(noteMock).toHaveBeenCalledWith(
-      "No existing configuration found. Starting fresh setup.",
-      "Configuration",
-    );
+    expect(noteMock).toHaveBeenCalledWith("No existing configuration found. Starting fresh setup.", "Configuration");
   });
 
   it("should return existing config when user chooses 'keep'", async () => {
@@ -73,9 +66,7 @@ describe("03-config-check step", () => {
       plugins: [],
     });
     selectMock.mockResolvedValue("keep");
-    const { configCheckStep } = await import(
-      "../../../../src/commands/onboard/steps/03-config-check.js"
-    );
+    const { configCheckStep } = await import("../../../../src/commands/onboard/steps/03-config-check.js");
 
     const ctx = {
       opts: {},
@@ -84,9 +75,7 @@ describe("03-config-check step", () => {
       nextConfig: {},
     };
 
-    const result = await configCheckStep(
-      ctx as Parameters<typeof configCheckStep>[0],
-    );
+    const result = await configCheckStep(ctx as Parameters<typeof configCheckStep>[0]);
     expect(result).toEqual({
       workspace: "/home/test/.wopr/workspace",
       provider: { primary: "anthropic" },
@@ -100,9 +89,7 @@ describe("03-config-check step", () => {
     configMock.get.mockReturnValue({ provider: { primary: "anthropic" } });
     selectMock.mockResolvedValue("reset");
     confirmMock.mockResolvedValue(true);
-    const { configCheckStep } = await import(
-      "../../../../src/commands/onboard/steps/03-config-check.js"
-    );
+    const { configCheckStep } = await import("../../../../src/commands/onboard/steps/03-config-check.js");
 
     const ctx = {
       opts: {},
@@ -111,9 +98,7 @@ describe("03-config-check step", () => {
       nextConfig: {},
     };
 
-    const result = await configCheckStep(
-      ctx as Parameters<typeof configCheckStep>[0],
-    );
+    const result = await configCheckStep(ctx as Parameters<typeof configCheckStep>[0]);
     expect(result).toEqual({
       workspace: "/home/test/.wopr/workspace",
       provider: undefined,
@@ -126,9 +111,7 @@ describe("03-config-check step", () => {
   it("should return existing config with defaults when user chooses 'modify'", async () => {
     configMock.get.mockReturnValue({ provider: { primary: "openai" } });
     selectMock.mockResolvedValue("modify");
-    const { configCheckStep } = await import(
-      "../../../../src/commands/onboard/steps/03-config-check.js"
-    );
+    const { configCheckStep } = await import("../../../../src/commands/onboard/steps/03-config-check.js");
 
     const ctx = {
       opts: {},
@@ -137,9 +120,7 @@ describe("03-config-check step", () => {
       nextConfig: {},
     };
 
-    const result = await configCheckStep(
-      ctx as Parameters<typeof configCheckStep>[0],
-    );
+    const result = await configCheckStep(ctx as Parameters<typeof configCheckStep>[0]);
     expect(result).toEqual({
       workspace: "/home/test/.wopr/workspace",
       provider: { primary: "openai" },

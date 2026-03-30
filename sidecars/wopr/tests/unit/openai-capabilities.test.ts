@@ -94,9 +94,7 @@ describe("OpenAI Capabilities Router", () => {
 
       expect(res.status).toBe(200);
       expect(res.headers.get("Content-Type")).toBe("audio/mpeg");
-      expect(mockHandler.speak).toHaveBeenCalledWith(
-        expect.objectContaining({ input: "Hello world", voice: "alloy" }),
-      );
+      expect(mockHandler.speak).toHaveBeenCalledWith(expect.objectContaining({ input: "Hello world", voice: "alloy" }));
     });
   });
 

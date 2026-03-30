@@ -32,9 +32,7 @@ describe("statusCommand", () => {
 
     await statusCommand();
 
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining("stopped"),
-    );
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("stopped"));
   });
 
   it("shows daemon running with plugin and provider counts", async () => {

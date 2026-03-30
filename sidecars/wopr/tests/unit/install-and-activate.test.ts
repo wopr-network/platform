@@ -38,9 +38,7 @@ vi.mock("../../src/core/sessions.js", () => ({
 
 // ── Import after mocks ────────────────────────────────────────────────────
 
-const { installAndActivatePlugin, createInjectors } = await import(
-  "../../src/plugins/install-and-activate.js"
-);
+const { installAndActivatePlugin, createInjectors } = await import("../../src/plugins/install-and-activate.js");
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 

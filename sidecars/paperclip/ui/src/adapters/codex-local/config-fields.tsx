@@ -1,10 +1,5 @@
 import type { AdapterConfigFieldsProps } from "../types";
-import {
-  Field,
-  ToggleField,
-  DraftInput,
-  help,
-} from "../../components/agent-config-primitives";
+import { Field, ToggleField, DraftInput, help } from "../../components/agent-config-primitives";
 import { ChoosePathButton } from "../../components/PathInstructionsModal";
 import { LocalWorkspaceRuntimeFields } from "../local-workspace-runtime-fields";
 
@@ -36,12 +31,8 @@ export function CodexLocalConfigFields({
             <DraftInput
               value={
                 isCreate
-                  ? values!.instructionsFilePath ?? ""
-                  : eff(
-                      "adapterConfig",
-                      "instructionsFilePath",
-                      String(config.instructionsFilePath ?? ""),
-                    )
+                  ? (values!.instructionsFilePath ?? "")
+                  : eff("adapterConfig", "instructionsFilePath", String(config.instructionsFilePath ?? ""))
               }
               onCommit={(v) =>
                 isCreate
@@ -62,11 +53,7 @@ export function CodexLocalConfigFields({
         checked={
           isCreate
             ? values!.dangerouslyBypassSandbox
-            : eff(
-                "adapterConfig",
-                "dangerouslyBypassApprovalsAndSandbox",
-                bypassEnabled,
-              )
+            : eff("adapterConfig", "dangerouslyBypassApprovalsAndSandbox", bypassEnabled)
         }
         onChange={(v) =>
           isCreate
@@ -77,16 +64,8 @@ export function CodexLocalConfigFields({
       <ToggleField
         label="Enable search"
         hint={help.search}
-        checked={
-          isCreate
-            ? values!.search
-            : eff("adapterConfig", "search", !!config.search)
-        }
-        onChange={(v) =>
-          isCreate
-            ? set!({ search: v })
-            : mark("adapterConfig", "search", v)
-        }
+        checked={isCreate ? values!.search : eff("adapterConfig", "search", !!config.search)}
+        onChange={(v) => (isCreate ? set!({ search: v }) : mark("adapterConfig", "search", v))}
       />
       <LocalWorkspaceRuntimeFields
         isCreate={isCreate}

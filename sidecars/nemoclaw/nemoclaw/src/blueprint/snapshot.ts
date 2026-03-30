@@ -12,15 +12,7 @@
  */
 
 import type { Dirent } from "node:fs";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -78,20 +70,15 @@ export function createSnapshot(): string | null {
   return snapshotDir;
 }
 
-export async function restoreIntoSandbox(
-  snapshotDir: string,
-  sandboxName = "openclaw",
-): Promise<boolean> {
+export async function restoreIntoSandbox(snapshotDir: string, sandboxName = "openclaw"): Promise<boolean> {
   const source = join(snapshotDir, "openclaw");
   if (!existsSync(source)) {
     return false;
   }
 
-  const result = await execa(
-    "openshell",
-    ["sandbox", "cp", source, `${sandboxName}:/sandbox/.openclaw`],
-    { reject: false },
-  );
+  const result = await execa("openshell", ["sandbox", "cp", source, `${sandboxName}:/sandbox/.openclaw`], {
+    reject: false,
+  });
   return result.exitCode === 0;
 }
 
@@ -115,9 +102,7 @@ export function rollbackFromSnapshot(snapshotDir: string): boolean {
     return false;
   }
 
-  const archivePath = existsSync(OPENCLAW_DIR)
-    ? join(HOME, `.openclaw.nemoclaw-archived.${compactTimestamp()}`)
-    : null;
+  const archivePath = existsSync(OPENCLAW_DIR) ? join(HOME, `.openclaw.nemoclaw-archived.${compactTimestamp()}`) : null;
 
   try {
     if (archivePath !== null) {

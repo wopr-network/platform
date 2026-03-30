@@ -99,9 +99,7 @@ describe("ResourcesTab error state", () => {
 
   it("retries loading when Retry button is clicked", async () => {
     const { getResourceTier } = await import("@/lib/bot-settings-data");
-    vi.mocked(getResourceTier)
-      .mockRejectedValueOnce(new Error("fail"))
-      .mockResolvedValueOnce({ tier: "pro" });
+    vi.mocked(getResourceTier).mockRejectedValueOnce(new Error("fail")).mockResolvedValueOnce({ tier: "pro" });
 
     render(<ResourcesTab botId="bot-1" />);
     await waitFor(() => {

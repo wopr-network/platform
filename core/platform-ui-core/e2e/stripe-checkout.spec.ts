@@ -11,8 +11,7 @@ import { expect, test } from "./fixtures/auth";
  * Skip when keys are not configured.
  */
 
-const PLATFORM_BASE_URL =
-  process.env.BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const PLATFORM_BASE_URL = process.env.BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 /**
  * Mock billing tRPC endpoints so the credits page renders tier buttons.
@@ -91,14 +90,18 @@ async function mockBillingForStripe(page: import("@playwright/test").Page): Prom
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ poolCents: 0, activeUsers: 0, perUserCents: 0, userEligible: false, userWindowExpiresAt: null }),
+      body: JSON.stringify({
+        poolCents: 0,
+        activeUsers: 0,
+        perUserCents: 0,
+        userEligible: false,
+        userWindowExpiresAt: null,
+      }),
     });
   });
 }
 
-const HAS_STRIPE_KEYS = !!(
-  process.env.STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-);
+const HAS_STRIPE_KEYS = !!(process.env.STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 /**
  * Helper: read the current credit balance from the credits page.
@@ -153,10 +156,7 @@ async function startCheckout(page: import("@playwright/test").Page): Promise<voi
  * Helper: fill Stripe Checkout form fields.
  * Handles optional fields (email, name, zip) that may or may not appear.
  */
-async function fillStripeCard(
-  page: import("@playwright/test").Page,
-  cardNumber: string,
-): Promise<void> {
+async function fillStripeCard(page: import("@playwright/test").Page, cardNumber: string): Promise<void> {
   // Email field (may be pre-filled or hidden)
   const emailField = page.locator('input[name="email"]');
   if (await emailField.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -186,9 +186,7 @@ test.describe("Stripe Checkout: Full Flow", () => {
   // These tests are slow (real network calls to Stripe)
   test.setTimeout(120_000);
 
-  test("1. happy path — purchase with test card, verify credit increase", async ({
-    authedPage: page,
-  }) => {
+  test("1. happy path — purchase with test card, verify credit increase", async ({ authedPage: page }) => {
     // Read balance BEFORE purchase
     const balanceBefore = await readCreditBalance(page);
 
@@ -214,9 +212,7 @@ test.describe("Stripe Checkout: Full Flow", () => {
     expect(balanceAfter).toBeGreaterThan(balanceBefore);
   });
 
-  test("2. declined card — verify error shown, no credits granted", async ({
-    authedPage: page,
-  }) => {
+  test("2. declined card — verify error shown, no credits granted", async ({ authedPage: page }) => {
     // Read balance BEFORE
     const balanceBefore = await readCreditBalance(page);
 
@@ -247,9 +243,7 @@ test.describe("Stripe Checkout: Full Flow", () => {
     expect(balanceAfter).toBe(balanceBefore);
   });
 
-  test("3. 3D Secure required — complete authentication, verify credits land", async ({
-    authedPage: page,
-  }) => {
+  test("3. 3D Secure required — complete authentication, verify credits land", async ({ authedPage: page }) => {
     // Read balance BEFORE
     const balanceBefore = await readCreditBalance(page);
 

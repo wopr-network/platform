@@ -16,9 +16,7 @@ const discordManifest: PluginManifest = {
   capabilities: ["channel"],
   requires: [],
   install: ["@wopr-network/wopr-plugin-discord"],
-  configSchema: [
-    { key: "botToken", label: "Bot Token", type: "string", required: true, secret: true },
-  ],
+  configSchema: [{ key: "botToken", label: "Bot Token", type: "string", required: true, secret: true }],
   setup: [],
   installCount: 0,
   changelog: [],
@@ -102,7 +100,7 @@ describe("POST /api/chat/setup", () => {
 
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.setupSessionId).toBeTypeOf('string');
+    expect(body.setupSessionId).toBeTypeOf("string");
 
     // Verify repo.insert was called
     expect(deps.setupSessionRepo.insert).toHaveBeenCalledOnce();
@@ -113,9 +111,8 @@ describe("POST /api/chat/setup", () => {
 
     // Verify onboardingService.inject was called with setup context
     expect(deps.onboardingService.inject).toHaveBeenCalledOnce();
-    const [injectedSessionId, injectedMessage] = (
-      deps.onboardingService.inject as ReturnType<typeof vi.fn>
-    ).mock.calls[0];
+    const [injectedSessionId, injectedMessage] = (deps.onboardingService.inject as ReturnType<typeof vi.fn>).mock
+      .calls[0];
     expect(injectedSessionId).toBe("abc-123");
     expect(injectedMessage).toContain("botToken");
     expect(injectedMessage).toContain("setup.complete()");

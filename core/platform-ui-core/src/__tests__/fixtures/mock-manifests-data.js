@@ -67,9 +67,7 @@ const MARKETPLACE_TEST_PLUGINS = [
     ],
     connectionTest: { label: "Test Bot Connection", endpoint: "/api/channels/discord/test" },
     installCount: 12400,
-    changelog: [
-      { version: "3.2.0", date: "2026-02-10", notes: "Added thread support and slash commands." },
-    ],
+    changelog: [{ version: "3.2.0", date: "2026-02-10", notes: "Added thread support and slash commands." }],
     marketplaceTab: "channel",
   },
   {

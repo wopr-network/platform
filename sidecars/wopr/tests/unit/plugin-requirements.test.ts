@@ -362,10 +362,7 @@ describe("checkRequirements", () => {
 
   it("should check config paths with provided config", async () => {
     const config = { api: { key: "secret" }, empty: "" };
-    const result = await checkRequirements(
-      { config: ["api.key", "missing.path"] },
-      config,
-    );
+    const result = await checkRequirements({ config: ["api.key", "missing.path"] }, config);
 
     expect(result.available.config).toContain("api.key");
     expect(result.missing.config).toContain("missing.path");
@@ -503,10 +500,7 @@ describe("ensureRequirements", () => {
   it("should return satisfied immediately when all requirements met", async () => {
     process.env.WOPR_ENSURE_TEST = "yes";
     try {
-      const result = await ensureRequirements(
-        { bins: ["node"], env: ["WOPR_ENSURE_TEST"] },
-        undefined,
-      );
+      const result = await ensureRequirements({ bins: ["node"], env: ["WOPR_ENSURE_TEST"] }, undefined);
 
       expect(result.satisfied).toBe(true);
       expect(result.installed).toEqual([]);
@@ -517,20 +511,14 @@ describe("ensureRequirements", () => {
   });
 
   it("should return unsatisfied with error when no install methods provided", async () => {
-    const result = await ensureRequirements(
-      { bins: ["nonexistent-binary-xyz-abc-123"] },
-      undefined,
-    );
+    const result = await ensureRequirements({ bins: ["nonexistent-binary-xyz-abc-123"] }, undefined);
 
     expect(result.satisfied).toBe(false);
     expect(result.errors).toContain("No install methods provided for missing dependencies");
   });
 
   it("should return unsatisfied with error when install methods is empty array", async () => {
-    const result = await ensureRequirements(
-      { bins: ["nonexistent-binary-xyz-abc-123"] },
-      [],
-    );
+    const result = await ensureRequirements({ bins: ["nonexistent-binary-xyz-abc-123"] }, []);
 
     expect(result.satisfied).toBe(false);
     expect(result.errors).toContain("No install methods provided for missing dependencies");

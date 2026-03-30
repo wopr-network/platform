@@ -21,12 +21,7 @@ describe("mergeApiRates", () => {
       tts: [{ name: "TTS", unit: "1K chars", price: 0.2 }],
     });
 
-    expect(result.map((c) => c.category)).toEqual([
-      "Text Generation",
-      "Voice",
-      "Image Generation",
-      "Messaging",
-    ]);
+    expect(result.map((c) => c.category)).toEqual(["Text Generation", "Voice", "Image Generation", "Messaging"]);
   });
 
   it("handles unknown capability keys with fallback", () => {

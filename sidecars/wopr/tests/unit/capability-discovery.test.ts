@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  getCapabilityRegistry,
-  resetCapabilityRegistry,
-} from "../../src/core/capability-registry.js";
+import { getCapabilityRegistry, resetCapabilityRegistry } from "../../src/core/capability-registry.js";
 
 // Mock providers module
 vi.mock("../../src/core/providers.js", () => ({

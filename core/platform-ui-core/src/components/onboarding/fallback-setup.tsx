@@ -6,13 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { quickSetup } from "@/lib/api";
 import { brandName } from "@/lib/brand-config";
 import { markOnboardingComplete } from "@/lib/onboarding-store";
@@ -69,20 +63,13 @@ export function FallbackSetup() {
         <CardContent className="p-6">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="h-4 w-4 text-chart-3" />
-            <h2 className="text-sm font-mono uppercase tracking-[0.2em] text-chart-3">
-              MANUAL OVERRIDE
-            </h2>
+            <h2 className="text-sm font-mono uppercase tracking-[0.2em] text-chart-3">MANUAL OVERRIDE</h2>
           </div>
-          <p className="text-xs text-muted-foreground mb-6">
-            Platform {brandName()} unavailable. Configure manually.
-          </p>
+          <p className="text-xs text-muted-foreground mb-6">Platform {brandName()} unavailable. Configure manually.</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label
-                htmlFor="fallback-api-key"
-                className="text-xs uppercase tracking-wider text-muted-foreground"
-              >
+              <Label htmlFor="fallback-api-key" className="text-xs uppercase tracking-wider text-muted-foreground">
                 API KEY
               </Label>
               <Input
@@ -97,17 +84,11 @@ export function FallbackSetup() {
             </div>
 
             <div className="space-y-2">
-              <Label
-                htmlFor="fallback-channel"
-                className="text-xs uppercase tracking-wider text-muted-foreground"
-              >
+              <Label htmlFor="fallback-channel" className="text-xs uppercase tracking-wider text-muted-foreground">
                 CHANNEL
               </Label>
               <Select value={channel} onValueChange={setChannel}>
-                <SelectTrigger
-                  id="fallback-channel"
-                  className="bg-secondary border-border font-mono text-sm"
-                >
+                <SelectTrigger id="fallback-channel" className="bg-secondary border-border font-mono text-sm">
                   <SelectValue placeholder="Select channel" />
                 </SelectTrigger>
                 <SelectContent>

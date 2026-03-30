@@ -30,10 +30,7 @@ export function AffiliateDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [statsData, referralsData] = await Promise.all([
-        getAffiliateStats(),
-        getAffiliateReferrals(),
-      ]);
+      const [statsData, referralsData] = await Promise.all([getAffiliateStats(), getAffiliateReferrals()]);
       setStats(statsData);
       setReferrals(referralsData.referrals);
       setTotal(referralsData.total);
@@ -140,9 +137,7 @@ export function AffiliateDashboard() {
     <div className="max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Refer & Earn</h1>
-        <p className="text-sm text-muted-foreground">
-          Share your link and earn credits when friends join
-        </p>
+        <p className="text-sm text-muted-foreground">Share your link and earn credits when friends join</p>
       </div>
 
       {/* Referral link card */}
@@ -205,9 +200,7 @@ export function AffiliateDashboard() {
         </Card>
         <Card>
           <CardContent className="pt-6 text-center">
-            <div className="text-3xl font-bold text-emerald-500">
-              {formatCents(stats.totalEarnedCents)}
-            </div>
+            <div className="text-3xl font-bold text-emerald-500">{formatCents(stats.totalEarnedCents)}</div>
             <p className="text-xs text-muted-foreground mt-1">earned</p>
           </CardContent>
         </Card>
@@ -280,12 +273,7 @@ export function AffiliateDashboard() {
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 {offset < total && (
                   <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleLoadMore}
-                      disabled={loadingMore}
-                    >
+                    <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
                       {loadingMore ? "Loading more..." : "Load more"}
                     </Button>
                   </div>

@@ -10,13 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -170,9 +164,7 @@ export default function PluginsPage() {
       setToggleError(null);
 
       // Optimistic update
-      setInstalled((prev) =>
-        prev.map((p) => (p.pluginId === pluginId ? { ...p, enabled: newEnabled } : p)),
-      );
+      setInstalled((prev) => prev.map((p) => (p.pluginId === pluginId ? { ...p, enabled: newEnabled } : p)));
 
       try {
         await togglePluginEnabled(selectedBotId, pluginId, newEnabled);
@@ -181,9 +173,7 @@ export default function PluginsPage() {
         setInstalled(refreshed);
       } catch {
         // Revert on failure
-        setInstalled((prev) =>
-          prev.map((p) => (p.pluginId === pluginId ? { ...p, enabled: previousEnabled } : p)),
-        );
+        setInstalled((prev) => prev.map((p) => (p.pluginId === pluginId ? { ...p, enabled: previousEnabled } : p)));
         setToggleError("Failed to update plugin. Please try again.");
       } finally {
         togglingRef.current = null;
@@ -221,10 +211,7 @@ export default function PluginsPage() {
 
   const installedTotal = installedManifests.length;
   const installedStart = (installedPage - 1) * PLUGINS_PAGE_SIZE;
-  const pagedInstalled = installedManifests.slice(
-    installedStart,
-    installedStart + PLUGINS_PAGE_SIZE,
-  );
+  const pagedInstalled = installedManifests.slice(installedStart, installedStart + PLUGINS_PAGE_SIZE);
 
   const catalogTotal = availablePlugins.length;
   const catalogStart = (catalogPage - 1) * PLUGINS_PAGE_SIZE;
@@ -268,17 +255,14 @@ export default function PluginsPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold tracking-widest uppercase">PLUGINS</h1>
         <p className="mt-2 text-muted-foreground">
-          Manage installed plugins and discover new ones for your {getBrandConfig().productName}{" "}
-          instances.
+          Manage installed plugins and discover new ones for your {getBrandConfig().productName} instances.
         </p>
       </div>
 
       {botsLoading ? (
         <Skeleton className="mb-6 h-9 w-64" />
       ) : bots.length === 0 ? (
-        <p className="mb-6 text-sm text-muted-foreground">
-          No bots found. Create a bot first to manage plugins.
-        </p>
+        <p className="mb-6 text-sm text-muted-foreground">No bots found. Create a bot first to manage plugins.</p>
       ) : (
         <div className="mb-6 flex items-center gap-3">
           <label htmlFor="bot-select" className="text-sm font-medium text-muted-foreground">
@@ -307,16 +291,10 @@ export default function PluginsPage() {
 
       <Tabs defaultValue="installed">
         <TabsList variant="line">
-          <TabsTrigger
-            value="installed"
-            className="data-[state=active]:text-terminal after:bg-terminal"
-          >
+          <TabsTrigger value="installed" className="data-[state=active]:text-terminal after:bg-terminal">
             Installed ({installed.length})
           </TabsTrigger>
-          <TabsTrigger
-            value="catalog"
-            className="data-[state=active]:text-terminal after:bg-terminal"
-          >
+          <TabsTrigger value="catalog" className="data-[state=active]:text-terminal after:bg-terminal">
             Catalog
           </TabsTrigger>
         </TabsList>
@@ -329,9 +307,7 @@ export default function PluginsPage() {
           )}
           {installedTotal === 0 ? (
             <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-sm border border-dashed border-terminal/20">
-              <p className="font-mono text-sm text-terminal/60">
-                &gt; NO PLUGINS INSTALLED. YOUR ARSENAL IS EMPTY.
-              </p>
+              <p className="font-mono text-sm text-terminal/60">&gt; NO PLUGINS INSTALLED. YOUR ARSENAL IS EMPTY.</p>
               <Button
                 variant="outline"
                 size="sm"
@@ -377,9 +353,7 @@ export default function PluginsPage() {
                                 {item.enabled ? "Active" : "Disabled"}
                               </Badge>
                             </div>
-                            <CardDescription className="mt-1 line-clamp-2">
-                              {manifest.description}
-                            </CardDescription>
+                            <CardDescription className="mt-1 line-clamp-2">{manifest.description}</CardDescription>
                           </div>
                         </div>
                       </CardHeader>
@@ -394,8 +368,7 @@ export default function PluginsPage() {
                                 className="h-7 px-2 text-xs font-mono uppercase tracking-wider text-terminal hover:bg-terminal/10"
                                 disabled={!selectedBotId}
                                 onClick={() =>
-                                  selectedBotId &&
-                                  setupChat.openSetup(item.pluginId, manifest.name, selectedBotId)
+                                  selectedBotId && setupChat.openSetup(item.pluginId, manifest.name, selectedBotId)
                                 }
                               >
                                 <Settings className="mr-1 h-3 w-3" />
@@ -421,8 +394,8 @@ export default function PluginsPage() {
           {installedTotal > PLUGINS_PAGE_SIZE && (
             <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground font-mono">
               <span>
-                Showing {installedStart + 1}-
-                {Math.min(installedStart + PLUGINS_PAGE_SIZE, installedTotal)} of {installedTotal}
+                Showing {installedStart + 1}-{Math.min(installedStart + PLUGINS_PAGE_SIZE, installedTotal)} of{" "}
+                {installedTotal}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -481,9 +454,7 @@ export default function PluginsPage() {
             </div>
           ) : catalogError ? (
             <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-sm border border-dashed border-red-500/25 bg-red-500/5">
-              <p className="font-mono text-sm text-red-500">
-                &gt; CATALOG LOAD FAILED. CHECK CONNECTION AND RETRY.
-              </p>
+              <p className="font-mono text-sm text-red-500">&gt; CATALOG LOAD FAILED. CHECK CONNECTION AND RETRY.</p>
               <Button
                 variant="outline"
                 size="sm"
@@ -532,9 +503,7 @@ export default function PluginsPage() {
                                     v{plugin.version}
                                   </Badge>
                                 </div>
-                                <CardDescription className="mt-1 line-clamp-2">
-                                  {plugin.description}
-                                </CardDescription>
+                                <CardDescription className="mt-1 line-clamp-2">{plugin.description}</CardDescription>
                               </div>
                             </div>
                           </CardHeader>
@@ -573,8 +542,7 @@ export default function PluginsPage() {
           {catalogTotal > PLUGINS_PAGE_SIZE && (
             <div className="flex items-center justify-between text-xs text-muted-foreground font-mono">
               <span>
-                Showing {catalogStart + 1}-
-                {Math.min(catalogStart + PLUGINS_PAGE_SIZE, catalogTotal)} of {catalogTotal}
+                Showing {catalogStart + 1}-{Math.min(catalogStart + PLUGINS_PAGE_SIZE, catalogTotal)} of {catalogTotal}
               </span>
               <div className="flex gap-2">
                 <Button

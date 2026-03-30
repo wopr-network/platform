@@ -1,8 +1,5 @@
 /** Origins that are always allowed as redirect targets from checkout responses. */
-const STATIC_ALLOWED_ORIGINS: readonly string[] = [
-  "https://checkout.stripe.com",
-  "https://billing.stripe.com",
-];
+const STATIC_ALLOWED_ORIGINS: readonly string[] = ["https://checkout.stripe.com", "https://billing.stripe.com"];
 
 /**
  * Build the full allowed origins set, including any configured BTCPay Server origin.

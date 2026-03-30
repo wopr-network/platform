@@ -194,10 +194,7 @@ describe("OpenAI Compatibility Layer", () => {
         }),
       });
 
-      expect(setSessionContext).toHaveBeenCalledWith(
-        expect.stringMatching(/^openai-/),
-        "You are a helpful assistant.",
-      );
+      expect(setSessionContext).toHaveBeenCalledWith(expect.stringMatching(/^openai-/), "You are a helpful assistant.");
     });
 
     it("sets session provider config", async () => {
@@ -274,10 +271,7 @@ describe("OpenAI Compatibility Layer", () => {
       // Wait for async cleanup
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(deleteSession).toHaveBeenCalledWith(
-        expect.stringMatching(/^openai-/),
-        "request-complete",
-      );
+      expect(deleteSession).toHaveBeenCalledWith(expect.stringMatching(/^openai-/), "request-complete");
     });
   });
 
@@ -569,10 +563,7 @@ describe("OpenAI Compatibility Layer", () => {
       // Wait for async cleanup
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      expect(deleteSession).toHaveBeenCalledWith(
-        expect.stringMatching(/^openai-/),
-        "request-complete",
-      );
+      expect(deleteSession).toHaveBeenCalledWith(expect.stringMatching(/^openai-/), "request-complete");
     });
   });
 
@@ -798,11 +789,7 @@ describe("OpenAI Compatibility Layer", () => {
       });
 
       expect(res.status).toBe(200);
-      expect(inject).toHaveBeenCalledWith(
-        expect.any(String),
-        "What is in this image?",
-        expect.any(Object),
-      );
+      expect(inject).toHaveBeenCalledWith(expect.any(String), "What is in this image?", expect.any(Object));
     });
 
     it("accepts null content for assistant messages (treats as empty)", async () => {
@@ -940,10 +927,7 @@ describe("OpenAI Compatibility Layer", () => {
       });
 
       // When model matches a provider ID directly, it should set provider name without model override
-      expect(setSessionProvider).toHaveBeenCalledWith(
-        expect.any(String),
-        { name: "anthropic" },
-      );
+      expect(setSessionProvider).toHaveBeenCalledWith(expect.any(String), { name: "anthropic" });
     });
 
     it("passes unknown model string through to provider config", async () => {
@@ -958,10 +942,7 @@ describe("OpenAI Compatibility Layer", () => {
       });
 
       // Unknown model falls back to first available provider with model passthrough
-      expect(setSessionProvider).toHaveBeenCalledWith(
-        expect.any(String),
-        { name: "anthropic", model: "gpt-4" },
-      );
+      expect(setSessionProvider).toHaveBeenCalledWith(expect.any(String), { name: "anthropic", model: "gpt-4" });
     });
   });
 });

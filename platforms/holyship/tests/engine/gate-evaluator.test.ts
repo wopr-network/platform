@@ -69,8 +69,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: true, output: "ok", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: true,
+        output: "ok",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -84,8 +88,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: false, output: "", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: false,
+        output: "",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -99,8 +107,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: false, output: "timeout", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: false,
+        output: "timeout",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -116,8 +128,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: true, output: "all good", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: true,
+        output: "all good",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -154,7 +170,12 @@ describe("evaluateGate", () => {
     const result = await evaluateGate(gate, entity, gateRepo as IGateRepository);
     expect(result.passed).toBe(false);
     expect(result.output).toMatch(/Invalid functionRef/);
-    expect(gateRepo.record).toHaveBeenCalledWith("ent-1", "gate-1", false, expect.stringMatching(/Invalid functionRef/));
+    expect(gateRepo.record).toHaveBeenCalledWith(
+      "ent-1",
+      "gate-1",
+      false,
+      expect.stringMatching(/Invalid functionRef/),
+    );
   });
 
   it("returns passed=false when exported name is not a function", async () => {
@@ -178,8 +199,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: false, output: "Gate functionRef is not configured", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: false,
+        output: "Gate functionRef is not configured",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -193,8 +218,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: false, output: "Gate apiConfig is not configured", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: false,
+        output: "Gate apiConfig is not configured",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -245,7 +274,12 @@ describe("evaluateGate", () => {
     const result = await evaluateGate(gate, entity, gateRepo as IGateRepository);
     expect(result.passed).toBe(false);
     expect(result.output).toMatch(/URL protocol not allowed/);
-    expect(gateRepo.record).toHaveBeenCalledWith("ent-1", "gate-1", false, expect.stringMatching(/URL protocol not allowed/));
+    expect(gateRepo.record).toHaveBeenCalledWith(
+      "ent-1",
+      "gate-1",
+      false,
+      expect.stringMatching(/URL protocol not allowed/),
+    );
   });
 
   it("returns passed=true for api gate with matching status", async () => {
@@ -256,8 +290,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity({ id: "ent-42" });
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-42", gateId: "gate-1",
-        passed: true, output: "HTTP 200", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-42",
+        gateId: "gate-1",
+        passed: true,
+        output: "HTTP 200",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -268,7 +306,10 @@ describe("evaluateGate", () => {
       const result = await evaluateGate(gate, entity, gateRepo as IGateRepository);
       expect(result.passed).toBe(true);
       expect(result.output).toBe("HTTP 200");
-      expect(mockFetch).toHaveBeenCalledWith("https://example.com/check/ent-42", expect.objectContaining({ method: "GET" }));
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://example.com/check/ent-42",
+        expect.objectContaining({ method: "GET" }),
+      );
       expect(gateRepo.record).toHaveBeenCalledWith("ent-42", "gate-1", true, "HTTP 200");
     } finally {
       vi.unstubAllGlobals();
@@ -283,8 +324,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: false, output: "HTTP 500", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: false,
+        output: "HTTP 500",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -309,8 +354,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: false, output: "fetch failed", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: false,
+        output: "fetch failed",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -335,8 +384,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: true, output: "HTTP 200", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: true,
+        output: "HTTP 200",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -357,8 +410,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity({ id: "ent-1" });
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: true, output: "ent-1", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: true,
+        output: "ent-1",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -416,8 +473,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: true, output: "all good", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: true,
+        output: "all good",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -435,8 +496,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: true, output: "all good", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: true,
+        output: "all good",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -453,8 +518,12 @@ describe("evaluateGate", () => {
     const entity = makeEntity();
     const gateRepo: Pick<IGateRepository, "record"> = {
       record: vi.fn().mockResolvedValue({
-        id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-        passed: false, output: "", evaluatedAt: new Date(),
+        id: "gr-1",
+        entityId: "ent-1",
+        gateId: "gate-1",
+        passed: false,
+        output: "",
+        evaluatedAt: new Date(),
       }),
     };
 
@@ -529,6 +598,11 @@ describe("evaluateGate", () => {
     expect(result.passed).toBe(false);
     expect(result.timedOut).toBe(false);
     expect(result.output).toMatch(/Gate command not allowed/);
-    expect(gateRepo.record).toHaveBeenCalledWith("ent-1", "gate-1", false, expect.stringMatching(/Gate command not allowed/));
+    expect(gateRepo.record).toHaveBeenCalledWith(
+      "ent-1",
+      "gate-1",
+      false,
+      expect.stringMatching(/Gate command not allowed/),
+    );
   });
 });

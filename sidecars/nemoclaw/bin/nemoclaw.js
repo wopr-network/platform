@@ -21,12 +21,7 @@ const _RD = _useColor ? "\x1b[1;31m" : "";
 const YW = _useColor ? "\x1b[1;33m" : "";
 
 const { ROOT, SCRIPTS, run, runCapture, runInteractive, shellQuote, validateName } = require("./lib/runner");
-const {
-  ensureApiKey,
-  ensureGithubToken,
-  getCredential,
-  isRepoPrivate,
-} = require("./lib/credentials");
+const { ensureApiKey, ensureGithubToken, getCredential, isRepoPrivate } = require("./lib/credentials");
 const registry = require("./lib/registry");
 const nim = require("./lib/nim");
 const policies = require("./lib/policies");
@@ -35,18 +30,27 @@ const { parseGatewayInference } = require("./lib/inference-config");
 // ── Global commands ──────────────────────────────────────────────
 
 const GLOBAL_COMMANDS = new Set([
-  "onboard", "list", "deploy", "setup", "setup-spark",
-  "start", "stop", "status", "debug", "uninstall",
-  "help", "--help", "-h", "--version", "-v",
+  "onboard",
+  "list",
+  "deploy",
+  "setup",
+  "setup-spark",
+  "start",
+  "stop",
+  "status",
+  "debug",
+  "uninstall",
+  "help",
+  "--help",
+  "-h",
+  "--version",
+  "-v",
 ]);
 
 const REMOTE_UNINSTALL_URL = "https://raw.githubusercontent.com/NVIDIA/NemoClaw/refs/heads/main/uninstall.sh";
 
 function resolveUninstallScript() {
-  const candidates = [
-    path.join(ROOT, "uninstall.sh"),
-    path.join(__dirname, "..", "uninstall.sh"),
-  ];
+  const candidates = [path.join(ROOT, "uninstall.sh"), path.join(__dirname, "..", "uninstall.sh")];
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
@@ -152,7 +156,10 @@ async function deploy(instanceName) {
   process.stdout.write(`  Waiting for SSH `);
   for (let i = 0; i < 60; i++) {
     try {
-      execFileSync("ssh", ["-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no", name, "echo", "ok"], { encoding: "utf-8", stdio: "ignore" });
+      execFileSync("ssh", ["-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no", name, "echo", "ok"], {
+        encoding: "utf-8",
+        stdio: "ignore",
+      });
       process.stdout.write(` ${G}✓${R}\n`);
       break;
     } catch {
@@ -168,7 +175,9 @@ async function deploy(instanceName) {
 
   console.log("  Syncing NemoClaw to VM...");
   run(`ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'mkdir -p /home/ubuntu/nemoclaw'`);
-  run(`rsync -az --delete --exclude node_modules --exclude .git --exclude src -e "ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR" "${ROOT}/scripts" "${ROOT}/Dockerfile" "${ROOT}/nemoclaw" "${ROOT}/nemoclaw-blueprint" "${ROOT}/bin" "${ROOT}/package.json" ${qname}:/home/ubuntu/nemoclaw/`);
+  run(
+    `rsync -az --delete --exclude node_modules --exclude .git --exclude src -e "ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR" "${ROOT}/scripts" "${ROOT}/Dockerfile" "${ROOT}/nemoclaw" "${ROOT}/nemoclaw-blueprint" "${ROOT}/bin" "${ROOT}/package.json" ${qname}:/home/ubuntu/nemoclaw/`,
+  );
 
   const envLines = [`NVIDIA_API_KEY=${shellQuote(process.env.NVIDIA_API_KEY || "")}`];
   const ghToken = process.env.GITHUB_TOKEN;
@@ -183,25 +192,41 @@ async function deploy(instanceName) {
   const envTmp = path.join(envDir, "env");
   fs.writeFileSync(envTmp, envLines.join("\n") + "\n", { mode: 0o600 });
   try {
-    run(`scp -q -o StrictHostKeyChecking=no -o LogLevel=ERROR ${shellQuote(envTmp)} ${qname}:/home/ubuntu/nemoclaw/.env`);
+    run(
+      `scp -q -o StrictHostKeyChecking=no -o LogLevel=ERROR ${shellQuote(envTmp)} ${qname}:/home/ubuntu/nemoclaw/.env`,
+    );
     run(`ssh -q -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'chmod 600 /home/ubuntu/nemoclaw/.env'`);
   } finally {
-    try { fs.unlinkSync(envTmp); } catch { /* ignored */ }
-    try { fs.rmdirSync(envDir); } catch { /* ignored */ }
+    try {
+      fs.unlinkSync(envTmp);
+    } catch {
+      /* ignored */
+    }
+    try {
+      fs.rmdirSync(envDir);
+    } catch {
+      /* ignored */
+    }
   }
 
   console.log("  Running setup...");
-  runInteractive(`ssh -t -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'cd /home/ubuntu/nemoclaw && set -a && . .env && set +a && bash scripts/brev-setup.sh'`);
+  runInteractive(
+    `ssh -t -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'cd /home/ubuntu/nemoclaw && set -a && . .env && set +a && bash scripts/brev-setup.sh'`,
+  );
 
   if (tgToken) {
     console.log("  Starting services...");
-    run(`ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'cd /home/ubuntu/nemoclaw && set -a && . .env && set +a && bash scripts/start-services.sh'`);
+    run(
+      `ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'cd /home/ubuntu/nemoclaw && set -a && . .env && set +a && bash scripts/start-services.sh'`,
+    );
   }
 
   console.log("");
   console.log("  Connecting to sandbox...");
   console.log("");
-  runInteractive(`ssh -t -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'cd /home/ubuntu/nemoclaw && set -a && . .env && set +a && openshell sandbox connect nemoclaw'`);
+  runInteractive(
+    `ssh -t -o StrictHostKeyChecking=no -o LogLevel=ERROR ${qname} 'cd /home/ubuntu/nemoclaw && set -a && . .env && set +a && openshell sandbox connect nemoclaw'`,
+  );
 }
 
 async function start() {
@@ -242,9 +267,10 @@ function uninstall(args) {
 
   console.log(`  Local uninstall script not found; falling back to ${REMOTE_UNINSTALL_URL}`);
   const forwardedArgs = args.map(shellQuote).join(" ");
-  const command = forwardedArgs.length > 0
-    ? `curl -fsSL ${shellQuote(REMOTE_UNINSTALL_URL)} | bash -s -- ${forwardedArgs}`
-    : `curl -fsSL ${shellQuote(REMOTE_UNINSTALL_URL)} | bash`;
+  const command =
+    forwardedArgs.length > 0
+      ? `curl -fsSL ${shellQuote(REMOTE_UNINSTALL_URL)} | bash -s -- ${forwardedArgs}`
+      : `curl -fsSL ${shellQuote(REMOTE_UNINSTALL_URL)} | bash`;
   const result = spawnSync("bash", ["-c", command], {
     stdio: "inherit",
     cwd: ROOT,
@@ -307,9 +333,7 @@ function sandboxConnect(sandboxName) {
 
 function sandboxStatus(sandboxName) {
   const sb = registry.getSandbox(sandboxName);
-  const live = parseGatewayInference(
-    runCapture("openshell inference get 2>/dev/null", { ignoreError: true })
-  );
+  const live = parseGatewayInference(runCapture("openshell inference get 2>/dev/null", { ignoreError: true }));
   if (sb) {
     console.log("");
     console.log(`  Sandbox: ${sb.name}`);
@@ -375,9 +399,7 @@ async function sandboxDestroy(sandboxName, args = []) {
   const skipConfirm = args.includes("--yes") || args.includes("--force");
   if (!skipConfirm) {
     const { prompt: askPrompt } = require("./lib/credentials");
-    const answer = await askPrompt(
-      `  ${YW}Destroy sandbox '${sandboxName}'?${R} This cannot be undone. [y/N]: `,
-    );
+    const answer = await askPrompt(`  ${YW}Destroy sandbox '${sandboxName}'?${R} This cannot be undone. [y/N]: `);
     if (answer.trim().toLowerCase() !== "y" && answer.trim().toLowerCase() !== "yes") {
       console.log("  Cancelled.");
       return;
@@ -459,23 +481,45 @@ const [cmd, ...args] = process.argv.slice(2);
   // Global commands
   if (GLOBAL_COMMANDS.has(cmd)) {
     switch (cmd) {
-      case "onboard":     await onboard(args); break;
-      case "setup":       await setup(); break;
-      case "setup-spark": await setupSpark(); break;
-      case "deploy":      await deploy(args[0]); break;
-      case "start":       await start(); break;
-      case "stop":        stop(); break;
-      case "status":      showStatus(); break;
-      case "debug":       debug(args); break;
-      case "uninstall":   uninstall(args); break;
-      case "list":        listSandboxes(); break;
+      case "onboard":
+        await onboard(args);
+        break;
+      case "setup":
+        await setup();
+        break;
+      case "setup-spark":
+        await setupSpark();
+        break;
+      case "deploy":
+        await deploy(args[0]);
+        break;
+      case "start":
+        await start();
+        break;
+      case "stop":
+        stop();
+        break;
+      case "status":
+        showStatus();
+        break;
+      case "debug":
+        debug(args);
+        break;
+      case "uninstall":
+        uninstall(args);
+        break;
+      case "list":
+        listSandboxes();
+        break;
       case "--version":
       case "-v": {
         const pkg = require(path.join(__dirname, "..", "package.json"));
         console.log(`nemoclaw v${pkg.version}`);
         break;
       }
-      default:            help(); break;
+      default:
+        help();
+        break;
     }
     return;
   }
@@ -488,12 +532,24 @@ const [cmd, ...args] = process.argv.slice(2);
     const actionArgs = args.slice(1);
 
     switch (action) {
-      case "connect":     sandboxConnect(cmd); break;
-      case "status":      sandboxStatus(cmd); break;
-      case "logs":        sandboxLogs(cmd, actionArgs.includes("--follow")); break;
-      case "policy-add":  await sandboxPolicyAdd(cmd); break;
-      case "policy-list": sandboxPolicyList(cmd); break;
-      case "destroy":     await sandboxDestroy(cmd, actionArgs); break;
+      case "connect":
+        sandboxConnect(cmd);
+        break;
+      case "status":
+        sandboxStatus(cmd);
+        break;
+      case "logs":
+        sandboxLogs(cmd, actionArgs.includes("--follow"));
+        break;
+      case "policy-add":
+        await sandboxPolicyAdd(cmd);
+        break;
+      case "policy-list":
+        sandboxPolicyList(cmd);
+        break;
+      case "destroy":
+        await sandboxDestroy(cmd, actionArgs);
+        break;
       default:
         console.error(`  Unknown action: ${action}`);
         console.error(`  Valid actions: connect, status, logs, policy-add, policy-list, destroy`);

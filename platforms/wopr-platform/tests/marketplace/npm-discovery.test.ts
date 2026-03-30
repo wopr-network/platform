@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IMarketplacePluginRepository } from "@wopr-network/platform-core/marketplace/marketplace-plugin-repository";
-import type { MarketplacePlugin, NewMarketplacePlugin } from "@wopr-network/platform-core/marketplace/marketplace-repository-types";
+import type {
+  MarketplacePlugin,
+  NewMarketplacePlugin,
+} from "@wopr-network/platform-core/marketplace/marketplace-repository-types";
 import { discoverNpmPlugins } from "@wopr-network/platform-core/marketplace/npm-discovery";
 
 function makeMockRepo(): IMarketplacePluginRepository {
@@ -58,8 +61,7 @@ describe("discoverNpmPlugins", () => {
   it("inserts newly discovered packages", async () => {
     const fetcher = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () =>
-        makeNpmResponse([{ name: "@wopr-network/wopr-plugin-discord", version: "3.2.0" }]),
+      json: async () => makeNpmResponse([{ name: "@wopr-network/wopr-plugin-discord", version: "3.2.0" }]),
     });
 
     const result = await discoverNpmPlugins({ repo, notify: notifyFn, fetcher });
@@ -78,8 +80,7 @@ describe("discoverNpmPlugins", () => {
 
     const fetcher = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () =>
-        makeNpmResponse([{ name: "@wopr-network/wopr-plugin-discord", version: "3.2.0" }]),
+      json: async () => makeNpmResponse([{ name: "@wopr-network/wopr-plugin-discord", version: "3.2.0" }]),
     });
 
     const result = await discoverNpmPlugins({ repo, notify: notifyFn, fetcher });
@@ -92,6 +93,6 @@ describe("discoverNpmPlugins", () => {
     const fetcher = vi.fn().mockResolvedValue({ ok: false, status: 503 });
     const result = await discoverNpmPlugins({ repo, notify: notifyFn, fetcher });
     expect(result.discovered).toBe(0);
-    expect(result.error).toBeTypeOf('string');
+    expect(result.error).toBeTypeOf("string");
   });
 });

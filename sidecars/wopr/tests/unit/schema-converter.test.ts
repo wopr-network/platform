@@ -110,9 +110,7 @@ describe("jsonSchemaToZod", () => {
       },
       required: ["address"],
     });
-    expect(
-      schema.safeParse({ address: { street: "123 Main" } }).success,
-    ).toBe(true);
+    expect(schema.safeParse({ address: { street: "123 Main" } }).success).toBe(true);
     expect(schema.safeParse({ address: {} }).success).toBe(false);
   });
 

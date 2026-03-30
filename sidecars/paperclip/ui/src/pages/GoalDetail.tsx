@@ -32,24 +32,24 @@ export function GoalDetail() {
   const {
     data: goal,
     isLoading,
-    error
+    error,
   } = useQuery({
     queryKey: queryKeys.goals.detail(goalId!),
     queryFn: () => goalsApi.get(goalId!),
-    enabled: !!goalId
+    enabled: !!goalId,
   });
   const resolvedCompanyId = goal?.companyId ?? selectedCompanyId;
 
   const { data: allGoals } = useQuery({
     queryKey: queryKeys.goals.list(resolvedCompanyId!),
     queryFn: () => goalsApi.list(resolvedCompanyId!),
-    enabled: !!resolvedCompanyId
+    enabled: !!resolvedCompanyId,
   });
 
   const { data: allProjects } = useQuery({
     queryKey: queryKeys.projects.list(resolvedCompanyId!),
     queryFn: () => projectsApi.list(resolvedCompanyId!),
-    enabled: !!resolvedCompanyId
+    enabled: !!resolvedCompanyId,
   });
 
   useEffect(() => {
@@ -58,29 +58,24 @@ export function GoalDetail() {
   }, [goal?.companyId, selectedCompanyId, setSelectedCompanyId]);
 
   const updateGoal = useMutation({
-    mutationFn: (data: Record<string, unknown>) =>
-      goalsApi.update(goalId!, data),
+    mutationFn: (data: Record<string, unknown>) => goalsApi.update(goalId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: queryKeys.goals.detail(goalId!)
+        queryKey: queryKeys.goals.detail(goalId!),
       });
       if (resolvedCompanyId) {
         queryClient.invalidateQueries({
-          queryKey: queryKeys.goals.list(resolvedCompanyId)
+          queryKey: queryKeys.goals.list(resolvedCompanyId),
         });
       }
-    }
+    },
   });
 
   const uploadImage = useMutation({
     mutationFn: async (file: File) => {
       if (!resolvedCompanyId) throw new Error("No company selected");
-      return assetsApi.uploadImage(
-        resolvedCompanyId,
-        file,
-        `goals/${goalId ?? "draft"}`
-      );
-    }
+      return assetsApi.uploadImage(resolvedCompanyId, file, `goals/${goalId ?? "draft"}`);
+    },
   });
 
   const childGoals = (allGoals ?? []).filter((g) => g.parentId === goalId);
@@ -92,20 +87,12 @@ export function GoalDetail() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([
-      { label: "Goals", href: "/goals" },
-      { label: goal?.title ?? goalId ?? "Goal" }
-    ]);
+    setBreadcrumbs([{ label: "Goals", href: "/goals" }, { label: goal?.title ?? goalId ?? "Goal" }]);
   }, [setBreadcrumbs, goal, goalId]);
 
   useEffect(() => {
     if (goal) {
-      openPanel(
-        <GoalProperties
-          goal={goal}
-          onUpdate={(data) => updateGoal.mutate(data)}
-        />
-      );
+      openPanel(<GoalProperties goal={goal} onUpdate={(data) => updateGoal.mutate(data)} />);
     }
     return () => closePanel();
   }, [goal]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -118,9 +105,7 @@ export function GoalDetail() {
     <div className="space-y-6">
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs uppercase text-muted-foreground">
-            {goal.level}
-          </span>
+          <span className="text-xs uppercase text-muted-foreground">{goal.level}</span>
           <StatusBadge status={goal.status} />
         </div>
 
@@ -147,21 +132,13 @@ export function GoalDetail() {
 
       <Tabs defaultValue="children">
         <TabsList>
-          <TabsTrigger value="children">
-            Sub-Goals ({childGoals.length})
-          </TabsTrigger>
-          <TabsTrigger value="projects">
-            Projects ({linkedProjects.length})
-          </TabsTrigger>
+          <TabsTrigger value="children">Sub-Goals ({childGoals.length})</TabsTrigger>
+          <TabsTrigger value="projects">Projects ({linkedProjects.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="children" className="mt-4 space-y-3">
           <div className="flex items-center justify-start">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => openNewGoal({ parentId: goalId })}
-            >
+            <Button size="sm" variant="outline" onClick={() => openNewGoal({ parentId: goalId })}>
               <Plus className="h-3.5 w-3.5 mr-1.5" />
               Sub Goal
             </Button>

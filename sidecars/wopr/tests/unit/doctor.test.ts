@@ -69,19 +69,17 @@ describe("doctor command", () => {
       process.env.ANTHROPIC_API_KEY = "sk-test-env";
       delete process.env.OPENAI_API_KEY;
 
-      vi.mocked(readFile).mockResolvedValue(
-        JSON.stringify({ name: "test-plugin", version: "1.0.0" }) as any,
-      );
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ name: "test-plugin", version: "1.0.0" }) as any);
       vi.mocked(access).mockResolvedValue(undefined);
       vi.mocked(config.load).mockResolvedValue({
-        daemon: { port: 7437, host: "127.0.0.1", autoStart: false},
+        daemon: { port: 7437, host: "127.0.0.1", autoStart: false },
         anthropic: { apiKey: "sk-test" },
         oauth: {},
         discovery: { topics: [], autoJoin: false },
         plugins: { autoLoad: true, directories: ["/tmp/test-wopr/plugins"] },
       } as any);
       vi.mocked(config.get).mockReturnValue({
-        daemon: { port: 7437, host: "127.0.0.1", autoStart: false},
+        daemon: { port: 7437, host: "127.0.0.1", autoStart: false },
         anthropic: { apiKey: "sk-test" },
         oauth: {},
         discovery: { topics: [], autoJoin: false },
@@ -132,7 +130,7 @@ describe("doctor command", () => {
       delete process.env.ANTHROPIC_API_KEY;
       delete process.env.OPENAI_API_KEY;
       vi.mocked(config.get).mockReturnValue({
-        daemon: { port: 7437, host: "127.0.0.1", autoStart: false},
+        daemon: { port: 7437, host: "127.0.0.1", autoStart: false },
         anthropic: {},
         oauth: {},
         discovery: { topics: [], autoJoin: false },
@@ -173,7 +171,9 @@ describe("doctor command", () => {
       vi.mocked(getInstalledPlugins).mockResolvedValue([
         { name: "test-plugin", version: "1.0.0", path: "/tmp/plugins/test", enabled: true, source: "local" },
       ] as any);
-      const err = Object.assign(new Error("ENOENT: no such file or directory, open '/tmp/plugins/test/package.json'"), { code: "ENOENT" });
+      const err = Object.assign(new Error("ENOENT: no such file or directory, open '/tmp/plugins/test/package.json'"), {
+        code: "ENOENT",
+      });
       vi.mocked(readFile).mockRejectedValue(err);
       const results = await runChecks();
       const pluginCheck = results.find((r) => r.name === "Plugin manifests");

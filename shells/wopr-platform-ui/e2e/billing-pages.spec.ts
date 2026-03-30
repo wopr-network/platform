@@ -215,9 +215,7 @@ test.describe("Billing Pages", () => {
     await expect(page.getByRole("heading", { name: "Your Plan" }).first()).toBeVisible({
       timeout: 10000,
     });
-    await expect(
-      page.getByText("Simple pricing. No tiers. No gotchas.").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Simple pricing. No tiers. No gotchas.").first()).toBeVisible();
 
     // Plan card title (rendered as uppercase CardTitle)
     await expect(page.getByText("WOPR Bot").first()).toBeVisible();
@@ -234,9 +232,7 @@ test.describe("Billing Pages", () => {
     await expect(page.getByText("All providers").first()).toBeVisible();
 
     // Billing note
-    await expect(
-      page.getByText("Usage is billed from credits at transparent per-use rates.").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Usage is billed from credits at transparent per-use rates.").first()).toBeVisible();
 
     // Link to full pricing page
     await expect(page.getByRole("link", { name: "View full pricing" }).first()).toBeVisible();

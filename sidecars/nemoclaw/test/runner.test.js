@@ -63,7 +63,7 @@ describe("runner env merging", () => {
     const originalGateway = process.env.OPENSHELL_GATEWAY;
     process.env.OPENSHELL_GATEWAY = "nemoclaw";
     try {
-      const output = runCapture("printf '%s %s' \"$OPENSHELL_GATEWAY\" \"$OPENAI_API_KEY\"", {
+      const output = runCapture('printf \'%s %s\' "$OPENSHELL_GATEWAY" "$OPENAI_API_KEY"', {
         env: { OPENAI_API_KEY: "sk-test-secret" },
       });
       expect(output).toBe("nemoclaw sk-test-secret");
@@ -205,15 +205,15 @@ describe("regression guards", () => {
     const canaryDir = fs.mkdtempSync(path.join(os.tmpdir(), "nemoclaw-canary-"));
     const canary = path.join(canaryDir, "executed");
     try {
-      const result = spawnSync("node", [
-        path.join(import.meta.dirname, "..", "bin", "nemoclaw.js"),
-        `test; touch ${canary}`,
-        "connect",
-      ], {
-        encoding: "utf-8",
-        timeout: 10000,
-        cwd: path.join(import.meta.dirname, ".."),
-      });
+      const result = spawnSync(
+        "node",
+        [path.join(import.meta.dirname, "..", "bin", "nemoclaw.js"), `test; touch ${canary}`, "connect"],
+        {
+          encoding: "utf-8",
+          timeout: 10000,
+          cwd: path.join(import.meta.dirname, ".."),
+        },
+      );
       expect(result.status).not.toBe(0);
       expect(fs.existsSync(canary)).toBe(false);
     } finally {
@@ -273,9 +273,7 @@ describe("regression guards", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(import.meta.dirname, "..", "bin", "nemoclaw.js"), "utf-8");
       // Find the run() call inside setupSpark — it should not contain the key
-      const sparkLines = src.split("\n").filter(
-        (l) => l.includes("setup-spark") && l.includes("run(")
-      );
+      const sparkLines = src.split("\n").filter((l) => l.includes("setup-spark") && l.includes("run("));
       for (const line of sparkLines) {
         expect(line.includes("NVIDIA_API_KEY")).toBe(false);
       }
@@ -285,10 +283,14 @@ describe("regression guards", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(import.meta.dirname, "..", "scripts", "walkthrough.sh"), "utf-8");
       // Check only executable lines (tmux spawn, openshell connect) — not comments/docs
-      const cmdLines = src.split("\n").filter(
-        (l) => !l.trim().startsWith("#") && !l.trim().startsWith("echo") &&
-               (l.includes("tmux") || l.includes("openshell sandbox connect"))
-      );
+      const cmdLines = src
+        .split("\n")
+        .filter(
+          (l) =>
+            !l.trim().startsWith("#") &&
+            !l.trim().startsWith("echo") &&
+            (l.includes("tmux") || l.includes("openshell sandbox connect")),
+        );
       for (const line of cmdLines) {
         expect(line.includes("NVIDIA_API_KEY")).toBe(false);
       }

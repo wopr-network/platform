@@ -2,7 +2,10 @@ import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAdminMarketplaceRoutes } from "../../src/api/routes/admin-marketplace.js";
 import type { IMarketplacePluginRepository } from "@wopr-network/platform-core/marketplace/marketplace-plugin-repository";
-import type { MarketplacePlugin, NewMarketplacePlugin } from "@wopr-network/platform-core/marketplace/marketplace-repository-types";
+import type {
+  MarketplacePlugin,
+  NewMarketplacePlugin,
+} from "@wopr-network/platform-core/marketplace/marketplace-repository-types";
 
 function makeMockRepo(): IMarketplacePluginRepository {
   const store = new Map<string, MarketplacePlugin>();

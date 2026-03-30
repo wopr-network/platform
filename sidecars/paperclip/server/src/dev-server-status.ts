@@ -37,9 +37,7 @@ function normalizeTimestamp(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export function readPersistedDevServerStatus(
-  env: NodeJS.ProcessEnv = process.env,
-): PersistedDevServerStatus | null {
+export function readPersistedDevServerStatus(env: NodeJS.ProcessEnv = process.env): PersistedDevServerStatus | null {
   const filePath = env.PAPERCLIP_DEV_SERVER_STATUS_FILE?.trim();
   if (!filePath || !existsSync(filePath)) return null;
 
@@ -53,10 +51,7 @@ export function readPersistedDevServerStatus(
         ? Math.max(0, Math.trunc(changedPathCountRaw))
         : changedPathsSample.length;
     const dirtyRaw = raw.dirty;
-    const dirty =
-      typeof dirtyRaw === "boolean"
-        ? dirtyRaw
-        : changedPathCount > 0 || pendingMigrations.length > 0;
+    const dirty = typeof dirtyRaw === "boolean" ? dirtyRaw : changedPathCount > 0 || pendingMigrations.length > 0;
 
     return {
       dirty,

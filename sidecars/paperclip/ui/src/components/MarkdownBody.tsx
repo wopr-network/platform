@@ -84,10 +84,7 @@ function MermaidDiagramBlock({ source, darkMode }: { source: string; darkMode: b
       })
       .catch((err) => {
         if (!active) return;
-        const message =
-          err instanceof Error && err.message
-            ? err.message
-            : "Failed to render Mermaid diagram.";
+        const message = err instanceof Error && err.message ? err.message : "Failed to render Mermaid diagram.";
         setError(message);
       });
 

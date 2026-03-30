@@ -5,9 +5,9 @@
  * Uses in-memory PGlite for the tenant store and mocked IPaymentProcessor.
  */
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_HEADER, JSON_HEADERS } from "./setup.js";
-import { createTestDb, truncateAllTables } from "@wopr-network/platform-core/test/db"
+import { createTestDb, truncateAllTables } from "@wopr-network/platform-core/test/db";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 
 const { app } = await import("../../src/api/app.js");
@@ -18,7 +18,9 @@ const { MeterAggregator } = await import("@wopr-network/platform-core/metering")
 const { DrizzleUsageSummaryRepository } = await import("@wopr-network/platform-core/metering");
 const { TenantCustomerRepository } = await import("@wopr-network/platform-core/monetization/index");
 import type { IPaymentProcessor } from "@wopr-network/platform-core/monetization/payment-processor";
-const { DrizzleAffiliateRepository } = await import("@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository");
+const { DrizzleAffiliateRepository } = await import(
+  "@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository"
+);
 
 async function createTestSigPenaltyRepo() {
   const { db } = await createTestDb();
@@ -40,7 +42,9 @@ function createMockProcessor(overrides: Partial<IPaymentProcessor> = {}): IPayme
       handled: false,
       eventType: "unknown",
     }) as IPaymentProcessor["handleWebhook"],
-    setupPaymentMethod: vi.fn().mockResolvedValue({ clientSecret: "seti_test" }) as IPaymentProcessor["setupPaymentMethod"],
+    setupPaymentMethod: vi
+      .fn()
+      .mockResolvedValue({ clientSecret: "seti_test" }) as IPaymentProcessor["setupPaymentMethod"],
     listPaymentMethods: vi.fn().mockResolvedValue([]) as IPaymentProcessor["listPaymentMethods"],
     detachPaymentMethod: vi.fn().mockResolvedValue(undefined) as IPaymentProcessor["detachPaymentMethod"],
     charge: vi.fn().mockResolvedValue({ success: true }) as IPaymentProcessor["charge"],
@@ -186,7 +190,11 @@ describe("integration: billing routes", () => {
     it("returns 500 when processor fails", async () => {
       setBillingDeps({
         processor: createMockProcessor({
-          createCheckoutSession: vi.fn().mockRejectedValue(new Error("Payment processor unavailable")) as IPaymentProcessor["createCheckoutSession"],
+          createCheckoutSession: vi
+            .fn()
+            .mockRejectedValue(
+              new Error("Payment processor unavailable"),
+            ) as IPaymentProcessor["createCheckoutSession"],
         }),
         creditLedger: new DrizzleLedger(db),
         meterAggregator: new MeterAggregator(new DrizzleUsageSummaryRepository(db)),
@@ -214,7 +222,11 @@ describe("integration: billing routes", () => {
     it("creates portal session with valid input", async () => {
       setBillingDeps({
         processor: createMockProcessor({
-          createPortalSession: vi.fn().mockResolvedValue({ url: "https://pay.example.com/portal/session" }) as IPaymentProcessor["createPortalSession"],
+          createPortalSession: vi
+            .fn()
+            .mockResolvedValue({
+              url: "https://pay.example.com/portal/session",
+            }) as IPaymentProcessor["createPortalSession"],
         }),
         creditLedger: new DrizzleLedger(db),
         meterAggregator: new MeterAggregator(new DrizzleUsageSummaryRepository(db)),
@@ -284,7 +296,11 @@ describe("integration: billing routes", () => {
     it("returns 400 when signature verification fails", async () => {
       setBillingDeps({
         processor: createMockProcessor({
-          handleWebhook: vi.fn().mockRejectedValue(new Error("Webhook signature verification failed")) as IPaymentProcessor["handleWebhook"],
+          handleWebhook: vi
+            .fn()
+            .mockRejectedValue(
+              new Error("Webhook signature verification failed"),
+            ) as IPaymentProcessor["handleWebhook"],
         }),
         creditLedger: new DrizzleLedger(db),
         meterAggregator: new MeterAggregator(new DrizzleUsageSummaryRepository(db)),

@@ -121,12 +121,10 @@ describe("E2E: friends/social lifecycle", () => {
       const body = await res.json();
       expect(body.ok).toBe(true);
       expect(body.requestId).toBe("req-alice-bob-1");
-      expect(mockProxyToInstance).toHaveBeenCalledWith(
-        ALICE,
-        "POST",
-        "/p2p/friends/requests",
-        { peerId: "peer-bob", message: "Hey Bob!" },
-      );
+      expect(mockProxyToInstance).toHaveBeenCalledWith(ALICE, "POST", "/p2p/friends/requests", {
+        peerId: "peer-bob",
+        message: "Hey Bob!",
+      });
     });
 
     it("User B accepts friend request from User A", async () => {
@@ -136,17 +134,13 @@ describe("E2E: friends/social lifecycle", () => {
         data: { ok: true },
       });
 
-      const res = await app.request(
-        `/api/instances/${BOB}/friends/requests/req-alice-bob-1/accept`,
-        { method: "POST", headers: authHeader },
-      );
+      const res = await app.request(`/api/instances/${BOB}/friends/requests/req-alice-bob-1/accept`, {
+        method: "POST",
+        headers: authHeader,
+      });
 
       expect(res.status).toBe(200);
-      expect(mockProxyToInstance).toHaveBeenCalledWith(
-        BOB,
-        "POST",
-        "/p2p/friends/requests/req-alice-bob-1/accept",
-      );
+      expect(mockProxyToInstance).toHaveBeenCalledWith(BOB, "POST", "/p2p/friends/requests/req-alice-bob-1/accept");
     });
 
     it("friendship is bidirectional — both instances list each other", async () => {
@@ -196,22 +190,16 @@ describe("E2E: friends/social lifecycle", () => {
         data: { ok: true },
       });
 
-      const res = await app.request(
-        `/api/instances/${ALICE}/friends/peer-bob/capabilities`,
-        {
-          method: "PATCH",
-          headers: jsonAuth,
-          body: JSON.stringify({ capabilities: ["message-only", "inject"] }),
-        },
-      );
+      const res = await app.request(`/api/instances/${ALICE}/friends/peer-bob/capabilities`, {
+        method: "PATCH",
+        headers: jsonAuth,
+        body: JSON.stringify({ capabilities: ["message-only", "inject"] }),
+      });
 
       expect(res.status).toBe(200);
-      expect(mockProxyToInstance).toHaveBeenCalledWith(
-        ALICE,
-        "PATCH",
-        "/p2p/friends/peer-bob/capabilities",
-        { capabilities: ["message-only", "inject"] },
-      );
+      expect(mockProxyToInstance).toHaveBeenCalledWith(ALICE, "PATCH", "/p2p/friends/peer-bob/capabilities", {
+        capabilities: ["message-only", "inject"],
+      });
     });
 
     it.todo("User A unfriends User B — verify cleanup (no DELETE /friends/:id route yet)");
@@ -246,17 +234,13 @@ describe("E2E: friends/social lifecycle", () => {
         data: { ok: true },
       });
 
-      const res = await app.request(
-        `/api/instances/${BOB}/friends/requests/req-charlie-bob-1/reject`,
-        { method: "POST", headers: authHeader },
-      );
+      const res = await app.request(`/api/instances/${BOB}/friends/requests/req-charlie-bob-1/reject`, {
+        method: "POST",
+        headers: authHeader,
+      });
 
       expect(res.status).toBe(200);
-      expect(mockProxyToInstance).toHaveBeenCalledWith(
-        BOB,
-        "POST",
-        "/p2p/friends/requests/req-charlie-bob-1/reject",
-      );
+      expect(mockProxyToInstance).toHaveBeenCalledWith(BOB, "POST", "/p2p/friends/requests/req-charlie-bob-1/reject");
     });
 
     it("capability update for non-friend returns 404 from instance", async () => {
@@ -266,14 +250,11 @@ describe("E2E: friends/social lifecycle", () => {
         error: "Friend not found",
       });
 
-      const res = await app.request(
-        `/api/instances/${BOB}/friends/peer-charlie/capabilities`,
-        {
-          method: "PATCH",
-          headers: jsonAuth,
-          body: JSON.stringify({ capabilities: ["message-only"] }),
-        },
-      );
+      const res = await app.request(`/api/instances/${BOB}/friends/peer-charlie/capabilities`, {
+        method: "PATCH",
+        headers: jsonAuth,
+        body: JSON.stringify({ capabilities: ["message-only"] }),
+      });
 
       expect(res.status).toBe(404);
     });

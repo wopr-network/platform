@@ -12,13 +12,7 @@
  * @see PLUGIN_SPEC.md §19.0.2 — Bundle Isolation
  */
 
-import {
-  usePluginData,
-  usePluginAction,
-  useHostContext,
-  usePluginStream,
-  usePluginToast,
-} from "./bridge.js";
+import { usePluginData, usePluginAction, useHostContext, usePluginStream, usePluginToast } from "./bridge.js";
 
 // ---------------------------------------------------------------------------
 // Global bridge registry
@@ -51,10 +45,7 @@ declare global {
  * @param react - The host's React module
  * @param reactDom - The host's ReactDOM module
  */
-export function initPluginBridge(
-  react: typeof import("react"),
-  reactDom: typeof import("react-dom"),
-): void {
+export function initPluginBridge(react: typeof import("react"), reactDom: typeof import("react-dom")): void {
   globalThis.__paperclipPluginBridge__ = {
     react,
     reactDom,

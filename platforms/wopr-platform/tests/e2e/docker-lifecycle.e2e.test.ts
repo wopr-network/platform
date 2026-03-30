@@ -14,10 +14,7 @@ import type { BotProfile } from "@wopr-network/platform-core/fleet/types";
 let dockerAvailable = false;
 try {
   const probe = new Docker();
-  await Promise.race([
-    probe.ping(),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3_000)),
-  ]);
+  await Promise.race([probe.ping(), new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 3_000))]);
   dockerAvailable = true;
 } catch {
   // Docker not available or unreachable
@@ -39,7 +36,9 @@ const TEST_IMAGE_ALT = "alpine:3.20";
 /** List all containers whose name starts with our test prefix */
 async function listTestContainers(docker: Docker): Promise<Docker.ContainerInfo[]> {
   const all = await docker.listContainers({ all: true });
-  return all.filter((c) => c.Names.some((n) => n.startsWith(`/${TEST_PREFIX}`) || n.startsWith(`/wopr-${TEST_PREFIX}`)));
+  return all.filter((c) =>
+    c.Names.some((n) => n.startsWith(`/${TEST_PREFIX}`) || n.startsWith(`/wopr-${TEST_PREFIX}`)),
+  );
 }
 
 /** Forcefully remove every test container (cleanup) */
@@ -64,9 +63,7 @@ async function removeAllWoprTestContainers(docker: Docker): Promise<void> {
   });
   for (const info of containers) {
     // Only remove containers whose names match our test prefix
-    const isOurs = info.Names.some(
-      (n) => n.includes(TEST_PREFIX),
-    );
+    const isOurs = info.Names.some((n) => n.includes(TEST_PREFIX));
     if (!isOurs) continue;
     const c = docker.getContainer(info.Id);
     try {

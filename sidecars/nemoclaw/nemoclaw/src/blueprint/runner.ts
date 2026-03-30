@@ -172,17 +172,11 @@ export async function actionPlan(
   const rid = emitRunId();
   progress(10, "Validating blueprint");
 
-  const { inferenceCfg, sandboxCfg } = await resolveRunConfig(
-    profile,
-    blueprint,
-    options?.endpointUrl,
-  );
+  const { inferenceCfg, sandboxCfg } = await resolveRunConfig(profile, blueprint, options?.endpointUrl);
 
   progress(20, "Checking prerequisites");
   if (!(await openshellAvailable())) {
-    throw new Error(
-      "openshell CLI not found. Install OpenShell first.\n  See: https://github.com/NVIDIA/OpenShell",
-    );
+    throw new Error("openshell CLI not found. Install OpenShell first.\n  See: https://github.com/NVIDIA/OpenShell");
   }
 
   const plan: RunPlan = {
@@ -215,33 +209,19 @@ export async function actionApply(
   options?: { planPath?: string; endpointUrl?: string },
 ): Promise<void> {
   if (options?.planPath) {
-    throw new Error(
-      "--plan is not yet implemented. Run apply without --plan to use the live blueprint.",
-    );
+    throw new Error("--plan is not yet implemented. Run apply without --plan to use the live blueprint.");
   }
 
   const rid = emitRunId();
 
-  const { inferenceCfg, sandboxCfg } = await resolveRunConfig(
-    profile,
-    blueprint,
-    options?.endpointUrl,
-  );
+  const { inferenceCfg, sandboxCfg } = await resolveRunConfig(profile, blueprint, options?.endpointUrl);
 
   const sandboxName = sandboxCfg.name ?? "openclaw";
   const sandboxImage = sandboxCfg.image ?? "openclaw";
   const forwardPorts = sandboxCfg.forward_ports ?? [18789];
 
   progress(20, "Creating OpenClaw sandbox");
-  const createArgs = [
-    "openshell",
-    "sandbox",
-    "create",
-    "--from",
-    sandboxImage,
-    "--name",
-    sandboxName,
-  ];
+  const createArgs = ["openshell", "sandbox", "create", "--from", sandboxImage, "--name", sandboxName];
   for (const port of forwardPorts) {
     createArgs.push("--forward", String(port));
   }
@@ -268,15 +248,7 @@ export async function actionApply(
     credential = process.env[credentialEnv] ?? credentialDefault;
   }
 
-  const providerArgs = [
-    "openshell",
-    "provider",
-    "create",
-    "--name",
-    providerName,
-    "--type",
-    providerType,
-  ];
+  const providerArgs = ["openshell", "provider", "create", "--name", providerName, "--type", providerType];
   // Pass the env-var NAME (not the value) to --credential; openshell reads the value from the env.
   // Scope the credential to the subprocess to avoid leaking into later commands.
   const credEnv: Record<string, string> = {};

@@ -67,9 +67,7 @@ const discordManifest = {
     env: ["DISCORD_TOKEN"],
     node: ">=22.0.0",
   },
-  install: [
-    { kind: "manual", instructions: "Set DISCORD_TOKEN in environment" },
-  ],
+  install: [{ kind: "manual", instructions: "Set DISCORD_TOKEN in environment" }],
   setup: [
     {
       id: "token",
@@ -146,9 +144,7 @@ vi.mock("../../src/plugins.js", () => ({
       },
     ];
     if (!query) return all;
-    return all.filter(
-      (p) => p.name.includes(query) || p.description?.includes(query),
-    );
+    return all.filter((p) => p.name.includes(query) || p.description?.includes(query));
   }),
 }));
 

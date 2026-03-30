@@ -13,7 +13,11 @@ import { useCompany } from "../context/CompanyContext";
 import { useToast } from "../context/ToastContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
-import { ProjectProperties, type ProjectConfigFieldKey, type ProjectFieldSaveState } from "../components/ProjectProperties";
+import {
+  ProjectProperties,
+  type ProjectConfigFieldKey,
+  type ProjectFieldSaveState,
+} from "../components/ProjectProperties";
 import { InlineEditor } from "../components/InlineEditor";
 import { StatusBadge } from "../components/StatusBadge";
 import { BudgetPolicyCard } from "../components/BudgetPolicyCard";
@@ -90,13 +94,7 @@ function OverviewContent({
 
 /* ── Color picker popover ── */
 
-function ColorPicker({
-  currentColor,
-  onSelect,
-}: {
-  currentColor: string;
-  onSelect: (color: string) => void;
-}) {
+function ColorPicker({ currentColor, onSelect }: { currentColor: string; onSelect: (color: string) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -171,15 +169,18 @@ function ProjectIssuesList({ projectId, companyId }: { projectId: string; compan
     return ids;
   }, [liveRuns]);
 
-  const { data: issues, isLoading, error } = useQuery({
+  const {
+    data: issues,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: queryKeys.issues.listByProject(companyId, projectId),
     queryFn: () => issuesApi.list(companyId, { projectId }),
     enabled: !!companyId,
   });
 
   const updateIssue = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) =>
-      issuesApi.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => issuesApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listByProject(companyId, projectId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });
@@ -215,7 +216,9 @@ export function ProjectDetail() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
-  const [fieldSaveStates, setFieldSaveStates] = useState<Partial<Record<ProjectConfigFieldKey, ProjectFieldSaveState>>>({});
+  const [fieldSaveStates, setFieldSaveStates] = useState<Partial<Record<ProjectConfigFieldKey, ProjectFieldSaveState>>>(
+    {},
+  );
   const fieldSaveRequestIds = useRef<Partial<Record<ProjectConfigFieldKey, number>>>({});
   const fieldSaveTimers = useRef<Partial<Record<ProjectConfigFieldKey, ReturnType<typeof setTimeout>>>>({});
   const routeProjectRef = projectId ?? "";
@@ -233,7 +236,11 @@ export function ProjectDetail() {
   }, [location.search]);
   const activeTab = activeRouteTab ?? pluginTabFromSearch;
 
-  const { data: project, isLoading, error } = useQuery({
+  const {
+    data: project,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: [...queryKeys.projects.detail(routeProjectRef), lookupCompanyId ?? null],
     queryFn: () => projectsApi.get(routeProjectRef, lookupCompanyId),
     enabled: canFetchProject,
@@ -241,21 +248,19 @@ export function ProjectDetail() {
   const canonicalProjectRef = project ? projectRouteRef(project) : routeProjectRef;
   const projectLookupRef = project?.id ?? routeProjectRef;
   const resolvedCompanyId = project?.companyId ?? selectedCompanyId;
-  const {
-    slots: pluginDetailSlots,
-    isLoading: pluginDetailSlotsLoading,
-  } = usePluginSlots({
+  const { slots: pluginDetailSlots, isLoading: pluginDetailSlotsLoading } = usePluginSlots({
     slotTypes: ["detailTab"],
     entityType: "project",
     companyId: resolvedCompanyId,
     enabled: !!resolvedCompanyId,
   });
   const pluginTabItems = useMemo(
-    () => pluginDetailSlots.map((slot) => ({
-      value: `plugin:${slot.pluginKey}:${slot.id}` as ProjectPluginTab,
-      label: slot.displayName,
-      slot,
-    })),
+    () =>
+      pluginDetailSlots.map((slot) => ({
+        value: `plugin:${slot.pluginKey}:${slot.id}` as ProjectPluginTab,
+        label: slot.displayName,
+        slot,
+      })),
     [pluginDetailSlots],
   );
   const activePluginTab = pluginTabItems.find((item) => item.value === activeTab) ?? null;
@@ -386,23 +391,26 @@ export function ProjectDetail() {
     }, delayMs);
   }, []);
 
-  const updateProjectField = useCallback(async (field: ProjectConfigFieldKey, data: Record<string, unknown>) => {
-    const requestId = (fieldSaveRequestIds.current[field] ?? 0) + 1;
-    fieldSaveRequestIds.current[field] = requestId;
-    setFieldState(field, "saving");
-    try {
-      await projectsApi.update(projectLookupRef, data, resolvedCompanyId ?? lookupCompanyId);
-      invalidateProject();
-      if (fieldSaveRequestIds.current[field] !== requestId) return;
-      setFieldState(field, "saved");
-      scheduleFieldReset(field, 1800);
-    } catch (error) {
-      if (fieldSaveRequestIds.current[field] !== requestId) return;
-      setFieldState(field, "error");
-      scheduleFieldReset(field, 3000);
-      throw error;
-    }
-  }, [invalidateProject, lookupCompanyId, projectLookupRef, resolvedCompanyId, scheduleFieldReset, setFieldState]);
+  const updateProjectField = useCallback(
+    async (field: ProjectConfigFieldKey, data: Record<string, unknown>) => {
+      const requestId = (fieldSaveRequestIds.current[field] ?? 0) + 1;
+      fieldSaveRequestIds.current[field] = requestId;
+      setFieldState(field, "saving");
+      try {
+        await projectsApi.update(projectLookupRef, data, resolvedCompanyId ?? lookupCompanyId);
+        invalidateProject();
+        if (fieldSaveRequestIds.current[field] !== requestId) return;
+        setFieldState(field, "saved");
+        scheduleFieldReset(field, 1800);
+      } catch (error) {
+        if (fieldSaveRequestIds.current[field] !== requestId) return;
+        setFieldState(field, "error");
+        scheduleFieldReset(field, 3000);
+        throw error;
+      }
+    },
+    [invalidateProject, lookupCompanyId, projectLookupRef, resolvedCompanyId, scheduleFieldReset, setFieldState],
+  );
 
   const projectBudgetSummary = useMemo(() => {
     const matched = budgetOverview?.policies.find(
@@ -459,7 +467,9 @@ export function ProjectDetail() {
   if (routeProjectRef && activeTab === null) {
     let cachedTab: string | null = null;
     if (project?.id) {
-      try { cachedTab = localStorage.getItem(`paperclip:project-tab:${project.id}`); } catch {}
+      try {
+        cachedTab = localStorage.getItem(`paperclip:project-tab:${project.id}`);
+      } catch {}
     }
     if (cachedTab === "overview") {
       return <Navigate to={`/projects/${canonicalProjectRef}/overview`} replace />;
@@ -483,7 +493,9 @@ export function ProjectDetail() {
   const handleTabChange = (tab: ProjectTab) => {
     // Cache the active tab per project
     if (project?.id) {
-      try { localStorage.setItem(`paperclip:project-tab:${project.id}`, tab); } catch {}
+      try {
+        localStorage.setItem(`paperclip:project-tab:${project.id}`, tab);
+      } catch {}
     }
     if (isProjectPluginTab(tab)) {
       navigate(`/projects/${canonicalProjectRef}?tab=${encodeURIComponent(tab)}`);

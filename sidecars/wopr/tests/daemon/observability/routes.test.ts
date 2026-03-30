@@ -22,7 +22,11 @@ describe("observability API routes", () => {
     mkdirSync(testDir, { recursive: true });
 
     const { observabilityRouter } = await import("../../../src/daemon/routes/observability.js");
-    const { _resetLogsForTesting, healthMonitor, recordLog: recordLogFunc } = await import("../../../src/daemon/observability/index.js");
+    const {
+      _resetLogsForTesting,
+      healthMonitor,
+      recordLog: recordLogFunc,
+    } = await import("../../../src/daemon/observability/index.js");
 
     app = new Hono();
     app.route("/observability", observabilityRouter);

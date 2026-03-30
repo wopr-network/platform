@@ -356,10 +356,7 @@ describe("parseUserProfile", () => {
 // ===========================================================================
 describe("resolveIdentity", () => {
   it("loads identity from global identity directory first", async () => {
-    mockFs.set(
-      path.join(MOCK_GLOBAL_IDENTITY_DIR, "IDENTITY.md"),
-      `- Name: GlobalBot\n- Emoji: 🌍`,
-    );
+    mockFs.set(path.join(MOCK_GLOBAL_IDENTITY_DIR, "IDENTITY.md"), `- Name: GlobalBot\n- Emoji: 🌍`);
 
     const identity = await workspace.resolveIdentity("/test/ws");
     expect(identity.name).toBe("GlobalBot");
@@ -387,10 +384,7 @@ describe("resolveIdentity", () => {
 // ===========================================================================
 describe("resolveUserProfile", () => {
   it("loads user profile from global identity directory first", async () => {
-    mockFs.set(
-      path.join(MOCK_GLOBAL_IDENTITY_DIR, "USER.md"),
-      `- Name: GlobalUser\n- Preferred address: Dr. Global`,
-    );
+    mockFs.set(path.join(MOCK_GLOBAL_IDENTITY_DIR, "USER.md"), `- Name: GlobalUser\n- Preferred address: Dr. Global`);
 
     const profile = await workspace.resolveUserProfile("/test/ws");
     expect(profile.name).toBe("GlobalUser");
@@ -616,10 +610,7 @@ describe("decideSoulEvil", () => {
     it("purge takes priority over chance", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.99); // would not trigger chance
       const now = new Date("2025-01-01T14:00:00");
-      const decision = workspace.decideSoulEvil(
-        { chance: 0.5, purge: { at: "13:00", duration: "2h" } },
-        now,
-      );
+      const decision = workspace.decideSoulEvil({ chance: 0.5, purge: { at: "13:00", duration: "2h" } }, now);
       expect(decision.useEvil).toBe(true);
       expect(decision.reason).toBe("purge");
     });
@@ -640,19 +631,13 @@ describe("decideSoulEvil", () => {
 
     it("handles invalid time format gracefully", () => {
       const now = new Date("2025-01-01T12:00:00");
-      const decision = workspace.decideSoulEvil(
-        { purge: { at: "invalid", duration: "2h" } },
-        now,
-      );
+      const decision = workspace.decideSoulEvil({ purge: { at: "invalid", duration: "2h" } }, now);
       expect(decision.useEvil).toBe(false);
     });
 
     it("handles invalid duration format gracefully", () => {
       const now = new Date("2025-01-01T12:00:00");
-      const decision = workspace.decideSoulEvil(
-        { purge: { at: "12:00", duration: "invalid" } },
-        now,
-      );
+      const decision = workspace.decideSoulEvil({ purge: { at: "12:00", duration: "invalid" } }, now);
       expect(decision.useEvil).toBe(false);
     });
   });

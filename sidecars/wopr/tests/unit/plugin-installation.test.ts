@@ -135,9 +135,7 @@ afterEach(() => {
 describe("installPlugin — local path traversal rejection", () => {
   it("rejects a traversal path that resolves to a non-existent file", async () => {
     // ./../../etc/passwd resolves to /etc/passwd — a file, not a dir
-    await expect(installPlugin("/etc/passwd")).rejects.toThrow(
-      /not a directory|does not resolve to a directory/i,
-    );
+    await expect(installPlugin("/etc/passwd")).rejects.toThrow(/not a directory|does not resolve to a directory/i);
   });
 
   it("rejects path traversal pointing to a directory inside WOPR_HOME", async () => {
@@ -182,9 +180,7 @@ describe("installPlugin — broken symlink rejection", () => {
     symlinkSync(join(testExternalDir, "ghost"), symlink);
 
     // existsSync returns false for dangling symlinks, so "does not exist" fires first
-    await expect(installPlugin(symlink)).rejects.toThrow(
-      /does not exist|Cannot resolve|broken symlink/i,
-    );
+    await expect(installPlugin(symlink)).rejects.toThrow(/does not exist|Cannot resolve|broken symlink/i);
   });
 });
 
@@ -205,15 +201,10 @@ describe("installPlugin — unsafe directory name rejection", () => {
     const unsafeDir = join(testExternalDir, unsafeName);
     try {
       mkdirSync(unsafeDir, { recursive: true });
-      await expect(installPlugin(unsafeDir)).rejects.toThrow(
-        /Invalid local plugin directory name/i,
-      );
+      await expect(installPlugin(unsafeDir)).rejects.toThrow(/Invalid local plugin directory name/i);
     } catch (e: unknown) {
       // If OS won't allow the name, skip
-      if (
-        (e as NodeJS.ErrnoException).code === "ENOENT" ||
-        (e as NodeJS.ErrnoException).code === "EINVAL"
-      ) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT" || (e as NodeJS.ErrnoException).code === "EINVAL") {
         // OS doesn't allow this name — test is vacuously satisfied
         return;
       }
@@ -231,10 +222,7 @@ describe("installPlugin — valid local plugin directory", () => {
     // Create an external plugin dir with package.json (no build step)
     const pluginSrc = join(testExternalDir, "my-plugin");
     mkdirSync(pluginSrc, { recursive: true });
-    writeFileSync(
-      join(pluginSrc, "package.json"),
-      JSON.stringify({ name: "my-plugin", version: "1.0.0" }),
-    );
+    writeFileSync(join(pluginSrc, "package.json"), JSON.stringify({ name: "my-plugin", version: "1.0.0" }));
 
     // node:child_process is mocked at module level — npm install will not actually run
     const result = (await installPlugin(pluginSrc)) as { name: string; source: string };
@@ -246,10 +234,7 @@ describe("installPlugin — valid local plugin directory", () => {
   it("does not call symlinkSync if the plugin directory already exists", async () => {
     const pluginSrc = join(testExternalDir, "existing-plugin");
     mkdirSync(pluginSrc, { recursive: true });
-    writeFileSync(
-      join(pluginSrc, "package.json"),
-      JSON.stringify({ name: "existing-plugin", version: "1.0.0" }),
-    );
+    writeFileSync(join(pluginSrc, "package.json"), JSON.stringify({ name: "existing-plugin", version: "1.0.0" }));
 
     // Pre-create the destination symlink to simulate already-installed
     const destLink = join(testPluginsDir, "existing-plugin");
@@ -277,9 +262,7 @@ describe("installPlugin — npm install uses --ignore-scripts", () => {
 
     // Find the npm install call (not the git clone/pull call)
     const calls = execFileSyncMock.mock.calls;
-    const npmInstallCall = calls.find(
-      (c) => c[0] === "npm" && Array.isArray(c[1]) && c[1][0] === "install",
-    );
+    const npmInstallCall = calls.find((c) => c[0] === "npm" && Array.isArray(c[1]) && c[1][0] === "install");
     expect(npmInstallCall![0]).toBe("npm");
     expect(npmInstallCall![1]).toEqual(expect.arrayContaining(["install", "--ignore-scripts"]));
   });
@@ -290,17 +273,12 @@ describe("installPlugin — npm install uses --ignore-scripts", () => {
 
     const pluginSrc = join(testExternalDir, "local-safe");
     mkdirSync(pluginSrc, { recursive: true });
-    writeFileSync(
-      join(pluginSrc, "package.json"),
-      JSON.stringify({ name: "local-safe", version: "1.0.0" }),
-    );
+    writeFileSync(join(pluginSrc, "package.json"), JSON.stringify({ name: "local-safe", version: "1.0.0" }));
 
     await installPlugin(pluginSrc);
 
     const calls = execFileSyncMock.mock.calls;
-    const npmInstallCall = calls.find(
-      (c) => c[0] === "npm" && Array.isArray(c[1]) && c[1][0] === "install",
-    );
+    const npmInstallCall = calls.find((c) => c[0] === "npm" && Array.isArray(c[1]) && c[1][0] === "install");
     expect(npmInstallCall![0]).toBe("npm");
     expect(npmInstallCall![1]).toEqual(expect.arrayContaining(["install", "--ignore-scripts"]));
   });
@@ -314,13 +292,12 @@ describe("installPlugin — npm install uses --ignore-scripts", () => {
     const calls = execFileSyncMock.mock.calls;
     // Find the call that installs the scoped package (npm path)
     const npmInstallCall = calls.find(
-      (c) =>
-        c[0] === "npm" &&
-        Array.isArray(c[1]) &&
-        (c[1] as string[]).some((arg) => arg.includes("@wopr-network")),
+      (c) => c[0] === "npm" && Array.isArray(c[1]) && (c[1] as string[]).some((arg) => arg.includes("@wopr-network")),
     );
     expect(npmInstallCall![0]).toBe("npm");
-    expect(npmInstallCall![1]).toEqual(expect.arrayContaining(["install", "--ignore-scripts", "@wopr-network/plugin-discord"]));
+    expect(npmInstallCall![1]).toEqual(
+      expect.arrayContaining(["install", "--ignore-scripts", "@wopr-network/plugin-discord"]),
+    );
   });
 
   it("does not call npm run build automatically", async () => {
@@ -329,21 +306,14 @@ describe("installPlugin — npm install uses --ignore-scripts", () => {
 
     const pluginSrc = join(testExternalDir, "ts-plugin");
     mkdirSync(pluginSrc, { recursive: true });
-    writeFileSync(
-      join(pluginSrc, "package.json"),
-      JSON.stringify({ name: "ts-plugin", version: "1.0.0" }),
-    );
+    writeFileSync(join(pluginSrc, "package.json"), JSON.stringify({ name: "ts-plugin", version: "1.0.0" }));
     writeFileSync(join(pluginSrc, "tsconfig.json"), JSON.stringify({}));
 
     await installPlugin(pluginSrc);
 
     const calls = execFileSyncMock.mock.calls;
     const buildCall = calls.find(
-      (c) =>
-        c[0] === "npm" &&
-        Array.isArray(c[1]) &&
-        c[1][0] === "run" &&
-        c[1][1] === "build",
+      (c) => c[0] === "npm" && Array.isArray(c[1]) && c[1][0] === "run" && c[1][1] === "build",
     );
     expect(buildCall).toBeUndefined();
   });

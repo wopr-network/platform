@@ -100,9 +100,7 @@ describe("BuyCreditsPanel", () => {
     mockGetCreditOptions.mockResolvedValue([]);
     render(<BuyCreditsPanel />);
 
-    expect(
-      await screen.findByText("Credit purchases are not available at this time."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Credit purchases are not available at this time.")).toBeInTheDocument();
     // Should NOT show retry button for intentionally empty tiers
     expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
   });

@@ -28,10 +28,7 @@ function makeDeps(overrides: Partial<ProtocolDeps> = {}): ProtocolDeps {
   };
 }
 
-function openaiResponse(
-  content: string,
-  usage = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-) {
+function openaiResponse(content: string, usage = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }) {
   return {
     id: "chatcmpl-123",
     object: "chat.completion",
@@ -222,11 +219,7 @@ describe("OpenAI protocol handler", () => {
     it("pipes SSE stream through on stream: true", async () => {
       const sseBody = new ReadableStream({
         start(controller) {
-          controller.enqueue(
-            new TextEncoder().encode(
-              'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n',
-            ),
-          );
+          controller.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'));
           controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
           controller.close();
         },
@@ -254,7 +247,11 @@ describe("OpenAI protocol handler", () => {
     });
 
     it("emits meter event for streaming with cost header", async () => {
-      const sseBody = new ReadableStream({ start(c) { c.close(); } });
+      const sseBody = new ReadableStream({
+        start(c) {
+          c.close();
+        },
+      });
       (deps.fetchFn as ReturnType<typeof vi.fn>).mockResolvedValue(
         new Response(sseBody, {
           status: 200,
@@ -267,13 +264,15 @@ describe("OpenAI protocol handler", () => {
         headers: { Authorization: "Bearer valid-key", "Content-Type": "application/json" },
         body: JSON.stringify({ model: "gpt-4", messages: [], stream: true }),
       });
-      expect(deps.meter.emit).toHaveBeenCalledWith(
-        expect.objectContaining({ tenant: "tenant-openai-test" }),
-      );
+      expect(deps.meter.emit).toHaveBeenCalledWith(expect.objectContaining({ tenant: "tenant-openai-test" }));
     });
 
     it("skips meter when streaming cost is 0", async () => {
-      const sseBody = new ReadableStream({ start(c) { c.close(); } });
+      const sseBody = new ReadableStream({
+        start(c) {
+          c.close();
+        },
+      });
       (deps.fetchFn as ReturnType<typeof vi.fn>).mockResolvedValue(
         new Response(sseBody, {
           status: 200,
@@ -311,10 +310,7 @@ describe("OpenAI protocol handler", () => {
         body: JSON.stringify({ model: "text-embedding-3-small", input: "Hello" }),
       });
       expect(res.status).toBe(200);
-      expect(deps.fetchFn).toHaveBeenCalledWith(
-        "https://fake.test/api/v1/embeddings",
-        expect.anything(),
-      );
+      expect(deps.fetchFn).toHaveBeenCalledWith("https://fake.test/api/v1/embeddings", expect.anything());
     });
 
     it("returns 429 when budget exceeded for embeddings", async () => {

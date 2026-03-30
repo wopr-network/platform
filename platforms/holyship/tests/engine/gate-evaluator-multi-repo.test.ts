@@ -113,9 +113,7 @@ describe("evaluateGateForAllRepos", () => {
     expect(calledEntity.artifacts?._currentRepo).toBe("wopr-network/wopr-platform");
     expect(calledEntity.artifacts?._currentRepoName).toBe("wopr-platform");
     expect(calledEntity.artifacts?._currentPrNumber).toBe("42");
-    expect(calledEntity.artifacts?._currentPrUrl).toBe(
-      "https://github.com/wopr-network/wopr-platform/pull/42",
-    );
+    expect(calledEntity.artifacts?._currentPrUrl).toBe("https://github.com/wopr-network/wopr-platform/pull/42");
   });
 
   it("aggregates output from all repos when all pass", async () => {

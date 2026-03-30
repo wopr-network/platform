@@ -39,9 +39,7 @@ describe("09-daemon step — token redaction", () => {
   });
 
   it("should NOT display any portion of the auth token in note output", async () => {
-    const { daemonStep } = await import(
-      "../../../../src/commands/onboard/steps/09-daemon.js"
-    );
+    const { daemonStep } = await import("../../../../src/commands/onboard/steps/09-daemon.js");
 
     const ctx = {
       opts: { skipDaemon: false, flow: "quickstart" },
@@ -52,9 +50,7 @@ describe("09-daemon step — token redaction", () => {
     await daemonStep(ctx as Parameters<typeof daemonStep>[0]);
 
     // Find the "Gateway Configuration" note call
-    const configNoteCall = noteMock.mock.calls.find(
-      (call) => call[1] === "Gateway Configuration",
-    );
+    const configNoteCall = noteMock.mock.calls.find((call) => call[1] === "Gateway Configuration");
     expect(configNoteCall).toBeDefined();
 
     const noteContent = configNoteCall![0] as string;
@@ -69,9 +65,7 @@ describe("09-daemon step — token redaction", () => {
   });
 
   it("should include token length in the Gateway Configuration note", async () => {
-    const { daemonStep } = await import(
-      "../../../../src/commands/onboard/steps/09-daemon.js"
-    );
+    const { daemonStep } = await import("../../../../src/commands/onboard/steps/09-daemon.js");
 
     const ctx = {
       opts: { skipDaemon: false, flow: "quickstart" },
@@ -81,9 +75,7 @@ describe("09-daemon step — token redaction", () => {
 
     await daemonStep(ctx as Parameters<typeof daemonStep>[0]);
 
-    const configNoteCall = noteMock.mock.calls.find(
-      (call) => call[1] === "Gateway Configuration",
-    );
+    const configNoteCall = noteMock.mock.calls.find((call) => call[1] === "Gateway Configuration");
     expect(configNoteCall).toBeDefined();
 
     const noteContent = configNoteCall![0] as string;

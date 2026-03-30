@@ -9,14 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface PreviewTenant {
   tenantId: string;
@@ -51,9 +44,7 @@ function BulkPreviewDialog({
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Preview: {tenants.length} tenants will be affected</DialogTitle>
-          <DialogDescription>
-            Review the list of tenants before executing the operation.
-          </DialogDescription>
+          <DialogDescription>Review the list of tenants before executing the operation.</DialogDescription>
         </DialogHeader>
 
         <div className="max-h-80 overflow-y-auto rounded-sm border border-border">
@@ -102,5 +93,5 @@ function BulkPreviewDialog({
   );
 }
 
-export { BulkPreviewDialog };
 export type { PreviewTenant };
+export { BulkPreviewDialog };

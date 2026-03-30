@@ -373,10 +373,7 @@ describe("routine service live-execution coalescing", () => {
     expect(run.linkedIssueId).toBe(previousIssue.id);
     expect(run.coalescedIntoRunId).toBe(previousRunId);
 
-    const routineIssues = await db
-      .select({ id: issues.id })
-      .from(issues)
-      .where(eq(issues.originId, routine.id));
+    const routineIssues = await db.select({ id: issues.id }).from(issues).where(eq(issues.originId, routine.id));
 
     expect(routineIssues).toHaveLength(1);
     expect(routineIssues[0]?.id).toBe(previousIssue.id);
@@ -422,10 +419,7 @@ describe("routine service live-execution coalescing", () => {
     expect(second.linkedIssueId).toBeTruthy();
     expect(first.linkedIssueId).toBe(second.linkedIssueId);
 
-    const routineIssues = await db
-      .select({ id: issues.id })
-      .from(issues)
-      .where(eq(issues.originId, routine.id));
+    const routineIssues = await db.select({ id: issues.id }).from(issues).where(eq(issues.originId, routine.id));
 
     expect(routineIssues).toHaveLength(1);
   });
@@ -443,10 +437,7 @@ describe("routine service live-execution coalescing", () => {
     expect(run.failureReason).toContain("queue unavailable");
     expect(run.linkedIssueId).toBeNull();
 
-    const routineIssues = await db
-      .select({ id: issues.id })
-      .from(issues)
-      .where(eq(issues.originId, routine.id));
+    const routineIssues = await db.select({ id: issues.id }).from(issues).where(eq(issues.originId, routine.id));
 
     expect(routineIssues).toHaveLength(0);
   });

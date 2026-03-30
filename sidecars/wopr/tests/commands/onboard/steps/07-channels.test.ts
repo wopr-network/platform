@@ -36,9 +36,7 @@ describe("07-channels step", () => {
   });
 
   it("should skip and return empty when skipChannels flag is set", async () => {
-    const { channelsStep } = await import(
-      "../../../../src/commands/onboard/steps/07-channels.js"
-    );
+    const { channelsStep } = await import("../../../../src/commands/onboard/steps/07-channels.js");
 
     const ctx = {
       opts: { skipChannels: true },
@@ -49,18 +47,13 @@ describe("07-channels step", () => {
 
     const result = await channelsStep(ctx as Parameters<typeof channelsStep>[0]);
     expect(result).toEqual({});
-    expect(noteMock).toHaveBeenCalledWith(
-      "Skipping channel setup (--skip-channels)",
-      "Channels",
-    );
+    expect(noteMock).toHaveBeenCalledWith("Skipping channel setup (--skip-channels)", "Channels");
   });
 
   it("should return empty channels when user selects none in quickstart", async () => {
     // All confirms return false (no channels selected)
     confirmMock.mockResolvedValue(false);
-    const { channelsStep } = await import(
-      "../../../../src/commands/onboard/steps/07-channels.js"
-    );
+    const { channelsStep } = await import("../../../../src/commands/onboard/steps/07-channels.js");
 
     const ctx = {
       opts: { flow: "quickstart" },
@@ -78,9 +71,7 @@ describe("07-channels step", () => {
     confirmMock
       .mockResolvedValueOnce(true) // discord
       .mockResolvedValue(false); // all others
-    const { channelsStep } = await import(
-      "../../../../src/commands/onboard/steps/07-channels.js"
-    );
+    const { channelsStep } = await import("../../../../src/commands/onboard/steps/07-channels.js");
 
     const ctx = {
       opts: { flow: "quickstart" },
@@ -96,9 +87,7 @@ describe("07-channels step", () => {
 
   it("should return selected channels in advanced mode via multiselect", async () => {
     multiselectMock.mockResolvedValue(["discord", "slack"]);
-    const { channelsStep } = await import(
-      "../../../../src/commands/onboard/steps/07-channels.js"
-    );
+    const { channelsStep } = await import("../../../../src/commands/onboard/steps/07-channels.js");
 
     const ctx = {
       opts: { flow: "advanced" },

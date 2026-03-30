@@ -91,9 +91,7 @@ flow_design_complete`;
     const stateNames = result.design.states.map((s) => s.name);
     expect(stateNames).not.toContain("docs");
     // review → learning directly (no docs in between)
-    const reviewClean = result.design.transitions.find(
-      (t) => t.fromState === "review" && t.trigger === "clean",
-    );
+    const reviewClean = result.design.transitions.find((t) => t.fromState === "review" && t.trigger === "clean");
     expect(reviewClean?.toState).toBe("learning");
   });
 });

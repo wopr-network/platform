@@ -114,7 +114,9 @@ describe("E2E: spending limits enforce per-tenant caps on capability usage", () 
     const resp = await app.request("/chat/completions", { method: "POST" });
     expect(resp.status).toBe(402);
 
-    const body = (await resp.json()) as { error: { code: string; cap_type: string; current_spend_usd: number; cap_usd: number } };
+    const body = (await resp.json()) as {
+      error: { code: string; cap_type: string; current_spend_usd: number; cap_usd: number };
+    };
     expect(body.error.code).toBe("spending_cap_exceeded");
     expect(body.error.cap_type).toBe("daily");
     expect(body.error.current_spend_usd).toBeGreaterThanOrEqual(10);

@@ -201,5 +201,4 @@ describe("integration: secrets routes", () => {
       expect(body.error).toContain("decrypt");
     });
   });
-
 });

@@ -34,9 +34,7 @@ describe("tenant-keys API", () => {
   });
 
   it("listTenantKeys calls GET /api/tenant-keys", async () => {
-    const mockData = [
-      { provider: "openai", hasKey: true, maskedKey: "sk-...ab", createdAt: null, updatedAt: null },
-    ];
+    const mockData = [{ provider: "openai", hasKey: true, maskedKey: "sk-...ab", createdAt: null, updatedAt: null }];
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,

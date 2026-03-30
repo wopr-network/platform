@@ -36,13 +36,16 @@ function toExecutionWorkspace(row: ExecutionWorkspaceRow): ExecutionWorkspace {
 
 export function executionWorkspaceService(db: Db) {
   return {
-    list: async (companyId: string, filters?: {
-      projectId?: string;
-      projectWorkspaceId?: string;
-      issueId?: string;
-      status?: string;
-      reuseEligible?: boolean;
-    }) => {
+    list: async (
+      companyId: string,
+      filters?: {
+        projectId?: string;
+        projectWorkspaceId?: string;
+        issueId?: string;
+        status?: string;
+        reuseEligible?: boolean;
+      },
+    ) => {
       const conditions = [eq(executionWorkspaces.companyId, companyId)];
       if (filters?.projectId) conditions.push(eq(executionWorkspaces.projectId, filters.projectId));
       if (filters?.projectWorkspaceId) {
@@ -50,7 +53,10 @@ export function executionWorkspaceService(db: Db) {
       }
       if (filters?.issueId) conditions.push(eq(executionWorkspaces.sourceIssueId, filters.issueId));
       if (filters?.status) {
-        const statuses = filters.status.split(",").map((value) => value.trim()).filter(Boolean);
+        const statuses = filters.status
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
         if (statuses.length === 1) conditions.push(eq(executionWorkspaces.status, statuses[0]!));
         else if (statuses.length > 1) conditions.push(inArray(executionWorkspaces.status, statuses));
       }

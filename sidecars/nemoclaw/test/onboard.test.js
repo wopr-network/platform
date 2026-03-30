@@ -50,7 +50,7 @@ describe("onboard helpers", () => {
         "ARG CHAT_UI_URL=http://127.0.0.1:18789",
         "ARG NEMOCLAW_INFERENCE_COMPAT_B64=e30=",
         "ARG NEMOCLAW_BUILD_ID=default",
-      ].join("\n")
+      ].join("\n"),
     );
 
     try {
@@ -67,16 +67,13 @@ describe("onboard helpers", () => {
   });
 
   it("maps NVIDIA Endpoints to the routed inference provider", () => {
-    assert.deepEqual(
-      getSandboxInferenceConfig("qwen/qwen3.5-397b-a17b", "nvidia-prod", "openai-completions"),
-      {
-        providerKey: "inference",
-        primaryModelRef: "inference/qwen/qwen3.5-397b-a17b",
-        inferenceBaseUrl: "https://inference.local/v1",
-        inferenceApi: "openai-completions",
-        inferenceCompat: null,
-      }
-    );
+    assert.deepEqual(getSandboxInferenceConfig("qwen/qwen3.5-397b-a17b", "nvidia-prod", "openai-completions"), {
+      providerKey: "inference",
+      primaryModelRef: "inference/qwen/qwen3.5-397b-a17b",
+      inferenceBaseUrl: "https://inference.local/v1",
+      inferenceApi: "openai-completions",
+      inferenceCompat: null,
+    });
   });
 
   it("patches the staged Dockerfile for Anthropic with anthropic-messages routing", () => {
@@ -93,7 +90,7 @@ describe("onboard helpers", () => {
         "ARG NEMOCLAW_INFERENCE_API=openai-completions",
         "ARG NEMOCLAW_INFERENCE_COMPAT_B64=e30=",
         "ARG NEMOCLAW_BUILD_ID=default",
-      ].join("\n")
+      ].join("\n"),
     );
 
     try {
@@ -102,7 +99,7 @@ describe("onboard helpers", () => {
         "claude-sonnet-4-5",
         "http://127.0.0.1:18789",
         "build-claude",
-        "anthropic-prod"
+        "anthropic-prod",
       );
       const patched = fs.readFileSync(dockerfilePath, "utf8");
       assert.match(patched, /^ARG NEMOCLAW_MODEL=claude-sonnet-4-5$/m);
@@ -116,31 +113,25 @@ describe("onboard helpers", () => {
   });
 
   it("maps Gemini to the routed inference provider with supportsStore disabled", () => {
-    assert.deepEqual(
-      getSandboxInferenceConfig("gemini-2.5-flash", "gemini-api"),
-      {
-        providerKey: "inference",
-        primaryModelRef: "inference/gemini-2.5-flash",
-        inferenceBaseUrl: "https://inference.local/v1",
-        inferenceApi: "openai-completions",
-        inferenceCompat: {
-          supportsStore: false,
-        },
-      }
-    );
+    assert.deepEqual(getSandboxInferenceConfig("gemini-2.5-flash", "gemini-api"), {
+      providerKey: "inference",
+      primaryModelRef: "inference/gemini-2.5-flash",
+      inferenceBaseUrl: "https://inference.local/v1",
+      inferenceApi: "openai-completions",
+      inferenceCompat: {
+        supportsStore: false,
+      },
+    });
   });
 
   it("uses a probed Responses API override when one is available", () => {
-    assert.deepEqual(
-      getSandboxInferenceConfig("gpt-5.4", "openai-api", "openai-responses"),
-      {
-        providerKey: "openai",
-        primaryModelRef: "openai/gpt-5.4",
-        inferenceBaseUrl: "https://inference.local/v1",
-        inferenceApi: "openai-responses",
-        inferenceCompat: null,
-      }
-    );
+    assert.deepEqual(getSandboxInferenceConfig("gpt-5.4", "openai-api", "openai-responses"), {
+      providerKey: "openai",
+      primaryModelRef: "openai/gpt-5.4",
+      inferenceBaseUrl: "https://inference.local/v1",
+      inferenceApi: "openai-responses",
+      inferenceCompat: null,
+    });
   });
 
   it("pins the gateway image to the installed OpenShell release version", () => {
@@ -148,20 +139,20 @@ describe("onboard helpers", () => {
     expect(getInstalledOpenshellVersion("openshell 0.0.13-dev.8+gbbcaed2ea")).toBe("0.0.13");
     expect(getInstalledOpenshellVersion("bogus")).toBe(null);
     expect(getStableGatewayImageRef("openshell 0.0.12")).toBe("ghcr.io/nvidia/openshell/cluster:0.0.12");
-    expect(getStableGatewayImageRef("openshell 0.0.13-dev.8+gbbcaed2ea")).toBe("ghcr.io/nvidia/openshell/cluster:0.0.13");
+    expect(getStableGatewayImageRef("openshell 0.0.13-dev.8+gbbcaed2ea")).toBe(
+      "ghcr.io/nvidia/openshell/cluster:0.0.13",
+    );
     expect(getStableGatewayImageRef("bogus")).toBe(null);
   });
 
   it("returns a future-shell PATH hint for user-local openshell installs", () => {
     expect(getFutureShellPathHint("/home/test/.local/bin", "/usr/local/bin:/usr/bin")).toBe(
-      'export PATH="/home/test/.local/bin:$PATH"'
+      'export PATH="/home/test/.local/bin:$PATH"',
     );
   });
 
   it("skips the future-shell PATH hint when the bin dir is already on PATH", () => {
-    expect(
-      getFutureShellPathHint("/home/test/.local/bin", "/home/test/.local/bin:/usr/local/bin:/usr/bin")
-    ).toBe(null);
+    expect(getFutureShellPathHint("/home/test/.local/bin", "/home/test/.local/bin:/usr/local/bin:/usr/bin")).toBe(null);
   });
 
   it("writes sandbox sync scripts to a temp file for stdin redirection", () => {
@@ -781,5 +772,4 @@ const { setupInference } = require(${onboardPath});
     const commands = JSON.parse(result.stdout.trim().split("\n").pop());
     assert.equal(commands.length, 3);
   });
-
 });

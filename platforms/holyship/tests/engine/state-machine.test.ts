@@ -95,11 +95,7 @@ describe("evaluateCondition", () => {
 // ─── findTransition ───
 
 function makeFlow(
-  overrides: {
-    states?: { name: string }[];
-    transitions?: Partial<Transition>[];
-    initialState?: string;
-  } = {},
+  overrides: { states?: { name: string }[]; transitions?: Partial<Transition>[]; initialState?: string } = {},
 ): Flow {
   const states = (overrides.states ?? [{ name: "open" }, { name: "closed" }]).map((s, i) => ({
     id: `s${i}`,
@@ -237,12 +233,7 @@ describe("findTransition", () => {
 
     const ctxStuck = {
       entity: {
-        invocations: [
-          { stage: "review" },
-          { stage: "review" },
-          { stage: "review" },
-          { stage: "review" },
-        ],
+        invocations: [{ stage: "review" }, { stage: "review" }, { stage: "review" }, { stage: "review" }],
       },
     };
     expect(findTransition(flow, "review", "signal", ctxStuck)!.toState).toBe("stuck");

@@ -171,7 +171,12 @@ describe("createPluginContext", () => {
     } as any);
     vi.mocked(createPluginEventBus).mockReturnValue({ on: vi.fn(), off: vi.fn(), emit: vi.fn() } as any);
     vi.mocked(createPluginHookManager).mockReturnValue({ register: vi.fn(), unregister: vi.fn() } as any);
-    vi.mocked(createPluginLogger).mockReturnValue({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as any);
+    vi.mocked(createPluginLogger).mockReturnValue({
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+    } as any);
     vi.mocked(getStorage).mockReturnValue({ defineTable: vi.fn(), getRepository: vi.fn() } as any);
     // Clear shared state maps
     channelAdapters.clear();
@@ -527,18 +532,12 @@ describe("createPluginContext", () => {
 
   describe("getPluginDir", () => {
     it("should return plugin.path for local source", () => {
-      const ctx = createPluginContext(
-        makePlugin({ source: "local", path: "/my/local/path" }),
-        makeInjectors(),
-      );
+      const ctx = createPluginContext(makePlugin({ source: "local", path: "/my/local/path" }), makeInjectors());
       expect(ctx.getPluginDir()).toBe("/my/local/path");
     });
 
     it("should return PLUGINS_DIR/name for non-local source", () => {
-      const ctx = createPluginContext(
-        makePlugin({ source: "npm", name: "cool-plugin" }),
-        makeInjectors(),
-      );
+      const ctx = createPluginContext(makePlugin({ source: "npm", name: "cool-plugin" }), makeInjectors());
       expect(ctx.getPluginDir()).toContain("cool-plugin");
       expect(ctx.getPluginDir()).not.toBe("/fake/path/test-plugin");
     });

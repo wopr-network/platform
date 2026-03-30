@@ -47,9 +47,7 @@ const {
 
 const { resetSessionStorageInit } = await import("../../src/core/session-repository.js");
 
-const { createInjectionSource, DEFAULT_SECURITY_CONFIG } = await import(
-  "../../src/security/types.js"
-);
+const { createInjectionSource, DEFAULT_SECURITY_CONFIG } = await import("../../src/security/types.js");
 
 const { getSecurityRegistry, resetSecurityRegistry } = await import("../../src/security/registry.js");
 
@@ -63,10 +61,7 @@ import { registerHttpAndExec } from "./helpers.js";
 
 let testDir: string;
 
-function makeSource(
-  type: InjectionSource["type"],
-  overrides?: Partial<InjectionSource>,
-): InjectionSource {
+function makeSource(type: InjectionSource["type"], overrides?: Partial<InjectionSource>): InjectionSource {
   return createInjectionSource(type, overrides);
 }
 

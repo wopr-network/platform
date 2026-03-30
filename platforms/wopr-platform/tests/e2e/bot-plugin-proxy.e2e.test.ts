@@ -40,9 +40,7 @@ vi.mock("@wopr-network/platform-core/config/logger", () => ({
 // Dynamic import after env is set (auth reads env at module load)
 // ---------------------------------------------------------------------------
 
-const { createBotPluginProxyRoutes } = await import(
-  "../../src/api/routes/bot-plugin-proxy.js"
-);
+const { createBotPluginProxyRoutes } = await import("../../src/api/routes/bot-plugin-proxy.js");
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -88,9 +86,7 @@ describe("E2E: bot plugin proxy — full HTTP lifecycle", () => {
     app.route("/api/bots", routes);
 
     // Default: bot exists and belongs to TENANT_ID
-    storeMock.get.mockImplementation((id: string) =>
-      Promise.resolve(id === BOT_ID ? makeProfile() : null),
-    );
+    storeMock.get.mockImplementation((id: string) => Promise.resolve(id === BOT_ID ? makeProfile() : null));
 
     // Default: daemon responds OK
     proxyMock.mockResolvedValue({ ok: true, status: 200, data: { success: true } });

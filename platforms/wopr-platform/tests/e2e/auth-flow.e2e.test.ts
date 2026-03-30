@@ -112,10 +112,7 @@ describe("E2E: auth flow — register → login → session → logout", () => {
   }
 
   /** Helper: build request with JSON body */
-  function authRequest(
-    path: string,
-    opts: { method?: string; body?: unknown; cookie?: string } = {},
-  ): Request {
+  function authRequest(path: string, opts: { method?: string; body?: unknown; cookie?: string } = {}): Request {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (opts.cookie) {
       headers.Cookie = `${SESSION_COOKIE}=${opts.cookie}`;
@@ -160,9 +157,7 @@ describe("E2E: auth flow — register → login → session → logout", () => {
     expect(sessionToken).not.toBe("");
 
     // Step 3: Authenticated session check — returns user data
-    const sessionRes = await auth.handler(
-      authRequest("/get-session", { method: "GET", cookie: sessionToken! }),
-    );
+    const sessionRes = await auth.handler(authRequest("/get-session", { method: "GET", cookie: sessionToken! }));
     expect(sessionRes.status).toBe(200);
     const sessionBody = await sessionRes.json();
     expect(sessionBody.user).toBeDefined();
@@ -170,15 +165,11 @@ describe("E2E: auth flow — register → login → session → logout", () => {
     expect(sessionBody.session).toBeDefined();
 
     // Step 4: Logout
-    const logoutRes = await auth.handler(
-      authRequest("/sign-out", { cookie: sessionToken! }),
-    );
+    const logoutRes = await auth.handler(authRequest("/sign-out", { cookie: sessionToken! }));
     expect(logoutRes.status).toBe(200);
 
     // Step 5: Session check after logout → should fail (no valid session)
-    const postLogoutRes = await auth.handler(
-      authRequest("/get-session", { method: "GET", cookie: sessionToken! }),
-    );
+    const postLogoutRes = await auth.handler(authRequest("/get-session", { method: "GET", cookie: sessionToken! }));
     // better-auth returns 200 with null body, 200 with { user: null }, or 401
     // after logout — assert no valid session is returned.
     if (postLogoutRes.status === 200) {
@@ -220,9 +211,7 @@ describe("E2E: auth flow — register → login → session → logout", () => {
   // =========================================================================
 
   it("no session cookie → get-session returns no user", async () => {
-    const res = await auth.handler(
-      authRequest("/get-session", { method: "GET" }),
-    );
+    const res = await auth.handler(authRequest("/get-session", { method: "GET" }));
     // No cookie → no session. better-auth returns 200 with null body, 200 with { user: null }, or 401.
     if (res.status === 200) {
       const text = await res.text();

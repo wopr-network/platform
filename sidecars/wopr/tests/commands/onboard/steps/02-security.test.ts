@@ -31,9 +31,7 @@ describe("02-security step", () => {
 
   it("should skip when acceptRisk flag is true", async () => {
     confirmMock.mockResolvedValue(true);
-    const { securityStep } = await import(
-      "../../../../src/commands/onboard/steps/02-security.js"
-    );
+    const { securityStep } = await import("../../../../src/commands/onboard/steps/02-security.js");
 
     const ctx = {
       opts: { acceptRisk: true },
@@ -50,9 +48,7 @@ describe("02-security step", () => {
 
   it("should display security notice and return empty on acceptance", async () => {
     confirmMock.mockResolvedValue(true);
-    const { securityStep } = await import(
-      "../../../../src/commands/onboard/steps/02-security.js"
-    );
+    const { securityStep } = await import("../../../../src/commands/onboard/steps/02-security.js");
 
     const ctx = {
       opts: { acceptRisk: false },
@@ -63,18 +59,13 @@ describe("02-security step", () => {
 
     const result = await securityStep(ctx as Parameters<typeof securityStep>[0]);
     expect(result).toEqual({});
-    expect(noteMock).toHaveBeenCalledWith(
-      expect.stringContaining("Security"),
-      "Security Notice",
-    );
+    expect(noteMock).toHaveBeenCalledWith(expect.stringContaining("Security"), "Security Notice");
     expect(confirmMock).toHaveBeenCalledOnce();
   });
 
   it("should throw WizardCancelledError when user declines", async () => {
     confirmMock.mockResolvedValue(false);
-    const { securityStep } = await import(
-      "../../../../src/commands/onboard/steps/02-security.js"
-    );
+    const { securityStep } = await import("../../../../src/commands/onboard/steps/02-security.js");
 
     const ctx = {
       opts: { acceptRisk: false },
@@ -83,8 +74,8 @@ describe("02-security step", () => {
       nextConfig: {},
     };
 
-    await expect(
-      securityStep(ctx as Parameters<typeof securityStep>[0]),
-    ).rejects.toThrow("Security acknowledgment required");
+    await expect(securityStep(ctx as Parameters<typeof securityStep>[0])).rejects.toThrow(
+      "Security acknowledgment required",
+    );
   });
 });

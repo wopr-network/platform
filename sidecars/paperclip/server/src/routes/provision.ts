@@ -358,30 +358,34 @@ function createMemberRouter(db: Db): Router {
   });
 
   // POST /members/change-role
-  router.post("/members/change-role", requireProvisionSecret, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { companyId, userId, role } = req.body as {
-        companyId: string;
-        userId: string;
-        role: string;
-      };
+  router.post(
+    "/members/change-role",
+    requireProvisionSecret,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { companyId, userId, role } = req.body as {
+          companyId: string;
+          userId: string;
+          role: string;
+        };
 
-      await access.ensureMembership(companyId, "user", userId, mapRole(role), "active");
+        await access.ensureMembership(companyId, "user", userId, mapRole(role), "active");
 
-      if (isAdminRole(role)) {
-        await access.promoteInstanceAdmin(userId);
-      } else {
-        await access.demoteInstanceAdmin(userId);
+        if (isAdminRole(role)) {
+          await access.promoteInstanceAdmin(userId);
+        } else {
+          await access.demoteInstanceAdmin(userId);
+        }
+
+        const grants = grantsForRole(role);
+        await access.setPrincipalGrants(companyId, "user", userId, grants as any, null);
+
+        res.json({ ok: true });
+      } catch (err) {
+        next(err);
       }
-
-      const grants = grantsForRole(role);
-      await access.setPrincipalGrants(companyId, "user", userId, grants as any, null);
-
-      res.json({ ok: true });
-    } catch (err) {
-      next(err);
-    }
-  });
+    },
+  );
 
   return router;
 }

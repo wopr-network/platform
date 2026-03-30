@@ -33,9 +33,7 @@ export function FieldInteractive({ field, value, onChange, error }: FieldInterac
               )}
             >
               <span className="flex-1">{option.label}</span>
-              {value === option.value && (
-                <span className="text-primary text-xs font-medium">Selected</span>
-              )}
+              {value === option.value && <span className="text-primary text-xs font-medium">Selected</span>}
             </Button>
           ))}
         </div>

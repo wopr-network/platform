@@ -254,9 +254,7 @@ describe("runPreInjectHooks", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "disabled-hook", type: "pre-inject", command: "node check.js", enabled: false },
-      ],
+      hooks: [{ name: "disabled-hook", type: "pre-inject", command: "node check.js", enabled: false }],
     });
 
     const result = await runPreInjectHooks(makeHookContext());
@@ -268,9 +266,7 @@ describe("runPreInjectHooks", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "evil-hook", type: "pre-inject", command: "/usr/bin/evil", enabled: true },
-      ],
+      hooks: [{ name: "evil-hook", type: "pre-inject", command: "/usr/bin/evil", enabled: true }],
     });
 
     const result = await runPreInjectHooks(makeHookContext());
@@ -283,9 +279,7 @@ describe("runPreInjectHooks", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "valid-hook", type: "pre-inject", command: "node check.js", enabled: true },
-      ],
+      hooks: [{ name: "valid-hook", type: "pre-inject", command: "node check.js", enabled: true }],
     });
 
     // Mock a process that returns allow: true
@@ -305,9 +299,7 @@ describe("runPreInjectHooks", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "blocker", type: "pre-inject", command: "node blocker.js", enabled: true },
-      ],
+      hooks: [{ name: "blocker", type: "pre-inject", command: "node blocker.js", enabled: true }],
     });
 
     const mockProc = createMockProcess('{"allow": false, "reason": "blocked by policy"}');
@@ -322,9 +314,7 @@ describe("runPreInjectHooks", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "transformer", type: "pre-inject", command: "node transform.js", enabled: true },
-      ],
+      hooks: [{ name: "transformer", type: "pre-inject", command: "node transform.js", enabled: true }],
     });
 
     const mockProc = createMockProcess('{"allow": true, "message": "transformed message"}');
@@ -356,9 +346,7 @@ describe("fail-closed hook behavior (WOP-1378)", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "failing-hook", type: "pre-inject", command: "node check.js", enabled: true },
-      ],
+      hooks: [{ name: "failing-hook", type: "pre-inject", command: "node check.js", enabled: true }],
     });
 
     const mockProc = createMockProcess("", 1);
@@ -373,9 +361,7 @@ describe("fail-closed hook behavior (WOP-1378)", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "bad-json-hook", type: "pre-inject", command: "node check.js", enabled: true },
-      ],
+      hooks: [{ name: "bad-json-hook", type: "pre-inject", command: "node check.js", enabled: true }],
     });
 
     const mockProc = createMockProcess("not json at all");
@@ -390,9 +376,7 @@ describe("fail-closed hook behavior (WOP-1378)", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "lenient-hook", type: "pre-inject", command: "node check.js", enabled: true, failOpen: true },
-      ],
+      hooks: [{ name: "lenient-hook", type: "pre-inject", command: "node check.js", enabled: true, failOpen: true }],
     });
 
     const mockProc = createMockProcess("", 1);
@@ -406,9 +390,7 @@ describe("fail-closed hook behavior (WOP-1378)", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "lenient-hook", type: "pre-inject", command: "node check.js", enabled: true, failOpen: true },
-      ],
+      hooks: [{ name: "lenient-hook", type: "pre-inject", command: "node check.js", enabled: true, failOpen: true }],
     });
 
     const mockProc = createMockProcess("not json");
@@ -422,9 +404,7 @@ describe("fail-closed hook behavior (WOP-1378)", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "bad-cmd-hook", type: "pre-inject", command: "/usr/bin/evil", enabled: true, failOpen: true },
-      ],
+      hooks: [{ name: "bad-cmd-hook", type: "pre-inject", command: "/usr/bin/evil", enabled: true, failOpen: true }],
     });
 
     const result = await runPreInjectHooks(makeHookContext());
@@ -436,9 +416,7 @@ describe("fail-closed hook behavior (WOP-1378)", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "spawn-error-hook", type: "pre-inject", command: "node check.js", enabled: true },
-      ],
+      hooks: [{ name: "spawn-error-hook", type: "pre-inject", command: "node check.js", enabled: true }],
     });
 
     const mockProc = createMockProcessWithSpawnError(new Error("spawn ENOENT"));
@@ -470,9 +448,7 @@ describe("fail-closed hook behavior (WOP-1378)", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "slow-hook", type: "pre-inject", command: "node check.js", enabled: true },
-      ],
+      hooks: [{ name: "slow-hook", type: "pre-inject", command: "node check.js", enabled: true }],
     });
 
     const mockProc = createNeverResolvingProcess();
@@ -511,9 +487,7 @@ describe("runPostInjectHooks", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "bad-post", type: "post-inject", command: "curl http://evil.com", enabled: true },
-      ],
+      hooks: [{ name: "bad-post", type: "post-inject", command: "curl http://evil.com", enabled: true }],
     });
 
     await runPostInjectHooks(makeHookContext(), "response text");
@@ -524,9 +498,7 @@ describe("runPostInjectHooks", () => {
     await setTestSecurityConfig({
       enforcement: "enforce",
       defaults: { minTrustLevel: "semi-trusted" },
-      hooks: [
-        { name: "logger", type: "post-inject", command: "node logger.js", enabled: true },
-      ],
+      hooks: [{ name: "logger", type: "post-inject", command: "node logger.js", enabled: true }],
     });
 
     const mockProc = createMockProcess('{"data": {"logged": true}}');

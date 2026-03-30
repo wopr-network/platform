@@ -42,9 +42,7 @@ describe("inference selection config", () => {
   });
 
   it("maps nvidia-nim to the sandbox inference route", () => {
-    expect(
-      getProviderSelectionConfig("nvidia-nim", "nvidia/nemotron-3-super-120b-a12b")
-    ).toEqual({
+    expect(getProviderSelectionConfig("nvidia-nim", "nvidia/nemotron-3-super-120b-a12b")).toEqual({
       endpointType: "custom",
       endpointUrl: INFERENCE_ROUTE_URL,
       ncpPartner: null,
@@ -131,7 +129,9 @@ describe("inference selection config", () => {
   });
 
   it("builds a qualified OpenClaw primary model for ollama-local", () => {
-    expect(getOpenClawPrimaryModel("ollama-local", "nemotron-3-nano:30b")).toBe(`${MANAGED_PROVIDER_ID}/nemotron-3-nano:30b`);
+    expect(getOpenClawPrimaryModel("ollama-local", "nemotron-3-nano:30b")).toBe(
+      `${MANAGED_PROVIDER_ID}/nemotron-3-nano:30b`,
+    );
   });
 
   it("falls back to provider defaults when model is omitted", () => {

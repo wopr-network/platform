@@ -42,12 +42,8 @@ vi.mock("@/lib/trpc", () => ({
 // Mock framer-motion to prevent animation issues in JSDOM
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
-      <div {...props}>{children}</div>
-    ),
-    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
-      <p {...props}>{children}</p>
-    ),
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
+    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <p {...props}>{children}</p>,
   },
 }));
 
@@ -152,13 +148,9 @@ describe("OAuth callback page", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockPush.mockClear();
-    vi.mocked(useRouter).mockReturnValue({ push: mockPush } as unknown as ReturnType<
-      typeof useRouter
-    >);
+    vi.mocked(useRouter).mockReturnValue({ push: mockPush } as unknown as ReturnType<typeof useRouter>);
     vi.mocked(useParams).mockReturnValue({ provider: "github" });
-    vi.mocked(useSearchParams).mockReturnValue(
-      new URLSearchParams() as ReturnType<typeof useSearchParams>,
-    );
+    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams() as ReturnType<typeof useSearchParams>);
   });
 
   afterEach(() => {

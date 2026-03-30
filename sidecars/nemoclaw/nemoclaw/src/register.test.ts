@@ -73,9 +73,7 @@ describe("plugin registration", () => {
     const api = createMockApi();
     register(api);
     const providerArg = vi.mocked(api.registerProvider).mock.calls[0][0];
-    expect(providerArg.models?.chat).toEqual([
-      expect.objectContaining({ id: "inference/nvidia/custom-model" }),
-    ]);
+    expect(providerArg.models?.chat).toEqual([expect.objectContaining({ id: "inference/nvidia/custom-model" })]);
   });
 });
 

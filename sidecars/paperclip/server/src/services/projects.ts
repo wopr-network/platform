@@ -128,10 +128,7 @@ function toRuntimeService(row: WorkspaceRuntimeServiceRow): WorkspaceRuntimeServ
   };
 }
 
-function toWorkspace(
-  row: ProjectWorkspaceRow,
-  runtimeServices: WorkspaceRuntimeService[] = [],
-): ProjectWorkspace {
+function toWorkspace(row: ProjectWorkspaceRow, runtimeServices: WorkspaceRuntimeService[] = []): ProjectWorkspace {
   return {
     id: row.id,
     companyId: row.companyId,
@@ -162,7 +159,12 @@ function deriveRepoNameFromRepoUrl(repoUrl: string | null): string | null {
   try {
     const parsed = new URL(raw);
     const cleanedPath = parsed.pathname.replace(/\/+$/, "");
-    const repoName = cleanedPath.split("/").filter(Boolean).pop()?.replace(/\.git$/i, "") ?? "";
+    const repoName =
+      cleanedPath
+        .split("/")
+        .filter(Boolean)
+        .pop()
+        ?.replace(/\.git$/i, "") ?? "";
     return repoName || null;
   } catch {
     return null;
@@ -243,10 +245,7 @@ async function attachWorkspaces(db: Db, rows: ProjectWithGoals[]): Promise<Proje
   return rows.map((row) => {
     const projectWorkspaceRows = map.get(row.id) ?? [];
     const workspaces = projectWorkspaceRows.map((workspace) =>
-      toWorkspace(
-        workspace,
-        sharedRuntimeServicesByWorkspaceId.get(workspace.id) ?? [],
-      ),
+      toWorkspace(workspace, sharedRuntimeServicesByWorkspaceId.get(workspace.id) ?? []),
     );
     const primaryWorkspace = pickPrimaryWorkspace(projectWorkspaceRows, sharedRuntimeServicesByWorkspaceId);
     return {
@@ -270,9 +269,7 @@ async function syncGoalLinks(db: Db, projectId: string, companyId: string, goalI
 
   // Insert new links
   if (goalIds.length > 0) {
-    await db.insert(projectGoals).values(
-      goalIds.map((goalId) => ({ projectId, goalId, companyId })),
-    );
+    await db.insert(projectGoals).values(goalIds.map((goalId) => ({ projectId, goalId, companyId })));
   }
 }
 
@@ -315,11 +312,7 @@ function deriveNameFromRepoUrl(repoUrl: string): string {
   }
 }
 
-function deriveWorkspaceName(input: {
-  name?: string | null;
-  cwd?: string | null;
-  repoUrl?: string | null;
-}) {
+function deriveWorkspaceName(input: { name?: string | null; cwd?: string | null; repoUrl?: string | null }) {
   const explicit = readNonEmptyString(input.name);
   if (explicit) return explicit;
 
@@ -371,12 +364,7 @@ async function ensureSinglePrimaryWorkspace(
   await dbOrTx
     .update(projectWorkspaces)
     .set({ isPrimary: false, updatedAt: new Date() })
-    .where(
-      and(
-        eq(projectWorkspaces.companyId, input.companyId),
-        eq(projectWorkspaces.projectId, input.projectId),
-      ),
-    );
+    .where(and(eq(projectWorkspaces.companyId, input.companyId), eq(projectWorkspaces.projectId, input.projectId)));
 
   await dbOrTx
     .update(projectWorkspaces)
@@ -433,9 +421,13 @@ export function projectService(db: Db) {
 
       // Auto-assign a color from the palette if none provided
       if (!projectData.color) {
-        const existing = await db.select({ color: projects.color }).from(projects).where(eq(projects.companyId, companyId));
+        const existing = await db
+          .select({ color: projects.color })
+          .from(projects)
+          .where(eq(projects.companyId, companyId));
         const usedColors = new Set(existing.map((r) => r.color).filter(Boolean));
-        const nextColor = PROJECT_COLORS.find((c) => !usedColors.has(c)) ?? PROJECT_COLORS[existing.length % PROJECT_COLORS.length];
+        const nextColor =
+          PROJECT_COLORS.find((c) => !usedColors.has(c)) ?? PROJECT_COLORS[existing.length % PROJECT_COLORS.length];
         projectData.color = nextColor;
       }
 
@@ -446,7 +438,7 @@ export function projectService(db: Db) {
       projectData.name = resolveProjectNameForUniqueShortname(projectData.name, existingProjects);
 
       // Also write goalId to the legacy column (first goal or null)
-      const legacyGoalId = ids && ids.length > 0 ? ids[0] : projectData.goalId ?? null;
+      const legacyGoalId = ids && ids.length > 0 ? ids[0] : (projectData.goalId ?? null);
 
       const row = await db
         .insert(projects)
@@ -540,17 +532,11 @@ export function projectService(db: Db) {
         rows.map((workspace) => workspace.id),
       );
       return rows.map((row) =>
-        toWorkspace(
-          row,
-          (runtimeServicesByWorkspaceId.get(row.id) ?? []).map(toRuntimeService),
-        ),
+        toWorkspace(row, (runtimeServicesByWorkspaceId.get(row.id) ?? []).map(toRuntimeService)),
       );
     },
 
-    createWorkspace: async (
-      projectId: string,
-      data: CreateWorkspaceInput,
-    ): Promise<ProjectWorkspace | null> => {
+    createWorkspace: async (projectId: string, data: CreateWorkspaceInput): Promise<ProjectWorkspace | null> => {
       const project = await db
         .select()
         .from(projects)
@@ -560,7 +546,8 @@ export function projectService(db: Db) {
 
       const cwd = normalizeWorkspaceCwd(data.cwd);
       const repoUrl = readNonEmptyString(data.repoUrl);
-      const sourceType = readNonEmptyString(data.sourceType) ?? (repoUrl ? "git_repo" : cwd ? "local_path" : "remote_managed");
+      const sourceType =
+        readNonEmptyString(data.sourceType) ?? (repoUrl ? "git_repo" : cwd ? "local_path" : "remote_managed");
       const remoteWorkspaceRef = readNonEmptyString(data.remoteWorkspaceRef);
       if (sourceType === "remote_managed") {
         if (!remoteWorkspaceRef && !repoUrl) return null;
@@ -586,12 +573,7 @@ export function projectService(db: Db) {
           await tx
             .update(projectWorkspaces)
             .set({ isPrimary: false, updatedAt: new Date() })
-            .where(
-              and(
-                eq(projectWorkspaces.companyId, project.companyId),
-                eq(projectWorkspaces.projectId, projectId),
-              ),
-            );
+            .where(and(eq(projectWorkspaces.companyId, project.companyId), eq(projectWorkspaces.projectId, projectId)));
         }
 
         const row = await tx
@@ -630,27 +612,15 @@ export function projectService(db: Db) {
       const existing = await db
         .select()
         .from(projectWorkspaces)
-        .where(
-          and(
-            eq(projectWorkspaces.id, workspaceId),
-            eq(projectWorkspaces.projectId, projectId),
-          ),
-        )
+        .where(and(eq(projectWorkspaces.id, workspaceId), eq(projectWorkspaces.projectId, projectId)))
         .then((rows) => rows[0] ?? null);
       if (!existing) return null;
 
-      const nextCwd =
-        data.cwd !== undefined
-          ? normalizeWorkspaceCwd(data.cwd)
-          : normalizeWorkspaceCwd(existing.cwd);
+      const nextCwd = data.cwd !== undefined ? normalizeWorkspaceCwd(data.cwd) : normalizeWorkspaceCwd(existing.cwd);
       const nextRepoUrl =
-        data.repoUrl !== undefined
-          ? readNonEmptyString(data.repoUrl)
-          : readNonEmptyString(existing.repoUrl);
+        data.repoUrl !== undefined ? readNonEmptyString(data.repoUrl) : readNonEmptyString(existing.repoUrl);
       const nextSourceType =
-        data.sourceType !== undefined
-          ? readNonEmptyString(data.sourceType)
-          : readNonEmptyString(existing.sourceType);
+        data.sourceType !== undefined ? readNonEmptyString(data.sourceType) : readNonEmptyString(existing.sourceType);
       const nextRemoteWorkspaceRef =
         data.remoteWorkspaceRef !== undefined
           ? readNonEmptyString(data.remoteWorkspaceRef)
@@ -664,7 +634,8 @@ export function projectService(db: Db) {
       const patch: Partial<typeof projectWorkspaces.$inferInsert> = {
         updatedAt: new Date(),
       };
-      if (data.name !== undefined) patch.name = deriveWorkspaceName({ name: data.name, cwd: nextCwd, repoUrl: nextRepoUrl });
+      if (data.name !== undefined)
+        patch.name = deriveWorkspaceName({ name: data.name, cwd: nextCwd, repoUrl: nextRepoUrl });
       if (data.name === undefined && (data.cwd !== undefined || data.repoUrl !== undefined)) {
         patch.name = deriveWorkspaceName({ cwd: nextCwd, repoUrl: nextRepoUrl });
       }
@@ -689,10 +660,7 @@ export function projectService(db: Db) {
             .update(projectWorkspaces)
             .set({ isPrimary: false, updatedAt: new Date() })
             .where(
-              and(
-                eq(projectWorkspaces.companyId, existing.companyId),
-                eq(projectWorkspaces.projectId, projectId),
-              ),
+              and(eq(projectWorkspaces.companyId, existing.companyId), eq(projectWorkspaces.projectId, projectId)),
             );
           patch.isPrimary = true;
         } else if (data.isPrimary === false) {
@@ -736,12 +704,7 @@ export function projectService(db: Db) {
           const alternateCandidate = await tx
             .select({ id: projectWorkspaces.id })
             .from(projectWorkspaces)
-            .where(
-              and(
-                eq(projectWorkspaces.companyId, row.companyId),
-                eq(projectWorkspaces.projectId, row.projectId),
-              ),
-            )
+            .where(and(eq(projectWorkspaces.companyId, row.companyId), eq(projectWorkspaces.projectId, row.projectId)))
             .orderBy(asc(projectWorkspaces.createdAt), asc(projectWorkspaces.id))
             .then((rows) => rows.find((candidate) => candidate.id !== row.id) ?? null);
 
@@ -768,12 +731,7 @@ export function projectService(db: Db) {
       const existing = await db
         .select()
         .from(projectWorkspaces)
-        .where(
-          and(
-            eq(projectWorkspaces.id, workspaceId),
-            eq(projectWorkspaces.projectId, projectId),
-          ),
-        )
+        .where(and(eq(projectWorkspaces.id, workspaceId), eq(projectWorkspaces.projectId, projectId)))
         .then((rows) => rows[0] ?? null);
       if (!existing) return null;
 
@@ -790,12 +748,7 @@ export function projectService(db: Db) {
         const next = await tx
           .select()
           .from(projectWorkspaces)
-          .where(
-            and(
-              eq(projectWorkspaces.companyId, row.companyId),
-              eq(projectWorkspaces.projectId, row.projectId),
-            ),
-          )
+          .where(and(eq(projectWorkspaces.companyId, row.companyId), eq(projectWorkspaces.projectId, row.projectId)))
           .orderBy(asc(projectWorkspaces.createdAt), asc(projectWorkspaces.id))
           .limit(1)
           .then((rows) => rows[0] ?? null);

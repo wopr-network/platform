@@ -53,19 +53,10 @@ function copyDirectory(src, dest) {
 function buildSnapshotDir(parentDir, manifest) {
   const snapshotDir = path.join(parentDir, "snapshot");
   fs.mkdirSync(path.join(snapshotDir, "openclaw"), { recursive: true });
-  fs.writeFileSync(
-    path.join(snapshotDir, "openclaw", "sentinel.txt"),
-    "attacker-controlled-content",
-  );
+  fs.writeFileSync(path.join(snapshotDir, "openclaw", "sentinel.txt"), "attacker-controlled-content");
   fs.mkdirSync(path.join(snapshotDir, "config"), { recursive: true });
-  fs.writeFileSync(
-    path.join(snapshotDir, "config", "openclaw.json"),
-    JSON.stringify({ model: "attacker-model" }),
-  );
-  fs.writeFileSync(
-    path.join(snapshotDir, "snapshot.json"),
-    JSON.stringify(manifest, null, 2),
-  );
+  fs.writeFileSync(path.join(snapshotDir, "config", "openclaw.json"), JSON.stringify({ model: "attacker-model" }));
+  fs.writeFileSync(path.join(snapshotDir, "snapshot.json"), JSON.stringify(manifest, null, 2));
   return snapshotDir;
 }
 
@@ -74,9 +65,7 @@ function buildSnapshotDir(parentDir, manifest) {
  * Returns { result, errors, written }.
  */
 function restoreVulnerable(snapshotDir) {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf-8"),
-  );
+  const manifest = JSON.parse(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf-8"));
   const snapshotStateDir = path.join(snapshotDir, "openclaw");
   const errors = [];
   let written = false;
@@ -107,9 +96,7 @@ function restoreVulnerable(snapshotDir) {
  * @param {string} [trustedRoot] - trusted host root (defaults to os.homedir())
  */
 function restoreFixed(snapshotDir, trustedRoot) {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf-8"),
-  );
+  const manifest = JSON.parse(fs.readFileSync(path.join(snapshotDir, "snapshot.json"), "utf-8"));
   const snapshotStateDir = path.join(snapshotDir, "openclaw");
   const errors = [];
   let written = false;
@@ -140,9 +127,7 @@ function restoreFixed(snapshotDir, trustedRoot) {
 
   if (manifest.hasExternalConfig) {
     if (typeof manifest.configPath !== "string" || !manifest.configPath.trim()) {
-      errors.push(
-        `Snapshot manifest has hasExternalConfig=true but configPath is missing or empty.`,
-      );
+      errors.push(`Snapshot manifest has hasExternalConfig=true but configPath is missing or empty.`);
       return { result: false, errors, written };
     }
 
@@ -443,7 +428,9 @@ describe("C-4 regression: migration-state.ts contains path validation", () => {
 
   it("restoreSnapshotToHost fails closed when hasExternalConfig is true with missing configPath", () => {
     const fnBody = getRestoreFnBody();
-    expect(/manifest\.hasExternalConfig\b/.test(fnBody) &&
-      /typeof\s+manifest\.configPath\s*!==\s*["']string["']/.test(fnBody)).toBeTruthy();
+    expect(
+      /manifest\.hasExternalConfig\b/.test(fnBody) &&
+        /typeof\s+manifest\.configPath\s*!==\s*["']string["']/.test(fnBody),
+    ).toBeTruthy();
   });
 });

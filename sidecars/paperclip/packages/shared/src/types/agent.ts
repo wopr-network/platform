@@ -1,13 +1,5 @@
-import type {
-  AgentAdapterType,
-  PauseReason,
-  AgentRole,
-  AgentStatus,
-} from "../constants.js";
-import type {
-  CompanyMembership,
-  PrincipalPermissionGrant,
-} from "./access.js";
+import type { AgentAdapterType, PauseReason, AgentRole, AgentStatus } from "../constants.js";
+import type { CompanyMembership, PrincipalPermissionGrant } from "./access.js";
 
 export interface AgentPermissions {
   canCreateAgents: boolean;

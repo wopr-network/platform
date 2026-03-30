@@ -74,8 +74,7 @@ export function AddPaymentMethodDialog({
         <DialogHeader>
           <DialogTitle>{orgId ? "Add org payment method" : "Add payment method"}</DialogTitle>
           <DialogDescription>
-            Your card details are handled securely by Stripe. We never see or store your card
-            number.
+            Your card details are handled securely by Stripe. We never see or store your card number.
           </DialogDescription>
         </DialogHeader>
 

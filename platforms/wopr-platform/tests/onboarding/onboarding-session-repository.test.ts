@@ -24,14 +24,14 @@ describe("DrizzleOnboardingSessionRepository", () => {
     repo = new DrizzleOnboardingSessionRepository(db);
   });
 
-
   it("creates and retrieves a session by id", async () => {
     const session = await repo.create({
       id: "s1",
       userId: "u1",
       anonymousId: null,
       woprSessionName: "onboarding-u1",
-      status: "active"});
+      status: "active",
+    });
     expect(session.id).toBe("s1");
     expect(session.userId).toBe("u1");
 
@@ -41,21 +41,39 @@ describe("DrizzleOnboardingSessionRepository", () => {
   });
 
   it("retrieves by userId", async () => {
-    await repo.create({ id: "s2", userId: "u2", anonymousId: null, woprSessionName: "onboarding-u2", status: "active" });
+    await repo.create({
+      id: "s2",
+      userId: "u2",
+      anonymousId: null,
+      woprSessionName: "onboarding-u2",
+      status: "active",
+    });
     const found = await repo.getByUserId("u2");
     expect(found).not.toBeNull();
     expect(found!.id).toBe("s2");
   });
 
   it("retrieves by anonymousId", async () => {
-    await repo.create({ id: "s3", userId: null, anonymousId: "anon-1", woprSessionName: "onboarding-anon-1", status: "active" });
+    await repo.create({
+      id: "s3",
+      userId: null,
+      anonymousId: "anon-1",
+      woprSessionName: "onboarding-anon-1",
+      status: "active",
+    });
     const found = await repo.getByAnonymousId("anon-1");
     expect(found).not.toBeNull();
     expect(found!.id).toBe("s3");
   });
 
   it("upgrades anonymous to user", async () => {
-    await repo.create({ id: "s4", userId: null, anonymousId: "anon-2", woprSessionName: "onboarding-anon-2", status: "active" });
+    await repo.create({
+      id: "s4",
+      userId: null,
+      anonymousId: "anon-2",
+      woprSessionName: "onboarding-anon-2",
+      status: "active",
+    });
     const upgraded = await repo.upgradeAnonymousToUser("anon-2", "u3");
     expect(upgraded).not.toBeNull();
     expect(upgraded!.userId).toBe("u3");
@@ -63,7 +81,13 @@ describe("DrizzleOnboardingSessionRepository", () => {
   });
 
   it("sets status", async () => {
-    await repo.create({ id: "s6", userId: "u5", anonymousId: null, woprSessionName: "onboarding-u5", status: "active" });
+    await repo.create({
+      id: "s6",
+      userId: "u5",
+      anonymousId: null,
+      woprSessionName: "onboarding-u5",
+      status: "active",
+    });
     await repo.setStatus("s6", "transferred");
     const found = await repo.getById("s6");
     expect(found!.status).toBe("transferred");
@@ -80,7 +104,8 @@ describe("DrizzleOnboardingSessionRepository", () => {
         userId: null,
         anonymousId: "anon-fresh",
         woprSessionName: "onboarding-s10",
-        status: "active"});
+        status: "active",
+      });
       const result = await repo.getActiveByAnonymousId("anon-fresh");
       expect(result).not.toBeNull();
       expect(result!.id).toBe("s10");
@@ -92,7 +117,8 @@ describe("DrizzleOnboardingSessionRepository", () => {
         userId: null,
         anonymousId: "anon-stale",
         woprSessionName: "onboarding-s11",
-        status: "active"});
+        status: "active",
+      });
       // Backdate createdAt to 25 hours ago via direct db update
       const { onboardingSessions } = await import("@wopr-network/platform-core/db/schema/index");
       const { eq } = await import("drizzle-orm");
@@ -111,7 +137,8 @@ describe("DrizzleOnboardingSessionRepository", () => {
         userId: null,
         anonymousId: "anon-expired",
         woprSessionName: "onboarding-s12",
-        status: "active"});
+        status: "active",
+      });
       await repo.setStatus("s12", "expired");
       const result = await repo.getActiveByAnonymousId("anon-expired");
       expect(result).toBeNull();

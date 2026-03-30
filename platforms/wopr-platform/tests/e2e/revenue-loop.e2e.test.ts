@@ -15,7 +15,12 @@ import { AdapterSocket } from "@wopr-network/platform-core/monetization/socket/s
 import { Credit } from "@wopr-network/platform-core";
 import { DrizzleBotInstanceRepository } from "@wopr-network/platform-core/fleet/drizzle-bot-instance-repository";
 import type { BotInstance } from "@wopr-network/platform-core/fleet/repository-types";
-import type { AdapterResult, ImageGenerationInput, ImageGenerationOutput, ProviderAdapter } from "@wopr-network/platform-core/monetization/adapters/types";
+import type {
+  AdapterResult,
+  ImageGenerationInput,
+  ImageGenerationOutput,
+  ProviderAdapter,
+} from "@wopr-network/platform-core/monetization/adapters/types";
 
 // ---------------------------------------------------------------------------
 // Fake image-generation adapter — simulates a hosted provider (e.g., Replicate)

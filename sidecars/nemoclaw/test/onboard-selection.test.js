@@ -35,7 +35,7 @@ done
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
     const script = String.raw`
 const credentials = require(${credentialsPath});
@@ -134,7 +134,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -227,7 +227,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -321,7 +321,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -407,7 +407,7 @@ done
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -501,7 +501,7 @@ done
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
     fs.writeFileSync(
       path.join(fakeBin, "ollama"),
@@ -512,7 +512,7 @@ if [ "$1" = "pull" ]; then
 fi
 exit 0
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -603,7 +603,7 @@ done
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
     fs.writeFileSync(
       path.join(fakeBin, "ollama"),
@@ -617,7 +617,7 @@ if [ "$1" = "pull" ]; then
 fi
 exit 0
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -713,7 +713,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -794,7 +794,7 @@ done
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -884,7 +884,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -967,7 +967,7 @@ done
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -1059,7 +1059,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -1113,10 +1113,19 @@ const { setupNim } = require(${onboardPath});
     assert.equal(payload.result.provider, "compatible-endpoint");
     assert.equal(payload.result.model, "good-model");
     assert.equal(payload.result.preferredInferenceApi, "openai-responses");
-    assert.ok(payload.lines.some((line) => line.includes("Other OpenAI-compatible endpoint endpoint validation failed")));
-    assert.ok(payload.lines.some((line) => line.includes("Please enter a different Other OpenAI-compatible endpoint model name.")));
+    assert.ok(
+      payload.lines.some((line) => line.includes("Other OpenAI-compatible endpoint endpoint validation failed")),
+    );
+    assert.ok(
+      payload.lines.some((line) =>
+        line.includes("Please enter a different Other OpenAI-compatible endpoint model name."),
+      ),
+    );
     assert.equal(payload.messages.filter((message) => /OpenAI-compatible base URL/.test(message)).length, 1);
-    assert.equal(payload.messages.filter((message) => /Other OpenAI-compatible endpoint model/.test(message)).length, 2);
+    assert.equal(
+      payload.messages.filter((message) => /Other OpenAI-compatible endpoint model/.test(message)).length,
+      2,
+    );
     assert.equal(payload.messages.filter((message) => /Choose \[/.test(message)).length, 1);
   });
 
@@ -1152,7 +1161,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`
@@ -1206,10 +1215,19 @@ const { setupNim } = require(${onboardPath});
     assert.equal(payload.result.provider, "compatible-anthropic-endpoint");
     assert.equal(payload.result.model, "good-claude");
     assert.equal(payload.result.preferredInferenceApi, "anthropic-messages");
-    assert.ok(payload.lines.some((line) => line.includes("Other Anthropic-compatible endpoint endpoint validation failed")));
-    assert.ok(payload.lines.some((line) => line.includes("Please enter a different Other Anthropic-compatible endpoint model name.")));
+    assert.ok(
+      payload.lines.some((line) => line.includes("Other Anthropic-compatible endpoint endpoint validation failed")),
+    );
+    assert.ok(
+      payload.lines.some((line) =>
+        line.includes("Please enter a different Other Anthropic-compatible endpoint model name."),
+      ),
+    );
     assert.equal(payload.messages.filter((message) => /Anthropic-compatible base URL/.test(message)).length, 1);
-    assert.equal(payload.messages.filter((message) => /Other Anthropic-compatible endpoint model/.test(message)).length, 2);
+    assert.equal(
+      payload.messages.filter((message) => /Other Anthropic-compatible endpoint model/.test(message)).length,
+      2,
+    );
     assert.equal(payload.messages.filter((message) => /Choose \[/.test(message)).length, 1);
   });
 
@@ -1246,7 +1264,7 @@ fi
 printf '%s' "$body" > "$outfile"
 printf '%s' "$status"
 `,
-      { mode: 0o755 }
+      { mode: 0o755 },
     );
 
     const script = String.raw`

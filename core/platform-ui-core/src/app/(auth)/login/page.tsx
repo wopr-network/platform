@@ -9,14 +9,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { ResendVerificationButton } from "@/components/auth/resend-verification-button";
 import { OAuthButtons } from "@/components/oauth-buttons";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn } from "@/lib/auth-client";
@@ -28,9 +21,7 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [errorType, setErrorType] = useState<
-    "credentials" | "unverified" | "suspended" | "generic" | null
-  >(null);
+  const [errorType, setErrorType] = useState<"credentials" | "unverified" | "suspended" | "generic" | null>(null);
   const [loading, setLoading] = useState(false);
 
   const searchParams = useSearchParams();
@@ -80,9 +71,7 @@ function LoginForm() {
     <AuthShell>
       <Card className="crt-scanlines border-terminal/20 bg-black/80 shadow-[0_0_30px_rgba(0,255,65,0.08)]">
         <CardHeader>
-          <CardTitle className="text-sm font-medium uppercase tracking-widest text-terminal">
-            Sign in
-          </CardTitle>
+          <CardTitle className="text-sm font-medium uppercase tracking-widest text-terminal">Sign in</CardTitle>
           <CardDescription>Access your {productName()} terminal</CardDescription>
         </CardHeader>
         <CardContent>
@@ -108,10 +97,7 @@ function LoginForm() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-terminal-dim hover:text-terminal"
-                >
+                <Link href="/forgot-password" className="text-xs text-terminal-dim hover:text-terminal">
                   Forgot password?
                 </Link>
               </div>
@@ -165,10 +151,7 @@ function LoginForm() {
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-terminal-dim underline underline-offset-4 hover:text-terminal"
-            >
+            <Link href="/signup" className="text-terminal-dim underline underline-offset-4 hover:text-terminal">
               Sign up
             </Link>
           </p>

@@ -10,17 +10,14 @@ function isOnMarketplace(): boolean {
   return typeof window !== "undefined" && window.location.pathname.startsWith("/marketplace");
 }
 
-export function getMarketplaceOnboardingTools(
-  deps: MarketplaceOnboardingToolDeps,
-): ModelContextTool[] {
+export function getMarketplaceOnboardingTools(deps: MarketplaceOnboardingToolDeps): ModelContextTool[] {
   const { router } = deps;
 
   return [
     // ── Marketplace tools ───────────────────────────────────────────
     {
       name: "marketplace.showSuperpowers",
-      description:
-        "Filter the marketplace grid by a search query. Navigates to the marketplace page first if needed.",
+      description: "Filter the marketplace grid by a search query. Navigates to the marketplace page first if needed.",
       inputSchema: {
         type: "object",
         properties: {
@@ -34,16 +31,13 @@ export function getMarketplaceOnboardingTools(
           router.push(`/marketplace?q=${encodeURIComponent(query)}`);
           return { ok: true, navigated: true };
         }
-        window.dispatchEvent(
-          new CustomEvent(eventName("marketplace"), { detail: { type: "filter", query } }),
-        );
+        window.dispatchEvent(new CustomEvent(eventName("marketplace"), { detail: { type: "filter", query } }));
         return { ok: true, navigated: false };
       },
     },
     {
       name: "marketplace.highlightCard",
-      description:
-        "Pulse/glow a specific plugin card and scroll it into view. Uses data-plugin-card-id attribute.",
+      description: "Pulse/glow a specific plugin card and scroll it into view. Uses data-plugin-card-id attribute.",
       inputSchema: {
         type: "object",
         properties: {
@@ -86,9 +80,7 @@ export function getMarketplaceOnboardingTools(
         properties: {},
       },
       handler: async () => {
-        window.dispatchEvent(
-          new CustomEvent(eventName("marketplace"), { detail: { type: "clearFilter" } }),
-        );
+        window.dispatchEvent(new CustomEvent(eventName("marketplace"), { detail: { type: "clearFilter" } }));
         return { ok: true };
       },
     },
@@ -188,9 +180,7 @@ export function getMarketplaceOnboardingTools(
       },
       handler: async (params) => {
         const elementId = params.elementId as string;
-        const el = document.querySelector(
-          `[data-onboarding-id="${CSS.escape(elementId)}"]`,
-        ) as HTMLElement | null;
+        const el = document.querySelector(`[data-onboarding-id="${CSS.escape(elementId)}"]`) as HTMLElement | null;
         if (!el) {
           return { error: `Element with data-onboarding-id='${elementId}' not found` };
         }

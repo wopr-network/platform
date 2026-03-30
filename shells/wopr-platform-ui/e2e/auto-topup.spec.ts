@@ -85,8 +85,7 @@ async function mockAutoTopupAPI(
 
   // Mutation handler for updateAutoTopupSettings
   await page.route(
-    (url) =>
-      url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("updateAutoTopupSettings"),
+    (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("updateAutoTopupSettings"),
     async (route) => {
       const body = route.request().postDataJSON() as Record<string, Record<string, unknown>>;
       state.mutations.push(body);
@@ -231,9 +230,7 @@ test.describe("Auto-topup Settings", () => {
     await expect(page.getByText(/Tip:.*dividend pool/).first()).toBeVisible();
   });
 
-  test("toggle auto-topup off — disabled state persists after reload", async ({
-    authedPage: page,
-  }) => {
+  test("toggle auto-topup off — disabled state persists after reload", async ({ authedPage: page }) => {
     // Start with both enabled
     const enabledSettings = {
       usageBased: { enabled: true, thresholdCents: 500, topupAmountCents: 1000 },
@@ -246,10 +243,7 @@ test.describe("Auto-topup Settings", () => {
       paymentMethodLast4: "4242",
       paymentMethodBrand: "visa",
     };
-    const state = await mockAutoTopupAPI(
-      page,
-      enabledSettings as unknown as Record<string, unknown>,
-    );
+    const state = await mockAutoTopupAPI(page, enabledSettings as unknown as Record<string, unknown>);
 
     await page.goto("/billing/credits");
 
@@ -285,9 +279,7 @@ test.describe("Auto-topup Settings", () => {
     await expect(page.getByLabel("Scheduled amount").first()).toBeDisabled();
   });
 
-  test("mutation failure rolls back optimistic update and shows error", async ({
-    authedPage: page,
-  }) => {
+  test("mutation failure rolls back optimistic update and shows error", async ({ authedPage: page }) => {
     const initialSettings = defaultSettings();
 
     // Query handler
@@ -312,8 +304,7 @@ test.describe("Auto-topup Settings", () => {
 
     // Mutation handler returns error
     await page.route(
-      (url) =>
-        url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("updateAutoTopupSettings"),
+      (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.includes("updateAutoTopupSettings"),
       async (route) => {
         await route.fulfill({
           status: 500,
@@ -377,9 +368,7 @@ test.describe("Auto-topup Settings", () => {
     });
 
     // Should show the "add payment method" message, not the toggles
-    await expect(
-      page.getByText("Add a payment method to enable auto-topup.").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Add a payment method to enable auto-topup.").first()).toBeVisible();
 
     // Toggles should NOT be present
     await expect(page.locator("#usage-toggle")).toHaveCount(0);

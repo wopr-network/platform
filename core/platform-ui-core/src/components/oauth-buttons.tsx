@@ -18,17 +18,14 @@ interface OAuthButtonsProps {
 
 export function OAuthButtons({ callbackUrl = "/" }: OAuthButtonsProps) {
   const [loading, setLoading] = useState<string | null>(null);
-  const { data: enabledProviders, isLoading } = trpc.authSocial.enabledSocialProviders.useQuery(
-    undefined,
-    { staleTime: Number.POSITIVE_INFINITY },
-  );
+  const { data: enabledProviders, isLoading } = trpc.authSocial.enabledSocialProviders.useQuery(undefined, {
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
   async function handleOAuth(provider: string) {
     setLoading(provider);
     try {
-      const absoluteCallback = callbackUrl.startsWith("http")
-        ? callbackUrl
-        : `${window.location.origin}${callbackUrl}`;
+      const absoluteCallback = callbackUrl.startsWith("http") ? callbackUrl : `${window.location.origin}${callbackUrl}`;
       await signIn.social({
         provider,
         callbackURL: absoluteCallback,
@@ -48,9 +45,7 @@ export function OAuthButtons({ callbackUrl = "/" }: OAuthButtonsProps) {
     <>
       <div className="relative my-4 flex items-center">
         <Separator className="flex-1" />
-        <span className="mx-3 text-xs uppercase tracking-wider text-muted-foreground">
-          or continue with
-        </span>
+        <span className="mx-3 text-xs uppercase tracking-wider text-muted-foreground">or continue with</span>
         <Separator className="flex-1" />
       </div>
       <div className="flex flex-col gap-2">

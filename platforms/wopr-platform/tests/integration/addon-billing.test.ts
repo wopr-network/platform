@@ -99,7 +99,10 @@ describe("E2E: addon billing — daily charges and enable/disable lifecycle", ()
     // Balance = 500 - 17 (bot) - 70 (gpu 50 + priority 20) = 413
     const balance = await ledger.balance(tenantId);
     expect(balance.toCents()).toBe(
-      500 - DAILY_BOT_COST.toCents() - ADDON_CATALOG.gpu_acceleration.dailyCost.toCents() - ADDON_CATALOG.priority_queue.dailyCost.toCents(),
+      500 -
+        DAILY_BOT_COST.toCents() -
+        ADDON_CATALOG.gpu_acceleration.dailyCost.toCents() -
+        ADDON_CATALOG.priority_queue.dailyCost.toCents(),
     );
   });
 
@@ -123,7 +126,9 @@ describe("E2E: addon billing — daily charges and enable/disable lifecycle", ()
 
     const balanceAfterDay1 = await ledger.balance(tenantId);
     // 500 - 17 - 50 = 433
-    expect(balanceAfterDay1.toCents()).toBe(500 - DAILY_BOT_COST.toCents() - ADDON_CATALOG.gpu_acceleration.dailyCost.toCents());
+    expect(balanceAfterDay1.toCents()).toBe(
+      500 - DAILY_BOT_COST.toCents() - ADDON_CATALOG.gpu_acceleration.dailyCost.toCents(),
+    );
 
     // Disable addon, run cron day 2
     await addonRepo.disable(tenantId, "gpu_acceleration");
@@ -211,8 +216,6 @@ describe("E2E: addon billing — daily charges and enable/disable lifecycle", ()
 
     // Balance unchanged after second run
     const balance = await ledger.balance(tenantId);
-    expect(balance.toCents()).toBe(
-      500 - DAILY_BOT_COST.toCents() - ADDON_CATALOG.gpu_acceleration.dailyCost.toCents(),
-    );
+    expect(balance.toCents()).toBe(500 - DAILY_BOT_COST.toCents() - ADDON_CATALOG.gpu_acceleration.dailyCost.toCents());
   });
 });

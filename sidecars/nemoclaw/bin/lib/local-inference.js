@@ -118,9 +118,7 @@ function parseOllamaList(output) {
 function parseOllamaTags(output) {
   try {
     const parsed = JSON.parse(String(output || ""));
-    return Array.isArray(parsed?.models)
-      ? parsed.models.map((model) => model && model.name).filter(Boolean)
-      : [];
+    return Array.isArray(parsed?.models) ? parsed.models.map((model) => model && model.name).filter(Boolean) : [];
   } catch {
     return [];
   }
@@ -193,7 +191,9 @@ function validateOllamaModel(model, runCapture) {
         message: `Selected Ollama model '${model}' failed the local probe: ${parsed.error.trim()}`,
       };
     }
-  } catch { /* ignored */ }
+  } catch {
+    /* ignored */
+  }
 
   return { ok: true };
 }

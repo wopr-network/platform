@@ -12,16 +12,9 @@
 
 import type { PluginCommandContext, PluginCommandResult, OpenClawPluginApi } from "../index.js";
 import { loadState } from "../blueprint/state.js";
-import {
-  describeOnboardEndpoint,
-  describeOnboardProvider,
-  loadOnboardConfig,
-} from "../onboard/config.js";
+import { describeOnboardEndpoint, describeOnboardProvider, loadOnboardConfig } from "../onboard/config.js";
 
-export function handleSlashCommand(
-  ctx: PluginCommandContext,
-  _api: OpenClawPluginApi,
-): PluginCommandResult {
+export function handleSlashCommand(ctx: PluginCommandContext, _api: OpenClawPluginApi): PluginCommandResult {
   const subcommand = ctx.args?.trim().split(/\s+/)[0] ?? "";
 
   switch (subcommand) {

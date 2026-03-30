@@ -155,8 +155,7 @@ export function validateCsrfOrigin(request: NextRequest): boolean {
  */
 async function getSessionRole(request: NextRequest): Promise<string | null> {
   const sessionCookie =
-    request.cookies.get("better-auth.session_token") ??
-    request.cookies.get("__Secure-better-auth.session_token");
+    request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
 
   if (!sessionCookie?.value.trim()) return null;
 
@@ -218,8 +217,7 @@ export default async function middleware(request: NextRequest) {
   if (pathname.startsWith("/api") && MUTATION_METHODS.has(request.method)) {
     // OAuth callback endpoints receive cross-origin POSTs from identity providers (POST only)
     const isCsrfExempt =
-      CSRF_EXEMPT_AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) &&
-      request.method === "POST";
+      CSRF_EXEMPT_AUTH_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`)) && request.method === "POST";
     if (!isCsrfExempt && !validateCsrfOrigin(request)) {
       return NextResponse.json({ error: "CSRF validation failed" }, { status: 403 });
     }
@@ -232,11 +230,9 @@ export default async function middleware(request: NextRequest) {
   // See: wopr-platform/src/auth/better-auth.ts advanced.cookies.session_token.attributes.domain
   if (pathname === "/") {
     const sessionToken =
-      request.cookies.get("better-auth.session_token") ??
-      request.cookies.get("__Secure-better-auth.session_token");
+      request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
     if (sessionToken?.value.trim()) {
-      const appDomain =
-        process.env.NEXT_PUBLIC_BRAND_APP_DOMAIN || process.env.NEXT_PUBLIC_APP_DOMAIN;
+      const appDomain = process.env.NEXT_PUBLIC_BRAND_APP_DOMAIN || process.env.NEXT_PUBLIC_APP_DOMAIN;
       if (appDomain && !host.startsWith("app.")) {
         // On marketing domain — redirect to the app subdomain
         const appUrl = new URL(`https://${appDomain}`);
@@ -253,8 +249,7 @@ export default async function middleware(request: NextRequest) {
   // Unauthenticated users fall through to the session check below (→ /login).
   if (pathname.startsWith("/admin")) {
     const sessionCookie =
-      request.cookies.get("better-auth.session_token") ??
-      request.cookies.get("__Secure-better-auth.session_token");
+      request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
     if (sessionCookie?.value.trim()) {
       const role = await getSessionRole(request);
       if (role !== "platform_admin") {
@@ -287,8 +282,7 @@ export default async function middleware(request: NextRequest) {
   // front-end itself (cookie-based). Automation/SDK/CLI clients should use the platform
   // API directly (wopr-platform), which issues and validates Bearer tokens independently.
   const sessionToken =
-    request.cookies.get("better-auth.session_token") ??
-    request.cookies.get("__Secure-better-auth.session_token");
+    request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
 
   if (!sessionToken || !sessionToken.value.trim()) {
     const loginUrl = new URL("/login", request.url);

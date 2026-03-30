@@ -53,15 +53,9 @@ export function resolveCommandContext(
     profile.apiBase ||
     inferApiBaseFromConfig(options.config);
 
-  const apiKey =
-    options.apiKey?.trim() ||
-    process.env.PAPERCLIP_API_KEY?.trim() ||
-    readKeyFromProfileEnv(profile);
+  const apiKey = options.apiKey?.trim() || process.env.PAPERCLIP_API_KEY?.trim() || readKeyFromProfileEnv(profile);
 
-  const companyId =
-    options.companyId?.trim() ||
-    process.env.PAPERCLIP_COMPANY_ID?.trim() ||
-    profile.companyId;
+  const companyId = options.companyId?.trim() || process.env.PAPERCLIP_COMPANY_ID?.trim() || profile.companyId;
 
   if (opts?.requireCompany && !companyId) {
     throw new Error(

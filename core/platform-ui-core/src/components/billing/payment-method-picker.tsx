@@ -56,19 +56,11 @@ export function PaymentMethodPicker({ methods, onSelect, onBack }: PaymentMethod
   return (
     <div className="space-y-3">
       {onBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
+        <button type="button" onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground">
           &larr; Back
         </button>
       )}
-      <Input
-        placeholder="Search token or network..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <Input placeholder="Search token or network..." value={search} onChange={(e) => setSearch(e.target.value)} />
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button

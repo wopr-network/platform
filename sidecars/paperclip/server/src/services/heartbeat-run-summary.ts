@@ -4,7 +4,7 @@ function truncateSummaryText(value: unknown, maxLength = 500) {
 }
 
 function readNumericField(record: Record<string, unknown>, key: string) {
-  return key in record ? record[key] ?? null : undefined;
+  return key in record ? (record[key] ?? null) : undefined;
 }
 
 export function summarizeHeartbeatRunResultJson(

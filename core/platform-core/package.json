@@ -36,7 +36,10 @@
     "./product-config": "./dist/product-config/index.js",
     "./proxy": "./dist/proxy/index.js",
     "./security": "./dist/security/index.js",
-    "./server": { "import": "./dist/server/index.js", "types": "./dist/server/index.d.ts" },
+    "./server": {
+      "import": "./dist/server/index.js",
+      "types": "./dist/server/index.d.ts"
+    },
     "./setup": "./dist/setup/index.js",
     "./tenancy": "./dist/tenancy/index.js",
     "./api/routes/audit": "./dist/api/routes/audit.js",

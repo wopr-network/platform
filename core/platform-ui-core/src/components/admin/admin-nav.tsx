@@ -52,9 +52,7 @@ export function AdminNav() {
           href={item.href}
           className={cn(
             "rounded-sm px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent inline-flex items-center gap-1.5",
-            pathname.startsWith(item.href)
-              ? "bg-terminal/10 text-terminal"
-              : "text-muted-foreground",
+            pathname.startsWith(item.href) ? "bg-terminal/10 text-terminal" : "text-muted-foreground",
           )}
         >
           {item.label}

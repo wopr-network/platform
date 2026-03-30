@@ -229,9 +229,7 @@ describe("migrateSessionsToSQL", () => {
     });
     (readdirSync as Mock).mockReturnValue([]);
 
-    sessionsRepo.insert
-      .mockRejectedValueOnce(new Error("DB error"))
-      .mockResolvedValueOnce({});
+    sessionsRepo.insert.mockRejectedValueOnce(new Error("DB error")).mockResolvedValueOnce({});
 
     await migrateSessionsToSQL();
     expect(sessionsRepo.insert).toHaveBeenCalledTimes(2);

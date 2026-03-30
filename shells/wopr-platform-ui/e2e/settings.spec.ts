@@ -126,9 +126,7 @@ test.describe("Settings: Security", () => {
 
     await page.goto("/settings/security");
 
-    await expect(
-      page.getByText("Two-factor authentication is active").first(),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText("Two-factor authentication is active").first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole("button", { name: "Disable 2FA" }).first()).toBeVisible({
       timeout: 10000,
     });
@@ -291,9 +289,11 @@ test.describe("Settings: Notifications", () => {
     await expect(page.getByText("Agents").first()).toBeVisible();
 
     // Toggle a preference -- "Low balance alerts" switch should be checked initially
-    const lowBalanceToggle = page.getByRole("switch", {
-      name: "Low balance alerts",
-    }).first();
+    const lowBalanceToggle = page
+      .getByRole("switch", {
+        name: "Low balance alerts",
+      })
+      .first();
     await expect(lowBalanceToggle).toBeVisible();
     await expect(lowBalanceToggle).toBeChecked();
 

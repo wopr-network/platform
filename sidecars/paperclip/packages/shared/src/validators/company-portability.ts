@@ -68,10 +68,14 @@ export const portabilitySkillManifestEntrySchema = z.object({
   trustLevel: z.string().nullable(),
   compatibility: z.string().nullable(),
   metadata: z.record(z.unknown()).nullable(),
-  fileInventory: z.array(z.object({
-    path: z.string().min(1),
-    kind: z.string().min(1),
-  })).default([]),
+  fileInventory: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        kind: z.string().min(1),
+      }),
+    )
+    .default([]),
 });
 
 export const portabilityProjectManifestEntrySchema = z.object({
@@ -153,10 +157,7 @@ export const portabilityTargetSchema = z.discriminatedUnion("mode", [
   }),
 ]);
 
-export const portabilityAgentSelectionSchema = z.union([
-  z.literal("all"),
-  z.array(z.string().min(1)),
-]);
+export const portabilityAgentSelectionSchema = z.union([z.literal("all"), z.array(z.string().min(1))]);
 
 export const portabilityCollisionStrategySchema = z.enum(["rename", "skip", "replace"]);
 

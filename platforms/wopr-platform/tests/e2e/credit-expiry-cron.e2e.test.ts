@@ -51,9 +51,7 @@ describe("credit-expiry-cron e2e", () => {
     expect(after.toCents()).toBe(0);
 
     const history = await ledger.history(tenantId);
-    const expiryDebit = history.find(
-      (tx) => tx.type === "credit_expiry" && tx.referenceId?.startsWith("expiry:"),
-    );
+    const expiryDebit = history.find((tx) => tx.type === "credit_expiry" && tx.referenceId?.startsWith("expiry:"));
     expect(expiryDebit).toBeDefined();
     expect(expiryDebit!.amount.toCents()).toBe(-500);
   });
@@ -86,9 +84,7 @@ describe("credit-expiry-cron e2e", () => {
     expect(after.toCents()).toBe(0);
 
     const history = await ledger.history(tenantId);
-    const expiryDebit = history.find(
-      (tx) => tx.type === "credit_expiry" && tx.referenceId?.startsWith("expiry:"),
-    );
+    const expiryDebit = history.find((tx) => tx.type === "credit_expiry" && tx.referenceId?.startsWith("expiry:"));
     expect(expiryDebit).toBeDefined();
     expect(expiryDebit!.amount.toCents()).toBe(-200);
   });

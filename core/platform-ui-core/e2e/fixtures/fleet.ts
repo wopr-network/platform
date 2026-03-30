@@ -240,10 +240,7 @@ export async function mockFleetAPI(page: Page, state: FleetMockState) {
       return;
     }
     // tRPC v11 httpBatchLink: POST body is {"0": {id, action}} (no "json" wrapper)
-    const body = route.request().postDataJSON() as Record<
-      string,
-      { id: string; action: string }
-    > | null;
+    const body = route.request().postDataJSON() as Record<string, { id: string; action: string }> | null;
     const input = body?.["0"];
     const botId = input?.id ?? "";
     const action = input?.action ?? "";
@@ -395,9 +392,7 @@ export async function mockFleetAPI(page: Page, state: FleetMockState) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(
-        state.bots.map((b) => ({ id: b.id, name: b.name, state: b.state })),
-      ),
+      body: JSON.stringify(state.bots.map((b) => ({ id: b.id, name: b.name, state: b.state }))),
     });
   });
 
@@ -567,9 +562,7 @@ export async function mockFleetAPI(page: Page, state: FleetMockState) {
   // tRPC: capabilityMeta (used by install wizard's useCapabilityMeta hook)
   await page.route(
     (url) =>
-      url.href.includes(PLATFORM_BASE_URL) &&
-      url.pathname.startsWith("/trpc/") &&
-      url.pathname.includes("capabilit"),
+      url.href.includes(PLATFORM_BASE_URL) && url.pathname.startsWith("/trpc/") && url.pathname.includes("capabilit"),
     async (route) => {
       const procs = route.request().url().split("?")[0].split("/trpc/")[1]?.split(",") ?? [];
       const results = procs.map(() => ({ result: { data: [] } }));

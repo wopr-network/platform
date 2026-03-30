@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { probePaymentHealth, type HealthProbeDeps } from "@wopr-network/platform-core/monetization/incident/health-probe";
+import {
+  probePaymentHealth,
+  type HealthProbeDeps,
+} from "@wopr-network/platform-core/monetization/incident/health-probe";
 
 function makeDeps(overrides?: Partial<HealthProbeDeps>): HealthProbeDeps {
   return {
@@ -53,18 +56,14 @@ describe("probePaymentHealth", () => {
   });
 
   it("returns degraded when DLQ has items", async () => {
-    const result = await probePaymentHealth(
-      makeDeps({ dlq: { count: () => 5 } as unknown as HealthProbeDeps["dlq"] }),
-    );
+    const result = await probePaymentHealth(makeDeps({ dlq: { count: () => 5 } as unknown as HealthProbeDeps["dlq"] }));
     expect(result.overall).toBe("degraded");
     expect(result.checks.meterDlq.ok).toBe(false);
     expect(result.checks.meterDlq.depth).toBe(5);
   });
 
   it("returns degraded when webhooks are stale (> 30 min)", async () => {
-    const result = await probePaymentHealth(
-      makeDeps({ queryLastWebhookAgeMs: () => 35 * 60 * 1000 }),
-    );
+    const result = await probePaymentHealth(makeDeps({ queryLastWebhookAgeMs: () => 35 * 60 * 1000 }));
     expect(result.checks.webhookFreshness.ok).toBe(false);
   });
 
@@ -106,21 +105,15 @@ describe("probePaymentHealth", () => {
   });
 
   it("reads autoTopupFailures from queryAutoTopupFailures dep", async () => {
-    const result = await probePaymentHealth(
-      makeDeps({ queryAutoTopupFailures: async () => 2 }),
-    );
+    const result = await probePaymentHealth(makeDeps({ queryAutoTopupFailures: async () => 2 }));
     expect(result.overall).toBe("healthy");
   });
 
   it("escalates to SEV2 when autoTopupFailures >= 3", async () => {
-    const result = await probePaymentHealth(
-      makeDeps({ queryAutoTopupFailures: async () => 3 }),
-    );
+    const result = await probePaymentHealth(makeDeps({ queryAutoTopupFailures: async () => 3 }));
     expect(result.overall).toBe("degraded");
     expect(result.severity).toBe("SEV2");
-    expect(result.reasons).toContain(
-      "Auto-topup consecutive failures (3) reached threshold of 3",
-    );
+    expect(result.reasons).toContain("Auto-topup consecutive failures (3) reached threshold of 3");
   });
 
   it("defaults autoTopupFailures to 0 when dep not provided", async () => {

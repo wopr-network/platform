@@ -681,11 +681,7 @@ describe("CSP nonce in middleware", () => {
   it("does not overwrite stricter Cache-Control on admin routes", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ user: { role: "platform_admin" } }), { status: 200 }),
-        ),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ user: { role: "platform_admin" } }), { status: 200 })),
     );
     const req = buildRequest("/admin/dashboard", {
       cookies: { "better-auth.session_token": "valid-token" },

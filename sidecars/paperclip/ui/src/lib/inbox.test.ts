@@ -49,11 +49,7 @@ function makeApproval(status: Approval["status"]): Approval {
   };
 }
 
-function makeApprovalWithTimestamps(
-  id: string,
-  status: Approval["status"],
-  updatedAt: string,
-): Approval {
+function makeApprovalWithTimestamps(id: string, status: Approval["status"], updatedAt: string): Approval {
   return {
     ...makeApproval(status),
     id,
@@ -255,11 +251,7 @@ describe("inbox helpers", () => {
     const approvals = [
       makeApprovalWithTimestamps("approval-approved", "approved", "2026-03-11T02:00:00.000Z"),
       makeApprovalWithTimestamps("approval-pending", "pending", "2026-03-11T01:00:00.000Z"),
-      makeApprovalWithTimestamps(
-        "approval-revision",
-        "revision_requested",
-        "2026-03-11T03:00:00.000Z",
-      ),
+      makeApprovalWithTimestamps("approval-revision", "revision_requested", "2026-03-11T03:00:00.000Z"),
     ];
 
     expect(getApprovalsForTab(approvals, "recent", "all").map((approval) => approval.id)).toEqual([
@@ -283,11 +275,7 @@ describe("inbox helpers", () => {
     const olderIssue = makeIssue("2", false);
     olderIssue.lastExternalCommentAt = new Date("2026-03-11T02:00:00.000Z");
 
-    const approval = makeApprovalWithTimestamps(
-      "approval-between",
-      "pending",
-      "2026-03-11T03:00:00.000Z",
-    );
+    const approval = makeApprovalWithTimestamps("approval-between", "pending", "2026-03-11T03:00:00.000Z");
 
     expect(
       getInboxWorkItems({
@@ -298,11 +286,7 @@ describe("inbox helpers", () => {
         if (item.kind === "approval") return `approval:${item.approval.id}`;
         return `run:${item.run.id}`;
       }),
-    ).toEqual([
-      "issue:1",
-      "approval:approval-between",
-      "issue:2",
-    ]);
+    ).toEqual(["issue:1", "approval:approval-between", "issue:2"]);
   });
 
   it("can include sections on recent without forcing them to be unread", () => {

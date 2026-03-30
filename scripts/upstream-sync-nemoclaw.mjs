@@ -23,8 +23,14 @@ const AGENT_LOG_TMP = join("/tmp", `agent-events-${Date.now()}.log`);
 const AGENT_LOG_PATH = join(CWD, "agent-events.log");
 writeFileSync(AGENT_LOG_TMP, `=== upstream-sync-nemoclaw agent log — ${new Date().toISOString()} ===\n`);
 
-function log(msg) { console.log(`[upstream-sync] ${msg}`); }
-function die(msg) { log(`FATAL: ${msg}`); flushLog(); process.exit(1); }
+function log(msg) {
+  console.log(`[upstream-sync] ${msg}`);
+}
+function die(msg) {
+  log(`FATAL: ${msg}`);
+  flushLog();
+  process.exit(1);
+}
 function logEvent(phase, data) {
   const line = JSON.stringify({ ts: new Date().toISOString(), phase, ...data }) + "\n";
   appendFileSync(AGENT_LOG_TMP, line);
@@ -32,7 +38,9 @@ function logEvent(phase, data) {
 function flushLog() {
   try {
     if (existsSync(AGENT_LOG_TMP)) copyFileSync(AGENT_LOG_TMP, AGENT_LOG_PATH);
-  } catch { /* best effort */ }
+  } catch {
+    /* best effort */
+  }
 }
 
 function run(cmd) {
@@ -62,16 +70,15 @@ let _query;
 async function loadSdk() {
   if (_query) return;
   const globalRoot = execSync("npm root -g", { encoding: "utf-8" }).trim();
-  const candidates = [
-    "@anthropic-ai/claude-agent-sdk",
-    `${globalRoot}/@anthropic-ai/claude-agent-sdk/sdk.mjs`,
-  ];
+  const candidates = ["@anthropic-ai/claude-agent-sdk", `${globalRoot}/@anthropic-ai/claude-agent-sdk/sdk.mjs`];
   for (const candidate of candidates) {
     try {
       const sdk = await import(candidate);
       _query = sdk.query;
       return;
-    } catch { /* try next */ }
+    } catch {
+      /* try next */
+    }
   }
   die("@anthropic-ai/claude-agent-sdk not installed.");
 }
@@ -83,7 +90,9 @@ async function runAgent(prompt, opts = {}) {
   let result = "";
   let turnCount = 0;
 
-  log(`Agent [${phase}] starting (model: ${opts.model ?? "claude-haiku-4-5-20251001"}, maxTurns: ${opts.maxTurns ?? 60})`);
+  log(
+    `Agent [${phase}] starting (model: ${opts.model ?? "claude-haiku-4-5-20251001"}, maxTurns: ${opts.maxTurns ?? 60})`,
+  );
   logEvent(phase, { type: "agent_start", model: opts.model, maxTurns: opts.maxTurns ?? 60 });
 
   for await (const event of _query({

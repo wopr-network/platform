@@ -197,21 +197,23 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
     const budgetChecker = new BudgetChecker(db, { cacheTtlMs: 0 });
 
     // Insert a meter event worth $0.60 to exceed $0.50 hourly limit
-    await new DrizzleMeterEventRepository(db).insertBatch([{
-      id: `budget-test-${Date.now()}`,
-      tenant: TENANT_ID,
-      cost: Credit.fromDollars(0.3).toRaw(),
-      charge: Credit.fromDollars(0.6).toRaw(),
-      capability: "chat",
-      provider: "openrouter",
-      timestamp: Date.now(),
-      sessionId: null,
-      duration: null,
-      usageUnits: null,
-      usageUnitType: null,
-      tier: null,
-      metadata: null,
-    }]);
+    await new DrizzleMeterEventRepository(db).insertBatch([
+      {
+        id: `budget-test-${Date.now()}`,
+        tenant: TENANT_ID,
+        cost: Credit.fromDollars(0.3).toRaw(),
+        charge: Credit.fromDollars(0.6).toRaw(),
+        capability: "chat",
+        provider: "openrouter",
+        timestamp: Date.now(),
+        sessionId: null,
+        duration: null,
+        usageUnits: null,
+        usageUnitType: null,
+        tier: null,
+        metadata: null,
+      },
+    ]);
 
     const result = await budgetChecker.check(TENANT_ID, {
       maxSpendPerHour: 0.5,
@@ -320,9 +322,7 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
       defaultMargin: 1.3,
       fetchFn: fakeFetch,
       resolveServiceKey: (key) =>
-        key === "test-key"
-          ? { id: TENANT_ID, spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null } }
-          : null,
+        key === "test-key" ? { id: TENANT_ID, spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null } } : null,
       withMarginFn: withMargin,
     });
 
@@ -383,21 +383,23 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
   it("OpenAI protocol: budget denial returns 429 and no meter event emitted", async () => {
     // Insert a high-spend meter event so hourly budget is exceeded
     const budgetTenantId = `openai-budget-${randomUUID()}`;
-    await new DrizzleMeterEventRepository(db).insertBatch([{
-      id: `openai-budget-test-${randomUUID()}`,
-      tenant: budgetTenantId,
-      cost: Credit.fromDollars(1.0).toRaw(),
-      charge: Credit.fromDollars(1.3).toRaw(),
-      capability: "chat-completions",
-      provider: "openrouter",
-      timestamp: Date.now(),
-      sessionId: null,
-      duration: null,
-      usageUnits: null,
-      usageUnitType: null,
-      tier: null,
-      metadata: null,
-    }]);
+    await new DrizzleMeterEventRepository(db).insertBatch([
+      {
+        id: `openai-budget-test-${randomUUID()}`,
+        tenant: budgetTenantId,
+        cost: Credit.fromDollars(1.0).toRaw(),
+        charge: Credit.fromDollars(1.3).toRaw(),
+        capability: "chat-completions",
+        provider: "openrouter",
+        timestamp: Date.now(),
+        sessionId: null,
+        duration: null,
+        usageUnits: null,
+        usageUnitType: null,
+        tier: null,
+        metadata: null,
+      },
+    ]);
     await grantSignupCredits(ledger, budgetTenantId);
 
     const { createOpenAIRoutes } = await import("@wopr-network/platform-core/gateway/protocol/openai");
@@ -521,7 +523,11 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
     const res = await app.request("/v1/messages", {
       method: "POST",
       headers: { "x-api-key": "bad-key", "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 100, messages: [{ role: "user", content: "Hello" }] }),
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 100,
+        messages: [{ role: "user", content: "Hello" }],
+      }),
     });
 
     expect(res.status).toBe(401);
@@ -532,21 +538,23 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
 
   it("Anthropic protocol: budget denial returns 429 and no meter event emitted", async () => {
     const budgetTenantId = `anthropic-budget-${randomUUID()}`;
-    await new DrizzleMeterEventRepository(db).insertBatch([{
-      id: `anthropic-budget-test-${randomUUID()}`,
-      tenant: budgetTenantId,
-      cost: Credit.fromDollars(1.0).toRaw(),
-      charge: Credit.fromDollars(1.3).toRaw(),
-      capability: "chat-completions",
-      provider: "openrouter",
-      timestamp: Date.now(),
-      sessionId: null,
-      duration: null,
-      usageUnits: null,
-      usageUnitType: null,
-      tier: null,
-      metadata: null,
-    }]);
+    await new DrizzleMeterEventRepository(db).insertBatch([
+      {
+        id: `anthropic-budget-test-${randomUUID()}`,
+        tenant: budgetTenantId,
+        cost: Credit.fromDollars(1.0).toRaw(),
+        charge: Credit.fromDollars(1.3).toRaw(),
+        capability: "chat-completions",
+        provider: "openrouter",
+        timestamp: Date.now(),
+        sessionId: null,
+        duration: null,
+        usageUnits: null,
+        usageUnitType: null,
+        tier: null,
+        metadata: null,
+      },
+    ]);
     await grantSignupCredits(ledger, budgetTenantId);
 
     const { createAnthropicRoutes } = await import("@wopr-network/platform-core/gateway/protocol/anthropic");
@@ -571,7 +579,11 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
     const res = await app.request("/v1/messages", {
       method: "POST",
       headers: { "x-api-key": "anthropic-budget-test-key", "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 100, messages: [{ role: "user", content: "Hello" }] }),
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 100,
+        messages: [{ role: "user", content: "Hello" }],
+      }),
     });
 
     expect(res.status).toBe(429);
@@ -593,10 +605,11 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
       topUpUrl: "/billing",
       providers: { openrouter: { apiKey: "fake-key" } },
       defaultMargin: 1.3,
-      fetchFn: async () => new Response(JSON.stringify({ error: { message: "Internal Server Error" } }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }),
+      fetchFn: async () =>
+        new Response(JSON.stringify({ error: { message: "Internal Server Error" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }),
       resolveServiceKey: (key) =>
         key === "anthropic-test-key"
           ? { id: TENANT_ID, spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null } }
@@ -614,10 +627,11 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
       topUpUrl: "/billing",
       providers: { openrouter: { apiKey: "fake-key" } },
       defaultMargin: 1.3,
-      fetchFn: async () => new Response(JSON.stringify({ error: { message: "Internal Server Error" } }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }),
+      fetchFn: async () =>
+        new Response(JSON.stringify({ error: { message: "Internal Server Error" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        }),
       resolveServiceKey: (key) =>
         key === "upstream-error-key"
           ? { id: upstreamErrorTenantId, spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null } }
@@ -628,7 +642,11 @@ describe("E2E: gateway flow — plugin request → provider proxy → metered re
     const res = await appForUpstream.request("/v1/messages", {
       method: "POST",
       headers: { "x-api-key": "upstream-error-key", "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "claude-3-5-sonnet-20241022", max_tokens: 100, messages: [{ role: "user", content: "Hello" }] }),
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 100,
+        messages: [{ role: "user", content: "Hello" }],
+      }),
     });
 
     expect(res.status).toBeGreaterThanOrEqual(400);

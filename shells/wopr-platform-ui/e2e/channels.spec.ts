@@ -1,13 +1,8 @@
 import { expect, test } from "./fixtures/auth";
-import {
-  createFleetMockState,
-  mockFleetAPI,
-} from "./fixtures/fleet";
+import { createFleetMockState, mockFleetAPI } from "./fixtures/fleet";
 
 test.describe("Channels", () => {
-  test("channel list — renders available channels and empty linked state", async ({
-    authedPage: page,
-  }) => {
+  test("channel list — renders available channels and empty linked state", async ({ authedPage: page }) => {
     const state = createFleetMockState();
     state.bots.push({
       id: "e2e-bot-ch",
@@ -33,18 +28,14 @@ test.describe("Channels", () => {
     await expect(page.getByText("Telegram").first()).toBeVisible();
 
     // No channels linked — empty state
-    await expect(
-      page.getByText("NO CHANNELS LINKED").first(),
-    ).toBeVisible();
+    await expect(page.getByText("NO CHANNELS LINKED").first()).toBeVisible();
 
     // Connect links should be present (single bot = auto botId)
     const connectButtons = page.getByRole("link", { name: "Connect" });
     await expect(connectButtons.first()).toBeVisible();
   });
 
-  test("channel setup wizard — complete Discord setup, redirects to instance", async ({
-    authedPage: page,
-  }) => {
+  test("channel setup wizard — complete Discord setup, redirects to instance", async ({ authedPage: page }) => {
     const state = createFleetMockState();
     state.bots.push({
       id: "e2e-bot-setup",
@@ -74,9 +65,7 @@ test.describe("Channels", () => {
     await page.waitForURL("**/instances/e2e-bot-setup?tab=channels", { timeout: 10000 });
   });
 
-  test("channel setup wizard — validation blocks advancement on required fields", async ({
-    authedPage: page,
-  }) => {
+  test("channel setup wizard — validation blocks advancement on required fields", async ({ authedPage: page }) => {
     const state = createFleetMockState();
     state.bots.push({
       id: "e2e-bot-val",
@@ -114,16 +103,11 @@ test.describe("Channels", () => {
     await expect(page.getByText("Step 2 of 3").first()).toBeVisible();
 
     // Fill with invalid format
-    await page
-      .getByPlaceholder("123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11")
-      .first()
-      .fill("bad token with spaces");
+    await page.getByPlaceholder("123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11").first().fill("bad token with spaces");
     await page.getByRole("button", { name: "Continue" }).click();
 
     // Regex validation error
-    await expect(
-      page.getByText("Invalid Telegram bot token format").first(),
-    ).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("Invalid Telegram bot token format").first()).toBeVisible({ timeout: 5000 });
 
     // Still on step 2
     await expect(page.getByText("Step 2 of 3").first()).toBeVisible();

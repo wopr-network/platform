@@ -17,7 +17,12 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { beginTestTransaction, createTestDb, endTestTransaction, rollbackTestTransaction } from "@wopr-network/platform-core/test/db"
+import {
+  beginTestTransaction,
+  createTestDb,
+  endTestTransaction,
+  rollbackTestTransaction,
+} from "@wopr-network/platform-core/test/db";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 import type { ICreditLedger } from "@wopr-network/platform-core";
 import { Credit } from "@wopr-network/platform-core";
@@ -86,15 +91,53 @@ describe("tRPC tenant isolation — billing router (WOP-822)", () => {
     await beginTestTransaction(pool);
 
     const creditLedger: ICreditLedger = {
-      credit(tenantId, amountCents) { return Promise.resolve({ id: "t", tenantId, amountCents, balanceAfterCents: 0, type: "signup_grant", description: null, referenceId: null, fundingSource: null, createdAt: new Date().toISOString() }); },
-      debit(tenantId, amountCents) { return Promise.resolve({ id: "t", tenantId, amountCents: -amountCents, balanceAfterCents: 0, type: "correction", description: null, referenceId: null, fundingSource: null, createdAt: new Date().toISOString() }); },
-      balance() { return Promise.resolve(Credit.ZERO); },
-      hasReferenceId() { return Promise.resolve(false); },
-      history() { return Promise.resolve([]); },
-      tenantsWithBalance() { return Promise.resolve([]); },
-      expiredCredits() { return Promise.resolve([]); },
-      memberUsage() { return Promise.resolve([]); },
-      lifetimeSpend() { return Promise.resolve(Credit.ZERO); },
+      credit(tenantId, amountCents) {
+        return Promise.resolve({
+          id: "t",
+          tenantId,
+          amountCents,
+          balanceAfterCents: 0,
+          type: "signup_grant",
+          description: null,
+          referenceId: null,
+          fundingSource: null,
+          createdAt: new Date().toISOString(),
+        });
+      },
+      debit(tenantId, amountCents) {
+        return Promise.resolve({
+          id: "t",
+          tenantId,
+          amountCents: -amountCents,
+          balanceAfterCents: 0,
+          type: "correction",
+          description: null,
+          referenceId: null,
+          fundingSource: null,
+          createdAt: new Date().toISOString(),
+        });
+      },
+      balance() {
+        return Promise.resolve(Credit.ZERO);
+      },
+      hasReferenceId() {
+        return Promise.resolve(false);
+      },
+      history() {
+        return Promise.resolve([]);
+      },
+      tenantsWithBalance() {
+        return Promise.resolve([]);
+      },
+      expiredCredits() {
+        return Promise.resolve([]);
+      },
+      memberUsage() {
+        return Promise.resolve([]);
+      },
+      lifetimeSpend() {
+        return Promise.resolve(Credit.ZERO);
+      },
     };
     const { MeterAggregator, DrizzleUsageSummaryRepository } = await import("@wopr-network/platform-core/metering");
     const meterAggregator = new MeterAggregator(new DrizzleUsageSummaryRepository(db));
@@ -102,7 +145,9 @@ describe("tRPC tenant isolation — billing router (WOP-822)", () => {
     const tenantRepo = new TenantCustomerRepository(db);
     setBillingRouterDeps({
       stripe: {
-        checkout: { sessions: { create: () => Promise.resolve({ id: "cs_test", url: "https://checkout.stripe.com/test" }) } },
+        checkout: {
+          sessions: { create: () => Promise.resolve({ id: "cs_test", url: "https://checkout.stripe.com/test" }) },
+        },
         billingPortal: { sessions: { create: () => Promise.resolve({ url: "https://billing.stripe.com/test" }) } },
       } as never,
       tenantRepo,
@@ -110,7 +155,16 @@ describe("tRPC tenant isolation — billing router (WOP-822)", () => {
       meterAggregator,
       priceMap: undefined,
       dividendRepo: {
-        getStats: () => Promise.resolve({ poolCents: 0, activeUsers: 0, perUserCents: 0, nextDistributionAt: new Date().toISOString(), userEligible: false, userLastPurchaseAt: null, userWindowExpiresAt: null }),
+        getStats: () =>
+          Promise.resolve({
+            poolCents: 0,
+            activeUsers: 0,
+            perUserCents: 0,
+            nextDistributionAt: new Date().toISOString(),
+            userEligible: false,
+            userLastPurchaseAt: null,
+            userWindowExpiresAt: null,
+          }),
         getHistory: () => Promise.resolve([]),
         getLifetimeTotalCents: () => Promise.resolve(0),
       },
@@ -224,7 +278,6 @@ describe("tRPC tenant isolation — billing router (WOP-822)", () => {
 
     await expect(callerA.billing.usageSummary({ tenant: TENANT_B })).rejects.toThrow("Forbidden");
   });
-
 });
 
 // ---------------------------------------------------------------------------

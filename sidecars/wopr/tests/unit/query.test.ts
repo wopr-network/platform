@@ -55,9 +55,7 @@ describe("getProviderStatus", () => {
   });
 
   it("should return 0 for providers that have never been checked", () => {
-    mockListProviders.mockReturnValue([
-      { id: "openai", name: "OpenAI", available: false, lastChecked: 0 },
-    ]);
+    mockListProviders.mockReturnValue([{ id: "openai", name: "OpenAI", available: false, lastChecked: 0 }]);
 
     const result = query.getProviderStatus();
     expect(result[0].lastChecked).toBe(0);

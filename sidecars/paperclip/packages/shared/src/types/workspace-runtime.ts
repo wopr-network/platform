@@ -1,8 +1,4 @@
-export type ExecutionWorkspaceStrategyType =
-  | "project_primary"
-  | "git_worktree"
-  | "adapter_managed"
-  | "cloud_sandbox";
+export type ExecutionWorkspaceStrategyType = "project_primary" | "git_worktree" | "adapter_managed" | "cloud_sandbox";
 
 export type ProjectExecutionWorkspaceDefaultMode =
   | "shared_workspace"
@@ -18,18 +14,9 @@ export type ExecutionWorkspaceMode =
   | "reuse_existing"
   | "agent_default";
 
-export type ExecutionWorkspaceProviderType =
-  | "local_fs"
-  | "git_worktree"
-  | "adapter_managed"
-  | "cloud_sandbox";
+export type ExecutionWorkspaceProviderType = "local_fs" | "git_worktree" | "adapter_managed" | "cloud_sandbox";
 
-export type ExecutionWorkspaceStatus =
-  | "active"
-  | "idle"
-  | "in_review"
-  | "archived"
-  | "cleanup_failed";
+export type ExecutionWorkspaceStatus = "active" | "idle" | "in_review" | "archived" | "cleanup_failed";
 
 export interface ExecutionWorkspaceStrategy {
   type: ExecutionWorkspaceStrategyType;
@@ -65,7 +52,10 @@ export interface ExecutionWorkspace {
   projectId: string;
   projectWorkspaceId: string | null;
   sourceIssueId: string | null;
-  mode: Exclude<ExecutionWorkspaceMode, "inherit" | "reuse_existing" | "agent_default"> | "adapter_managed" | "cloud_sandbox";
+  mode:
+    | Exclude<ExecutionWorkspaceMode, "inherit" | "reuse_existing" | "agent_default">
+    | "adapter_managed"
+    | "cloud_sandbox";
   strategyType: ExecutionWorkspaceStrategyType;
   name: string;
   status: ExecutionWorkspaceStatus;

@@ -1,7 +1,12 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
-import { beginTestTransaction, createTestDb, endTestTransaction, rollbackTestTransaction } from "@wopr-network/platform-core/test/db";
+import {
+  beginTestTransaction,
+  createTestDb,
+  endTestTransaction,
+  rollbackTestTransaction,
+} from "@wopr-network/platform-core/test/db";
 import { DrizzleDividendRepository } from "@wopr-network/platform-core/monetization/credits/dividend-repository";
 import { Credit } from "@wopr-network/platform-core/credits";
 

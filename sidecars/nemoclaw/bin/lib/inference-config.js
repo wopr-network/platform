@@ -113,8 +113,7 @@ function getProviderSelectionConfig(provider, model) {
 }
 
 function getOpenClawPrimaryModel(provider, model) {
-  const resolvedModel =
-    model || (provider === "ollama-local" ? DEFAULT_OLLAMA_MODEL : DEFAULT_CLOUD_MODEL);
+  const resolvedModel = model || (provider === "ollama-local" ? DEFAULT_OLLAMA_MODEL : DEFAULT_CLOUD_MODEL);
   return resolvedModel ? `${MANAGED_PROVIDER_ID}/${resolvedModel}` : null;
 }
 

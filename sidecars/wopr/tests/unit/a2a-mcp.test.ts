@@ -76,7 +76,6 @@ describe("a2a-mcp", () => {
       expect(tools).toContain("sessions_spawn");
     });
 
-
     it("includes cron tools", () => {
       const tools = listA2ATools();
       expect(tools).toContain("cron_schedule");

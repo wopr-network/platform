@@ -101,11 +101,7 @@ describe("CapabilityProviderPicker", () => {
   it("renders hosted/BYOK options only for capabilities with hostedProvider", () => {
     const onChoose = vi.fn();
     render(
-      <CapabilityProviderPicker
-        capabilities={["transcription", "llm", "webhook"]}
-        choices={{}}
-        onChoose={onChoose}
-      />,
+      <CapabilityProviderPicker capabilities={["transcription", "llm", "webhook"]} choices={{}} onChoose={onChoose} />,
     );
 
     expect(screen.getByText("Transcription")).toBeInTheDocument();
@@ -119,13 +115,7 @@ describe("CapabilityProviderPicker", () => {
   it("defaults to hosted and calls onChoose when BYOK clicked", async () => {
     const user = userEvent.setup();
     const onChoose = vi.fn();
-    render(
-      <CapabilityProviderPicker
-        capabilities={["transcription"]}
-        choices={{}}
-        onChoose={onChoose}
-      />,
-    );
+    render(<CapabilityProviderPicker capabilities={["transcription"]} choices={{}} onChoose={onChoose} />);
 
     await user.click(screen.getByText("Use your key"));
     expect(onChoose).toHaveBeenCalledWith("transcription", "byok");

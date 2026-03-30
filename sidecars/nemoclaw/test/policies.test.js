@@ -24,17 +24,7 @@ describe("policies", () => {
         .listPresets()
         .map((p) => p.name)
         .sort();
-      const expected = [
-        "discord",
-        "docker",
-        "huggingface",
-        "jira",
-        "npm",
-        "outlook",
-        "pypi",
-        "slack",
-        "telegram",
-      ];
+      const expected = ["discord", "docker", "huggingface", "jira", "npm", "outlook", "pypi", "slack", "telegram"];
       expect(names).toEqual(expected);
     });
   });
@@ -83,28 +73,17 @@ describe("policies", () => {
 
   describe("buildPolicySetCommand", () => {
     it("shell-quotes sandbox name to prevent injection", () => {
-      const cmd = policies.buildPolicySetCommand(
-        "/tmp/policy.yaml",
-        "my-assistant",
-      );
-      expect(cmd).toBe(
-        "openshell policy set --policy '/tmp/policy.yaml' --wait 'my-assistant'",
-      );
+      const cmd = policies.buildPolicySetCommand("/tmp/policy.yaml", "my-assistant");
+      expect(cmd).toBe("openshell policy set --policy '/tmp/policy.yaml' --wait 'my-assistant'");
     });
 
     it("escapes shell metacharacters in sandbox name", () => {
-      const cmd = policies.buildPolicySetCommand(
-        "/tmp/policy.yaml",
-        "test; whoami",
-      );
+      const cmd = policies.buildPolicySetCommand("/tmp/policy.yaml", "test; whoami");
       expect(cmd.includes("'test; whoami'")).toBeTruthy();
     });
 
     it("places --wait before the sandbox name", () => {
-      const cmd = policies.buildPolicySetCommand(
-        "/tmp/policy.yaml",
-        "test-box",
-      );
+      const cmd = policies.buildPolicySetCommand("/tmp/policy.yaml", "test-box");
       const waitIdx = cmd.indexOf("--wait");
       const nameIdx = cmd.indexOf("'test-box'");
       expect(waitIdx < nameIdx).toBeTruthy();
@@ -113,14 +92,8 @@ describe("policies", () => {
     it("uses the resolved openshell binary when provided by the installer path", () => {
       process.env.NEMOCLAW_OPENSHELL_BIN = "/tmp/fake path/openshell";
       try {
-        const cmd = policies.buildPolicySetCommand(
-          "/tmp/policy.yaml",
-          "my-assistant",
-        );
-        assert.equal(
-          cmd,
-          "'/tmp/fake path/openshell' policy set --policy '/tmp/policy.yaml' --wait 'my-assistant'",
-        );
+        const cmd = policies.buildPolicySetCommand("/tmp/policy.yaml", "my-assistant");
+        assert.equal(cmd, "'/tmp/fake path/openshell' policy set --policy '/tmp/policy.yaml' --wait 'my-assistant'");
       } finally {
         delete process.env.NEMOCLAW_OPENSHELL_BIN;
       }
@@ -130,9 +103,7 @@ describe("policies", () => {
   describe("buildPolicyGetCommand", () => {
     it("shell-quotes sandbox name", () => {
       const cmd = policies.buildPolicyGetCommand("my-assistant");
-      expect(cmd).toBe(
-        "openshell policy get --full 'my-assistant' 2>/dev/null",
-      );
+      expect(cmd).toBe("openshell policy get --full 'my-assistant' 2>/dev/null");
     });
   });
 
@@ -147,9 +118,7 @@ describe("policies", () => {
           // rules: at 4-space indent (same level as endpoints:) is wrong
           // rules: at 8+ space indent (inside an endpoint) is correct
           if (/^\s{4}rules:/.test(line)) {
-            expect.unreachable(
-              `${p.name} line ${i + 1}: rules at policy level (should be inside endpoint)`,
-            );
+            expect.unreachable(`${p.name} line ${i + 1}: rules at policy level (should be inside endpoint)`);
           }
         }
       }

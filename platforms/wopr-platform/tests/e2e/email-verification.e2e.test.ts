@@ -8,10 +8,7 @@ import {
   isEmailVerified,
   verifyToken,
 } from "@wopr-network/platform-core";
-import {
-  requireEmailVerified,
-  type IEmailVerifier,
-} from "@wopr-network/platform-core/email/require-verified";
+import { requireEmailVerified, type IEmailVerifier } from "@wopr-network/platform-core/email/require-verified";
 import { Hono } from "hono";
 import { initBetterAuthSchema, pgliteAsPool } from "../../src/test/pglite-helpers.js";
 
@@ -51,16 +48,11 @@ describe("E2E: email verification — register → verify email → login verifi
   function extractSessionCookie(res: Response): string | null {
     const setCookie = res.headers.get("set-cookie");
     if (!setCookie) return null;
-    const match = setCookie.match(
-      new RegExp(`${SESSION_COOKIE.replace(".", "\\.")}=([^;]+)`),
-    );
+    const match = setCookie.match(new RegExp(`${SESSION_COOKIE.replace(".", "\\.")}=([^;]+)`));
     return match ? match[1] : null;
   }
 
-  function authRequest(
-    path: string,
-    opts: { method?: string; body?: unknown; cookie?: string } = {},
-  ): Request {
+  function authRequest(path: string, opts: { method?: string; body?: unknown; cookie?: string } = {}): Request {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
@@ -75,14 +67,8 @@ describe("E2E: email verification — register → verify email → login verifi
   }
 
   /** Register a user and return their user ID */
-  async function registerUser(
-    email: string,
-    password: string,
-    name: string,
-  ): Promise<string> {
-    const res = await auth.handler(
-      authRequest("/sign-up/email", { body: { email, password, name } }),
-    );
+  async function registerUser(email: string, password: string, name: string): Promise<string> {
+    const res = await auth.handler(authRequest("/sign-up/email", { body: { email, password, name } }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.user).toBeDefined();
@@ -112,10 +98,9 @@ describe("E2E: email verification — register → verify email → login verifi
     expect(await isEmailVerified(pool, userId)).toBe(true);
 
     // Step 5b: Assert both email_verified (our column) and "emailVerified" (better-auth column) are consistent.
-    const { rows: userRows } = await pg.query(
-      `SELECT email_verified, "emailVerified" FROM "user" WHERE id = $1`,
-      [userId],
-    );
+    const { rows: userRows } = await pg.query(`SELECT email_verified, "emailVerified" FROM "user" WHERE id = $1`, [
+      userId,
+    ]);
     expect(userRows[0].email_verified).toBe(true);
     expect(userRows[0].emailVerified).toBe(true);
 
@@ -130,9 +115,7 @@ describe("E2E: email verification — register → verify email → login verifi
     expect(sessionToken).not.toBeNull();
 
     // Step 7: Session check returns the user
-    const sessionRes = await auth.handler(
-      authRequest("/get-session", { method: "GET", cookie: sessionToken! }),
-    );
+    const sessionRes = await auth.handler(authRequest("/get-session", { method: "GET", cookie: sessionToken! }));
     expect(sessionRes.status).toBe(200);
     const sessionBody = await sessionRes.json();
     expect(sessionBody.user).toBeDefined();
@@ -144,18 +127,14 @@ describe("E2E: email verification — register → verify email → login verifi
   // =========================================================================
 
   it("expired token → verifyToken returns null", async () => {
-    const userId = await registerUser(
-      "expired@test.com",
-      TEST_PASSWORD,
-      "Expired",
-    );
+    const userId = await registerUser("expired@test.com", TEST_PASSWORD, "Expired");
     const { token } = await generateVerificationToken(pool, userId);
 
     // Manually expire the token
-    await pg.query(
-      `UPDATE "user" SET verification_expires = $1 WHERE id = $2`,
-      [new Date(Date.now() - 1000).toISOString(), userId],
-    );
+    await pg.query(`UPDATE "user" SET verification_expires = $1 WHERE id = $2`, [
+      new Date(Date.now() - 1000).toISOString(),
+      userId,
+    ]);
 
     const result = await verifyToken(pool, token);
     expect(result).toBeNull();
@@ -167,11 +146,7 @@ describe("E2E: email verification — register → verify email → login verifi
   // =========================================================================
 
   it("re-verification of already-verified user returns null", async () => {
-    const userId = await registerUser(
-      "reverify@test.com",
-      TEST_PASSWORD,
-      "ReVerify",
-    );
+    const userId = await registerUser("reverify@test.com", TEST_PASSWORD, "ReVerify");
     const { token } = await generateVerificationToken(pool, userId);
 
     // First verify succeeds
@@ -216,9 +191,7 @@ describe("E2E: email verification — register → verify email → login verifi
     expect(sessionToken).not.toBeNull();
 
     // Session check succeeds
-    const sessionRes = await auth.handler(
-      authRequest("/get-session", { method: "GET", cookie: sessionToken! }),
-    );
+    const sessionRes = await auth.handler(authRequest("/get-session", { method: "GET", cookie: sessionToken! }));
     expect(sessionRes.status).toBe(200);
   });
 
@@ -227,11 +200,7 @@ describe("E2E: email verification — register → verify email → login verifi
   // =========================================================================
 
   it("requireEmailVerified middleware blocks unverified, allows verified", async () => {
-    const userId = await registerUser(
-      "middleware@test.com",
-      TEST_PASSWORD,
-      "MW User",
-    );
+    const userId = await registerUser("middleware@test.com", TEST_PASSWORD, "MW User");
 
     // Build a mini Hono app with the middleware
     const verifier: IEmailVerifier = {
@@ -272,11 +241,7 @@ describe("E2E: email verification — register → verify email → login verifi
   // =========================================================================
 
   it("billing email sends to verified user address", async () => {
-    const userId = await registerUser(
-      "billing@test.com",
-      TEST_PASSWORD,
-      "Billing",
-    );
+    const userId = await registerUser("billing@test.com", TEST_PASSWORD, "Billing");
 
     // Verify the user
     const { token } = await generateVerificationToken(pool, userId);

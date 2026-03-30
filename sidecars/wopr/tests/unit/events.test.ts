@@ -172,11 +172,7 @@ describe("Event Bus", () => {
         order.push(2);
       });
 
-      await eventBus.emit(
-        "session:beforeInject",
-        { session: "test", message: "hello", from: "user" },
-        "core",
-      );
+      await eventBus.emit("session:beforeInject", { session: "test", message: "hello", from: "user" }, "core");
 
       // Sequential: handler 1 finishes before handler 2 starts
       expect(order).toEqual([1, 2]);

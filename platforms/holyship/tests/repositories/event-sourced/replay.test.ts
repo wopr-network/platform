@@ -78,8 +78,19 @@ describe("replayEntity", () => {
 
   it("applies entity.claimed and entity.released", () => {
     const events = [
-      makeEvent({ type: "entity.created", entityId: "ent-1", payload: { flowId: "f", initialState: "s" }, sequence: 1 }),
-      makeEvent({ type: "entity.claimed", entityId: "ent-1", payload: { agentId: "agent-42" }, emittedAt: 100, sequence: 2 }),
+      makeEvent({
+        type: "entity.created",
+        entityId: "ent-1",
+        payload: { flowId: "f", initialState: "s" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "entity.claimed",
+        entityId: "ent-1",
+        payload: { agentId: "agent-42" },
+        emittedAt: 100,
+        sequence: 2,
+      }),
       makeEvent({ type: "entity.released", entityId: "ent-1", payload: {}, emittedAt: 200, sequence: 3 }),
     ];
     const result = replayEntity(null, events, "ent-1");
@@ -119,9 +130,24 @@ describe("replayEntity", () => {
 
   it("merges artifacts on multiple transitions", () => {
     const events = [
-      makeEvent({ type: "entity.created", entityId: "ent-1", payload: { flowId: "f", initialState: "s" }, sequence: 1 }),
-      makeEvent({ type: "entity.transitioned", entityId: "ent-1", payload: { toState: "b", artifacts: { x: 1 } }, sequence: 2 }),
-      makeEvent({ type: "entity.transitioned", entityId: "ent-1", payload: { toState: "c", artifacts: { y: 2 } }, sequence: 3 }),
+      makeEvent({
+        type: "entity.created",
+        entityId: "ent-1",
+        payload: { flowId: "f", initialState: "s" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "entity.transitioned",
+        entityId: "ent-1",
+        payload: { toState: "b", artifacts: { x: 1 } },
+        sequence: 2,
+      }),
+      makeEvent({
+        type: "entity.transitioned",
+        entityId: "ent-1",
+        payload: { toState: "c", artifacts: { y: 2 } },
+        sequence: 3,
+      }),
     ];
     const result = replayEntity(null, events, "ent-1");
     expect(result!.artifacts).toEqual({ x: 1, y: 2 });
@@ -129,8 +155,18 @@ describe("replayEntity", () => {
 
   it("applies entity.artifacts_removed to clear specified keys", () => {
     const events = [
-      makeEvent({ type: "entity.created", entityId: "ent-1", payload: { flowId: "f", initialState: "s" }, sequence: 1 }),
-      makeEvent({ type: "entity.transitioned", entityId: "ent-1", payload: { toState: "b", artifacts: { x: 1, y: 2, z: 3 } }, sequence: 2 }),
+      makeEvent({
+        type: "entity.created",
+        entityId: "ent-1",
+        payload: { flowId: "f", initialState: "s" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "entity.transitioned",
+        entityId: "ent-1",
+        payload: { toState: "b", artifacts: { x: 1, y: 2, z: 3 } },
+        sequence: 2,
+      }),
       makeEvent({ type: "entity.artifacts_removed", entityId: "ent-1", payload: { keys: ["x", "z"] }, sequence: 3 }),
     ];
     const result = replayEntity(null, events, "ent-1");
@@ -139,9 +175,24 @@ describe("replayEntity", () => {
 
   it("entity.artifacts_removed ignores keys that do not exist", () => {
     const events = [
-      makeEvent({ type: "entity.created", entityId: "ent-1", payload: { flowId: "f", initialState: "s" }, sequence: 1 }),
-      makeEvent({ type: "entity.transitioned", entityId: "ent-1", payload: { toState: "b", artifacts: { x: 1 } }, sequence: 2 }),
-      makeEvent({ type: "entity.artifacts_removed", entityId: "ent-1", payload: { keys: ["nonexistent"] }, sequence: 3 }),
+      makeEvent({
+        type: "entity.created",
+        entityId: "ent-1",
+        payload: { flowId: "f", initialState: "s" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "entity.transitioned",
+        entityId: "ent-1",
+        payload: { toState: "b", artifacts: { x: 1 } },
+        sequence: 2,
+      }),
+      makeEvent({
+        type: "entity.artifacts_removed",
+        entityId: "ent-1",
+        payload: { keys: ["nonexistent"] },
+        sequence: 3,
+      }),
     ];
     const result = replayEntity(null, events, "ent-1");
     expect(result!.artifacts).toEqual({ x: 1 });
@@ -158,7 +209,14 @@ describe("replayInvocation", () => {
       makeEvent({
         type: "invocation.created",
         entityId: "ent-1",
-        payload: { invocationId: "inv-1", stage: "run", agentRole: "coder", mode: "active", prompt: "do stuff", ttlMs: 60000 },
+        payload: {
+          invocationId: "inv-1",
+          stage: "run",
+          agentRole: "coder",
+          mode: "active",
+          prompt: "do stuff",
+          ttlMs: 60000,
+        },
         emittedAt: 500,
         sequence: 1,
       }),
@@ -187,8 +245,19 @@ describe("replayInvocation", () => {
 
   it("applies invocation.claimed", () => {
     const events = [
-      makeEvent({ type: "invocation.created", entityId: "ent-1", payload: { invocationId: "inv-1", stage: "s", prompt: "p" }, sequence: 1 }),
-      makeEvent({ type: "invocation.claimed", entityId: "ent-1", payload: { invocationId: "inv-1", agentId: "agent-7" }, emittedAt: 1000, sequence: 2 }),
+      makeEvent({
+        type: "invocation.created",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", stage: "s", prompt: "p" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "invocation.claimed",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", agentId: "agent-7" },
+        emittedAt: 1000,
+        sequence: 2,
+      }),
     ];
     const result = replayInvocation("inv-1", events);
     expect(result!.claimedBy).toBe("agent-7");
@@ -197,8 +266,19 @@ describe("replayInvocation", () => {
 
   it("applies invocation.completed", () => {
     const events = [
-      makeEvent({ type: "invocation.created", entityId: "ent-1", payload: { invocationId: "inv-1", stage: "s", prompt: "p" }, sequence: 1 }),
-      makeEvent({ type: "invocation.completed", entityId: "ent-1", payload: { invocationId: "inv-1", signal: "done", artifacts: { pr: "42" } }, emittedAt: 2000, sequence: 2 }),
+      makeEvent({
+        type: "invocation.created",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", stage: "s", prompt: "p" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "invocation.completed",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", signal: "done", artifacts: { pr: "42" } },
+        emittedAt: 2000,
+        sequence: 2,
+      }),
     ];
     const result = replayInvocation("inv-1", events);
     expect(result!.completedAt).toEqual(new Date(2000));
@@ -208,8 +288,19 @@ describe("replayInvocation", () => {
 
   it("applies invocation.failed", () => {
     const events = [
-      makeEvent({ type: "invocation.created", entityId: "ent-1", payload: { invocationId: "inv-1", stage: "s", prompt: "p" }, sequence: 1 }),
-      makeEvent({ type: "invocation.failed", entityId: "ent-1", payload: { invocationId: "inv-1", error: "boom" }, emittedAt: 3000, sequence: 2 }),
+      makeEvent({
+        type: "invocation.created",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", stage: "s", prompt: "p" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "invocation.failed",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", error: "boom" },
+        emittedAt: 3000,
+        sequence: 2,
+      }),
     ];
     const result = replayInvocation("inv-1", events);
     expect(result!.failedAt).toEqual(new Date(3000));
@@ -218,8 +309,19 @@ describe("replayInvocation", () => {
 
   it("applies invocation.expired (clears claim)", () => {
     const events = [
-      makeEvent({ type: "invocation.created", entityId: "ent-1", payload: { invocationId: "inv-1", stage: "s", prompt: "p" }, sequence: 1 }),
-      makeEvent({ type: "invocation.claimed", entityId: "ent-1", payload: { invocationId: "inv-1", agentId: "ag" }, emittedAt: 100, sequence: 2 }),
+      makeEvent({
+        type: "invocation.created",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", stage: "s", prompt: "p" },
+        sequence: 1,
+      }),
+      makeEvent({
+        type: "invocation.claimed",
+        entityId: "ent-1",
+        payload: { invocationId: "inv-1", agentId: "ag" },
+        emittedAt: 100,
+        sequence: 2,
+      }),
       makeEvent({ type: "invocation.expired", entityId: "ent-1", payload: { invocationId: "inv-1" }, sequence: 3 }),
     ];
     const result = replayInvocation("inv-1", events);

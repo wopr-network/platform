@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PluginManifest } from "../lib/marketplace-data";
 import { detectCapabilityConflictsClient } from "../lib/marketplace-data";
 
-const makePlugin = (
-  overrides: Partial<PluginManifest> & { id: string; name: string },
-): PluginManifest => ({
+const makePlugin = (overrides: Partial<PluginManifest> & { id: string; name: string }): PluginManifest => ({
   description: "",
   version: "1.0.0",
   author: "Test",
@@ -43,11 +41,7 @@ const allPlugins = [ttsPlugin, sttPlugin, discordPlugin, anotherTts];
 
 describe("detectCapabilityConflictsClient", () => {
   it("returns empty array when no conflicts", () => {
-    const conflicts = detectCapabilityConflictsClient(
-      discordPlugin,
-      ["elevenlabs-tts"],
-      allPlugins,
-    );
+    const conflicts = detectCapabilityConflictsClient(discordPlugin, ["elevenlabs-tts"], allPlugins);
     expect(conflicts).toEqual([]);
   });
 

@@ -14,15 +14,11 @@ describe("LiveUpdatesProvider issue invalidation", () => {
       getQueryData: () => undefined,
     };
 
-    __liveUpdatesTestUtils.invalidateActivityQueries(
-      queryClient as never,
-      "company-1",
-      {
-        entityType: "issue",
-        entityId: "issue-1",
-        details: null,
-      },
-    );
+    __liveUpdatesTestUtils.invalidateActivityQueries(queryClient as never, "company-1", {
+      entityType: "issue",
+      entityId: "issue-1",
+      details: null,
+    });
 
     expect(invalidations).toContainEqual({
       queryKey: queryKeys.issues.listTouchedByMe("company-1"),

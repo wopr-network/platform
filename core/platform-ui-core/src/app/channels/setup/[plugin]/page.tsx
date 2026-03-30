@@ -70,9 +70,7 @@ export default function ChannelSetupPage({ params }: { params: Promise<{ plugin:
       <div className="flex h-full items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold">Channel Not Found</h1>
-          <p className="mt-2 text-muted-foreground">
-            No manifest found for &ldquo;{plugin}&rdquo;.
-          </p>
+          <p className="mt-2 text-muted-foreground">No manifest found for &ldquo;{plugin}&rdquo;.</p>
         </div>
       </div>
     );
@@ -87,8 +85,8 @@ export default function ChannelSetupPage({ params }: { params: Promise<{ plugin:
           </div>
           <h1 className="text-lg font-semibold uppercase tracking-wider">NO INSTANCE CONTEXT</h1>
           <p className="text-sm text-muted-foreground">
-            Channel setup requires a bot instance. Navigate to your instance and connect a channel
-            from the Channels tab.
+            Channel setup requires a bot instance. Navigate to your instance and connect a channel from the Channels
+            tab.
           </p>
           <Button variant="terminal" asChild>
             <Link href="/instances">VIEW INSTANCES</Link>

@@ -32,9 +32,7 @@ describe("onboarding handoff route", () => {
       upgradeAnonymousToUser: vi.fn(),
       handoff: vi.fn().mockReturnValue(makeSession({ userId: "u1" })),
     };
-    const { setOnboardingDeps, onboardingRoutes } = await import(
-      "../../../src/api/routes/onboarding.js"
-    );
+    const { setOnboardingDeps, onboardingRoutes } = await import("../../../src/api/routes/onboarding.js");
     // biome-ignore lint/suspicious/noExplicitAny: test mock
     setOnboardingDeps(mockService as never, {} as never);
 

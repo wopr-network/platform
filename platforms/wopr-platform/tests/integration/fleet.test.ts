@@ -5,7 +5,16 @@
  * middleware chains (bearer auth) but mocked Docker/FleetManager.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTH_HEADER, JSON_HEADERS, TENANT_A_TOKEN, TENANT_B_TOKEN, fleetMock, mockFleetInstance, pollerMock, updaterMock } from "./setup.js";
+import {
+  AUTH_HEADER,
+  JSON_HEADERS,
+  TENANT_A_TOKEN,
+  TENANT_B_TOKEN,
+  fleetMock,
+  mockFleetInstance,
+  pollerMock,
+  updaterMock,
+} from "./setup.js";
 
 const { app } = await import("../../src/api/app.js");
 
@@ -171,7 +180,13 @@ describe("integration: fleet routes", () => {
     it("accepts valid named Docker volume", async () => {
       fleetMock.create.mockResolvedValue({
         id: "new-bot",
-        profile: { id: "new-bot", tenantId: "user-123", name: "bot", image: "ghcr.io/wopr-network/wopr:stable", volumeName: "my-data-vol" },
+        profile: {
+          id: "new-bot",
+          tenantId: "user-123",
+          name: "bot",
+          image: "ghcr.io/wopr-network/wopr:stable",
+          volumeName: "my-data-vol",
+        },
       });
 
       const res = await app.request("/fleet/bots", {
@@ -448,5 +463,4 @@ describe("integration: fleet routes", () => {
       expect(res.status).toBe(404);
     });
   });
-
 });

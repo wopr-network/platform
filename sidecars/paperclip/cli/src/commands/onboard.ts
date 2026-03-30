@@ -120,8 +120,7 @@ function quickstartDefaultsFromEnv(): {
     process.env.PAPERCLIP_DEPLOYMENT_EXPOSURE,
     DEPLOYMENT_EXPOSURES,
   );
-  const deploymentExposure =
-    deploymentMode === "local_trusted" ? "private" : (deploymentExposureFromEnv ?? "private");
+  const deploymentExposure = deploymentMode === "local_trusted" ? "private" : (deploymentExposureFromEnv ?? "private");
   const authPublicBaseUrl = publicUrl;
   const authBaseUrlModeFromEnv = parseEnumFromEnv<AuthBaseUrlMode>(
     process.env.PAPERCLIP_AUTH_BASE_URL_MODE,
@@ -129,19 +128,18 @@ function quickstartDefaultsFromEnv(): {
   );
   const authBaseUrlMode = authBaseUrlModeFromEnv ?? (authPublicBaseUrl ? "explicit" : "auto");
   const allowedHostnamesFromEnv = process.env.PAPERCLIP_ALLOWED_HOSTNAMES
-    ? process.env.PAPERCLIP_ALLOWED_HOSTNAMES
-      .split(",")
-      .map((value) => value.trim().toLowerCase())
-      .filter((value) => value.length > 0)
+    ? process.env.PAPERCLIP_ALLOWED_HOSTNAMES.split(",")
+        .map((value) => value.trim().toLowerCase())
+        .filter((value) => value.length > 0)
     : [];
   const hostnameFromPublicUrl = publicUrl
     ? (() => {
-      try {
-        return new URL(publicUrl).hostname.trim().toLowerCase();
-      } catch {
-        return null;
-      }
-    })()
+        try {
+          return new URL(publicUrl).hostname.trim().toLowerCase();
+        } catch {
+          return null;
+        }
+      })()
     : null;
   const storageProvider =
     parseEnumFromEnv<StorageProvider>(process.env.PAPERCLIP_STORAGE_PROVIDER, STORAGE_PROVIDERS) ??
@@ -180,7 +178,9 @@ function quickstartDefaultsFromEnv(): {
       exposure: deploymentExposure,
       host: process.env.HOST ?? "127.0.0.1",
       port: Number(process.env.PORT) || 3100,
-      allowedHostnames: Array.from(new Set([...allowedHostnamesFromEnv, ...(hostnameFromPublicUrl ? [hostnameFromPublicUrl] : [])])),
+      allowedHostnames: Array.from(
+        new Set([...allowedHostnamesFromEnv, ...(hostnameFromPublicUrl ? [hostnameFromPublicUrl] : [])]),
+      ),
       serveUi: parseBooleanFromEnv(process.env.SERVE_UI) ?? true,
     },
     auth: {
@@ -191,8 +191,7 @@ function quickstartDefaultsFromEnv(): {
     storage: {
       provider: storageProvider,
       localDisk: {
-        baseDir:
-          resolvePathFromEnv(process.env.PAPERCLIP_STORAGE_LOCAL_DIR) ?? defaultStorage.localDisk.baseDir,
+        baseDir: resolvePathFromEnv(process.env.PAPERCLIP_STORAGE_LOCAL_DIR) ?? defaultStorage.localDisk.baseDir,
       },
       s3: {
         bucket: process.env.PAPERCLIP_STORAGE_S3_BUCKET ?? defaultStorage.s3.bucket,
@@ -200,8 +199,7 @@ function quickstartDefaultsFromEnv(): {
         endpoint: process.env.PAPERCLIP_STORAGE_S3_ENDPOINT ?? defaultStorage.s3.endpoint,
         prefix: process.env.PAPERCLIP_STORAGE_S3_PREFIX ?? defaultStorage.s3.prefix,
         forcePathStyle:
-          parseBooleanFromEnv(process.env.PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE) ??
-          defaultStorage.s3.forcePathStyle,
+          parseBooleanFromEnv(process.env.PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE) ?? defaultStorage.s3.forcePathStyle,
       },
     },
     secrets: {
@@ -223,9 +221,7 @@ function quickstartDefaultsFromEnv(): {
   }
 
   const ignoredKeySet = new Set(ignoredEnvKeys.map((entry) => entry.key));
-  const usedEnvKeys = ONBOARD_ENV_KEYS.filter(
-    (key) => process.env[key] !== undefined && !ignoredKeySet.has(key),
-  );
+  const usedEnvKeys = ONBOARD_ENV_KEYS.filter((key) => process.env[key] !== undefined && !ignoredKeySet.has(key));
   return { defaults, usedEnvKeys, ignoredEnvKeys };
 }
 
@@ -238,11 +234,7 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
   p.intro(pc.bgCyan(pc.black(" paperclipai onboard ")));
   const configPath = resolveConfigPath(opts.config);
   const instance = describeLocalInstancePaths(resolvePaperclipInstanceId());
-  p.log.message(
-    pc.dim(
-      `Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath}`,
-    ),
-  );
+  p.log.message(pc.dim(`Local home: ${instance.homeDir} | instance: ${instance.instanceId} | config: ${configPath}`));
 
   if (configExists(opts.config)) {
     p.log.message(pc.dim(`${configPath} exists, updating config`));
@@ -287,14 +279,7 @@ export async function onboard(opts: OnboardOptions): Promise<void> {
 
   let llm: PaperclipConfig["llm"] | undefined;
   const { defaults: derivedDefaults, usedEnvKeys, ignoredEnvKeys } = quickstartDefaultsFromEnv();
-  let {
-    database,
-    logging,
-    server,
-    auth,
-    storage,
-    secrets,
-  } = derivedDefaults;
+  let { database, logging, server, auth, storage, secrets } = derivedDefaults;
 
   if (setupMode === "advanced") {
     p.log.step(pc.bold("Database"));

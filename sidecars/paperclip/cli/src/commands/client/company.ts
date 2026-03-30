@@ -86,7 +86,10 @@ function normalizeSelector(input: string): string {
 
 function parseInclude(input: string | undefined): CompanyPortabilityInclude {
   if (!input || !input.trim()) return { company: true, agents: true, projects: false, issues: false, skills: false };
-  const values = input.split(",").map((part) => part.trim().toLowerCase()).filter(Boolean);
+  const values = input
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
   const include = {
     company: values.includes("company"),
     agents: values.includes("agents"),
@@ -104,14 +107,24 @@ function parseAgents(input: string | undefined): "all" | string[] {
   if (!input || !input.trim()) return "all";
   const normalized = input.trim().toLowerCase();
   if (normalized === "all") return "all";
-  const values = input.split(",").map((part) => part.trim()).filter(Boolean);
+  const values = input
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
   if (values.length === 0) return "all";
   return Array.from(new Set(values));
 }
 
 function parseCsvValues(input: string | undefined): string[] {
   if (!input || !input.trim()) return [];
-  return Array.from(new Set(input.split(",").map((part) => part.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(
+      input
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 export function isHttpUrl(input: string): boolean {
@@ -188,7 +201,9 @@ async function confirmOverwriteExportDirectory(outDir: string): Promise<void> {
   if (entries.length === 0) return;
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error(`Export output directory ${root} already contains files. Re-run interactively or choose an empty directory.`);
+    throw new Error(
+      `Export output directory ${root} already contains files. Re-run interactively or choose an empty directory.`,
+    );
   }
 
   const confirmed = await p.confirm({
@@ -241,9 +256,7 @@ export function resolveCompanyForDeletion(
   if (idMatch) return idMatch;
   if (prefixMatch) return prefixMatch;
 
-  throw new Error(
-    `No company found for selector '${selector}'. Use company ID or issue prefix (for example PAP).`,
-  );
+  throw new Error(`No company found for selector '${selector}'. Use company ID or issue prefix (for example PAP).`);
 }
 
 export function assertDeleteConfirmation(company: Company, opts: CompanyDeleteOptions): void {
@@ -253,9 +266,7 @@ export function assertDeleteConfirmation(company: Company, opts: CompanyDeleteOp
 
   const confirm = opts.confirm?.trim();
   if (!confirm) {
-    throw new Error(
-      "Deletion requires --confirm <value> where value matches the company ID or issue prefix.",
-    );
+    throw new Error("Deletion requires --confirm <value> where value matches the company ID or issue prefix.");
   }
 
   const confirmsById = confirm === company.id;
@@ -272,9 +283,7 @@ function assertDeleteFlags(opts: CompanyDeleteOptions): void {
     throw new Error("Deletion requires --yes.");
   }
   if (!opts.confirm?.trim()) {
-    throw new Error(
-      "Deletion requires --confirm <value> where value matches the company ID or issue prefix.",
-    );
+    throw new Error("Deletion requires --confirm <value> where value matches the company ID or issue prefix.");
   }
 }
 
@@ -338,7 +347,11 @@ export function registerCompanyCommands(program: Command): void {
       .description("Export a company into a portable markdown package")
       .argument("<companyId>", "Company ID")
       .requiredOption("--out <path>", "Output directory")
-      .option("--include <values>", "Comma-separated include set: company,agents,projects,issues,tasks,skills", "company,agents")
+      .option(
+        "--include <values>",
+        "Comma-separated include set: company,agents,projects,issues,tasks,skills",
+        "company,agents",
+      )
       .option("--skills <values>", "Comma-separated skill slugs/keys to export")
       .option("--projects <values>", "Comma-separated project shortnames/ids to export")
       .option("--issues <values>", "Comma-separated issue identifiers/ids to export")
@@ -348,17 +361,14 @@ export function registerCompanyCommands(program: Command): void {
         try {
           const ctx = resolveCommandContext(opts);
           const include = parseInclude(opts.include);
-          const exported = await ctx.api.post<CompanyPortabilityExportResult>(
-            `/api/companies/${companyId}/export`,
-            {
-              include,
-              skills: parseCsvValues(opts.skills),
-              projects: parseCsvValues(opts.projects),
-              issues: parseCsvValues(opts.issues),
-              projectIssues: parseCsvValues(opts.projectIssues),
-              expandReferencedSkills: Boolean(opts.expandReferencedSkills),
-            },
-          );
+          const exported = await ctx.api.post<CompanyPortabilityExportResult>(`/api/companies/${companyId}/export`, {
+            include,
+            skills: parseCsvValues(opts.skills),
+            projects: parseCsvValues(opts.projects),
+            issues: parseCsvValues(opts.issues),
+            projectIssues: parseCsvValues(opts.projectIssues),
+            expandReferencedSkills: Boolean(opts.expandReferencedSkills),
+          });
           if (!exported) {
             throw new Error("Export request returned no data");
           }
@@ -391,7 +401,11 @@ export function registerCompanyCommands(program: Command): void {
       .command("import")
       .description("Import a portable markdown company package from local path, URL, or GitHub")
       .requiredOption("--from <pathOrUrl>", "Source path or URL")
-      .option("--include <values>", "Comma-separated include set: company,agents,projects,issues,tasks,skills", "company,agents")
+      .option(
+        "--include <values>",
+        "Comma-separated include set: company,agents,projects,issues,tasks,skills",
+        "company,agents",
+      )
       .option("--target <mode>", "Target mode: new | existing")
       .option("-C, --company-id <id>", "Existing target company ID")
       .option("--new-company-name <name>", "Name override for --target new")
@@ -443,7 +457,7 @@ export function registerCompanyCommands(program: Command): void {
             if (!isGithubUrl(from)) {
               throw new Error(
                 "Only GitHub URLs and local paths are supported for import. " +
-                "Generic HTTP URLs are not supported. Use a GitHub URL (https://github.com/...) or a local directory path.",
+                  "Generic HTTP URLs are not supported. Use a GitHub URL (https://github.com/...) or a local directory path.",
               );
             }
             sourcePayload = { type: "github", url: from };
@@ -486,16 +500,9 @@ export function registerCompanyCommands(program: Command): void {
       .command("delete")
       .description("Delete a company by ID or shortname/prefix (destructive)")
       .argument("<selector>", "Company ID or issue prefix (for example PAP)")
-      .option(
-        "--by <mode>",
-        "Selector mode: auto | id | prefix",
-        "auto",
-      )
+      .option("--by <mode>", "Selector mode: auto | id | prefix", "auto")
       .option("--yes", "Required safety flag to confirm destructive action", false)
-      .option(
-        "--confirm <value>",
-        "Required safety value: target company ID or shortname/prefix",
-      )
+      .option("--confirm <value>", "Required safety value: target company ID or shortname/prefix")
       .action(async (selector: string, opts: CompanyDeleteOptions) => {
         try {
           const by = (opts.by ?? "auto").trim().toLowerCase() as CompanyDeleteSelectorMode;
@@ -534,7 +541,11 @@ export function registerCompanyCommands(program: Command): void {
               const companies = (await ctx.api.get<Company[]>("/api/companies")) ?? [];
               target = resolveCompanyForDeletion(companies, normalizedSelector, by);
             } catch (error) {
-              if (error instanceof ApiRequestError && error.status === 403 && error.message.includes("Board access required")) {
+              if (
+                error instanceof ApiRequestError &&
+                error.status === 403 &&
+                error.message.includes("Board access required")
+              ) {
                 throw new Error(
                   "Board access is required to resolve companies across the instance. Use a company ID/prefix for your current company, or run with board authentication.",
                 );

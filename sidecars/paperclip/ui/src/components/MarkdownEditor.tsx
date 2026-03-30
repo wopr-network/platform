@@ -193,18 +193,21 @@ function mentionChipStyle(color: string | null): CSSProperties | undefined {
 
 /* ---- Component ---- */
 
-export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor({
-  value,
-  onChange,
-  placeholder,
-  className,
-  contentClassName,
-  onBlur,
-  imageUploadHandler,
-  bordered = true,
-  mentions,
-  onSubmit,
-}: MarkdownEditorProps, forwardedRef) {
+export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor(
+  {
+    value,
+    onChange,
+    placeholder,
+    className,
+    contentClassName,
+    onBlur,
+    imageUploadHandler,
+    bordered = true,
+    mentions,
+    onSubmit,
+  }: MarkdownEditorProps,
+  forwardedRef,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ref = useRef<MDXEditorMethods>(null);
   const latestValueRef = useRef(value);
@@ -237,11 +240,15 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     return mentions.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 8);
   }, [mentionState?.query, mentions]);
 
-  useImperativeHandle(forwardedRef, () => ({
-    focus: () => {
-      ref.current?.focus(undefined, { defaultSelection: "rootEnd" });
-    },
-  }), []);
+  useImperativeHandle(
+    forwardedRef,
+    () => ({
+      focus: () => {
+        ref.current?.focus(undefined, { defaultSelection: "rootEnd" });
+      },
+    }),
+    [],
+  );
 
   // Whether the image plugin should be included (boolean is stable across renders
   // as long as the handler presence doesn't toggle)
@@ -620,9 +627,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
               )}
               <span>{option.name}</span>
               {option.kind === "project" && option.projectId && (
-                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-                  Project
-                </span>
+                <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Project</span>
               )}
             </button>
           ))}
@@ -639,9 +644,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           Drop image to upload
         </div>
       )}
-      {uploadError && (
-        <p className="px-3 pb-2 text-xs text-destructive">{uploadError}</p>
-      )}
+      {uploadError && <p className="px-3 pb-2 text-xs text-destructive">{uploadError}</p>}
     </div>
   );
 });

@@ -59,11 +59,7 @@ function parsePersistedLogContent(
   return parsed;
 }
 
-export function useLiveRunTranscripts({
-  runs,
-  companyId,
-  maxChunksPerRun = 200,
-}: UseLiveRunTranscriptsOptions) {
+export function useLiveRunTranscripts({ runs, companyId, maxChunksPerRun = 200 }: UseLiveRunTranscriptsOptions) {
   const [chunksByRun, setChunksByRun] = useState<Map<string, RunLogChunk[]>>(new Map());
   const seenChunkKeysRef = useRef(new Set<string>());
   const pendingLogRowsByRunRef = useRef(new Map<string, string>());
@@ -79,7 +75,11 @@ export function useLiveRunTranscripts({
     [runs],
   );
   const runIdsKey = useMemo(
-    () => runs.map((run) => run.id).sort((a, b) => a.localeCompare(b)).join(","),
+    () =>
+      runs
+        .map((run) => run.id)
+        .sort((a, b) => a.localeCompare(b))
+        .join(","),
     [runs],
   );
 
@@ -216,12 +216,14 @@ export function useLiveRunTranscripts({
               : readString(payload["stream"]) === "system"
                 ? "system"
                 : "stdout";
-          appendChunks(runId, [{
-            ts,
-            stream,
-            chunk,
-            dedupeKey: `log:${runId}:${ts}:${stream}:${chunk}`,
-          }]);
+          appendChunks(runId, [
+            {
+              ts,
+              stream,
+              chunk,
+              dedupeKey: `log:${runId}:${ts}:${stream}:${chunk}`,
+            },
+          ]);
           return;
         }
 
@@ -229,23 +231,27 @@ export function useLiveRunTranscripts({
           const seq = typeof payload["seq"] === "number" ? payload["seq"] : null;
           const eventType = readString(payload["eventType"]) ?? "event";
           const messageText = readString(payload["message"]) ?? eventType;
-          appendChunks(runId, [{
-            ts: event.createdAt,
-            stream: eventType === "error" ? "stderr" : "system",
-            chunk: messageText,
-            dedupeKey: `socket:event:${runId}:${seq ?? `${eventType}:${messageText}:${event.createdAt}`}`,
-          }]);
+          appendChunks(runId, [
+            {
+              ts: event.createdAt,
+              stream: eventType === "error" ? "stderr" : "system",
+              chunk: messageText,
+              dedupeKey: `socket:event:${runId}:${seq ?? `${eventType}:${messageText}:${event.createdAt}`}`,
+            },
+          ]);
           return;
         }
 
         if (event.type === "heartbeat.run.status") {
           const status = readString(payload["status"]) ?? "updated";
-          appendChunks(runId, [{
-            ts: event.createdAt,
-            stream: isTerminalStatus(status) && status !== "succeeded" ? "stderr" : "system",
-            chunk: `run ${status}`,
-            dedupeKey: `socket:status:${runId}:${status}:${readString(payload["finishedAt"]) ?? ""}`,
-          }]);
+          appendChunks(runId, [
+            {
+              ts: event.createdAt,
+              stream: isTerminalStatus(status) && status !== "succeeded" ? "stderr" : "system",
+              chunk: `run ${status}`,
+              dedupeKey: `socket:status:${runId}:${status}:${readString(payload["finishedAt"]) ?? ""}`,
+            },
+          ]);
         }
       };
 

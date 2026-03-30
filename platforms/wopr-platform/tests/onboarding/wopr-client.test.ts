@@ -61,10 +61,13 @@ describe("WoprClient", () => {
   });
 
   it("inject sends POST and returns response string", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ response: "Hello there!" }),
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ response: "Hello there!" }),
+      }),
+    );
     const result = await client.inject("my-session", "Hello");
     expect(result).toBe("Hello there!");
   });

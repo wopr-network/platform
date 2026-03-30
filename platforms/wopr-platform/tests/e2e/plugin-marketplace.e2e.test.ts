@@ -29,10 +29,7 @@ import type { ConfigSchemaField } from "@wopr-network/platform-core/api/routes/m
 // ---------------------------------------------------------------------------
 
 /** Validate config values against a plugin manifest's configSchema. */
-function validateConfig(
-  config: Record<string, unknown>,
-  schema: ConfigSchemaField[],
-): string[] {
+function validateConfig(config: Record<string, unknown>, schema: ConfigSchemaField[]): string[] {
   const errors: string[] = [];
   if (!schema) return errors;
   for (const field of schema) {
@@ -202,10 +199,7 @@ describe("E2E: plugin marketplace — install → configure → activate → inv
 
     expect(storedConfig!.configJson).not.toContain(rawConfig.botToken);
 
-    const storedEncrypted = JSON.parse(storedConfig!.encryptedFieldsJson!) as Record<
-      string,
-      EncryptedPayload
-    >;
+    const storedEncrypted = JSON.parse(storedConfig!.encryptedFieldsJson!) as Record<string, EncryptedPayload>;
     expect(storedEncrypted.botToken).toBeDefined();
     expect(storedEncrypted.botToken.ciphertext).not.toBe(rawConfig.botToken);
     expect(storedEncrypted.botToken.iv).toBeDefined();

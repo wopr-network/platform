@@ -639,12 +639,7 @@ describe("GET /:name/health", () => {
   it("returns health info for installed plugin", async () => {
     mockListPlugins.mockResolvedValue([SAMPLE_PLUGIN]);
     mockGetLoadedPlugin.mockReturnValue({ name: "test-plugin" });
-    const manifests = new Map([
-      [
-        "test-plugin",
-        { capabilities: ["chat"], category: "utility", lifecycle: "stable" },
-      ],
-    ]);
+    const manifests = new Map([["test-plugin", { capabilities: ["chat"], category: "utility", lifecycle: "stable" }]]);
     mockGetAllPluginManifests.mockReturnValue(manifests);
 
     const res = await req("GET", "/test-plugin/health");
@@ -922,9 +917,7 @@ describe("POST /install — dependency check (WOP-1461)", () => {
     mockReadPluginManifest.mockReturnValue({
       dependencies: ["@wopr-network/plugin-discord"],
     });
-    mockGetInstalledPlugins.mockResolvedValue([
-      { ...SAMPLE_PLUGIN, name: "discord" },
-    ]);
+    mockGetInstalledPlugins.mockResolvedValue([{ ...SAMPLE_PLUGIN, name: "discord" }]);
     mockCheckPluginDependencies.mockReturnValue({ ok: true, missing: [] });
     const res = await req("POST", "/install", { source: "meeting-transcriber" });
     expect(res.status).toBe(201);

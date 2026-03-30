@@ -59,14 +59,10 @@ describe("uninstall CLI flags", () => {
 
 describe("uninstall helpers", () => {
   it("returns the expected gateway volume candidate", () => {
-    const result = spawnSync(
-      "bash",
-      ["-lc", `source "${UNINSTALL_SCRIPT}"; gateway_volume_candidates nemoclaw`],
-      {
-        cwd: path.join(import.meta.dirname, ".."),
-        encoding: "utf-8",
-      },
-    );
+    const result = spawnSync("bash", ["-lc", `source "${UNINSTALL_SCRIPT}"; gateway_volume_candidates nemoclaw`], {
+      cwd: path.join(import.meta.dirname, ".."),
+      encoding: "utf-8",
+    });
 
     expect(result.status).toBe(0);
     expect(result.stdout.trim()).toBe("openshell-cluster-nemoclaw");
@@ -79,14 +75,10 @@ describe("uninstall helpers", () => {
     fs.mkdirSync(shimDir, { recursive: true });
     fs.writeFileSync(shimPath, "#!/usr/bin/env bash\n", { mode: 0o755 });
 
-    const result = spawnSync(
-      "bash",
-      ["-lc", `HOME="${tmp}" source "${UNINSTALL_SCRIPT}"; remove_nemoclaw_cli`],
-      {
-        cwd: path.join(import.meta.dirname, ".."),
-        encoding: "utf-8",
-      },
-    );
+    const result = spawnSync("bash", ["-lc", `HOME="${tmp}" source "${UNINSTALL_SCRIPT}"; remove_nemoclaw_cli`], {
+      cwd: path.join(import.meta.dirname, ".."),
+      encoding: "utf-8",
+    });
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(shimPath)).toBe(false);

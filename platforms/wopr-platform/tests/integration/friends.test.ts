@@ -105,12 +105,10 @@ describe("integration: friends routes", () => {
       });
 
       expect(res.status).toBe(201);
-      expect(mockProxyToInstance).toHaveBeenCalledWith(
-        "bot-1",
-        "POST",
-        "/p2p/friends/requests",
-        { peerId: "peer-2", message: "Hello!" },
-      );
+      expect(mockProxyToInstance).toHaveBeenCalledWith("bot-1", "POST", "/p2p/friends/requests", {
+        peerId: "peer-2",
+        message: "Hello!",
+      });
     });
 
     it("returns 400 for missing peerId", async () => {
@@ -146,11 +144,7 @@ describe("integration: friends routes", () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockProxyToInstance).toHaveBeenCalledWith(
-        "bot-1",
-        "POST",
-        "/p2p/friends/requests/req-1/accept",
-      );
+      expect(mockProxyToInstance).toHaveBeenCalledWith("bot-1", "POST", "/p2p/friends/requests/req-1/accept");
     });
   });
 
@@ -166,11 +160,7 @@ describe("integration: friends routes", () => {
       });
 
       expect(res.status).toBe(200);
-      expect(mockProxyToInstance).toHaveBeenCalledWith(
-        "bot-1",
-        "POST",
-        "/p2p/friends/requests/req-1/reject",
-      );
+      expect(mockProxyToInstance).toHaveBeenCalledWith("bot-1", "POST", "/p2p/friends/requests/req-1/reject");
     });
   });
 
@@ -258,5 +248,4 @@ describe("integration: friends routes", () => {
       expect(res.status).toBe(400);
     });
   });
-
 });

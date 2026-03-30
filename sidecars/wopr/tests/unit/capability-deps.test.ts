@@ -125,10 +125,7 @@ describe("CapabilityDependencyGraph", () => {
     });
 
     it("includes pluginName, capability, and optional fields", () => {
-      graph.registerPlugin("plug", [
-        { capability: "tts" },
-        { capability: "stt", optional: true },
-      ]);
+      graph.registerPlugin("plug", [{ capability: "tts" }, { capability: "stt", optional: true }]);
       const deps = graph.getPluginDependencies("plug");
       expect(deps[0]).toMatchObject({ pluginName: "plug", capability: "tts", optional: false });
       expect(deps[1]).toMatchObject({ pluginName: "plug", capability: "stt", optional: true });

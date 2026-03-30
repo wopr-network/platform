@@ -1,10 +1,4 @@
-import type {
-  Approval,
-  DashboardSummary,
-  HeartbeatRun,
-  Issue,
-  JoinRequest,
-} from "@paperclipai/shared";
+import type { Approval, DashboardSummary, HeartbeatRun, Issue, JoinRequest } from "@paperclipai/shared";
 
 export const RECENT_ISSUES_LIMIT = 100;
 export const FAILED_RUN_STATUSES = new Set(["failed", "timed_out"]);
@@ -76,9 +70,7 @@ export function saveLastInboxTab(tab: InboxTab) {
 }
 
 export function getLatestFailedRunsByAgent(runs: HeartbeatRun[]): HeartbeatRun[] {
-  const sorted = [...runs].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  const sorted = [...runs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const latestByAgent = new Map<string, HeartbeatRun>();
 
   for (const run of sorted) {
@@ -121,11 +113,7 @@ export function getUnreadTouchedIssues(issues: Issue[]): Issue[] {
   return issues.filter((issue) => issue.isUnreadForMe);
 }
 
-export function getApprovalsForTab(
-  approvals: Approval[],
-  tab: InboxTab,
-  filter: InboxApprovalFilter,
-): Approval[] {
+export function getApprovalsForTab(approvals: Approval[], tab: InboxTab, filter: InboxApprovalFilter): Approval[] {
   const sortedApprovals = [...approvals].sort(
     (a, b) => normalizeTimestamp(b.updatedAt) - normalizeTimestamp(a.updatedAt),
   );
@@ -222,24 +210,14 @@ export function computeInboxBadgeData({
   unreadIssues: Issue[];
   dismissed: Set<string>;
 }): InboxBadgeData {
-  const actionableApprovals = approvals.filter((approval) =>
-    ACTIONABLE_APPROVAL_STATUSES.has(approval.status),
-  ).length;
-  const failedRuns = getLatestFailedRunsByAgent(heartbeatRuns).filter(
-    (run) => !dismissed.has(`run:${run.id}`),
-  ).length;
+  const actionableApprovals = approvals.filter((approval) => ACTIONABLE_APPROVAL_STATUSES.has(approval.status)).length;
+  const failedRuns = getLatestFailedRunsByAgent(heartbeatRuns).filter((run) => !dismissed.has(`run:${run.id}`)).length;
   const unreadTouchedIssues = unreadIssues.length;
   const agentErrorCount = dashboard?.agents.error ?? 0;
   const monthBudgetCents = dashboard?.costs.monthBudgetCents ?? 0;
   const monthUtilizationPercent = dashboard?.costs.monthUtilizationPercent ?? 0;
-  const showAggregateAgentError =
-    agentErrorCount > 0 &&
-    failedRuns === 0 &&
-    !dismissed.has("alert:agent-errors");
-  const showBudgetAlert =
-    monthBudgetCents > 0 &&
-    monthUtilizationPercent >= 80 &&
-    !dismissed.has("alert:budget");
+  const showAggregateAgentError = agentErrorCount > 0 && failedRuns === 0 && !dismissed.has("alert:agent-errors");
+  const showBudgetAlert = monthBudgetCents > 0 && monthUtilizationPercent >= 80 && !dismissed.has("alert:budget");
   const alerts = Number(showAggregateAgentError) + Number(showBudgetAlert);
 
   return {

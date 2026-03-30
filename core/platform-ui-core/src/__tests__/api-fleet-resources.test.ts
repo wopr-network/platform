@@ -18,8 +18,7 @@ describe("getFleetResources", () => {
   it("calls /api/fleet/resources with credentials", async () => {
     mockFetch.mockResolvedValue({
       ok: true,
-      json: () =>
-        Promise.resolve({ totalCpuPercent: 42, totalMemoryMb: 512, memoryCapacityMb: 1024 }),
+      json: () => Promise.resolve({ totalCpuPercent: 42, totalMemoryMb: 512, memoryCapacityMb: 1024 }),
     });
 
     const { getFleetResources } = await import("@/lib/api");

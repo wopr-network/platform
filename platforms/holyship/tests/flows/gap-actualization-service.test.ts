@@ -24,9 +24,33 @@ function mockEngine() {
 }
 
 const SAMPLE_GAPS = [
-  { id: "g-1", capability: "ci", title: "Set up CI pipeline", priority: "high" as const, description: "No CI found.", status: "open", issueUrl: null },
-  { id: "g-2", capability: "docs", title: "Set up documentation", priority: "low" as const, description: "No docs.", status: "open", issueUrl: null },
-  { id: "g-3", capability: "testing", title: "Add tests", priority: "high" as const, description: "No tests.", status: "issue_created", issueUrl: "https://github.com/org/app/issues/99" },
+  {
+    id: "g-1",
+    capability: "ci",
+    title: "Set up CI pipeline",
+    priority: "high" as const,
+    description: "No CI found.",
+    status: "open",
+    issueUrl: null,
+  },
+  {
+    id: "g-2",
+    capability: "docs",
+    title: "Set up documentation",
+    priority: "low" as const,
+    description: "No docs.",
+    status: "open",
+    issueUrl: null,
+  },
+  {
+    id: "g-3",
+    capability: "testing",
+    title: "Add tests",
+    priority: "high" as const,
+    description: "No tests.",
+    status: "issue_created",
+    issueUrl: "https://github.com/org/app/issues/99",
+  },
 ];
 
 describe("GapActualizationService", () => {
@@ -185,12 +209,8 @@ describe("GapActualizationService", () => {
   it("batch does not re-fetch gaps per iteration (no N+1)", async () => {
     vi.mocked(interrogation.getGaps).mockResolvedValue(SAMPLE_GAPS);
     fetchSpy
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ number: 70, html_url: "url1" }), { status: 201 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ number: 71, html_url: "url2" }), { status: 201 }),
-      );
+      .mockResolvedValueOnce(new Response(JSON.stringify({ number: 70, html_url: "url1" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ number: 71, html_url: "url2" }), { status: 201 }));
 
     await service.createIssuesFromAllGaps("org/app");
 

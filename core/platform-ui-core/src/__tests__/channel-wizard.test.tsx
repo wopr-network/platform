@@ -5,11 +5,7 @@ import { FieldInteractive } from "@/components/channel-wizard/field-interactive"
 import { FieldPaste } from "@/components/channel-wizard/field-paste";
 import { StepRenderer } from "@/components/channel-wizard/step-renderer";
 import type { SetupStep } from "@/lib/channel-manifests";
-import {
-  CHANNEL_MANIFESTS_FIXTURE,
-  DISCORD_MANIFEST,
-  TELEGRAM_MANIFEST,
-} from "./fixtures/mock-manifests";
+import { CHANNEL_MANIFESTS_FIXTURE, DISCORD_MANIFEST, TELEGRAM_MANIFEST } from "./fixtures/mock-manifests";
 
 // Mock @/lib/channel-manifests to use fixture data (sync for Wizard component tests)
 vi.mock("@/lib/channel-manifests", async () => {
@@ -17,9 +13,7 @@ vi.mock("@/lib/channel-manifests", async () => {
   return {
     ...actual,
     getChannelManifests: vi.fn().mockResolvedValue(CHANNEL_MANIFESTS_FIXTURE),
-    getManifest: vi
-      .fn()
-      .mockImplementation(async (id: string) => CHANNEL_MANIFESTS_FIXTURE.find((m) => m.id === id)),
+    getManifest: vi.fn().mockImplementation(async (id: string) => CHANNEL_MANIFESTS_FIXTURE.find((m) => m.id === id)),
   };
 });
 
@@ -58,12 +52,7 @@ describe("channel-manifests", () => {
     const { getManifest } = await import("@/lib/channel-manifests");
     const discord = await getManifest("discord");
     expect(discord?.setup).toHaveLength(4);
-    expect(discord?.setup.map((s) => s.id)).toEqual([
-      "create-bot",
-      "paste-token",
-      "select-guild",
-      "done",
-    ]);
+    expect(discord?.setup.map((s) => s.id)).toEqual(["create-bot", "paste-token", "select-guild", "done"]);
   });
 
   it("Telegram manifest has secret token field with paste flow", async () => {
@@ -480,9 +469,7 @@ describe("Wizard connection test API integration", () => {
     });
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Could not reach the server. Check your connection."),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Could not reach the server. Check your connection.")).toBeInTheDocument();
     });
   });
 

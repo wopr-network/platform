@@ -1,9 +1,9 @@
 /**
  * WOPR Event Monitor Plugin Example
- * 
+ *
  * This plugin demonstrates the event bus and hooks API.
  * It monitors session lifecycle, channel messages, and emits custom events.
- * 
+ *
  * Usage:
  *   Add to your WOPR plugins and see events logged to console.
  */
@@ -85,12 +85,12 @@ const plugin: WOPRPlugin = {
     const hookBefore = ctx.hooks.on("session:beforeInject", async (event) => {
       // This hook can modify the message before it goes to the LLM
       const originalMessage = event.data.message;
-      
+
       // Example: Add a prefix to all messages (uncomment to enable)
       // event.data.message = `[MONITORED] ${originalMessage}`;
-      
+
       ctx.log.debug(`[event-monitor] [HOOK] beforeInject - can modify message`);
-      
+
       // Example: Prevent certain messages (uncomment to enable)
       // if (originalMessage.includes("secret")) {
       //   event.preventDefault();

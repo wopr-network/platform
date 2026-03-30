@@ -84,9 +84,7 @@ export async function isUnblocked(entity: Entity): Promise<BlockingGraphResult> 
         unmerged.push(`${identifier} (no PR found)`);
         continue;
       }
-      const match = prAttachment.url.match(
-        /github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/,
-      );
+      const match = prAttachment.url.match(/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/);
       if (!match) {
         unmerged.push(`${identifier} (unrecognized PR URL)`);
         continue;

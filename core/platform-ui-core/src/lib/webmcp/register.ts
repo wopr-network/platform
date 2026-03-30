@@ -1,8 +1,5 @@
 import { isWebMCPAvailable } from "./feature-detect";
-import {
-  getMarketplaceOnboardingTools,
-  type MarketplaceOnboardingToolDeps,
-} from "./marketplace-onboarding-tools";
+import { getMarketplaceOnboardingTools, type MarketplaceOnboardingToolDeps } from "./marketplace-onboarding-tools";
 import { type ConfirmCallback, getChatWebMCPTools, getWebMCPTools } from "./tools";
 
 /**

@@ -40,7 +40,13 @@ class StubCreditLedger implements CreditLedger {
     this.balances.set(tenantId, current.subtract(amount));
   }
 
-  transactions(): Array<{ tenantId: string; amountCents: number; type: string; description: string; timestamp: number }> {
+  transactions(): Array<{
+    tenantId: string;
+    amountCents: number;
+    type: string;
+    description: string;
+    timestamp: number;
+  }> {
     return [];
   }
 }

@@ -3,13 +3,21 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { createTestDb, truncateAllTables } from "@wopr-network/platform-core/test/db";
 import { Credit } from "@wopr-network/platform-core";
 import { DrizzleLedger } from "@wopr-network/platform-core";
-import { type DividendCronConfig, runDividendCron } from "@wopr-network/platform-core/monetization/credits/dividend-cron";
+import {
+  type DividendCronConfig,
+  runDividendCron,
+} from "@wopr-network/platform-core/monetization/credits/dividend-cron";
 
 vi.mock("@wopr-network/platform-core/config/logger", () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
-async function insertPurchase(ledger: DrizzleLedger, tenantId: string, amountCents: number, postedAt: string): Promise<void> {
+async function insertPurchase(
+  ledger: DrizzleLedger,
+  tenantId: string,
+  amountCents: number,
+  postedAt: string,
+): Promise<void> {
   const amount = Credit.fromCents(amountCents);
   await ledger.post({
     entryType: "purchase",

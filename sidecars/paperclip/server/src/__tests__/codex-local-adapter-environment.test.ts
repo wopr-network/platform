@@ -42,9 +42,9 @@ describe("codex_local environment diagnostics", () => {
     const fakeCodex = path.join(binDir, "codex.cmd");
     const script = [
       "@echo off",
-      "echo {\"type\":\"thread.started\",\"thread_id\":\"test-thread\"}",
-      "echo {\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"hello\"}}",
-      "echo {\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"cached_input_tokens\":0,\"output_tokens\":1}}",
+      'echo {"type":"thread.started","thread_id":"test-thread"}',
+      'echo {"type":"item.completed","item":{"type":"agent_message","text":"hello"}}',
+      'echo {"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"output_tokens":1}}',
       "exit /b 0",
       "",
     ].join("\r\n");

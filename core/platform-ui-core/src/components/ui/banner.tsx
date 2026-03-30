@@ -24,12 +24,7 @@ function Banner({
   ...props
 }: React.ComponentProps<"div"> & VariantProps<typeof bannerVariants>) {
   return (
-    <div
-      data-slot="banner"
-      data-variant={variant}
-      className={cn(bannerVariants({ variant, className }))}
-      {...props}
-    />
+    <div data-slot="banner" data-variant={variant} className={cn(bannerVariants({ variant, className }))} {...props} />
   );
 }
 

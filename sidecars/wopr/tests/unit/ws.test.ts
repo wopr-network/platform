@@ -139,10 +139,13 @@ describe("Ticket-based authentication", () => {
     const ws = createMockWs();
     setupWebSocket(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instances"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instances"],
+      }),
+    );
 
     const msg = ws.lastMessage();
     expect(msg.type).toBe("error");
@@ -153,10 +156,13 @@ describe("Ticket-based authentication", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instances"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instances"],
+      }),
+    );
 
     const msg = ws.lastMessage();
     expect(msg.type).toBe("subscribed");
@@ -168,10 +174,13 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instances", "instance:abc123:logs"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instances", "instance:abc123:logs"],
+      }),
+    );
 
     const msg = ws.lastMessage();
     expect(msg.type).toBe("subscribed");
@@ -183,15 +192,21 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instances", "instance:abc123:logs"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instances", "instance:abc123:logs"],
+      }),
+    );
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "unsubscribe",
-      topics: ["instance:abc123:logs"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "unsubscribe",
+        topics: ["instance:abc123:logs"],
+      }),
+    );
 
     const msg = ws.lastMessage();
     expect(msg.type).toBe("unsubscribed");
@@ -202,10 +217,13 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instance:abc123:status"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instance:abc123:status"],
+      }),
+    );
 
     emitInstanceStatus("abc123", "healthy");
 
@@ -222,10 +240,13 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     setupAndAuth(ws);
 
     // Subscribe to a different instance
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instance:other:status"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instance:other:status"],
+      }),
+    );
 
     emitInstanceStatus("abc123", "healthy");
 
@@ -238,10 +259,13 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["*"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["*"],
+      }),
+    );
 
     emitInstanceStatus("abc123", "healthy");
     emitInstanceLog("abc123", "info", "Hello");
@@ -255,10 +279,13 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instances"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instances"],
+      }),
+    );
 
     emitInstanceStatus("abc", "healthy");
     emitInstanceStatus("def", "unhealthy");
@@ -274,10 +301,13 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     setupAndAuth(ws);
 
     // Subscribe to all events for instance abc123
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instance:abc123"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instance:abc123"],
+      }),
+    );
 
     emitInstanceStatus("abc123", "healthy");
     emitInstanceLog("abc123", "info", "test");
@@ -295,10 +325,13 @@ describe("Topic-based subscriptions (WOP-204)", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["valid", "", 123, null],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["valid", "", 123, null],
+      }),
+    );
 
     const msg = ws.lastMessage();
     expect(msg.type).toBe("subscribed");
@@ -313,10 +346,13 @@ describe("Legacy session-based subscriptions", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      sessions: ["main", "test"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        sessions: ["main", "test"],
+      }),
+    );
 
     const msg = ws.lastMessage();
     expect(msg.type).toBe("subscribed");
@@ -327,10 +363,13 @@ describe("Legacy session-based subscriptions", () => {
     const ws = createMockWs();
     setupAndAuth(ws);
 
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      session: "main",
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        session: "main",
+      }),
+    );
 
     const msg = ws.lastMessage();
     expect(msg.type).toBe("subscribed");
@@ -553,9 +592,7 @@ describe("Backpressure handling", () => {
 
     // Should have received a BACKPRESSURE_DISCONNECT warning
     const allMsgs = ws.allMessages();
-    const backpressureMsg = allMsgs.find(
-      (m) => m.code === "BACKPRESSURE_DISCONNECT",
-    );
+    const backpressureMsg = allMsgs.find((m) => m.code === "BACKPRESSURE_DISCONNECT");
     expect(backpressureMsg?.type).toBe("error");
   });
 
@@ -648,7 +685,11 @@ describe("publishToTopic", () => {
 
     publishToTopic("instance:a:logs", { type: "instance:log", id: "a", message: "test" });
 
-    expect(ws1.allMessages().find((m) => m.type === "instance:log")).toMatchObject({ type: "instance:log", id: "a", message: "test" });
+    expect(ws1.allMessages().find((m) => m.type === "instance:log")).toMatchObject({
+      type: "instance:log",
+      id: "a",
+      message: "test",
+    });
     expect(ws2.allMessages().find((m) => m.type === "instance:log")).toBeUndefined();
   });
 });
@@ -796,7 +837,9 @@ describe("Topic scope enforcement (WOP-1712)", () => {
     setupWebSocket(ws, { preAuthenticated: true, scope: "instance:abc" });
     handleWebSocketMessage(ws, JSON.stringify({ type: "subscribe", topics: ["instance:def:logs"] }));
     const msgs = ws.allMessages();
-    const errorMsg = msgs.find((m) => m.type === "error" && typeof m.message === "string" && m.message.includes("scope"));
+    const errorMsg = msgs.find(
+      (m) => m.type === "error" && typeof m.message === "string" && m.message.includes("scope"),
+    );
     expect(errorMsg).toBeDefined();
     expect(errorMsg?.code).toBe("SCOPE_DENIED");
   });
@@ -886,10 +929,13 @@ describe("Topic scope enforcement (WOP-1712)", () => {
   it("should partially subscribe only allowed topics from a mixed list", () => {
     const ws = createMockWs();
     setupWebSocket(ws, { preAuthenticated: true, scope: "instance:abc" });
-    handleWebSocketMessage(ws, JSON.stringify({
-      type: "subscribe",
-      topics: ["instance:abc:logs", "instance:def:logs", "instance:abc:status"],
-    }));
+    handleWebSocketMessage(
+      ws,
+      JSON.stringify({
+        type: "subscribe",
+        topics: ["instance:abc:logs", "instance:def:logs", "instance:abc:status"],
+      }),
+    );
     const msgs = ws.allMessages();
     const errorMsg = msgs.find((m) => m.type === "error" && m.code === "SCOPE_DENIED");
     expect(errorMsg).toBeDefined();

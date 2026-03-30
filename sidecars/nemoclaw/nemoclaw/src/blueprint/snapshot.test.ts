@@ -93,8 +93,9 @@ vi.mock("node:fs", async (importOriginal) => {
 const mockExeca = vi.fn();
 vi.mock("execa", () => ({ execa: (...args: unknown[]) => mockExeca(...args) }));
 
-const { createSnapshot, restoreIntoSandbox, cutoverHost, rollbackFromSnapshot, listSnapshots } =
-  await import("./snapshot.js");
+const { createSnapshot, restoreIntoSandbox, cutoverHost, rollbackFromSnapshot, listSnapshots } = await import(
+  "./snapshot.js"
+);
 
 const OPENCLAW_DIR = `${FAKE_HOME}/.openclaw`;
 const SNAPSHOTS_DIR = `${FAKE_HOME}/.nemoclaw/snapshots`;

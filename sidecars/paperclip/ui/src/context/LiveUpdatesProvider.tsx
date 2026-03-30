@@ -24,11 +24,7 @@ function shortId(value: string) {
   return value.slice(0, 8);
 }
 
-function resolveAgentName(
-  queryClient: QueryClient,
-  companyId: string,
-  agentId: string,
-): string | null {
+function resolveAgentName(queryClient: QueryClient, companyId: string, agentId: string): string | null {
   const agents = queryClient.getQueryData<Agent[]>(queryKeys.agents.list(companyId));
   if (!agents) return null;
   const agent = agents.find((a) => a.id === agentId);
@@ -72,9 +68,7 @@ function resolveIssueQueryRefs(
   const refs = new Set<string>([issueId]);
   const detailIssue = queryClient.getQueryData<Issue>(queryKeys.issues.detail(issueId));
   const listIssues = queryClient.getQueryData<Issue[]>(queryKeys.issues.list(companyId));
-  const detailsIdentifier =
-    readString(details?.identifier) ??
-    readString(details?.issueIdentifier);
+  const detailsIdentifier = readString(details?.identifier) ?? readString(details?.issueIdentifier);
 
   if (detailsIdentifier) refs.add(detailsIdentifier);
 
@@ -112,11 +106,7 @@ function resolveIssueToastContext(
     readString(details?.issueIdentifier) ??
     cachedIssue?.identifier ??
     `Issue ${shortId(issueId)}`;
-  const title =
-    readString(details?.title) ??
-    readString(details?.issueTitle) ??
-    cachedIssue?.title ??
-    null;
+  const title = readString(details?.title) ?? readString(details?.issueTitle) ?? cachedIssue?.title ?? null;
   return {
     ref,
     title,
@@ -228,7 +218,7 @@ function buildActivityToast(
       ? issue.title
         ? `${reopenedLabel} - ${issue.title}`
         : reopenedLabel
-      : issue.title ?? undefined;
+      : (issue.title ?? undefined);
   return {
     title,
     body: body ? truncate(body, 96) : undefined,
@@ -238,9 +228,7 @@ function buildActivityToast(
   };
 }
 
-function buildJoinRequestToast(
-  payload: Record<string, unknown>,
-): ToastInput | null {
+function buildJoinRequestToast(payload: Record<string, unknown>): ToastInput | null {
   const entityType = readString(payload.entityType);
   const action = readString(payload.action);
   const entityId = readString(payload.entityId);
@@ -273,10 +261,7 @@ function buildAgentStatusToast(
 
   const tone = status === "error" ? "error" : "info";
   const name = nameOf(agentId) ?? `Agent ${shortId(agentId)}`;
-  const title =
-    status === "running"
-      ? `${name} started`
-      : `${name} errored`;
+  const title = status === "running" ? `${name} started` : `${name} errored`;
 
   const agents = queryClient.getQueryData<Agent[]>(queryKeys.agents.list(companyId));
   const agent = agents?.find((a) => a.id === agentId);
@@ -305,9 +290,12 @@ function buildRunStatusToast(
   const name = nameOf(agentId) ?? `Agent ${shortId(agentId)}`;
   const tone = status === "succeeded" ? "success" : status === "cancelled" ? "warn" : "error";
   const statusLabel =
-    status === "succeeded" ? "succeeded"
-      : status === "failed" ? "failed"
-        : status === "timed_out" ? "timed out"
+    status === "succeeded"
+      ? "succeeded"
+      : status === "failed"
+        ? "failed"
+        : status === "timed_out"
+          ? "timed out"
           : "cancelled";
   const title = `${name} run ${statusLabel}`;
 
@@ -511,8 +499,7 @@ function handleLiveEvent(
     invalidateActivityQueries(queryClient, expectedCompanyId, payload);
     const action = readString(payload.action);
     const toast =
-      buildActivityToast(queryClient, expectedCompanyId, payload, currentActor) ??
-      buildJoinRequestToast(payload);
+      buildActivityToast(queryClient, expectedCompanyId, payload, currentActor) ?? buildJoinRequestToast(payload);
     if (toast) gatedPushToast(gate, pushToast, `activity:${action ?? "unknown"}`, toast);
   }
 }

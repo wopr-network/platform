@@ -116,7 +116,12 @@ describe("E2E: adapter socket — meters capability usage and charges credits co
       selfHosted: false,
       async synthesizeSpeech() {
         return {
-          result: { audioUrl: "https://cdn.example.com/speech.mp3", durationSeconds: 5, format: "mp3", characterCount: 42 },
+          result: {
+            audioUrl: "https://cdn.example.com/speech.mp3",
+            durationSeconds: 5,
+            format: "mp3",
+            characterCount: 42,
+          },
           cost: Credit.fromDollars(0.005),
         } satisfies AdapterResult<TTSOutput>;
       },
@@ -218,7 +223,12 @@ describe("E2E: adapter socket — meters capability usage and charges credits co
       selfHosted: false,
       async synthesizeSpeech() {
         return {
-          result: { audioUrl: "https://cdn.example.com/speech.mp3", durationSeconds: 5, format: "mp3", characterCount: 42 },
+          result: {
+            audioUrl: "https://cdn.example.com/speech.mp3",
+            durationSeconds: 5,
+            format: "mp3",
+            characterCount: 42,
+          },
           cost: Credit.fromDollars(0.005),
         } satisfies AdapterResult<TTSOutput>;
       },

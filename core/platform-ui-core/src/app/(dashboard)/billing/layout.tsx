@@ -43,9 +43,7 @@ export default function BillingLayout({
                   href={item.href}
                   className={cn(
                     "block rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                    pathname === item.href
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground",
+                    pathname === item.href ? "bg-accent text-accent-foreground" : "text-muted-foreground",
                   )}
                 >
                   {item.label}

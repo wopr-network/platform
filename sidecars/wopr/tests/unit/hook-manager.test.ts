@@ -259,9 +259,27 @@ describe("createPluginHookManager", () => {
       const hooks = createPluginHookManager("test-plugin");
       const order: number[] = [];
 
-      hooks.on("session:create", () => { order.push(3); }, { priority: 300 });
-      hooks.on("session:create", () => { order.push(1); }, { priority: 10 });
-      hooks.on("session:create", () => { order.push(2); }, { priority: 100 });
+      hooks.on(
+        "session:create",
+        () => {
+          order.push(3);
+        },
+        { priority: 300 },
+      );
+      hooks.on(
+        "session:create",
+        () => {
+          order.push(1);
+        },
+        { priority: 10 },
+      );
+      hooks.on(
+        "session:create",
+        () => {
+          order.push(2);
+        },
+        { priority: 100 },
+      );
 
       const busListener = busListeners.get("session:create");
       expect(busListener).toBeTypeOf("function");
@@ -274,9 +292,27 @@ describe("createPluginHookManager", () => {
       const hooks = createPluginHookManager("test-plugin");
       const order: string[] = [];
 
-      hooks.on("session:create", () => { order.push("first"); }, { priority: 100 });
-      hooks.on("session:create", () => { order.push("second"); }, { priority: 100 });
-      hooks.on("session:create", () => { order.push("third"); }, { priority: 100 });
+      hooks.on(
+        "session:create",
+        () => {
+          order.push("first");
+        },
+        { priority: 100 },
+      );
+      hooks.on(
+        "session:create",
+        () => {
+          order.push("second");
+        },
+        { priority: 100 },
+      );
+      hooks.on(
+        "session:create",
+        () => {
+          order.push("third");
+        },
+        { priority: 100 },
+      );
 
       const busListener = busListeners.get("session:create");
       await busListener!({ session: "test" }, "session:create");
@@ -321,7 +357,13 @@ describe("createPluginHookManager", () => {
 
     it("should remove once handler even when it throws", async () => {
       const hooks = createPluginHookManager("test-plugin");
-      hooks.on("session:create", () => { throw new Error("once throws"); }, { once: true });
+      hooks.on(
+        "session:create",
+        () => {
+          throw new Error("once throws");
+        },
+        { once: true },
+      );
 
       const busListener = busListeners.get("session:create");
       await busListener!({ session: "test" }, "session:create");
@@ -332,7 +374,13 @@ describe("createPluginHookManager", () => {
 
     it("should remove once handler even when it throws on mutable events", async () => {
       const hooks = createPluginHookManager("test-plugin");
-      hooks.on("message:incoming", () => { throw new Error("mutable once throws"); }, { once: true });
+      hooks.on(
+        "message:incoming",
+        () => {
+          throw new Error("mutable once throws");
+        },
+        { once: true },
+      );
 
       const busListener = busListeners.get("session:beforeInject");
       await busListener!({ session: "s1" }, "session:beforeInject");
@@ -354,10 +402,7 @@ describe("createPluginHookManager", () => {
       });
 
       const busListener = busListeners.get("session:beforeInject");
-      await busListener!(
-        { session: "s1", message: "hello", from: "user" },
-        "session:beforeInject",
-      );
+      await busListener!({ session: "s1", message: "hello", from: "user" }, "session:beforeInject");
 
       expect(receivedEvent).toMatchObject({ data: { session: "s1", message: "hello", from: "user" } });
       const evt = receivedEvent as Record<string, unknown>;
@@ -372,20 +417,25 @@ describe("createPluginHookManager", () => {
       const hooks = createPluginHookManager("test-plugin");
       const order: number[] = [];
 
-      hooks.on("message:incoming", (evt: unknown) => {
-        order.push(1);
-        (evt as Record<string, unknown>)["preventDefault"]?.();
-      }, { priority: 10 });
+      hooks.on(
+        "message:incoming",
+        (evt: unknown) => {
+          order.push(1);
+          (evt as Record<string, unknown>)["preventDefault"]?.();
+        },
+        { priority: 10 },
+      );
 
-      hooks.on("message:incoming", (_evt: unknown) => {
-        order.push(2); // should NOT run
-      }, { priority: 20 });
+      hooks.on(
+        "message:incoming",
+        (_evt: unknown) => {
+          order.push(2); // should NOT run
+        },
+        { priority: 20 },
+      );
 
       const busListener = busListeners.get("session:beforeInject");
-      await busListener!(
-        { session: "s1", message: "hello", from: "user" },
-        "session:beforeInject",
-      );
+      await busListener!({ session: "s1", message: "hello", from: "user" }, "session:beforeInject");
 
       expect(order).toEqual([1]);
     });
@@ -427,12 +477,13 @@ describe("createPluginHookManager", () => {
       });
 
       const busListener = busListeners.get("channel:message");
-      await busListener!(
-        { channel: { type: "discord", id: "123" }, message: "hi", from: "user" },
-        "channel:message",
-      );
+      await busListener!({ channel: { type: "discord", id: "123" }, message: "hi", from: "user" }, "channel:message");
 
-      expect((receivedEvent as Record<string, unknown>)["data"]).toEqual({ channel: { type: "discord", id: "123" }, message: "hi", from: "user" });
+      expect((receivedEvent as Record<string, unknown>)["data"]).toEqual({
+        channel: { type: "discord", id: "123" },
+        message: "hi",
+        from: "user",
+      });
       expect(typeof (receivedEvent as Record<string, unknown>)["preventDefault"]).toBe("function");
     });
   });
@@ -459,9 +510,13 @@ describe("createPluginHookManager", () => {
     it("should isolate errors per handler and continue dispatching to remaining handlers", async () => {
       const hooks = createPluginHookManager("test-plugin");
 
-      hooks.on("session:create", () => {
-        throw new Error("handler error");
-      }, { priority: 10 });
+      hooks.on(
+        "session:create",
+        () => {
+          throw new Error("handler error");
+        },
+        { priority: 10 },
+      );
 
       const handler2 = vi.fn();
       hooks.on("session:create", handler2, { priority: 20 });
@@ -522,7 +577,9 @@ describe("createPluginHookManager", () => {
       // The failing handler's error count must not be erased by the succeeding handler's
       // recordSuccess call so the breaker can eventually trip.
       const hooks = createPluginHookManager("breaker-plugin");
-      const failingHandler = () => { throw new Error("always fails"); };
+      const failingHandler = () => {
+        throw new Error("always fails");
+      };
       const succeedingHandler = vi.fn();
 
       hooks.on("session:create", failingHandler, { priority: 10 });

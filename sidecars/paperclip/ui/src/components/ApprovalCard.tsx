@@ -80,12 +80,7 @@ export function ApprovalCard({
           >
             Approve
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onReject}
-            disabled={isPending}
-          >
+          <Button variant="destructive" size="sm" onClick={onReject} disabled={isPending}>
             Reject
           </Button>
         </div>

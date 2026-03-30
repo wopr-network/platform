@@ -12,8 +12,6 @@
   },
   "plugins": {
     "autoLoad": true,
-    "directories": [
-      "/home/tsavo/wopr/plugins"
-    ]
+    "directories": ["/home/tsavo/wopr/plugins"]
   }
 }

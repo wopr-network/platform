@@ -30,13 +30,24 @@ if (!OPENSHELL) {
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const API_KEY = process.env.NVIDIA_API_KEY;
 const SANDBOX = process.env.SANDBOX_NAME || "nemoclaw";
-try { validateName(SANDBOX, "SANDBOX_NAME"); } catch (e) { console.error(e.message); process.exit(1); }
+try {
+  validateName(SANDBOX, "SANDBOX_NAME");
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
+}
 const ALLOWED_CHATS = process.env.ALLOWED_CHAT_IDS
   ? process.env.ALLOWED_CHAT_IDS.split(",").map((s) => s.trim())
   : null;
 
-if (!TOKEN) { console.error("TELEGRAM_BOT_TOKEN required"); process.exit(1); }
-if (!API_KEY) { console.error("NVIDIA_API_KEY required"); process.exit(1); }
+if (!TOKEN) {
+  console.error("TELEGRAM_BOT_TOKEN required");
+  process.exit(1);
+}
+if (!API_KEY) {
+  console.error("NVIDIA_API_KEY required");
+  process.exit(1);
+}
 
 let offset = 0;
 const activeSessions = new Map(); // chatId → message history
@@ -57,7 +68,11 @@ function tgApi(method, body) {
         let buf = "";
         res.on("data", (c) => (buf += c));
         res.on("end", () => {
-          try { resolve(JSON.parse(buf)); } catch { resolve({ ok: false, error: buf }); }
+          try {
+            resolve(JSON.parse(buf));
+          } catch {
+            resolve({ ok: false, error: buf });
+          }
         });
       },
     );
@@ -119,7 +134,12 @@ function runAgentInSandbox(message, sessionId) {
     proc.stderr.on("data", (d) => (stderr += d.toString()));
 
     proc.on("close", (code) => {
-      try { require("fs").unlinkSync(confPath); require("fs").rmdirSync(confDir); } catch { /* ignored */ }
+      try {
+        require("fs").unlinkSync(confPath);
+        require("fs").rmdirSync(confDir);
+      } catch {
+        /* ignored */
+      }
 
       // Extract the actual agent response — skip setup lines
       const lines = stdout.split("\n");

@@ -106,9 +106,7 @@ export function HealthOverview({ instanceId }: { instanceId: string }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Health Status
-            </CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">Health Status</CardTitle>
           </CardHeader>
           <CardContent>
             <HealthBadge status={health.status} />
@@ -124,16 +122,12 @@ export function HealthOverview({ instanceId }: { instanceId: string }) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              Active Sessions
-            </CardTitle>
+            <CardTitle className="text-xs font-medium text-muted-foreground">Active Sessions</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold">
               {health.activeSessions}{" "}
-              <span className="text-sm font-normal text-muted-foreground">
-                / {health.totalSessions} total
-              </span>
+              <span className="text-sm font-normal text-muted-foreground">/ {health.totalSessions} total</span>
             </p>
           </CardContent>
         </Card>
@@ -179,9 +173,7 @@ export function HealthOverview({ instanceId }: { instanceId: string }) {
               key={provider.name}
               className={cn(
                 "border",
-                provider.available
-                  ? "bg-emerald-500/5 border-emerald-500/25"
-                  : "bg-red-500/5 border-red-500/25",
+                provider.available ? "bg-emerald-500/5 border-emerald-500/25" : "bg-red-500/5 border-red-500/25",
               )}
             >
               <CardContent className="flex items-center justify-between p-4">
@@ -225,16 +217,10 @@ export function HealthOverview({ instanceId }: { instanceId: string }) {
               })}
             </div>
             <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+              <span>{health.history.length > 0 ? new Date(health.history[0].timestamp).toLocaleTimeString() : ""}</span>
               <span>
                 {health.history.length > 0
-                  ? new Date(health.history[0].timestamp).toLocaleTimeString()
-                  : ""}
-              </span>
-              <span>
-                {health.history.length > 0
-                  ? new Date(
-                      health.history[health.history.length - 1].timestamp,
-                    ).toLocaleTimeString()
+                  ? new Date(health.history[health.history.length - 1].timestamp).toLocaleTimeString()
                   : ""}
               </span>
             </div>

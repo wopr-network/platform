@@ -8,7 +8,7 @@ describe("Process-level error handlers", () => {
     // Save original process listeners
     originalListeners = new Map();
     listeners = new Map();
-    
+
     ["unhandledRejection", "uncaughtException"].forEach((event) => {
       const original = process.listeners(event);
       originalListeners.set(event, [...original]);

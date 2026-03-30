@@ -31,10 +31,7 @@ describe("credential prompts", () => {
   });
 
   it("settles the outer prompt promise on secret prompt errors", () => {
-    const source = fs.readFileSync(
-      path.join(import.meta.dirname, "..", "bin", "lib", "credentials.js"),
-      "utf-8"
-    );
+    const source = fs.readFileSync(path.join(import.meta.dirname, "..", "bin", "lib", "credentials.js"), "utf-8");
 
     expect(source).toMatch(/return new Promise\(\(resolve, reject\) => \{/);
     expect(source).toMatch(/reject\(err\);\s*process\.kill\(process\.pid, "SIGINT"\);/);

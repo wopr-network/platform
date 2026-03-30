@@ -1,8 +1,7 @@
 import type { Page } from "@playwright/test";
 import { E2E_USER, expect, test } from "./fixtures/auth";
 
-const PLATFORM_BASE_URL =
-  process.env.BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const PLATFORM_BASE_URL = process.env.BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 const MOCK_CREDIT_OPTIONS = [
   {
@@ -131,9 +130,7 @@ test.describe("Billing: Credit Checkout", () => {
     await expect(page.getByRole("button", { name: "Buy credits" }).first()).toBeDisabled();
   });
 
-  test("checkout request contains real Stripe price ID (not synthetic)", async ({
-    authedPage: page,
-  }) => {
+  test("checkout request contains real Stripe price ID (not synthetic)", async ({ authedPage: page }) => {
     await mockBillingAPI(page);
 
     let capturedCheckoutBody: Record<string, unknown> | null = null;
@@ -192,9 +189,7 @@ test.describe("Billing: Credit Checkout", () => {
     expect(MOCK_CREDIT_OPTIONS.map((o) => o.priceId)).toContain(priceId);
   });
 
-  test("complete checkout with Stripe test card and verify credit increase", async ({
-    authedPage: page,
-  }) => {
+  test("complete checkout with Stripe test card and verify credit increase", async ({ authedPage: page }) => {
     test.skip(!process.env.STRIPE_PUBLISHABLE_KEY, "Requires Stripe test-mode keys");
 
     await page.goto("/billing/credits");
@@ -252,9 +247,7 @@ test.describe("Billing: Dashboard Display", () => {
     };
 
     await page.route(
-      (url) =>
-        url.href.includes(PLATFORM_BASE_URL) &&
-        url.pathname.startsWith("/trpc/"),
+      (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.startsWith("/trpc/"),
       async (route) => {
         const procs = route.request().url().split("?")[0].split("/trpc/")[1]?.split(",") ?? [];
         const results = procs.map((proc) => ({
@@ -334,9 +327,7 @@ test.describe("Billing: Dashboard Display", () => {
     };
 
     await page.route(
-      (url) =>
-        url.href.includes(PLATFORM_BASE_URL) &&
-        url.pathname.startsWith("/trpc/"),
+      (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.startsWith("/trpc/"),
       async (route) => {
         const procs = route.request().url().split("?")[0].split("/trpc/")[1]?.split(",") ?? [];
         const results = procs.map((proc) => ({
@@ -402,12 +393,12 @@ test.describe("Billing: Dashboard Display", () => {
       "billing.providerCosts": [],
       "billing.hostedUsageSummary": {
         capabilities: [
-          { capability: "text_gen", label: "Text Generation", units: 1500, unitLabel: "tokens", cost: 35.00 },
-          { capability: "image_gen", label: "Image Generation", units: 12, unitLabel: "images", cost: 7.00 },
+          { capability: "text_gen", label: "Text Generation", units: 1500, unitLabel: "tokens", cost: 35.0 },
+          { capability: "image_gen", label: "Image Generation", units: 12, unitLabel: "images", cost: 7.0 },
         ],
-        totalCost: 42.00,
-        includedCredit: 10.00,
-        amountDue: 32.00,
+        totalCost: 42.0,
+        includedCredit: 10.0,
+        amountDue: 32.0,
       },
       "billing.spendingLimits": {
         global: { alertAt: null, hardCap: null },
@@ -416,9 +407,7 @@ test.describe("Billing: Dashboard Display", () => {
     };
 
     await page.route(
-      (url) =>
-        url.href.includes(PLATFORM_BASE_URL) &&
-        url.pathname.startsWith("/trpc/"),
+      (url) => url.href.includes(PLATFORM_BASE_URL) && url.pathname.startsWith("/trpc/"),
       async (route) => {
         const procs = route.request().url().split("?")[0].split("/trpc/")[1]?.split(",") ?? [];
         const results = procs.map((proc) => ({

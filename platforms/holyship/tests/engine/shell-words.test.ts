@@ -53,7 +53,7 @@ describe("splitShellWords", () => {
   });
 
   it("handles empty quoted strings", () => {
-    expect(splitShellWords('echo \'\' ""')).toEqual(["echo", "", ""]);
+    expect(splitShellWords("echo '' \"\"")).toEqual(["echo", "", ""]);
   });
 
   it("throws on unterminated single quote", () => {

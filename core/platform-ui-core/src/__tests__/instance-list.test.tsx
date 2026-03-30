@@ -86,11 +86,7 @@ vi.mock("@/lib/api", () => ({
   parsePluginsFromEnv: vi.fn((env?: Record<string, string>) => {
     if (!env) return [];
     const ids = new Set<string>();
-    for (const key of [
-      "PLATFORM_PLUGINS_OTHER",
-      "PLATFORM_PLUGINS_VOICE",
-      "PLATFORM_PLUGINS_PROVIDERS",
-    ]) {
+    for (const key of ["PLATFORM_PLUGINS_OTHER", "PLATFORM_PLUGINS_VOICE", "PLATFORM_PLUGINS_PROVIDERS"]) {
       const raw = env[key];
       if (raw) {
         for (const id of raw

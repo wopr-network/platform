@@ -2,13 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FriendsTab } from "@/components/instances/friends-tab";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Instance } from "@/lib/api";
 import { listInstances } from "@/lib/api";
@@ -50,8 +44,7 @@ export default function NetworkPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-widest uppercase">Friends &amp; Network</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage P2P connections, friend requests, and auto-accept rules for your {productName()}{" "}
-            bot instances.
+            Manage P2P connections, friend requests, and auto-accept rules for your {productName()} bot instances.
           </p>
         </div>
         <div className="w-full sm:w-56 shrink-0">
@@ -62,10 +55,7 @@ export default function NetworkPage() {
           ) : instances.length === 0 ? (
             <p className="text-sm text-muted-foreground">No instances found.</p>
           ) : (
-            <Select
-              value={selectedInstanceId ?? ""}
-              onValueChange={(v) => setSelectedInstanceId(v)}
-            >
+            <Select value={selectedInstanceId ?? ""} onValueChange={(v) => setSelectedInstanceId(v)}>
               <SelectTrigger className="w-full" aria-label="Select instance">
                 <SelectValue placeholder="Select instance..." />
               </SelectTrigger>
@@ -83,15 +73,11 @@ export default function NetworkPage() {
 
       {!loading && !error && !selectedInstanceId && instances.length > 0 && (
         <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-sm border border-dashed border-terminal/20">
-          <p className="font-mono text-sm text-terminal/60">
-            &gt; SELECT AN INSTANCE TO MANAGE FRIENDS
-          </p>
+          <p className="font-mono text-sm text-terminal/60">&gt; SELECT AN INSTANCE TO MANAGE FRIENDS</p>
         </div>
       )}
 
-      {selectedInstanceId && (
-        <FriendsTab key={selectedInstanceId} instanceId={selectedInstanceId} />
-      )}
+      {selectedInstanceId && <FriendsTab key={selectedInstanceId} instanceId={selectedInstanceId} />}
     </div>
   );
 }

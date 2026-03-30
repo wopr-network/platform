@@ -141,17 +141,15 @@ const TimelineList = memo(function TimelineList({
         if (item.kind === "run") {
           const run = item.run;
           return (
-            <div key={`run:${run.runId}`} className="border border-border bg-accent/20 p-3 overflow-hidden min-w-0 rounded-sm">
+            <div
+              key={`run:${run.runId}`}
+              className="border border-border bg-accent/20 p-3 overflow-hidden min-w-0 rounded-sm"
+            >
               <div className="flex items-center justify-between mb-2">
                 <Link to={`/agents/${run.agentId}`} className="hover:underline">
-                  <Identity
-                    name={agentMap?.get(run.agentId)?.name ?? run.agentId.slice(0, 8)}
-                    size="sm"
-                  />
+                  <Identity name={agentMap?.get(run.agentId)?.name ?? run.agentId.slice(0, 8)} size="sm" />
                 </Link>
-                <span className="text-xs text-muted-foreground">
-                  {formatDateTime(run.startedAt ?? run.createdAt)}
-                </span>
+                <span className="text-xs text-muted-foreground">{formatDateTime(run.startedAt ?? run.createdAt)}</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">Run</span>
@@ -384,7 +382,7 @@ export function CommentThread({
         const url = await imageUploadHandler(file);
         const safeName = file.name.replace(/[[\]]/g, "\\$&");
         const markdown = `![${safeName}](${url})`;
-        setBody((prev) => prev ? `${prev}\n\n${markdown}` : markdown);
+        setBody((prev) => (prev ? `${prev}\n\n${markdown}` : markdown));
       } else if (onAttachImage) {
         await onAttachImage(file);
       }

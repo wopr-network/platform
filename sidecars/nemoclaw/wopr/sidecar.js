@@ -99,7 +99,11 @@ function provision(body) {
   writeJson(OPENCLAW_CONFIG_PATH, cfg);
 
   // Derive a stable tenantEntityId and slug from tenantId
-  const tenantSlug = tenantName.toLowerCase().replace(/[^a-z0-9]/g, "-").replace(/-+/g, "-").slice(0, 32);
+  const tenantSlug = tenantName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 32);
   const tenantEntityId = `e:${tenantId}`;
 
   return { tenantEntityId, tenantSlug };
@@ -125,7 +129,9 @@ const server = http.createServer((req, res) => {
     }
 
     let body = "";
-    req.on("data", (chunk) => { body += chunk; });
+    req.on("data", (chunk) => {
+      body += chunk;
+    });
     req.on("end", () => {
       try {
         const parsed = JSON.parse(body);

@@ -63,5 +63,5 @@ createRoot(document.getElementById("root")!).render(
         </CompanyProvider>
       </ThemeProvider>
     </QueryClientProvider>
-  </StrictMode>
+  </StrictMode>,
 );

@@ -42,10 +42,7 @@ vi.mock("../agent-auth-jwt.js", () => ({
 import { actorMiddleware } from "../middleware/auth.js";
 
 /** Build a mock DB that supports chained select().from().where().then() */
-function createMockDb(opts?: {
-  roleRow?: { id: string } | null;
-  memberships?: { companyId: string }[];
-}) {
+function createMockDb(opts?: { roleRow?: { id: string } | null; memberships?: { companyId: string }[] }) {
   const roleRow = opts?.roleRow ?? null;
   const memberships = opts?.memberships ?? [];
 

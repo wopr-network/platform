@@ -47,10 +47,11 @@ function brev(...args) {
 function ssh(cmd, { timeout = 120_000 } = {}) {
   // Use single quotes to prevent local shell expansion of remote commands
   const escaped = cmd.replace(/'/g, "'\\''");
-  return execSync(
-    `ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR "${INSTANCE_NAME}" '${escaped}'`,
-    { encoding: "utf-8", timeout, stdio: ["pipe", "pipe", "pipe"] },
-  ).trim();
+  return execSync(`ssh -o StrictHostKeyChecking=no -o LogLevel=ERROR "${INSTANCE_NAME}" '${escaped}'`, {
+    encoding: "utf-8",
+    timeout,
+    stdio: ["pipe", "pipe", "pipe"],
+  }).trim();
 }
 
 function shellEscape(value) {
@@ -86,7 +87,11 @@ function waitForSsh(maxAttempts = 60, intervalMs = 5_000) {
     } catch {
       if (i === maxAttempts) throw new Error(`SSH not ready after ${maxAttempts} attempts`);
       if (i % 5 === 0) {
-        try { brev("refresh"); } catch { /* ignore */ }
+        try {
+          brev("refresh");
+        } catch {
+          /* ignore */
+        }
       }
       execSync(`sleep ${intervalMs / 1000}`);
     }
@@ -111,7 +116,6 @@ const hasRequiredVars = REQUIRED_VARS.every((key) => process.env[key]);
 
 describe.runIf(hasRequiredVars)("Brev E2E", () => {
   beforeAll(() => {
-
     // Authenticate with Brev
     mkdirSync(path.join(homedir(), ".brev"), { recursive: true });
     writeFileSync(
@@ -125,7 +129,11 @@ describe.runIf(hasRequiredVars)("Brev E2E", () => {
     instanceCreated = true;
 
     // Wait for SSH
-    try { brev("refresh"); } catch { /* ignore */ }
+    try {
+      brev("refresh");
+    } catch {
+      /* ignore */
+    }
     waitForSsh();
 
     // Sync code

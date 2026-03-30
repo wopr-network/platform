@@ -200,7 +200,10 @@ describe("RestartOnIdleManager", () => {
     });
 
     it("includes activeInjects count from queueManager", async () => {
-      const activeMap = new Map([["s1", {}], ["s2", {}]]);
+      const activeMap = new Map([
+        ["s1", {}],
+        ["s2", {}],
+      ]);
       vi.mocked(queueManager.getActiveStats).mockReturnValue(activeMap as any);
 
       await manager.scheduleRestart();

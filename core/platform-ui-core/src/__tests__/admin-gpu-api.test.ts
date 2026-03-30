@@ -112,9 +112,7 @@ describe("provisionGpuNode", () => {
 
   it("throws when provisioning fails", async () => {
     mockApiFetch.mockRejectedValue(new Error("Quota exceeded"));
-    await expect(
-      provisionGpuNode({ name: "x", region: "nyc3", size: "gpu-h100x1" }),
-    ).rejects.toThrow("Quota exceeded");
+    await expect(provisionGpuNode({ name: "x", region: "nyc3", size: "gpu-h100x1" })).rejects.toThrow("Quota exceeded");
   });
 });
 

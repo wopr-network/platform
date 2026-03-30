@@ -256,10 +256,7 @@ export interface Preset {
 // marketplace configSchema fields. Kept separate intentionally — they serve
 // the onboarding BYOK flow, not the marketplace install wizard.
 // diyCostData is co-located here so adding a new channel only requires one entry.
-const CHANNEL_OVERLAY: Record<
-  string,
-  { configFields: OnboardingConfigField[]; diyCostData?: DiyCostData }
-> = {
+const CHANNEL_OVERLAY: Record<string, { configFields: OnboardingConfigField[]; diyCostData?: DiyCostData }> = {
   discord: {
     configFields: [
       {
@@ -822,9 +819,7 @@ export async function getOptionalPlugins(): Promise<PluginCategory[]> {
   const knownCats = new Set<string>(optionalCategories);
   const extraCats = new Set(
     plugins
-      .filter(
-        (m) => !knownCats.has(m.category) && m.category !== "channel" && m.category !== "provider",
-      )
+      .filter((m) => !knownCats.has(m.category) && m.category !== "channel" && m.category !== "provider")
       .map((m) => m.category),
   );
   for (const catId of extraCats) {
@@ -1225,10 +1220,7 @@ export function getAiKeySuperpowers(selectedIds: string[]): Superpower[] {
 }
 
 /** Capability descriptions shown after key validation */
-export const AI_CAPABILITY_DESCRIPTIONS: Record<
-  string,
-  { label: string; openai: string; openrouter: string }
-> = {
+export const AI_CAPABILITY_DESCRIPTIONS: Record<string, { label: string; openai: string; openrouter: string }> = {
   memory: {
     label: "Memory",
     openai: "Embeddings for long-term recall",

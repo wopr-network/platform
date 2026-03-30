@@ -69,9 +69,7 @@ describe("chat-store", () => {
     it("strips extra fields from valid messages", () => {
       localStorage.setItem(
         "platform-chat-history",
-        JSON.stringify([
-          { id: "1", role: "user", content: "hi", timestamp: 1000, xss: "<script>" },
-        ]),
+        JSON.stringify([{ id: "1", role: "user", content: "hi", timestamp: 1000, xss: "<script>" }]),
       );
       const result = loadChatHistory();
       expect(result).toEqual([{ id: "1", role: "user", content: "hi", timestamp: 1000 }]);
@@ -106,9 +104,7 @@ describe("chat-store", () => {
 
     it("truncates message content exceeding MAX_MESSAGE_CONTENT_LENGTH and appends ellipsis", () => {
       const longContent = "x".repeat(MAX_MESSAGE_CONTENT_LENGTH + 1000);
-      const messages: ChatMessage[] = [
-        { id: "1", role: "user", content: longContent, timestamp: 1000 },
-      ];
+      const messages: ChatMessage[] = [{ id: "1", role: "user", content: longContent, timestamp: 1000 }];
       saveChatHistory(messages);
       const loaded = loadChatHistory();
       expect(loaded).toHaveLength(1);
@@ -118,9 +114,7 @@ describe("chat-store", () => {
 
     it("does not mutate the original messages array when saving", () => {
       const longContent = "x".repeat(MAX_MESSAGE_CONTENT_LENGTH + 1000);
-      const messages: ChatMessage[] = [
-        { id: "1", role: "user", content: longContent, timestamp: 1000 },
-      ];
+      const messages: ChatMessage[] = [{ id: "1", role: "user", content: longContent, timestamp: 1000 }];
       const originalContent = messages[0].content;
       saveChatHistory(messages);
       // localStorage copy is truncated; in-memory array must be unchanged
@@ -135,9 +129,7 @@ describe("chat-store", () => {
       // With .slice() the last emoji would be split; with spread it must not be.
       const emoji = "\u{1F600}"; // 😀 — 2 code units
       const longContent = emoji.repeat(MAX_MESSAGE_CONTENT_LENGTH + 100);
-      const messages: ChatMessage[] = [
-        { id: "1", role: "user", content: longContent, timestamp: 1000 },
-      ];
+      const messages: ChatMessage[] = [{ id: "1", role: "user", content: longContent, timestamp: 1000 }];
       saveChatHistory(messages);
       const loaded = loadChatHistory();
       const stored = loaded[0].content;
@@ -150,9 +142,7 @@ describe("chat-store", () => {
 
     it("does not truncate content at or below the limit", () => {
       const exactContent = "y".repeat(MAX_MESSAGE_CONTENT_LENGTH);
-      const messages: ChatMessage[] = [
-        { id: "1", role: "user", content: exactContent, timestamp: 1000 },
-      ];
+      const messages: ChatMessage[] = [{ id: "1", role: "user", content: exactContent, timestamp: 1000 }];
       saveChatHistory(messages);
       const loaded = loadChatHistory();
       expect(loaded[0].content).toBe(exactContent);

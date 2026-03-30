@@ -4,7 +4,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 import { marketplacePlugins } from "@wopr-network/platform-core/db/schema/index";
 import { DrizzleMarketplacePluginRepository } from "@wopr-network/platform-core/marketplace/drizzle-marketplace-plugin-repository";
-import { beginTestTransaction, createTestDb, endTestTransaction, rollbackTestTransaction } from "@wopr-network/platform-core/test/db";
+import {
+  beginTestTransaction,
+  createTestDb,
+  endTestTransaction,
+  rollbackTestTransaction,
+} from "@wopr-network/platform-core/test/db";
 
 describe("DrizzleMarketplacePluginRepository", () => {
   let repo: DrizzleMarketplacePluginRepository;
@@ -114,15 +119,13 @@ describe("DrizzleMarketplacePluginRepository", () => {
 
   it("insert with duplicate pluginId throws", async () => {
     await repo.insert({ pluginId: "a", npmPackage: "a", version: "1.0.0" });
-    await expect(
-      repo.insert({ pluginId: "a", npmPackage: "a", version: "2.0.0" }),
-    ).rejects.toThrow();
+    await expect(repo.insert({ pluginId: "a", npmPackage: "a", version: "2.0.0" })).rejects.toThrow();
   });
 
   it("update on nonexistent pluginId throws", async () => {
-    await expect(
-      repo.update("nonexistent", { enabled: true }),
-    ).rejects.toThrow("Marketplace plugin not found after update: nonexistent");
+    await expect(repo.update("nonexistent", { enabled: true })).rejects.toThrow(
+      "Marketplace plugin not found after update: nonexistent",
+    );
   });
 
   it("delete on nonexistent pluginId is a no-op", async () => {

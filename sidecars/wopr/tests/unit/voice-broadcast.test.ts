@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type {
-  AudioEncoding,
-  VoiceParticipant,
-} from "../../src/media/voice-channels/types.js";
+import type { AudioEncoding, VoiceParticipant } from "../../src/media/voice-channels/types.js";
 import { createBroadcaster } from "../../src/media/voice-channels/broadcast.js";
 
 describe("voice-channels types", () => {
@@ -258,9 +255,7 @@ describe("createBroadcaster", () => {
 
     // Inject a factory that simulates @discordjs/opus being unavailable
     const throwingFactory = async () => {
-      throw new Error(
-        "Failed to load @discordjs/opus. Install it with: npm install @discordjs/opus",
-      );
+      throw new Error("Failed to load @discordjs/opus. Install it with: npm install @discordjs/opus");
     };
 
     const broadcaster = createBroadcaster({

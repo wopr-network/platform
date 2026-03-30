@@ -45,8 +45,7 @@ function isNavActive(href: string, pathname: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";
   if (href === "/marketplace") return pathname === "/marketplace";
   if (href === "/settings/profile") return pathname.startsWith("/settings");
-  if (href === "/billing/plans")
-    return pathname.startsWith("/billing") && !pathname.startsWith("/billing/credits");
+  if (href === "/billing/plans") return pathname.startsWith("/billing") && !pathname.startsWith("/billing/credits");
   if (href === "/billing/credits") return pathname.startsWith("/billing/credits");
   if (href === "/admin/tenants" || href === "/admin") return pathname.startsWith("/admin");
   return pathname.startsWith(href);
@@ -131,8 +130,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         {getNavItems()
           .filter(
             (item) =>
-              !item.href.startsWith("/admin") ||
-              (user as { role?: string } | undefined)?.role === "platform_admin",
+              !item.href.startsWith("/admin") || (user as { role?: string } | undefined)?.role === "platform_admin",
           )
           .map((item) => {
             const NavIcon = getNavIcon(item.href);
@@ -190,9 +188,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col gap-1">
                   {user.name && <span className="text-sm font-medium">{user.name}</span>}
-                  {user.email && (
-                    <span className="text-xs text-muted-foreground">{user.email}</span>
-                  )}
+                  {user.email && <span className="text-xs text-muted-foreground">{user.email}</span>}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

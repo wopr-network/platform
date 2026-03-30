@@ -13,18 +13,16 @@ import { describe, it, expect } from "vitest";
 import YAML from "yaml";
 
 const BLUEPRINT_PATH = new URL("../nemoclaw-blueprint/blueprint.yaml", import.meta.url);
-const BASE_POLICY_PATH = new URL(
-  "../nemoclaw-blueprint/policies/openclaw-sandbox.yaml",
-  import.meta.url,
-);
+const BASE_POLICY_PATH = new URL("../nemoclaw-blueprint/policies/openclaw-sandbox.yaml", import.meta.url);
 const REQUIRED_PROFILE_FIELDS = ["provider_type", "endpoint"] as const;
 
 const bp = YAML.parse(readFileSync(BLUEPRINT_PATH, "utf-8")) as Record<string, unknown>;
 const declared = Array.isArray(bp?.profiles) ? (bp.profiles as string[]) : [];
 const defined =
   (bp?.components as Record<string, unknown> | undefined)?.inference != null
-    ? ((bp.components as Record<string, unknown>).inference as Record<string, unknown>).profiles as
-        Record<string, Record<string, unknown>> | undefined
+    ? (((bp.components as Record<string, unknown>).inference as Record<string, unknown>).profiles as
+        | Record<string, Record<string, unknown>>
+        | undefined)
     : undefined;
 
 describe("blueprint.yaml", () => {

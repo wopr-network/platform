@@ -89,10 +89,7 @@ describe("HolyshipClient", () => {
 
       await client.claim({ role: "architect", flow: "my-flow" });
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${BASE}/api/flows/my-flow/claim`,
-        expect.any(Object),
-      );
+      expect(fetchMock).toHaveBeenCalledWith(`${BASE}/api/flows/my-flow/claim`, expect.any(Object));
     });
 
     it("URL-encodes flow name with special characters", async () => {
@@ -106,10 +103,7 @@ describe("HolyshipClient", () => {
 
       await client.claim({ role: "coder", flow: "flow/with spaces" });
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${BASE}/api/flows/flow%2Fwith%20spaces/claim`,
-        expect.any(Object),
-      );
+      expect(fetchMock).toHaveBeenCalledWith(`${BASE}/api/flows/flow%2Fwith%20spaces/claim`, expect.any(Object));
     });
 
     it("passes abort signal from opts", async () => {
@@ -225,18 +219,14 @@ describe("HolyshipClient", () => {
       const client = new HolyshipClient({ url: BASE });
       vi.stubGlobal("fetch", mockFetchError(422));
 
-      await expect(client.createEntity({ flowName: "f" })).rejects.toThrow(
-        "entity create failed: 422",
-      );
+      await expect(client.createEntity({ flowName: "f" })).rejects.toThrow("entity create failed: 422");
     });
 
     it("throws on 5xx response", async () => {
       const client = new HolyshipClient({ url: BASE });
       vi.stubGlobal("fetch", mockFetchError(503));
 
-      await expect(client.createEntity({ flowName: "f" })).rejects.toThrow(
-        "entity create failed: 503",
-      );
+      await expect(client.createEntity({ flowName: "f" })).rejects.toThrow("entity create failed: 503");
     });
 
     it("throws on network error", async () => {
@@ -284,10 +274,7 @@ describe("HolyshipClient", () => {
 
       await client.report({ entityId: "ent/special id", signal: "done" });
 
-      expect(fetchMock).toHaveBeenCalledWith(
-        `${BASE}/api/entities/ent%2Fspecial%20id/report`,
-        expect.any(Object),
-      );
+      expect(fetchMock).toHaveBeenCalledWith(`${BASE}/api/entities/ent%2Fspecial%20id/report`, expect.any(Object));
     });
 
     it("includes artifacts when provided", async () => {
@@ -371,27 +358,21 @@ describe("HolyshipClient", () => {
       const client = new HolyshipClient({ url: BASE });
       vi.stubGlobal("fetch", mockFetchError(404));
 
-      await expect(client.report({ entityId: "e-1", signal: "done" })).rejects.toThrow(
-        "flow.report failed: 404",
-      );
+      await expect(client.report({ entityId: "e-1", signal: "done" })).rejects.toThrow("flow.report failed: 404");
     });
 
     it("throws on 5xx response", async () => {
       const client = new HolyshipClient({ url: BASE });
       vi.stubGlobal("fetch", mockFetchError(502));
 
-      await expect(client.report({ entityId: "e-1", signal: "done" })).rejects.toThrow(
-        "flow.report failed: 502",
-      );
+      await expect(client.report({ entityId: "e-1", signal: "done" })).rejects.toThrow("flow.report failed: 502");
     });
 
     it("throws on network error", async () => {
       const client = new HolyshipClient({ url: BASE });
       vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("network down")));
 
-      await expect(client.report({ entityId: "e-1", signal: "done" })).rejects.toThrow(
-        "network down",
-      );
+      await expect(client.report({ entityId: "e-1", signal: "done" })).rejects.toThrow("network down");
     });
   });
 });

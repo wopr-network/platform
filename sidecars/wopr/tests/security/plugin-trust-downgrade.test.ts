@@ -22,12 +22,9 @@ vi.mock("../../src/logger.js", () => ({
 const { getStorage, resetStorage } = await import("../../src/storage/index.js");
 const { initSecurity } = await import("../../src/security/policy.js");
 const { clearContext } = await import("../../src/security/context.js");
-const {
-  createInjectionSource,
-  DEFAULT_TRUST_BY_SOURCE,
-  CAPABILITY_PROFILES,
-  hasCapability,
-} = await import("../../src/security/types.js");
+const { createInjectionSource, DEFAULT_TRUST_BY_SOURCE, CAPABILITY_PROFILES, hasCapability } = await import(
+  "../../src/security/types.js"
+);
 const { checkToolAccess, checkCapability } = await import("../../src/security/policy.js");
 
 let testDir: string;

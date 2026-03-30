@@ -42,10 +42,7 @@ const {
   withSecurityContext,
 } = await import("../../src/security/context.js");
 
-const {
-  createInjectionSource,
-  DEFAULT_SECURITY_CONFIG,
-} = await import("../../src/security/types.js");
+const { createInjectionSource, DEFAULT_SECURITY_CONFIG } = await import("../../src/security/types.js");
 
 const { getSecurityRegistry, resetSecurityRegistry } = await import("../../src/security/registry.js");
 
@@ -370,9 +367,7 @@ describe("Security Context Module", () => {
       const ctx = new SecurityContext(source, "gw-session");
 
       expect(ctx.isGateway()).toBe(true);
-      expect(ctx.getForwardRules()).toEqual(
-        expect.objectContaining({ allowForwardTo: ["main"] }),
-      );
+      expect(ctx.getForwardRules()).toEqual(expect.objectContaining({ allowForwardTo: ["main"] }));
       expect(ctx.getForwardRules()!.allowForwardTo).toContain("main");
     });
 
@@ -783,11 +778,7 @@ describe("Security Context Module", () => {
     });
 
     it("should handle P2P context with elevated trust correctly", () => {
-      const ctx = createP2PContext("p2p-elevated", "key", "trusted", [
-        "config.read",
-        "event.emit",
-        "session.history",
-      ]);
+      const ctx = createP2PContext("p2p-elevated", "key", "trusted", ["config.read", "event.emit", "session.history"]);
 
       expect(ctx.trustLevel).toBe("trusted");
       expect(ctx.hasCapability("config.read")).toBe(true);

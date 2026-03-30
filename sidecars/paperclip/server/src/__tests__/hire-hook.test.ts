@@ -14,7 +14,13 @@ vi.mock("../services/activity-log.js", () => ({
 const { findServerAdapter } = await import("../adapters/registry.js");
 const { logActivity } = await import("../services/activity-log.js");
 
-function mockDbWithAgent(agent: { id: string; companyId: string; name: string; adapterType: string; adapterConfig?: Record<string, unknown> }): Db {
+function mockDbWithAgent(agent: {
+  id: string;
+  companyId: string;
+  name: string;
+  adapterType: string;
+  adapterConfig?: Record<string, unknown>;
+}): Db {
   return {
     select: () => ({
       from: () => ({

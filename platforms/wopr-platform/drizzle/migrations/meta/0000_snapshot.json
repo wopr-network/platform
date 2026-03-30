@@ -601,9 +601,7 @@
         "affiliate_codes_code_unique": {
           "name": "affiliate_codes_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
+          "columns": ["code"]
         }
       },
       "policies": {},
@@ -702,9 +700,7 @@
         "affiliate_referrals_referred_tenant_id_unique": {
           "name": "affiliate_referrals_referred_tenant_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "referred_tenant_id"
-          ]
+          "columns": ["referred_tenant_id"]
         }
       },
       "policies": {},
@@ -1836,9 +1832,7 @@
         "credit_transactions_reference_id_unique": {
           "name": "credit_transactions_reference_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "reference_id"
-          ]
+          "columns": ["reference_id"]
         }
       },
       "policies": {},
@@ -2027,11 +2021,7 @@
         "uniq_email_per_day": {
           "name": "uniq_email_per_day",
           "nullsNotDistinct": false,
-          "columns": [
-            "tenant_id",
-            "email_type",
-            "sent_date"
-          ]
+          "columns": ["tenant_id", "email_type", "sent_date"]
         }
       },
       "policies": {},
@@ -3502,10 +3492,7 @@
       "compositePrimaryKeys": {
         "org_memberships_org_tenant_id_member_tenant_id_pk": {
           "name": "org_memberships_org_tenant_id_member_tenant_id_pk",
-          "columns": [
-            "org_tenant_id",
-            "member_tenant_id"
-          ]
+          "columns": ["org_tenant_id", "member_tenant_id"]
         }
       },
       "uniqueConstraints": {},
@@ -3606,9 +3593,7 @@
         "organization_invites_token_unique": {
           "name": "organization_invites_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -4162,10 +4147,7 @@
       "compositePrimaryKeys": {
         "rate_limit_entries_key_scope_pk": {
           "name": "rate_limit_entries_key_scope_pk",
-          "columns": [
-            "key",
-            "scope"
-          ]
+          "columns": ["key", "scope"]
         }
       },
       "uniqueConstraints": {},
@@ -5202,10 +5184,7 @@
       "compositePrimaryKeys": {
         "tenant_capability_settings_tenant_id_capability_pk": {
           "name": "tenant_capability_settings_tenant_id_capability_pk",
-          "columns": [
-            "tenant_id",
-            "capability"
-          ]
+          "columns": ["tenant_id", "capability"]
         }
       },
       "uniqueConstraints": {},
@@ -5415,9 +5394,7 @@
         "tenant_customers_processor_customer_id_unique": {
           "name": "tenant_customers_processor_customer_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "processor_customer_id"
-          ]
+          "columns": ["processor_customer_id"]
         }
       },
       "policies": {},
@@ -5667,9 +5644,7 @@
         "tenants_slug_unique": {
           "name": "tenants_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -5752,10 +5727,7 @@
       "compositePrimaryKeys": {
         "user_roles_user_id_tenant_id_pk": {
           "name": "user_roles_user_id_tenant_id_pk",
-          "columns": [
-            "user_id",
-            "tenant_id"
-          ]
+          "columns": ["user_id", "tenant_id"]
         }
       },
       "uniqueConstraints": {},
@@ -5876,9 +5848,7 @@
         "vps_subscriptions_stripe_subscription_id_unique": {
           "name": "vps_subscriptions_stripe_subscription_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "stripe_subscription_id"
-          ]
+          "columns": ["stripe_subscription_id"]
         }
       },
       "policies": {},
@@ -5929,10 +5899,7 @@
       "compositePrimaryKeys": {
         "webhook_seen_events_event_id_source_pk": {
           "name": "webhook_seen_events_event_id_source_pk",
-          "columns": [
-            "event_id",
-            "source"
-          ]
+          "columns": ["event_id", "source"]
         }
       },
       "uniqueConstraints": {},
@@ -5998,10 +5965,7 @@
       "compositePrimaryKeys": {
         "webhook_sig_penalties_ip_source_pk": {
           "name": "webhook_sig_penalties_ip_source_pk",
-          "columns": [
-            "ip",
-            "source"
-          ]
+          "columns": ["ip", "source"]
         }
       },
       "uniqueConstraints": {},
@@ -6223,9 +6187,7 @@
         "onboarding_sessions_wopr_session_name_unique": {
           "name": "onboarding_sessions_wopr_session_name_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "wopr_session_name"
-          ]
+          "columns": ["wopr_session_name"]
         }
       },
       "policies": {},
@@ -6476,10 +6438,7 @@
         "setup_sessions_session_in_progress_uniq": {
           "name": "setup_sessions_session_in_progress_uniq",
           "nullsNotDistinct": false,
-          "columns": [
-            "session_id",
-            "status"
-          ]
+          "columns": ["session_id", "status"]
         }
       },
       "policies": {},

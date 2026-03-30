@@ -105,9 +105,7 @@ describe("WOP-610: fail-closed security defaults", () => {
       await getSandboxForSession("missing-ctx-session");
 
       // Assert: warning was logged
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining("missing-ctx-session"),
-      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("missing-ctx-session"));
     });
   });
 
@@ -117,7 +115,9 @@ describe("WOP-610: fail-closed security defaults", () => {
       vi.mocked(getContext).mockReturnValue(undefined);
       const mockExecInContainer = vi.fn().mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
       vi.mocked(getPluginExtension).mockReturnValue({
-        resolveSandboxContext: vi.fn().mockResolvedValue({ containerName: "test-container", containerWorkdir: "/workspace" }),
+        resolveSandboxContext: vi
+          .fn()
+          .mockResolvedValue({ containerName: "test-container", containerWorkdir: "/workspace" }),
         execInContainer: mockExecInContainer,
       } as unknown as ReturnType<typeof getPluginExtension>);
 
@@ -146,9 +146,7 @@ describe("WOP-610: fail-closed security defaults", () => {
       await execInSandbox("missing-ctx-session", "echo hello");
 
       // Assert: warning was logged
-      expect(logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining("missing-ctx-session"),
-      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("missing-ctx-session"));
     });
 
     it("returns null when sandbox plugin is not installed", async () => {

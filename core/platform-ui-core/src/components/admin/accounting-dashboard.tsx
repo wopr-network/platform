@@ -34,9 +34,7 @@ function MetricCard({
   return (
     <Card className={className}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-xs text-muted-foreground font-normal uppercase tracking-wider">
-          {label}
-        </CardTitle>
+        <CardTitle className="text-xs text-muted-foreground font-normal uppercase tracking-wider">{label}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold font-mono">{value}</div>

@@ -20,19 +20,13 @@ export default [
     rules: {
       ...tseslint.configs["strict-type-checked"]?.rules,
       "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_" },
-      ],
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-require-imports": "error",
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/consistent-type-exports": "error",
       "@typescript-eslint/switch-exhaustiveness-check": "error",
-      "@typescript-eslint/prefer-nullish-coalescing": [
-        "error",
-        { ignorePrimitives: { string: true } },
-      ],
+      "@typescript-eslint/prefer-nullish-coalescing": ["error", { ignorePrimitives: { string: true } }],
       "@typescript-eslint/prefer-optional-chain": "error",
     },
   },

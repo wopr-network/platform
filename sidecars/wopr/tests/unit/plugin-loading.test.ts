@@ -195,9 +195,7 @@ describe("readPluginManifest", () => {
 
     const manifest = readPluginManifest("/some/path", pkg);
     expect(manifest).toBeUndefined();
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("[plugins] Invalid manifest for bad-plugin"),
-    );
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("[plugins] Invalid manifest for bad-plugin"));
   });
 
   it("should return undefined and warn when manifest has wrong field types", async () => {
@@ -215,9 +213,7 @@ describe("readPluginManifest", () => {
 
     const manifest = readPluginManifest("/some/path", pkg);
     expect(manifest).toBeUndefined();
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("[plugins] Invalid manifest for bad-types"),
-    );
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("[plugins] Invalid manifest for bad-types"));
   });
 
   it("should return valid manifest unchanged when it passes Zod validation", () => {

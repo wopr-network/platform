@@ -1,8 +1,7 @@
 import type { Page } from "@playwright/test";
 
 // NEXT_PUBLIC_API_URL (app config) > BASE_URL (Playwright webServer) > localhost fallback
-const PLATFORM_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? process.env.BASE_URL ?? "http://localhost:3001";
+const PLATFORM_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? process.env.BASE_URL ?? "http://localhost:3001";
 const API_BASE_URL = `${PLATFORM_BASE_URL}/api`;
 
 // --- Mock data ---
@@ -274,9 +273,7 @@ export async function mockSettingsAPI(
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        data: state.profile.oauthConnections
-          .filter((c) => c.connected)
-          .map((c) => ({ providerId: c.provider })),
+        data: state.profile.oauthConnections.filter((c) => c.connected).map((c) => ({ providerId: c.provider })),
       }),
     });
   });
@@ -751,8 +748,7 @@ export async function mockSettingsAPI(
             if (input) {
               Object.assign(state.notificationPrefs, input);
               SETTINGS_TRPC_MOCKS["settings.notificationPreferences"] = state.notificationPrefs;
-              SETTINGS_TRPC_MOCKS["settings.updateNotificationPreferences"] =
-                state.notificationPrefs;
+              SETTINGS_TRPC_MOCKS["settings.updateNotificationPreferences"] = state.notificationPrefs;
             }
           }
           if (proc === "org.updateOrganization") {

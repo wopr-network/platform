@@ -16,12 +16,8 @@ import { Hono } from "hono";
 
 // Mock auth middleware — make requireAdmin a passthrough
 vi.mock("../../src/daemon/middleware/auth.js", () => ({
-  requireAdmin: vi.fn(
-    () => async (_c: any, next: () => Promise<void>) => next(),
-  ),
-  requireWriteScope: vi.fn(
-    () => async (_c: any, next: () => Promise<void>) => next(),
-  ),
+  requireAdmin: vi.fn(() => async (_c: any, next: () => Promise<void>) => next()),
+  requireWriteScope: vi.fn(() => async (_c: any, next: () => Promise<void>) => next()),
 }));
 
 // Mock logger

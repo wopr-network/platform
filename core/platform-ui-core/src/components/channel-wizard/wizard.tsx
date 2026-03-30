@@ -3,14 +3,7 @@
 import { useCallback, useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { testChannelConnection } from "@/lib/api";
 import type { ChannelManifest } from "@/lib/channel-manifests";
@@ -55,10 +48,7 @@ export function Wizard({ manifest, onComplete, onCancel, submitting, botId }: Wi
         strSchema = strSchema.min(1, `${field.label} is required`);
       }
       if (field.validation?.pattern) {
-        strSchema = strSchema.regex(
-          new RegExp(field.validation.pattern),
-          field.validation.message || "Invalid format",
-        );
+        strSchema = strSchema.regex(new RegExp(field.validation.pattern), field.validation.message || "Invalid format");
       }
       shape[field.key] = field.required ? strSchema : strSchema.optional().or(z.literal(""));
     }
@@ -149,31 +139,16 @@ export function Wizard({ manifest, onComplete, onCancel, submitting, botId }: Wi
       </CardHeader>
 
       <CardContent>
-        <StepRenderer
-          step={step}
-          values={values}
-          errors={errors}
-          onChange={handleChange}
-          botId={botId}
-        />
+        <StepRenderer step={step} values={values} errors={errors} onChange={handleChange} botId={botId} />
 
         {manifest.connectionTest && isLastStep && (
           <div className="mt-6 flex flex-col items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleTestConnection}
-              disabled={testing}
-            >
+            <Button type="button" variant="outline" onClick={handleTestConnection} disabled={testing}>
               {testing ? "Testing..." : manifest.connectionTest.label}
             </Button>
-            {testResult === "success" && (
-              <p className="text-sm text-emerald-500">Connection successful</p>
-            )}
+            {testResult === "success" && <p className="text-sm text-emerald-500">Connection successful</p>}
             {testResult === "failure" && (
-              <p className="text-sm text-destructive">
-                {testError || "Connection failed. Check your settings."}
-              </p>
+              <p className="text-sm text-destructive">{testError || "Connection failed. Check your settings."}</p>
             )}
           </div>
         )}

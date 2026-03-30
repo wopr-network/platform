@@ -173,7 +173,9 @@ describe("E2E: channel OAuth — error cases", () => {
 
   it("callback with invalid/expired state → error HTML", async () => {
     const { app } = await createApp(TEST_USER);
-    const res = await app.request("/api/channel-oauth/callback?code=some-code&state=00000000-0000-0000-0000-000000000000");
+    const res = await app.request(
+      "/api/channel-oauth/callback?code=some-code&state=00000000-0000-0000-0000-000000000000",
+    );
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain("Invalid or expired OAuth state");

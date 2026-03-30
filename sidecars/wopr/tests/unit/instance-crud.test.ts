@@ -119,9 +119,7 @@ describe("Instance CRUD Routes", () => {
 
     it("filters by status", async () => {
       const created = await (await app.request(json({ name: "a" }))).json();
-      await app.request(
-        new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }),
-      );
+      await app.request(new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }));
       await app.request(json({ name: "b" }));
 
       const res = await app.request(new Request("http://localhost/api/instances?status=running"));
@@ -153,9 +151,7 @@ describe("Instance CRUD Routes", () => {
     });
 
     it("returns 404 for unknown id", async () => {
-      const res = await app.request(
-        new Request("http://localhost/api/instances/00000000-0000-0000-0000-000000000000"),
-      );
+      const res = await app.request(new Request("http://localhost/api/instances/00000000-0000-0000-0000-000000000000"));
       expect(res.status).toBe(404);
     });
   });
@@ -204,9 +200,7 @@ describe("Instance CRUD Routes", () => {
 
     it("refuses to delete a running instance", async () => {
       const created = await (await app.request(json({ name: "running" }))).json();
-      await app.request(
-        new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }),
-      );
+      await app.request(new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }));
       const res = await app.request(
         new Request(`http://localhost/api/instances/${created.instance.id}`, { method: "DELETE" }),
       );
@@ -237,9 +231,7 @@ describe("Instance CRUD Routes", () => {
 
     it("rejects starting an already running instance", async () => {
       const created = await (await app.request(json({ name: "s" }))).json();
-      await app.request(
-        new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }),
-      );
+      await app.request(new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }));
       const res = await app.request(
         new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }),
       );
@@ -257,9 +249,7 @@ describe("Instance CRUD Routes", () => {
   describe("POST /api/instances/:id/stop", () => {
     it("stops a running instance", async () => {
       const created = await (await app.request(json({ name: "s" }))).json();
-      await app.request(
-        new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }),
-      );
+      await app.request(new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }));
       const res = await app.request(
         new Request(`http://localhost/api/instances/${created.instance.id}/stop`, { method: "POST" }),
       );
@@ -281,9 +271,7 @@ describe("Instance CRUD Routes", () => {
   describe("POST /api/instances/:id/restart", () => {
     it("restarts an instance", async () => {
       const created = await (await app.request(json({ name: "r" }))).json();
-      await app.request(
-        new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }),
-      );
+      await app.request(new Request(`http://localhost/api/instances/${created.instance.id}/start`, { method: "POST" }));
       const res = await app.request(
         new Request(`http://localhost/api/instances/${created.instance.id}/restart`, { method: "POST" }),
       );
@@ -304,9 +292,7 @@ describe("Instance CRUD Routes", () => {
   describe("GET /api/instances/:id/logs", () => {
     it("returns logs for an instance", async () => {
       const created = await (await app.request(json({ name: "log-test" }))).json();
-      const res = await app.request(
-        new Request(`http://localhost/api/instances/${created.instance.id}/logs`),
-      );
+      const res = await app.request(new Request(`http://localhost/api/instances/${created.instance.id}/logs`));
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(data.logs.length).toBeGreaterThan(0);
@@ -330,9 +316,7 @@ describe("Instance CRUD Routes", () => {
       const id = created.instance.id;
 
       const futureSince = Date.now() + 100_000;
-      const res = await app.request(
-        new Request(`http://localhost/api/instances/${id}/logs?since=${futureSince}`),
-      );
+      const res = await app.request(new Request(`http://localhost/api/instances/${id}/logs?since=${futureSince}`));
       const data = await res.json();
       expect(data.logs.length).toBe(0);
     });

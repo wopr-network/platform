@@ -136,10 +136,7 @@ describe("Session Context Repository (WOP-556)", () => {
     it("stores updatedAt timestamp", async () => {
       const before = Date.now();
       await setSessionContext("mybot", "SOUL.md", "content", "session");
-      const repo = storage.getRepository<{ id: string; updatedAt: number }>(
-        "session_context",
-        "session_context",
-      );
+      const repo = storage.getRepository<{ id: string; updatedAt: number }>("session_context", "session_context");
       const record = await repo.findById("mybot:SOUL.md");
       expect(record).not.toBeNull();
       expect(record!.updatedAt).toBeGreaterThanOrEqual(before);

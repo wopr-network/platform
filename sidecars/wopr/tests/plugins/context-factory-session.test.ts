@@ -16,20 +16,67 @@ vi.mock("../../src/core/sessions.js", () => ({
   logMessage: vi.fn(),
 }));
 vi.mock("../../src/core/a2a-mcp.js", () => ({ unregisterA2ATool: vi.fn().mockReturnValue(true) }));
-vi.mock("../../src/core/capability-health.js", () => ({ getCapabilityHealthProber: vi.fn().mockReturnValue({ registerProbe: vi.fn() }) }));
-vi.mock("../../src/core/capability-registry.js", () => ({ getCapabilityRegistry: vi.fn().mockReturnValue({ registerProvider: vi.fn(), unregisterProvider: vi.fn(), getProviders: vi.fn().mockReturnValue([]), hasProvider: vi.fn().mockReturnValue(false) }) }));
-vi.mock("../../src/core/capability-resolver.js", () => ({ resolveCapability: vi.fn().mockReturnValue(null), resolveAllProviders: vi.fn().mockReturnValue([]) }));
-vi.mock("../../src/core/channels.js", () => ({ getChannelProvider: vi.fn(), getChannelProviders: vi.fn().mockReturnValue([]), registerChannelProvider: vi.fn(), unregisterChannelProvider: vi.fn() }));
-vi.mock("../../src/core/config.js", () => ({ config: { get: vi.fn().mockReturnValue({ plugins: { data: {} } }), getValue: vi.fn(), load: vi.fn(), setValue: vi.fn(), save: vi.fn() } }));
-vi.mock("../../src/core/context.js", () => ({ getContextProvider: vi.fn(), registerContextProvider: vi.fn(), unregisterContextProvider: vi.fn() }));
+vi.mock("../../src/core/capability-health.js", () => ({
+  getCapabilityHealthProber: vi.fn().mockReturnValue({ registerProbe: vi.fn() }),
+}));
+vi.mock("../../src/core/capability-registry.js", () => ({
+  getCapabilityRegistry: vi
+    .fn()
+    .mockReturnValue({
+      registerProvider: vi.fn(),
+      unregisterProvider: vi.fn(),
+      getProviders: vi.fn().mockReturnValue([]),
+      hasProvider: vi.fn().mockReturnValue(false),
+    }),
+}));
+vi.mock("../../src/core/capability-resolver.js", () => ({
+  resolveCapability: vi.fn().mockReturnValue(null),
+  resolveAllProviders: vi.fn().mockReturnValue([]),
+}));
+vi.mock("../../src/core/channels.js", () => ({
+  getChannelProvider: vi.fn(),
+  getChannelProviders: vi.fn().mockReturnValue([]),
+  registerChannelProvider: vi.fn(),
+  unregisterChannelProvider: vi.fn(),
+}));
+vi.mock("../../src/core/config.js", () => ({
+  config: {
+    get: vi.fn().mockReturnValue({ plugins: { data: {} } }),
+    getValue: vi.fn(),
+    load: vi.fn(),
+    setValue: vi.fn(),
+    save: vi.fn(),
+  },
+}));
+vi.mock("../../src/core/context.js", () => ({
+  getContextProvider: vi.fn(),
+  registerContextProvider: vi.fn(),
+  unregisterContextProvider: vi.fn(),
+}));
 vi.mock("../../src/core/providers.js", () => ({ providerRegistry: { register: vi.fn(), getProvider: vi.fn() } }));
-vi.mock("../../src/core/workspace.js", () => ({ resolveIdentity: vi.fn().mockResolvedValue({}), resolveUserProfile: vi.fn().mockResolvedValue({}) }));
+vi.mock("../../src/core/workspace.js", () => ({
+  resolveIdentity: vi.fn().mockResolvedValue({}),
+  resolveUserProfile: vi.fn().mockResolvedValue({}),
+}));
 vi.mock("../../src/logger.js", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
 vi.mock("../../src/storage/index.js", () => ({ getStorage: vi.fn().mockReturnValue({}) }));
-vi.mock("../../src/plugins/event-bus.js", () => ({ createPluginEventBus: vi.fn().mockReturnValue({ on: vi.fn(), off: vi.fn(), emit: vi.fn(), once: vi.fn() }) }));
-vi.mock("../../src/plugins/extensions.js", () => ({ getPluginExtension: vi.fn(), listPluginExtensions: vi.fn().mockReturnValue([]), registerPluginExtension: vi.fn(), unregisterPluginExtension: vi.fn() }));
-vi.mock("../../src/plugins/hook-manager.js", () => ({ createPluginHookManager: vi.fn().mockReturnValue({ on: vi.fn(), off: vi.fn(), offByName: vi.fn(), list: vi.fn().mockReturnValue([]) }) }));
-vi.mock("../../src/plugins/plugin-logger.js", () => ({ createPluginLogger: vi.fn().mockReturnValue({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }));
+vi.mock("../../src/plugins/event-bus.js", () => ({
+  createPluginEventBus: vi.fn().mockReturnValue({ on: vi.fn(), off: vi.fn(), emit: vi.fn(), once: vi.fn() }),
+}));
+vi.mock("../../src/plugins/extensions.js", () => ({
+  getPluginExtension: vi.fn(),
+  listPluginExtensions: vi.fn().mockReturnValue([]),
+  registerPluginExtension: vi.fn(),
+  unregisterPluginExtension: vi.fn(),
+}));
+vi.mock("../../src/plugins/hook-manager.js", () => ({
+  createPluginHookManager: vi
+    .fn()
+    .mockReturnValue({ on: vi.fn(), off: vi.fn(), offByName: vi.fn(), list: vi.fn().mockReturnValue([]) }),
+}));
+vi.mock("../../src/plugins/plugin-logger.js", () => ({
+  createPluginLogger: vi.fn().mockReturnValue({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
+}));
 vi.mock("../../src/plugins/schema-converter.js", () => ({ registerA2AServerImpl: vi.fn() }));
 vi.mock("../../src/plugins/state.js", () => ({
   channelAdapters: new Map(),

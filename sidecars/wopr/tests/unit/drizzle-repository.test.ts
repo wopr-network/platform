@@ -113,9 +113,7 @@ describe("DrizzleRepository gap coverage (WOP-954)", () => {
     it("should validate partial data with Zod and reject bad types", async () => {
       const repo = storage.getRepository<TestRecord>("drepo", "items");
       // String where number expected should throw
-      await expect(
-        repo.updateMany({ age: 30 }, { age: "bad" as unknown as number }),
-      ).rejects.toThrow();
+      await expect(repo.updateMany({ age: 30 }, { age: "bad" as unknown as number })).rejects.toThrow();
     });
   });
 
@@ -281,10 +279,7 @@ describe("DrizzleRepository gap coverage (WOP-954)", () => {
 
     it("should execute INSERT via raw and report changes", async () => {
       const repo = storage.getRepository<TestRecord>("drepo", "items") as InternalRepository<TestRecord>;
-      const result = await repo.raw(
-        "INSERT INTO drepo_items (id, name, age) VALUES (?, ?, ?)",
-        ["3", "Charlie", 35],
-      );
+      const result = await repo.raw("INSERT INTO drepo_items (id, name, age) VALUES (?, ?, ?)", ["3", "Charlie", 35]);
       expect(result).toHaveLength(1);
       expect((result[0] as { changes: number }).changes).toBe(1);
     });
@@ -409,7 +404,10 @@ describe("DrizzleRepository gap coverage (WOP-954)", () => {
     it("should throw on unknown column in QueryBuilder select()", async () => {
       const repo = storage.getRepository<TestRecord>("drepo", "items");
       await expect(
-        repo.query().select("nonexistent" as never).execute(),
+        repo
+          .query()
+          .select("nonexistent" as never)
+          .execute(),
       ).rejects.toThrow("Unknown column");
     });
   });
@@ -436,9 +434,7 @@ describe("DrizzleRepository gap coverage (WOP-954)", () => {
       // This test documents the known limitation of the auto-LIMIT -1 path in drizzle-repository.ts
       // (lines 147-149): the approach is correct in theory but drizzle-orm 0.39.3 emits
       // invalid SQL. Upgrading drizzle-orm (WOP-954 motivating note) would fix this.
-      await expect(
-        repo.query().orderBy("age", "asc").offset(1).execute(),
-      ).rejects.toThrow();
+      await expect(repo.query().orderBy("age", "asc").offset(1).execute()).rejects.toThrow();
     });
 
     it("should return empty array when offset exceeds total row count", async () => {

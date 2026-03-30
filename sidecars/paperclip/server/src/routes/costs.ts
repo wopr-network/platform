@@ -99,7 +99,7 @@ export function costRoutes(db: Db) {
     const to = toRaw ? new Date(toRaw) : undefined;
     if (from && isNaN(from.getTime())) throw badRequest("invalid 'from' date");
     if (to && isNaN(to.getTime())) throw badRequest("invalid 'to' date");
-    return (from || to) ? { from, to } : undefined;
+    return from || to ? { from, to } : undefined;
   }
 
   function parseLimit(query: Record<string, unknown>) {
@@ -214,17 +214,13 @@ export function costRoutes(db: Db) {
     res.json(overview);
   });
 
-  router.post(
-    "/companies/:companyId/budgets/policies",
-    validate(upsertBudgetPolicySchema),
-    async (req, res) => {
-      assertBoard(req);
-      const companyId = req.params.companyId as string;
-      assertCompanyAccess(req, companyId);
-      const summary = await budgets.upsertPolicy(companyId, req.body, req.actor.userId ?? "board");
-      res.json(summary);
-    },
-  );
+  router.post("/companies/:companyId/budgets/policies", validate(upsertBudgetPolicySchema), async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const summary = await budgets.upsertPolicy(companyId, req.body, req.actor.userId ?? "board");
+    res.json(summary);
+  });
 
   router.post(
     "/companies/:companyId/budget-incidents/:incidentId/resolve",
@@ -324,7 +320,7 @@ export function costRoutes(db: Db) {
         amount: updated.budgetMonthlyCents,
         windowKind: "calendar_month_utc",
       },
-      req.actor.type === "board" ? req.actor.userId ?? "board" : null,
+      req.actor.type === "board" ? (req.actor.userId ?? "board") : null,
     );
 
     res.json(updated);

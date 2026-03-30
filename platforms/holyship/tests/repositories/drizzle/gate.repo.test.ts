@@ -157,9 +157,7 @@ describe("DrizzleGateRepository", () => {
       expect(results[1].output).toBe("still failing");
       expect(results[2].output).toBe("build passed");
       for (let i = 1; i < results.length; i++) {
-        expect(results[i].evaluatedAt!.getTime()).toBeGreaterThanOrEqual(
-          results[i - 1].evaluatedAt!.getTime(),
-        );
+        expect(results[i].evaluatedAt!.getTime()).toBeGreaterThanOrEqual(results[i - 1].evaluatedAt!.getTime());
       }
     });
 

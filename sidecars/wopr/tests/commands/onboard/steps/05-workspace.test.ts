@@ -45,9 +45,7 @@ describe("05-workspace step", () => {
       dir: "/custom/workspace",
       created: false,
     });
-    const { workspaceStep } = await import(
-      "../../../../src/commands/onboard/steps/05-workspace.js"
-    );
+    const { workspaceStep } = await import("../../../../src/commands/onboard/steps/05-workspace.js");
 
     const ctx = {
       opts: { workspace: "/custom/workspace", flow: "advanced" },
@@ -62,9 +60,7 @@ describe("05-workspace step", () => {
   });
 
   it("should use default workspace in quickstart mode", async () => {
-    const { workspaceStep } = await import(
-      "../../../../src/commands/onboard/steps/05-workspace.js"
-    );
+    const { workspaceStep } = await import("../../../../src/commands/onboard/steps/05-workspace.js");
 
     const ctx = {
       opts: { flow: "quickstart" },
@@ -84,9 +80,7 @@ describe("05-workspace step", () => {
       dir: "/advanced/workspace",
       created: false,
     });
-    const { workspaceStep } = await import(
-      "../../../../src/commands/onboard/steps/05-workspace.js"
-    );
+    const { workspaceStep } = await import("../../../../src/commands/onboard/steps/05-workspace.js");
 
     const ctx = {
       opts: { flow: "advanced" },
@@ -103,9 +97,7 @@ describe("05-workspace step", () => {
 
   it("should throw on workspace creation failure", async () => {
     ensureWorkspaceMock.mockRejectedValue(new Error("permission denied"));
-    const { workspaceStep } = await import(
-      "../../../../src/commands/onboard/steps/05-workspace.js"
-    );
+    const { workspaceStep } = await import("../../../../src/commands/onboard/steps/05-workspace.js");
 
     const ctx = {
       opts: { flow: "quickstart" },
@@ -114,8 +106,8 @@ describe("05-workspace step", () => {
       nextConfig: {},
     };
 
-    await expect(
-      workspaceStep(ctx as Parameters<typeof workspaceStep>[0]),
-    ).rejects.toThrow("Workspace setup failed: permission denied");
+    await expect(workspaceStep(ctx as Parameters<typeof workspaceStep>[0])).rejects.toThrow(
+      "Workspace setup failed: permission denied",
+    );
   });
 });

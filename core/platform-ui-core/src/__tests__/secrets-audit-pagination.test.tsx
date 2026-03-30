@@ -13,9 +13,7 @@ vi.mock("framer-motion", () => ({
       void animate;
       void exit;
       void transition;
-      return (
-        <div {...(rest as React.HTMLAttributes<HTMLDivElement>)}>{children as React.ReactNode}</div>
-      );
+      return <div {...(rest as React.HTMLAttributes<HTMLDivElement>)}>{children as React.ReactNode}</div>;
     },
   },
 }));

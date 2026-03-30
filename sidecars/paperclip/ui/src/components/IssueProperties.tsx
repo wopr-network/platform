@@ -29,18 +29,27 @@ const EXECUTION_WORKSPACE_OPTIONS = [
   { value: "reuse_existing", label: "Reuse existing workspace" },
 ] as const;
 
-function defaultProjectWorkspaceIdForProject(project: {
-  workspaces?: Array<{ id: string; isPrimary: boolean }>;
-  executionWorkspacePolicy?: { defaultProjectWorkspaceId?: string | null } | null;
-} | null | undefined) {
+function defaultProjectWorkspaceIdForProject(
+  project:
+    | {
+        workspaces?: Array<{ id: string; isPrimary: boolean }>;
+        executionWorkspacePolicy?: { defaultProjectWorkspaceId?: string | null } | null;
+      }
+    | null
+    | undefined,
+) {
   if (!project) return null;
-  return project.executionWorkspacePolicy?.defaultProjectWorkspaceId
-    ?? project.workspaces?.find((workspace) => workspace.isPrimary)?.id
-    ?? project.workspaces?.[0]?.id
-    ?? null;
+  return (
+    project.executionWorkspacePolicy?.defaultProjectWorkspaceId ??
+    project.workspaces?.find((workspace) => workspace.isPrimary)?.id ??
+    project.workspaces?.[0]?.id ??
+    null
+  );
 }
 
-function defaultExecutionWorkspaceModeForProject(project: { executionWorkspacePolicy?: { enabled?: boolean; defaultMode?: string | null } | null } | null | undefined) {
+function defaultExecutionWorkspaceModeForProject(
+  project: { executionWorkspacePolicy?: { enabled?: boolean; defaultMode?: string | null } | null } | null | undefined,
+) {
   const defaultMode = project?.executionWorkspacePolicy?.enabled ? project.executionWorkspacePolicy.defaultMode : null;
   if (defaultMode === "isolated_workspace" || defaultMode === "operator_branch") return defaultMode;
   if (defaultMode === "adapter_default") return "agent_default";
@@ -107,9 +116,7 @@ function PropertyPicker({
           {extra}
         </PropertyRow>
         {open && (
-          <div className={cn("rounded-md border border-border bg-popover p-1 mb-2", popoverClassName)}>
-            {children}
-          </div>
+          <div className={cn("rounded-md border border-border bg-popover p-1 mb-2", popoverClassName)}>{children}</div>
         )}
       </div>
     );
@@ -143,7 +150,17 @@ function BreakablePath({ text }: { text: string }) {
 }
 
 /** Displays a value with a copy-to-clipboard icon and "Copied!" feedback. */
-function CopyableValue({ value, label, mono, className }: { value: string; label?: string; mono?: boolean; className?: string }) {
+function CopyableValue({
+  value,
+  label,
+  mono,
+  className,
+}: {
+  value: string;
+  label?: string;
+  mono?: boolean;
+  className?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const handleCopy = useCallback(async () => {
@@ -152,14 +169,18 @@ function CopyableValue({ value, label, mono, className }: { value: string; label
       setCopied(true);
       clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setCopied(false), 1500);
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
   }, [value]);
 
   return (
     <div className={cn("flex items-start gap-1 group", className)}>
       <span className="min-w-0" style={{ overflowWrap: "anywhere" }}>
         {label && <span className="text-muted-foreground">{label} </span>}
-        <span className={mono ? "font-mono" : undefined}><BreakablePath text={value} /></span>
+        <span className={mono ? "font-mono" : undefined}>
+          <BreakablePath text={value} />
+        </span>
       </span>
       <button
         type="button"
@@ -243,9 +264,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
   const toggleLabel = (labelId: string) => {
     const ids = issue.labelIds ?? [];
-    const next = ids.includes(labelId)
-      ? ids.filter((id) => id !== labelId)
-      : [...ids, labelId];
+    const next = ids.includes(labelId) ? ids.filter((id) => id !== labelId) : [...ids, labelId];
     onUpdate({ labelIds: next });
   };
 
@@ -261,17 +280,15 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     return project?.name ?? id.slice(0, 8);
   };
   const currentProject = issue.projectId
-    ? orderedProjects.find((project) => project.id === issue.projectId) ?? null
+    ? (orderedProjects.find((project) => project.id === issue.projectId) ?? null)
     : null;
   const currentProjectExecutionWorkspacePolicy =
-    experimentalSettings?.enableIsolatedWorkspaces === true
-      ? currentProject?.executionWorkspacePolicy ?? null
-      : null;
+    experimentalSettings?.enableIsolatedWorkspaces === true ? (currentProject?.executionWorkspacePolicy ?? null) : null;
   const currentProjectSupportsExecutionWorkspace = Boolean(currentProjectExecutionWorkspacePolicy?.enabled);
   const currentExecutionWorkspaceSelection =
-    issue.executionWorkspacePreference
-    ?? issue.executionWorkspaceSettings?.mode
-    ?? defaultExecutionWorkspaceModeForProject(currentProject);
+    issue.executionWorkspacePreference ??
+    issue.executionWorkspaceSettings?.mode ??
+    defaultExecutionWorkspaceModeForProject(currentProject);
   const { data: reusableExecutionWorkspaces } = useQuery({
     queryKey: queryKeys.executionWorkspaces.list(companyId!, {
       projectId: issue.projectId ?? undefined,
@@ -288,7 +305,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   });
   const deduplicatedReusableWorkspaces = useMemo(() => {
     const workspaces = reusableExecutionWorkspaces ?? [];
-    const seen = new Map<string, typeof workspaces[number]>();
+    const seen = new Map<string, (typeof workspaces)[number]>();
     for (const ws of workspaces) {
       const key = ws.cwd ?? ws.id;
       const existing = seen.get(key);
@@ -309,42 +326,45 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
   const recentAssigneeIds = useMemo(() => getRecentAssigneeIds(), [assigneeOpen]);
   const sortedAgents = useMemo(
-    () => sortAgentsByRecency((agents ?? []).filter((a) => a.status !== "terminated"), recentAssigneeIds),
+    () =>
+      sortAgentsByRecency(
+        (agents ?? []).filter((a) => a.status !== "terminated"),
+        recentAssigneeIds,
+      ),
     [agents, recentAssigneeIds],
   );
 
-  const assignee = issue.assigneeAgentId
-    ? agents?.find((a) => a.id === issue.assigneeAgentId)
-    : null;
+  const assignee = issue.assigneeAgentId ? agents?.find((a) => a.id === issue.assigneeAgentId) : null;
   const userLabel = (userId: string | null | undefined) => formatAssigneeUserLabel(userId, currentUserId);
   const assigneeUserLabel = userLabel(issue.assigneeUserId);
   const creatorUserLabel = userLabel(issue.createdByUserId);
 
-  const labelsTrigger = (issue.labels ?? []).length > 0 ? (
-    <div className="flex items-center gap-1 flex-wrap">
-      {(issue.labels ?? []).slice(0, 3).map((label) => (
-        <span
-          key={label.id}
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border"
-          style={{
-            borderColor: label.color,
-            backgroundColor: `${label.color}22`,
-            color: label.color,
-          }}
-        >
-          {label.name}
-        </span>
-      ))}
-      {(issue.labels ?? []).length > 3 && (
-        <span className="text-xs text-muted-foreground">+{(issue.labels ?? []).length - 3}</span>
-      )}
-    </div>
-  ) : (
-    <>
-      <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">No labels</span>
-    </>
-  );
+  const labelsTrigger =
+    (issue.labels ?? []).length > 0 ? (
+      <div className="flex items-center gap-1 flex-wrap">
+        {(issue.labels ?? []).slice(0, 3).map((label) => (
+          <span
+            key={label.id}
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border"
+            style={{
+              borderColor: label.color,
+              backgroundColor: `${label.color}22`,
+              color: label.color,
+            }}
+          >
+            {label.name}
+          </span>
+        ))}
+        {(issue.labels ?? []).length > 3 && (
+          <span className="text-xs text-muted-foreground">+{(issue.labels ?? []).length - 3}</span>
+        )}
+      </div>
+    ) : (
+      <>
+        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">No labels</span>
+      </>
+    );
 
   const labelsContent = (
     <>
@@ -368,7 +388,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                 <button
                   className={cn(
                     "flex items-center gap-2 flex-1 px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-left",
-                    selected && "bg-accent"
+                    selected && "bg-accent",
                   )}
                   onClick={() => toggleLabel(label.id)}
                 >
@@ -446,9 +466,12 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         <button
           className={cn(
             "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-            !issue.assigneeAgentId && !issue.assigneeUserId && "bg-accent"
+            !issue.assigneeAgentId && !issue.assigneeUserId && "bg-accent",
           )}
-          onClick={() => { onUpdate({ assigneeAgentId: null, assigneeUserId: null }); setAssigneeOpen(false); }}
+          onClick={() => {
+            onUpdate({ assigneeAgentId: null, assigneeUserId: null });
+            setAssigneeOpen(false);
+          }}
         >
           No assignee
         </button>
@@ -489,18 +512,22 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             return a.name.toLowerCase().includes(q);
           })
           .map((a) => (
-          <button
-            key={a.id}
-            className={cn(
-              "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-              a.id === issue.assigneeAgentId && "bg-accent"
-            )}
-            onClick={() => { trackRecentAssignee(a.id); onUpdate({ assigneeAgentId: a.id, assigneeUserId: null }); setAssigneeOpen(false); }}
-          >
-            <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
-            {a.name}
-          </button>
-        ))}
+            <button
+              key={a.id}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                a.id === issue.assigneeAgentId && "bg-accent",
+              )}
+              onClick={() => {
+                trackRecentAssignee(a.id);
+                onUpdate({ assigneeAgentId: a.id, assigneeUserId: null });
+                setAssigneeOpen(false);
+              }}
+            >
+              <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
+              {a.name}
+            </button>
+          ))}
       </div>
     </>
   );
@@ -533,7 +560,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         <button
           className={cn(
             "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
-            !issue.projectId && "bg-accent"
+            !issue.projectId && "bg-accent",
           )}
           onClick={() => {
             onUpdate({
@@ -555,33 +582,28 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             return p.name.toLowerCase().includes(q);
           })
           .map((p) => (
-          <button
-            key={p.id}
-            className={cn(
-              "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
-              p.id === issue.projectId && "bg-accent"
-            )}
-            onClick={() => {
-              const defaultMode = defaultExecutionWorkspaceModeForProject(p);
-              onUpdate({
-                projectId: p.id,
-                projectWorkspaceId: defaultProjectWorkspaceIdForProject(p),
-                executionWorkspaceId: null,
-                executionWorkspacePreference: defaultMode,
-                executionWorkspaceSettings: p.executionWorkspacePolicy?.enabled
-                  ? { mode: defaultMode }
-                  : null,
-              });
-              setProjectOpen(false);
-            }}
-          >
-            <span
-              className="shrink-0 h-3 w-3 rounded-sm"
-              style={{ backgroundColor: p.color ?? "#6366f1" }}
-            />
-            {p.name}
-          </button>
-        ))}
+            <button
+              key={p.id}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
+                p.id === issue.projectId && "bg-accent",
+              )}
+              onClick={() => {
+                const defaultMode = defaultExecutionWorkspaceModeForProject(p);
+                onUpdate({
+                  projectId: p.id,
+                  projectWorkspaceId: defaultProjectWorkspaceIdForProject(p),
+                  executionWorkspaceId: null,
+                  executionWorkspacePreference: defaultMode,
+                  executionWorkspaceSettings: p.executionWorkspacePolicy?.enabled ? { mode: defaultMode } : null,
+                });
+                setProjectOpen(false);
+              }}
+            >
+              <span className="shrink-0 h-3 w-3 rounded-sm" style={{ backgroundColor: p.color ?? "#6366f1" }} />
+              {p.name}
+            </button>
+          ))}
       </div>
     </>
   );
@@ -590,26 +612,21 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     <div className="space-y-4">
       <div className="space-y-1">
         <PropertyRow label="Status">
-          <StatusIcon
-            status={issue.status}
-            onChange={(status) => onUpdate({ status })}
-            showLabel
-          />
+          <StatusIcon status={issue.status} onChange={(status) => onUpdate({ status })} showLabel />
         </PropertyRow>
 
         <PropertyRow label="Priority">
-          <PriorityIcon
-            priority={issue.priority}
-            onChange={(priority) => onUpdate({ priority })}
-            showLabel
-          />
+          <PriorityIcon priority={issue.priority} onChange={(priority) => onUpdate({ priority })} showLabel />
         </PropertyRow>
 
         <PropertyPicker
           inline={inline}
           label="Labels"
           open={labelsOpen}
-          onOpenChange={(open) => { setLabelsOpen(open); if (!open) setLabelSearch(""); }}
+          onOpenChange={(open) => {
+            setLabelsOpen(open);
+            if (!open) setLabelSearch("");
+          }}
           triggerContent={labelsTrigger}
           triggerClassName="min-w-0 max-w-full"
           popoverClassName="w-64"
@@ -621,18 +638,23 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           inline={inline}
           label="Assignee"
           open={assigneeOpen}
-          onOpenChange={(open) => { setAssigneeOpen(open); if (!open) setAssigneeSearch(""); }}
+          onOpenChange={(open) => {
+            setAssigneeOpen(open);
+            if (!open) setAssigneeSearch("");
+          }}
           triggerContent={assigneeTrigger}
           popoverClassName="w-52"
-          extra={issue.assigneeAgentId ? (
-            <Link
-              to={`/agents/${issue.assigneeAgentId}`}
-              className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          ) : undefined}
+          extra={
+            issue.assigneeAgentId ? (
+              <Link
+                to={`/agents/${issue.assigneeAgentId}`}
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            ) : undefined
+          }
         >
           {assigneeContent}
         </PropertyPicker>
@@ -641,19 +663,24 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           inline={inline}
           label="Project"
           open={projectOpen}
-          onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
+          onOpenChange={(open) => {
+            setProjectOpen(open);
+            if (!open) setProjectSearch("");
+          }}
           triggerContent={projectTrigger}
           triggerClassName="min-w-0 max-w-full"
           popoverClassName="w-fit min-w-[11rem]"
-          extra={issue.projectId ? (
-            <Link
-              to={projectLink(issue.projectId)!}
-              className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          ) : undefined}
+          extra={
+            issue.projectId ? (
+              <Link
+                to={projectLink(issue.projectId)!}
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            ) : undefined
+          }
         >
           {projectContent}
         </PropertyPicker>
@@ -706,7 +733,8 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                   <option value="">Choose an existing workspace</option>
                   {deduplicatedReusableWorkspaces.map((workspace) => (
                     <option key={workspace.id} value={workspace.id}>
-                      {workspace.name} · {workspace.status} · {workspace.branchName ?? workspace.cwd ?? workspace.id.slice(0, 8)}
+                      {workspace.name} · {workspace.status} ·{" "}
+                      {workspace.branchName ?? workspace.cwd ?? workspace.id.slice(0, 8)}
                     </option>
                   ))}
                 </select>
@@ -729,15 +757,28 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                     <CopyableValue value={issue.currentExecutionWorkspace.cwd} mono className="text-[11px]" />
                   )}
                   {issue.currentExecutionWorkspace.branchName && (
-                    <CopyableValue value={issue.currentExecutionWorkspace.branchName} label="Branch:" className="text-[11px]" />
+                    <CopyableValue
+                      value={issue.currentExecutionWorkspace.branchName}
+                      label="Branch:"
+                      className="text-[11px]"
+                    />
                   )}
                   {issue.currentExecutionWorkspace.repoUrl && (
-                    <CopyableValue value={issue.currentExecutionWorkspace.repoUrl} label="Repo:" mono className="text-[11px]" />
+                    <CopyableValue
+                      value={issue.currentExecutionWorkspace.repoUrl}
+                      label="Repo:"
+                      mono
+                      className="text-[11px]"
+                    />
                   )}
                 </div>
               )}
               {!issue.currentExecutionWorkspace && currentProject?.primaryWorkspace?.cwd && (
-                <CopyableValue value={currentProject.primaryWorkspace.cwd} mono className="text-[11px] text-muted-foreground" />
+                <CopyableValue
+                  value={currentProject.primaryWorkspace.cwd}
+                  mono
+                  className="text-[11px] text-muted-foreground"
+                />
               )}
             </div>
           </PropertyRow>
@@ -767,10 +808,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         {(issue.createdByAgentId || issue.createdByUserId) && (
           <PropertyRow label="Created by">
             {issue.createdByAgentId ? (
-              <Link
-                to={`/agents/${issue.createdByAgentId}`}
-                className="hover:underline"
-              >
+              <Link to={`/agents/${issue.createdByAgentId}`} className="hover:underline">
                 <Identity name={agentName(issue.createdByAgentId) ?? issue.createdByAgentId.slice(0, 8)} size="sm" />
               </Link>
             ) : (

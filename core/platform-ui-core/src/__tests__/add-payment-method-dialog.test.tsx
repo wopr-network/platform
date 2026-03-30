@@ -8,9 +8,7 @@ const mockUseStripe = vi.fn(() => ({ confirmSetup: mockConfirmSetup }));
 const mockUseElements = vi.fn(() => ({}));
 
 vi.mock("@stripe/react-stripe-js", () => ({
-  Elements: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="stripe-elements">{children}</div>
-  ),
+  Elements: ({ children }: { children: React.ReactNode }) => <div data-testid="stripe-elements">{children}</div>,
   PaymentElement: () => <div data-testid="payment-element" />,
   useStripe: () => mockUseStripe(),
   useElements: () => mockUseElements(),
@@ -44,9 +42,7 @@ describe("AddPaymentMethodDialog", () => {
   });
 
   it("fetches setup intent and renders PaymentElement when opened", async () => {
-    render(
-      <AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />,
-    );
+    render(<AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />);
 
     await waitFor(() => {
       expect(createSetupIntent).toHaveBeenCalledOnce();
@@ -56,13 +52,9 @@ describe("AddPaymentMethodDialog", () => {
   });
 
   it("shows error and retry button when setup intent fails", async () => {
-    (createSetupIntent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error("Network error"),
-    );
+    (createSetupIntent as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Network error"));
 
-    render(
-      <AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />,
-    );
+    render(<AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />);
 
     await waitFor(() => {
       expect(screen.getByText(/failed to initialize/i)).toBeInTheDocument();
@@ -74,9 +66,7 @@ describe("AddPaymentMethodDialog", () => {
   it("calls confirmSetup on form submit and triggers onSuccess", async () => {
     mockConfirmSetup.mockResolvedValueOnce({ setupIntent: { status: "succeeded" } });
 
-    render(
-      <AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />,
-    );
+    render(<AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("payment-element")).toBeInTheDocument();
@@ -96,9 +86,7 @@ describe("AddPaymentMethodDialog", () => {
       error: { message: "Your card was declined." },
     });
 
-    render(
-      <AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />,
-    );
+    render(<AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("payment-element")).toBeInTheDocument();
@@ -115,17 +103,13 @@ describe("AddPaymentMethodDialog", () => {
   });
 
   it("does not fetch setup intent when closed", () => {
-    render(
-      <AddPaymentMethodDialog open={false} onOpenChange={onOpenChange} onSuccess={onSuccess} />,
-    );
+    render(<AddPaymentMethodDialog open={false} onOpenChange={onOpenChange} onSuccess={onSuccess} />);
 
     expect(createSetupIntent).not.toHaveBeenCalled();
   });
 
   it("closes dialog when cancel is clicked", async () => {
-    render(
-      <AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />,
-    );
+    render(<AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} />);
 
     await waitFor(() => {
       expect(screen.getByTestId("payment-element")).toBeInTheDocument();
@@ -142,14 +126,7 @@ describe("AddPaymentMethodDialog", () => {
       clientSecret: "seti_org_test_secret_456",
     });
 
-    render(
-      <AddPaymentMethodDialog
-        open={true}
-        onOpenChange={onOpenChange}
-        onSuccess={onSuccess}
-        orgId="org-123"
-      />,
-    );
+    render(<AddPaymentMethodDialog open={true} onOpenChange={onOpenChange} onSuccess={onSuccess} orgId="org-123" />);
 
     await waitFor(() => {
       expect(createOrgSetupIntent).toHaveBeenCalledWith("org-123");

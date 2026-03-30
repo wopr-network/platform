@@ -35,7 +35,12 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
   const type = asString(parsed.type);
 
   // RPC protocol messages - filter these out (internal implementation detail)
-  if (type === "response" || type === "extension_ui_request" || type === "extension_ui_response" || type === "extension_error") {
+  if (
+    type === "response" ||
+    type === "extension_ui_request" ||
+    type === "extension_ui_response" ||
+    type === "extension_error"
+  ) {
     return [];
   }
 
@@ -56,9 +61,9 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
   if (type === "turn_end") {
     const message = asRecord(parsed.message);
     const toolResults = parsed.toolResults as Array<Record<string, unknown>> | undefined;
-    
+
     const entries: TranscriptEntry[] = [];
-    
+
     if (message) {
       const content = message.content as string | Array<{ type: string; text?: string }>;
       const text = extractTextContent(content);
@@ -66,13 +71,13 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
         entries.push({ kind: "assistant", ts, text });
       }
     }
-    
+
     // Process tool results
     if (toolResults) {
       for (const tr of toolResults) {
         const content = tr.content;
         const isError = tr.isError === true;
-        
+
         // Extract text from Pi's content array format
         let contentStr: string;
         if (typeof content === "string") {
@@ -82,7 +87,7 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
         } else {
           contentStr = JSON.stringify(content);
         }
-        
+
         entries.push({
           kind: "tool_result",
           ts,
@@ -93,7 +98,7 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
         });
       }
     }
-    
+
     return entries.length > 0 ? entries : [{ kind: "system", ts, text: "Turn ended" }];
   }
 
@@ -125,12 +130,14 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
     const toolName = asString(parsed.toolName);
     const args = parsed.args;
     if (toolName) {
-      return [{
-        kind: "tool_call",
-        ts,
-        name: toolName,
-        input: args,
-      }];
+      return [
+        {
+          kind: "tool_call",
+          ts,
+          name: toolName,
+          input: args,
+        },
+      ];
     }
     return [{ kind: "system", ts, text: `Tool started` }];
   }
@@ -144,7 +151,7 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
     const toolName = asString(parsed.toolName);
     const result = parsed.result;
     const isError = parsed.isError === true;
-    
+
     // Extract text from Pi's content array format
     // Can be: {"content": [{"type": "text", "text": "..."}]} or [{"type": "text", "text": "..."}]
     let contentStr: string;
@@ -164,15 +171,17 @@ export function parsePiStdoutLine(line: string, ts: string): TranscriptEntry[] {
     } else {
       contentStr = JSON.stringify(result);
     }
-    
-    return [{
-      kind: "tool_result",
-      ts,
-      toolUseId: toolCallId || "unknown",
-      toolName,
-      content: contentStr,
-      isError,
-    }];
+
+    return [
+      {
+        kind: "tool_result",
+        ts,
+        toolUseId: toolCallId || "unknown",
+        toolName,
+        content: contentStr,
+        isError,
+      },
+    ];
   }
 
   return [{ kind: "stdout", ts, text: line }];

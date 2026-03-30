@@ -6,7 +6,10 @@ import { createTestDb } from "@wopr-network/platform-core/test/db";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 import { CreditLedger, InsufficientBalanceError } from "@wopr-network/platform-core";
 import { Credit } from "@wopr-network/platform-core";
-import { CREDIT_PRICE_POINTS, getCreditAmountForPurchase } from "@wopr-network/platform-core/monetization/stripe/credit-prices";
+import {
+  CREDIT_PRICE_POINTS,
+  getCreditAmountForPurchase,
+} from "@wopr-network/platform-core/monetization/stripe/credit-prices";
 import { RateStore } from "@wopr-network/platform-core/admin/rates/rate-store";
 import { BotBilling } from "@wopr-network/platform-core/monetization/credits/bot-billing";
 import { DrizzleBotInstanceRepository } from "@wopr-network/platform-core/fleet/drizzle-bot-instance-repository";
@@ -15,7 +18,10 @@ import { DrizzleMeterEventRepository } from "@wopr-network/platform-core/monetiz
 import { MeterAggregator } from "@wopr-network/platform-core/monetization/metering/aggregator";
 import { DrizzleUsageSummaryRepository } from "@wopr-network/platform-core/monetization/metering/drizzle-usage-summary-repository";
 import { AdapterSocket } from "@wopr-network/platform-core/monetization/socket/socket";
-import { checkInstanceQuota, DEFAULT_INSTANCE_LIMITS } from "@wopr-network/platform-core/monetization/quotas/quota-check";
+import {
+  checkInstanceQuota,
+  DEFAULT_INSTANCE_LIMITS,
+} from "@wopr-network/platform-core/monetization/quotas/quota-check";
 import type { InstanceLimits } from "@wopr-network/platform-core/monetization/quotas/quota-check";
 import type {
   AdapterResult,

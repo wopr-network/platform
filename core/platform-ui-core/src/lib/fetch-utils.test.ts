@@ -44,9 +44,7 @@ describe("handleUnauthorized", () => {
       // expected
     }
 
-    expect(window.location.href).toBe(
-      "/login?reason=expired&callbackUrl=%2Fdashboard%3Ftab%3Dfleet",
-    );
+    expect(window.location.href).toBe("/login?reason=expired&callbackUrl=%2Fdashboard%3Ftab%3Dfleet");
 
     Object.defineProperty(window, "location", {
       value: { pathname: "/", search: "", href: "" },

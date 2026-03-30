@@ -37,9 +37,7 @@ vi.mock("../../src/core/sessions.js", () => ({
 
 // ── Import after mocks ────────────────────────────────────────────────────
 
-const { installAndActivatePlugin } = await import(
-  "../../src/plugins/install-and-activate.js"
-);
+const { installAndActivatePlugin } = await import("../../src/plugins/install-and-activate.js");
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -98,14 +96,10 @@ describe("installAndActivatePlugin TOCTOU lock (WOP-1440)", () => {
 
   it("releases lock on error so subsequent installs can proceed", async () => {
     // Use a fresh source to avoid interference from other tests
-    mockInstallPlugin
-      .mockRejectedValueOnce(new Error("npm failed"))
-      .mockResolvedValueOnce({ ...SAMPLE_PLUGIN });
+    mockInstallPlugin.mockRejectedValueOnce(new Error("npm failed")).mockResolvedValueOnce({ ...SAMPLE_PLUGIN });
 
     // First attempt fails
-    await expect(
-      installAndActivatePlugin("lock-test-error-recovery-b2"),
-    ).rejects.toThrow("npm failed");
+    await expect(installAndActivatePlugin("lock-test-error-recovery-b2")).rejects.toThrow("npm failed");
 
     // Lock must be released in the finally block — second attempt should succeed
     const result = await installAndActivatePlugin("lock-test-error-recovery-b2");
@@ -164,14 +158,10 @@ describe("installAndActivatePlugin TOCTOU lock (WOP-1440)", () => {
     // Use a fresh source to avoid interference from other tests
     mockInstallPlugin.mockResolvedValue({ ...SAMPLE_PLUGIN });
 
-    mockEnablePlugin
-      .mockRejectedValueOnce(new Error("enable failed"))
-      .mockResolvedValueOnce(undefined);
+    mockEnablePlugin.mockRejectedValueOnce(new Error("enable failed")).mockResolvedValueOnce(undefined);
 
     // First attempt fails during enablement (after installPlugin succeeds)
-    await expect(
-      installAndActivatePlugin("lock-test-error-recovery-post-install"),
-    ).rejects.toThrow("enable failed");
+    await expect(installAndActivatePlugin("lock-test-error-recovery-post-install")).rejects.toThrow("enable failed");
 
     // Lock must be released in the finally block — second attempt should succeed
     const result = await installAndActivatePlugin("lock-test-error-recovery-post-install");

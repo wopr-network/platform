@@ -74,34 +74,24 @@ describe("validateEndpointUrl", () => {
 
   it("allows https", async () => {
     mockPublicDns();
-    await expect(validateEndpointUrl("https://api.nvidia.com/v1")).resolves.toBe(
-      "https://api.nvidia.com/v1",
-    );
+    await expect(validateEndpointUrl("https://api.nvidia.com/v1")).resolves.toBe("https://api.nvidia.com/v1");
   });
 
   it("allows http", async () => {
     mockPublicDns();
-    await expect(validateEndpointUrl("http://api.nvidia.com/v1")).resolves.toBe(
-      "http://api.nvidia.com/v1",
-    );
+    await expect(validateEndpointUrl("http://api.nvidia.com/v1")).resolves.toBe("http://api.nvidia.com/v1");
   });
 
   it("rejects file:// scheme", async () => {
-    await expect(validateEndpointUrl("file:///etc/passwd")).rejects.toThrow(
-      /Unsupported URL scheme/,
-    );
+    await expect(validateEndpointUrl("file:///etc/passwd")).rejects.toThrow(/Unsupported URL scheme/);
   });
 
   it("rejects ftp:// scheme", async () => {
-    await expect(validateEndpointUrl("ftp://evil.com/data")).rejects.toThrow(
-      /Unsupported URL scheme/,
-    );
+    await expect(validateEndpointUrl("ftp://evil.com/data")).rejects.toThrow(/Unsupported URL scheme/);
   });
 
   it("rejects gopher:// scheme", async () => {
-    await expect(validateEndpointUrl("gopher://evil.com/")).rejects.toThrow(
-      /Unsupported URL scheme/,
-    );
+    await expect(validateEndpointUrl("gopher://evil.com/")).rejects.toThrow(/Unsupported URL scheme/);
   });
 
   it("rejects empty scheme", async () => {
@@ -119,41 +109,31 @@ describe("validateEndpointUrl", () => {
   });
 
   it("rejects javascript: with no hostname", async () => {
-    await expect(validateEndpointUrl("javascript:alert(1)")).rejects.toThrow(
-      /Unsupported URL scheme/,
-    );
+    await expect(validateEndpointUrl("javascript:alert(1)")).rejects.toThrow(/Unsupported URL scheme/);
   });
 
   // ── Private IP checks (via DNS resolution) ──────────────────
 
   it("rejects private 10.x network", async () => {
     mockPrivateDns("10.0.0.1");
-    await expect(validateEndpointUrl("https://attacker.com/ssrf")).rejects.toThrow(
-      /private\/internal address/,
-    );
+    await expect(validateEndpointUrl("https://attacker.com/ssrf")).rejects.toThrow(/private\/internal address/);
   });
 
   it("rejects localhost", async () => {
     mockPrivateDns("127.0.0.1");
-    await expect(validateEndpointUrl("https://attacker.com/ssrf")).rejects.toThrow(
-      /private\/internal address/,
-    );
+    await expect(validateEndpointUrl("https://attacker.com/ssrf")).rejects.toThrow(/private\/internal address/);
   });
 
   it("rejects cloud metadata endpoint (169.254.169.254)", async () => {
     mockPrivateDns("169.254.169.254");
-    await expect(validateEndpointUrl("https://attacker.com/metadata")).rejects.toThrow(
-      /private\/internal address/,
-    );
+    await expect(validateEndpointUrl("https://attacker.com/metadata")).rejects.toThrow(/private\/internal address/);
   });
 
   // ── DNS resolution failure ──────────────────────────────────
 
   it("rejects unresolvable hostname", async () => {
     mockDnsFailure();
-    await expect(validateEndpointUrl("https://nonexistent.invalid/v1")).rejects.toThrow(
-      /Cannot resolve hostname/,
-    );
+    await expect(validateEndpointUrl("https://nonexistent.invalid/v1")).rejects.toThrow(/Cannot resolve hostname/);
   });
 
   // ── Valid public endpoints ──────────────────────────────────

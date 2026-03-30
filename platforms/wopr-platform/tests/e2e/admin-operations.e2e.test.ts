@@ -281,8 +281,7 @@ describe("E2E: admin operations — login → manage users → audit log → com
       adminAuditRepo: {
         query: (filters: { from?: number; to?: number }) =>
           adminAuditRepo.query({ from: filters.from, to: filters.to }),
-        countByAction: (filters: { from?: number; to?: number }) =>
-          adminAuditRepo.countByAction(filters),
+        countByAction: (filters: { from?: number; to?: number }) => adminAuditRepo.countByAction(filters),
       },
       twoFactorRepo: {
         countMandated: async () => 0,

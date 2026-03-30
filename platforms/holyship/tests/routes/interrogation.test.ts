@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { createInterrogationRoutes } from "../../src/routes/interrogation.js";
-import { GapAlreadyActualizedError, type GapActualizationService, GapNotFoundError } from "../../src/flows/gap-actualization-service.js";
+import {
+  GapAlreadyActualizedError,
+  type GapActualizationService,
+  GapNotFoundError,
+} from "../../src/flows/gap-actualization-service.js";
 import type { InterrogationService } from "../../src/flows/interrogation-service.js";
 
 function mockService(): InterrogationService {
@@ -36,7 +40,12 @@ describe("createInterrogationRoutes", () => {
         intelligence: { hasKnowledgeMd: false, hasAgentsMd: false, conventions: [] },
       },
       gaps: [
-        { capability: "reviewBots", title: "Configure review bots", priority: "medium" as const, description: "No bots" },
+        {
+          capability: "reviewBots",
+          title: "Configure review bots",
+          priority: "medium" as const,
+          description: "No bots",
+        },
       ],
       knowledgeMd: "# org/app",
     });
@@ -95,8 +104,24 @@ describe("createInterrogationRoutes", () => {
   it("GET /repos/:owner/:repo/gaps returns gap checklist", async () => {
     const svc = mockService();
     vi.mocked(svc.getGaps).mockResolvedValue([
-      { id: "g-1", capability: "ci", title: "Set up CI", priority: "high" as const, description: "No CI", status: "open", issueUrl: null },
-      { id: "g-2", capability: "docs", title: "Add docs", priority: "low" as const, description: "No docs", status: "issue_created", issueUrl: "https://github.com/org/app/issues/1" },
+      {
+        id: "g-1",
+        capability: "ci",
+        title: "Set up CI",
+        priority: "high" as const,
+        description: "No CI",
+        status: "open",
+        issueUrl: null,
+      },
+      {
+        id: "g-2",
+        capability: "docs",
+        title: "Add docs",
+        priority: "low" as const,
+        description: "No docs",
+        status: "issue_created",
+        issueUrl: "https://github.com/org/app/issues/1",
+      },
     ]);
 
     const app = createInterrogationRoutes({ interrogationService: svc });
@@ -232,7 +257,9 @@ describe("createInterrogationRoutes", () => {
   it("POST create-issue returns 409 for GapAlreadyActualizedError", async () => {
     const svc = mockService();
     const gapSvc = {
-      createIssueFromGap: vi.fn().mockRejectedValue(new GapAlreadyActualizedError("g-1", "https://github.com/org/app/issues/5")),
+      createIssueFromGap: vi
+        .fn()
+        .mockRejectedValue(new GapAlreadyActualizedError("g-1", "https://github.com/org/app/issues/5")),
       createIssuesFromAllGaps: vi.fn(),
     } as unknown as GapActualizationService;
 

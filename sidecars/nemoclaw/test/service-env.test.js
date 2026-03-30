@@ -12,52 +12,60 @@ describe("service environment", () => {
     });
 
     it("rejects non-absolute command -v result (alias)", () => {
-      expect(
-        resolveOpenshell({ commandVResult: "openshell", checkExecutable: () => false })
-      ).toBe(null);
+      expect(resolveOpenshell({ commandVResult: "openshell", checkExecutable: () => false })).toBe(null);
     });
 
     it("rejects alias definition from command -v", () => {
-      expect(
-        resolveOpenshell({ commandVResult: "alias openshell='echo pwned'", checkExecutable: () => false })
-      ).toBe(null);
+      expect(resolveOpenshell({ commandVResult: "alias openshell='echo pwned'", checkExecutable: () => false })).toBe(
+        null,
+      );
     });
 
     it("falls back to ~/.local/bin when command -v fails", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/fakehome/.local/bin/openshell",
-        home: "/fakehome",
-      })).toBe("/fakehome/.local/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) => p === "/fakehome/.local/bin/openshell",
+          home: "/fakehome",
+        }),
+      ).toBe("/fakehome/.local/bin/openshell");
     });
 
     it("falls back to /usr/local/bin", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/usr/local/bin/openshell",
-      })).toBe("/usr/local/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) => p === "/usr/local/bin/openshell",
+        }),
+      ).toBe("/usr/local/bin/openshell");
     });
 
     it("falls back to /usr/bin", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/usr/bin/openshell",
-      })).toBe("/usr/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) => p === "/usr/bin/openshell",
+        }),
+      ).toBe("/usr/bin/openshell");
     });
 
     it("prefers ~/.local/bin over /usr/local/bin", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/fakehome/.local/bin/openshell" || p === "/usr/local/bin/openshell",
-        home: "/fakehome",
-      })).toBe("/fakehome/.local/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) => p === "/fakehome/.local/bin/openshell" || p === "/usr/local/bin/openshell",
+          home: "/fakehome",
+        }),
+      ).toBe("/fakehome/.local/bin/openshell");
     });
 
     it("returns null when openshell not found anywhere", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: () => false,
-      })).toBe(null);
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: () => false,
+        }),
+      ).toBe(null);
     });
   });
 
@@ -68,7 +76,7 @@ describe("service environment", () => {
         {
           encoding: "utf-8",
           env: { ...process.env, NEMOCLAW_SANDBOX: "", SANDBOX_NAME: "my-box" },
-        }
+        },
       ).trim();
       expect(result).toBe("my-box");
     });
@@ -79,7 +87,7 @@ describe("service environment", () => {
         {
           encoding: "utf-8",
           env: { ...process.env, NEMOCLAW_SANDBOX: "from-env", SANDBOX_NAME: "old" },
-        }
+        },
       ).trim();
       expect(result).toBe("from-env");
     });
@@ -90,7 +98,7 @@ describe("service environment", () => {
         {
           encoding: "utf-8",
           env: { ...process.env, NEMOCLAW_SANDBOX: "", SANDBOX_NAME: "" },
-        }
+        },
       ).trim();
       expect(result).toBe("default");
     });

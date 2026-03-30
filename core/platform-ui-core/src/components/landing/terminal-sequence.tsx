@@ -58,15 +58,7 @@ function getTextBlur(lineIndex: number): number {
   return Math.min(8, Math.max(0, (lineIndex - 18) * 0.22));
 }
 
-type AnimState =
-  | "idle"
-  | "typing"
-  | "pause"
-  | "backspacing"
-  | "final-typing"
-  | "cursor-death"
-  | "blinking"
-  | "done";
+type AnimState = "idle" | "typing" | "pause" | "backspacing" | "final-typing" | "cursor-death" | "blinking" | "done";
 
 export function TerminalSequence({ onComplete, onMilestone, onFadeStart }: TerminalSequenceProps) {
   const [lines, setLines] = useState<string[]>([]);
@@ -345,10 +337,7 @@ export function TerminalSequence({ onComplete, onMilestone, onFadeStart }: Termi
       />
 
       {/* Radial glow pulse */}
-      <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center"
-        aria-hidden="true"
-      >
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden="true">
         <div className="animate-gentle-pulse h-[600px] w-[600px] rounded-full bg-terminal/5 blur-[120px]" />
       </div>
 
@@ -379,10 +368,7 @@ export function TerminalSequence({ onComplete, onMilestone, onFadeStart }: Termi
             old lines overflow upward and are clipped + faded by the mask */}
         <div className="absolute bottom-0 flex w-full flex-col">
           {lines.map((line, i) => (
-            <div
-              key={`${i}-${line}`}
-              className={animationDone ? "text-terminal" : "text-terminal/30"}
-            >
+            <div key={`${i}-${line}`} className={animationDone ? "text-terminal" : "text-terminal/30"}>
               {line || "\u00A0"}
             </div>
           ))}

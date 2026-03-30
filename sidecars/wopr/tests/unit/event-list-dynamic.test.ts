@@ -58,7 +58,11 @@ describe("event_list tool", () => {
   });
 
   it("should show description in plugin event listing", async () => {
-    getEventTypeRegistry().registerEventType("webhook.received", { description: "Webhook received" }, "wopr-plugin-webhook");
+    getEventTypeRegistry().registerEventType(
+      "webhook.received",
+      { description: "Webhook received" },
+      "wopr-plugin-webhook",
+    );
     const tools = createEventTools("test-session");
     const eventListTool = tools.find((t: any) => t.name === "event_list") as any;
     const result = await eventListTool.handler({});

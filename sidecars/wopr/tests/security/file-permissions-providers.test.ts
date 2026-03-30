@@ -94,10 +94,7 @@ describe("WOP-621: ProviderRegistry file permissions", () => {
       await registry.loadCredentials();
 
       const chmodCall = chmodCalls.find((c) => c.path.endsWith("providers.json"));
-      expect(
-        chmodCall,
-        "loadCredentials() should chmod providers.json to fix existing-file permissions",
-      ).toBeDefined();
+      expect(chmodCall, "loadCredentials() should chmod providers.json to fix existing-file permissions").toBeDefined();
       expect(chmodCall!.mode).toBe(0o600);
     });
   });

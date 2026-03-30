@@ -19,31 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  createApiKey,
-  type Instance,
-  listApiKeys,
-  listInstances,
-  type PlatformApiKey,
-  revokeApiKey,
-} from "@/lib/api";
+import { createApiKey, type Instance, listApiKeys, listInstances, type PlatformApiKey, revokeApiKey } from "@/lib/api";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "Never";
@@ -111,9 +91,7 @@ export default function ApiKeysPage() {
       <div className="max-w-3xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">API Keys</h1>
-          <p className="text-sm text-muted-foreground">
-            Generate and manage platform API keys for programmatic access
-          </p>
+          <p className="text-sm text-muted-foreground">Generate and manage platform API keys for programmatic access</p>
         </div>
         <div className="flex h-40 flex-col items-center justify-center gap-3 text-muted-foreground">
           <p className="text-sm text-destructive">Failed to load API keys.</p>
@@ -130,9 +108,7 @@ export default function ApiKeysPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">API Keys</h1>
-          <p className="text-sm text-muted-foreground">
-            Generate and manage platform API keys for programmatic access
-          </p>
+          <p className="text-sm text-muted-foreground">Generate and manage platform API keys for programmatic access</p>
         </div>
         <CreateKeyDialog
           onCreated={(secret) => {
@@ -169,29 +145,18 @@ export default function ApiKeysPage() {
                   Your new API key has been created. Copy it now -- it will not be shown again.
                 </p>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">
-                    {newSecret}
-                  </code>
+                  <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono break-all">{newSecret}</code>
                   <Tooltip open={copied}>
                     <TooltipTrigger asChild>
                       <Button variant="outline" size="sm" onClick={handleCopy}>
-                        {copied ? (
-                          <CheckIcon className="size-4" />
-                        ) : (
-                          <CopyIcon className="size-4" />
-                        )}
+                        {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
                         {copied ? "Copied" : "Copy"}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Copied!</TooltipContent>
                   </Tooltip>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => setNewSecret(null)}
-                >
+                <Button variant="ghost" size="sm" className="mt-2" onClick={() => setNewSecret(null)}>
                   Dismiss
                 </Button>
               </CardContent>
@@ -274,15 +239,9 @@ export default function ApiKeysPage() {
                   <TableCell>
                     <Badge variant="secondary">{key.scope}</Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(key.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(key.lastUsedAt)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(key.expiresAt)}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(key.createdAt)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(key.lastUsedAt)}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDate(key.expiresAt)}</TableCell>
                   <TableCell>
                     <RevokeDialog keyName={key.name} onRevoke={() => handleRevoke(key.id)} />
                   </TableCell>
@@ -364,9 +323,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: (secret: string) => void })
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Generate API Key</DialogTitle>
-          <DialogDescription>
-            Create a new API key with specific scope and expiration.
-          </DialogDescription>
+          <DialogDescription>Create a new API key with specific scope and expiration.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -411,9 +368,7 @@ function CreateKeyDialog({ onCreated }: { onCreated: (secret: string) => void })
                   <p className="text-sm text-destructive">Failed to load instances.</p>
                 ) : instances.length === 0 ? (
                   <div className="rounded-md border bg-muted/30 p-3 py-6 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      No bot instances found. Deploy a bot first.
-                    </p>
+                    <p className="text-sm text-muted-foreground">No bot instances found. Deploy a bot first.</p>
                   </div>
                 ) : (
                   <>
@@ -506,8 +461,8 @@ function RevokeDialog({ keyName, onRevoke }: { keyName: string; onRevoke: () => 
         <DialogHeader>
           <DialogTitle>Revoke API Key</DialogTitle>
           <DialogDescription>
-            Are you sure you want to revoke <strong>{keyName}</strong>? Any applications using this
-            key will immediately lose access.
+            Are you sure you want to revoke <strong>{keyName}</strong>? Any applications using this key will immediately
+            lose access.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

@@ -5,13 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LogEntry, LogLevel } from "@/lib/api";
 import { getInstanceLogs } from "@/lib/api";
@@ -129,11 +123,7 @@ export function LogsViewer({ instanceId }: { instanceId: string }) {
           )}
         </div>
 
-        <Button
-          variant={autoScroll ? "terminal" : "outline"}
-          size="sm"
-          onClick={() => setAutoScroll(!autoScroll)}
-        >
+        <Button variant={autoScroll ? "terminal" : "outline"} size="sm" onClick={() => setAutoScroll(!autoScroll)}>
           {autoScroll ? "Auto-scroll ON" : "Auto-scroll OFF"}
         </Button>
       </div>
@@ -154,19 +144,14 @@ export function LogsViewer({ instanceId }: { instanceId: string }) {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
-            Real-time Logs{" "}
-            <span className="font-normal text-muted-foreground">({filtered.length} entries)</span>
+            Real-time Logs <span className="font-normal text-muted-foreground">({filtered.length} entries)</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {loading && logs.length === 0 ? (
             <div className="h-[400px] space-y-2 rounded-md bg-zinc-950 p-4">
               {Array.from({ length: 12 }, (_, n) => `sk-${n}`).map((skId, i) => (
-                <Skeleton
-                  key={skId}
-                  className="h-4 bg-zinc-800"
-                  style={{ width: `${60 + ((i * 17) % 40)}%` }}
-                />
+                <Skeleton key={skId} className="h-4 bg-zinc-800" style={{ width: `${60 + ((i * 17) % 40)}%` }} />
               ))}
             </div>
           ) : (
@@ -180,25 +165,16 @@ export function LogsViewer({ instanceId }: { instanceId: string }) {
               {filtered.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center">
                   <p className="text-zinc-500">No logs match the current filters.</p>
-                  <p className="mt-1 text-zinc-600">
-                    Try broadening your search or changing the level filter.
-                  </p>
+                  <p className="mt-1 text-zinc-600">Try broadening your search or changing the level filter.</p>
                 </div>
               ) : (
                 filtered.map((log) => (
                   <div
                     key={log.id}
-                    className={cn(
-                      "flex gap-3 rounded px-2 py-1 hover:bg-zinc-900",
-                      levelBgColors[log.level],
-                    )}
+                    className={cn("flex gap-3 rounded px-2 py-1 hover:bg-zinc-900", levelBgColors[log.level])}
                   >
-                    <span className="shrink-0 text-zinc-600">
-                      {new Date(log.timestamp).toLocaleTimeString()}
-                    </span>
-                    <span
-                      className={cn("w-12 shrink-0 text-right uppercase", levelColors[log.level])}
-                    >
+                    <span className="shrink-0 text-zinc-600">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                    <span className={cn("w-12 shrink-0 text-right uppercase", levelColors[log.level])}>
                       {log.level}
                     </span>
                     <span className="shrink-0 text-zinc-500">[{log.source}]</span>

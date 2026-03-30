@@ -4,24 +4,40 @@ import type { Gate, Entity, IGateRepository } from "../../src/repositories/inter
 
 function makeGate(overrides: Partial<Gate> = {}): Gate {
   return {
-    id: "gate-1", name: "test-gate", type: "command",
-    command: "echo ok", functionRef: null, apiConfig: null, timeoutMs: 30000,
+    id: "gate-1",
+    name: "test-gate",
+    type: "command",
+    command: "echo ok",
+    functionRef: null,
+    apiConfig: null,
+    timeoutMs: 30000,
     ...overrides,
   };
 }
 
 function makeEntity(): Entity {
   return {
-    id: "ent-1", flowId: "flow-1", state: "review", refs: null,
-    artifacts: null, claimedBy: null, claimedAt: null, flowVersion: 1,
-    createdAt: new Date(), updatedAt: new Date(),
+    id: "ent-1",
+    flowId: "flow-1",
+    state: "review",
+    refs: null,
+    artifacts: null,
+    claimedBy: null,
+    claimedAt: null,
+    flowVersion: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
 const mockGateRepo = {
   record: vi.fn().mockResolvedValue({
-    id: "gr-1", entityId: "ent-1", gateId: "gate-1",
-    passed: false, output: "", evaluatedAt: new Date(),
+    id: "gr-1",
+    entityId: "ent-1",
+    gateId: "gate-1",
+    passed: false,
+    output: "",
+    evaluatedAt: new Date(),
   }),
 } as unknown as IGateRepository;
 

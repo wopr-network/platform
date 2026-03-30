@@ -250,10 +250,7 @@ async function seed(): Promise<void> {
       });
 
     // Upsert default features (no-op if already exists)
-    await db
-      .insert(productFeatures)
-      .values({ productId: product.id })
-      .onConflictDoNothing();
+    await db.insert(productFeatures).values({ productId: product.id }).onConflictDoNothing();
 
     console.log(`  done (${navItems.length} nav items, fleet: ${fleet.lifecycle}/${fleet.billingModel})`);
   }

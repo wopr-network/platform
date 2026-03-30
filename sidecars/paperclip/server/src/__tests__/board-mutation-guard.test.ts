@@ -7,9 +7,10 @@ function createApp(actorType: "board" | "agent", boardSource: "session" | "local
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    req.actor = actorType === "board"
-      ? { type: "board", userId: "board", source: boardSource }
-      : { type: "agent", agentId: "agent-1" };
+    req.actor =
+      actorType === "board"
+        ? { type: "board", userId: "board", source: boardSource }
+        : { type: "agent", agentId: "agent-1" };
     next();
   });
   app.use(boardMutationGuard());
@@ -44,10 +45,7 @@ describe("boardMutationGuard", () => {
 
   it("allows board mutations from trusted origin", async () => {
     const app = createApp("board");
-    const res = await request(app)
-      .post("/mutate")
-      .set("Origin", "http://localhost:3100")
-      .send({ ok: true });
+    const res = await request(app).post("/mutate").set("Origin", "http://localhost:3100").send({ ok: true });
     expect(res.status).toBe(204);
   });
 

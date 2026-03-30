@@ -60,20 +60,14 @@ describe("WoprClient", () => {
       vi.stubGlobal("fetch", fetchMock);
       const defaultClient = new WoprClient();
       await defaultClient.isRunning();
-      expect(fetchMock).toHaveBeenCalledWith(
-        "http://127.0.0.1:7437/health",
-        expect.any(Object),
-      );
+      expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:7437/health", expect.any(Object));
     });
 
     it("should use custom baseUrl from config", async () => {
       const fetchMock = mockFetchResponse({ status: "ok" });
       vi.stubGlobal("fetch", fetchMock);
       await client.isRunning();
-      expect(fetchMock).toHaveBeenCalledWith(
-        "http://localhost:9999/health",
-        expect.any(Object),
-      );
+      expect(fetchMock).toHaveBeenCalledWith("http://localhost:9999/health", expect.any(Object));
     });
   });
 
@@ -643,10 +637,7 @@ describe("WoprClient", () => {
     });
 
     it("getMiddlewareChain() should return chain array", async () => {
-      vi.stubGlobal(
-        "fetch",
-        mockFetchResponse({ chain: [{ name: "m1", priority: 1, enabled: true }] }),
-      );
+      vi.stubGlobal("fetch", mockFetchResponse({ chain: [{ name: "m1", priority: 1, enabled: true }] }));
       expect(await client.getMiddlewareChain()).toEqual([{ name: "m1", priority: 1, enabled: true }]);
     });
 
@@ -684,10 +675,7 @@ describe("WoprClient", () => {
   // --- Context Providers ---
   describe("context providers", () => {
     it("getContextProviders() should return providers array", async () => {
-      vi.stubGlobal(
-        "fetch",
-        mockFetchResponse({ providers: [{ name: "cp1", priority: 1, enabled: true }] }),
-      );
+      vi.stubGlobal("fetch", mockFetchResponse({ providers: [{ name: "cp1", priority: 1, enabled: true }] }));
       expect(await client.getContextProviders()).toEqual([{ name: "cp1", priority: 1, enabled: true }]);
     });
 
@@ -737,5 +725,4 @@ describe("WoprClient", () => {
       expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({});
     });
   });
-
 }); // end WoprClient describe

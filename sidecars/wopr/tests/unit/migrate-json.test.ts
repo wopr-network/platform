@@ -62,10 +62,7 @@ describe("migratePluginJsonToSql", () => {
     const result = await migratePluginJsonToSql();
     expect(result.plugins).toBe(1);
     expect(mockPluginRepo.insert).toHaveBeenCalledOnce();
-    expect(renameSync).toHaveBeenCalledWith(
-      PLUGINS_FILE,
-      `${PLUGINS_FILE}.backup`,
-    );
+    expect(renameSync).toHaveBeenCalledWith(PLUGINS_FILE, `${PLUGINS_FILE}.backup`);
   });
 
   it("skips already-migrated plugins (idempotent)", async () => {
@@ -105,10 +102,7 @@ describe("migratePluginJsonToSql", () => {
     const result = await migratePluginJsonToSql();
     expect(result.registries).toBe(1);
     expect(mockRegistryRepo.insert).toHaveBeenCalledOnce();
-    expect(renameSync).toHaveBeenCalledWith(
-      REGISTRIES_FILE,
-      `${REGISTRIES_FILE}.backup`,
-    );
+    expect(renameSync).toHaveBeenCalledWith(REGISTRIES_FILE, `${REGISTRIES_FILE}.backup`);
   });
 
   it("handles both files at once", async () => {
@@ -122,9 +116,7 @@ describe("migratePluginJsonToSql", () => {
         installedAt: 1,
       },
     ];
-    const registries = [
-      { name: "r1", url: "https://r1.dev", enabled: true, lastSync: 1 },
-    ];
+    const registries = [{ name: "r1", url: "https://r1.dev", enabled: true, lastSync: 1 }];
 
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockImplementation((p) => {

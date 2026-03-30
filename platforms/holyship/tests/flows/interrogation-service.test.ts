@@ -116,9 +116,9 @@ describe("InterrogationService", () => {
     const sseBody = makeSseResponse(SAMPLE_OUTPUT);
 
     // Mock fetch
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(sseBody, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(sseBody, { status: 200, headers: { "Content-Type": "text/event-stream" } }));
 
     const result = await service.interrogate("org/app");
 
@@ -156,9 +156,9 @@ describe("InterrogationService", () => {
   });
 
   it("tears down runner even on dispatch failure", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("Internal Server Error", { status: 500 }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("Internal Server Error", { status: 500 }));
 
     await expect(service.interrogate("org/app")).rejects.toThrow("Dispatch failed: HTTP 500");
     expect(fleet.teardown).toHaveBeenCalledWith("ctr-123");
@@ -169,9 +169,7 @@ describe("InterrogationService", () => {
   it("tears down runner even on parse failure", async () => {
     // SSE with no REPO_CONFIG line
     const sseBody = makeSseResponse("Just some text with no config.\n\ninterrogation_complete");
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(sseBody, { status: 200 }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(sseBody, { status: 200 }));
 
     await expect(service.interrogate("org/app")).rejects.toThrow("missing REPO_CONFIG");
     expect(fleet.teardown).toHaveBeenCalledWith("ctr-123");
@@ -180,7 +178,7 @@ describe("InterrogationService", () => {
   });
 
   it("rejects invalid repo name", async () => {
-    await expect(service.interrogate("bad-name")).rejects.toThrow('Invalid repo name: bad-name');
+    await expect(service.interrogate("bad-name")).rejects.toThrow("Invalid repo name: bad-name");
   });
 
   it("handles SSE with text events instead of result artifact", async () => {
@@ -192,9 +190,7 @@ describe("InterrogationService", () => {
     ];
     const sseBody = events.join("");
 
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(sseBody, { status: 200 }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(sseBody, { status: 200 }));
 
     const result = await service.interrogate("x/y");
     expect(result.config.repo).toBe("x/y");
@@ -218,9 +214,7 @@ describe("InterrogationService", () => {
     }));
 
     const sseBody = makeSseResponse(SAMPLE_OUTPUT);
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(sseBody, { status: 200 }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(sseBody, { status: 200 }));
 
     const result = await service.interrogate("org/app");
     expect(result.repoConfigId).toBe("existing-id");

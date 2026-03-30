@@ -335,9 +335,7 @@ describe("Channels tab", () => {
 
     await user.click(screen.getByRole("tab", { name: "Channels" }));
 
-    expect(
-      screen.getByText("Your Platform works everywhere you do. All channels are free."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Your Platform works everywhere you do. All channels are free.")).toBeInTheDocument();
   });
 });
 
@@ -610,9 +608,7 @@ describe("Danger Zone tab", () => {
 describe("Error handling", () => {
   it("shows error when getBotSettings fails", async () => {
     const { getBotSettings } = await import("@/lib/bot-settings-data");
-    vi.mocked(getBotSettings).mockRejectedValueOnce(
-      new Error("API error: 500 Internal Server Error"),
-    );
+    vi.mocked(getBotSettings).mockRejectedValueOnce(new Error("API error: 500 Internal Server Error"));
     const { BotSettingsClient } = await import("../components/bot-settings/bot-settings-client");
     render(<BotSettingsClient botId="bot-001" />);
     expect(await screen.findByText("API error: 500 Internal Server Error")).toBeInTheDocument();

@@ -178,16 +178,14 @@ describe("bootstrapEnvPlugins", () => {
   it("should warn and skip on install failure without crashing", async () => {
     process.env.WOPR_PLUGINS_CHANNELS = "discord,telegram";
     vi.mocked(listPlugins).mockResolvedValue([]);
-    vi.mocked(installPlugin)
-      .mockRejectedValueOnce(new Error("npm registry unreachable"))
-      .mockResolvedValueOnce({
-        name: "telegram",
-        version: "1.0.0",
-        path: "/p",
-        enabled: false,
-        installedAt: 0,
-        source: "npm",
-      });
+    vi.mocked(installPlugin).mockRejectedValueOnce(new Error("npm registry unreachable")).mockResolvedValueOnce({
+      name: "telegram",
+      version: "1.0.0",
+      path: "/p",
+      enabled: false,
+      installedAt: 0,
+      source: "npm",
+    });
 
     const result = await bootstrapEnvPlugins();
 

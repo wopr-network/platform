@@ -22,12 +22,8 @@ vi.mock("better-auth/react", () => ({
 
 vi.mock("framer-motion", () => ({
   motion: {
-    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
-      <div {...props}>{children}</div>
-    ),
-    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => (
-      <p {...props}>{children}</p>
-    ),
+    div: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <div {...props}>{children}</div>,
+    p: ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => <p {...props}>{children}</p>,
   },
 }));
 
@@ -51,10 +47,7 @@ describe("VerifyPage", () => {
     expect(screen.getByText("Email verified")).toBeInTheDocument();
     expect(screen.getByText(/verified successfully/)).toBeInTheDocument();
     expect(screen.getByText(/\$5 signup credit/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Continue to setup/ })).toHaveAttribute(
-      "href",
-      "/onboarding",
-    );
+    expect(screen.getByRole("link", { name: /Continue to setup/ })).toHaveAttribute("href", "/onboarding");
   });
 
   it("redirects to dashboard after countdown on success", async () => {
@@ -71,9 +64,7 @@ describe("VerifyPage", () => {
   });
 
   it("renders token-expired error with resend button when email param present", async () => {
-    mockSearchParams = new URLSearchParams(
-      "status=error&reason=token-expired&email=test@example.com",
-    );
+    mockSearchParams = new URLSearchParams("status=error&reason=token-expired&email=test@example.com");
 
     const { default: VerifyPage } = await import("@/app/auth/verify/page");
     render(<VerifyPage />);

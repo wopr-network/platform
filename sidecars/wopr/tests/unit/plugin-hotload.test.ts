@@ -28,7 +28,7 @@ vi.mock("../../src/plugins/state.js", () => ({
 }));
 
 vi.mock("../../src/plugins/context-factory.js", () => ({
-  createPluginContext: vi.fn(() => ({ name: "test-plugin" } as WOPRPluginContext)),
+  createPluginContext: vi.fn(() => ({ name: "test-plugin" }) as WOPRPluginContext),
 }));
 
 vi.mock("../../src/plugins/installation.js", () => ({
@@ -445,9 +445,8 @@ describe("switchProvider", () => {
 
     // Mock loadPlugin to avoid file system operations
     vi.doMock("../../src/plugins/loading.js", async () => {
-      const actual = await vi.importActual<typeof import("../../src/plugins/loading.js")>(
-        "../../src/plugins/loading.js",
-      );
+      const actual =
+        await vi.importActual<typeof import("../../src/plugins/loading.js")>("../../src/plugins/loading.js");
       return {
         ...actual,
         loadPlugin: vi.fn(async () => ({

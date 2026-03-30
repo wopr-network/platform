@@ -8,14 +8,7 @@ import { Suspense, useEffect, useState } from "react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { ResendVerificationButton } from "@/components/auth/resend-verification-button";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
 function SuccessContent() {
   const router = useRouter();
@@ -50,14 +43,11 @@ function SuccessContent() {
         <CardTitle className="text-sm font-medium uppercase tracking-widest text-terminal text-center">
           Email verified
         </CardTitle>
-        <CardDescription className="text-center">
-          Your email has been verified successfully.
-        </CardDescription>
+        <CardDescription className="text-center">Your email has been verified successfully.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-center text-muted-foreground">
-          Your <span className="text-terminal font-medium">$5 signup credit</span> has been applied
-          to your account.
+          Your <span className="text-terminal font-medium">$5 signup credit</span> has been applied to your account.
         </p>
         <p className="text-sm text-center text-muted-foreground">
           Redirecting in <span className="text-terminal font-medium tabular-nums">{countdown}</span>
@@ -65,10 +55,7 @@ function SuccessContent() {
         </p>
       </CardContent>
       <CardFooter className="justify-center">
-        <Link
-          href="/onboarding"
-          className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal"
-        >
+        <Link href="/onboarding" className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal">
           Continue to setup
         </Link>
       </CardFooter>
@@ -141,9 +128,7 @@ function ErrorContent({
         </div>
       );
       title = "Verification failed";
-      description = status
-        ? "Something went wrong verifying your email."
-        : "No verification status provided.";
+      description = status ? "Something went wrong verifying your email." : "No verification status provided.";
       footer = null;
       break;
   }
@@ -151,17 +136,11 @@ function ErrorContent({
   const titleColor = reason === "already-verified" ? "text-terminal" : "text-destructive";
   const footerLink =
     reason === "already-verified" ? (
-      <Link
-        href="/login"
-        className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal"
-      >
+      <Link href="/login" className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal">
         Sign in
       </Link>
     ) : (
-      <Link
-        href="/login"
-        className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal"
-      >
+      <Link href="/login" className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal">
         Back to sign in
       </Link>
     );
@@ -176,9 +155,7 @@ function ErrorContent({
         >
           {icon}
         </motion.div>
-        <CardTitle
-          className={`text-sm font-medium uppercase tracking-widest ${titleColor} text-center`}
-        >
+        <CardTitle className={`text-sm font-medium uppercase tracking-widest ${titleColor} text-center`}>
           {title}
         </CardTitle>
         <CardDescription className="text-center">{description}</CardDescription>
@@ -204,11 +181,7 @@ function VerifyContent() {
       </div>
       <div className="relative z-10 w-full max-w-sm">
         <AuthShell>
-          {isSuccess ? (
-            <SuccessContent />
-          ) : (
-            <ErrorContent status={status} reason={reason} email={emailParam} />
-          )}
+          {isSuccess ? <SuccessContent /> : <ErrorContent status={status} reason={reason} email={emailParam} />}
         </AuthShell>
       </div>
     </div>

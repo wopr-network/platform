@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IDaemonManager } from "@wopr-network/platform-core/onboarding/daemon-manager";
 import type { OnboardingConfig } from "@wopr-network/platform-core/onboarding/config";
 import type { IWoprClient } from "@wopr-network/platform-core/onboarding/wopr-client";
-import type { IOnboardingSessionRepository, OnboardingSession } from "@wopr-network/platform-core/onboarding/drizzle-onboarding-session-repository";
+import type {
+  IOnboardingSessionRepository,
+  OnboardingSession,
+} from "@wopr-network/platform-core/onboarding/drizzle-onboarding-session-repository";
 import type { ISessionUsageRepository } from "@wopr-network/platform-core/inference/session-usage-repository";
 import { OnboardingService } from "@wopr-network/platform-core/onboarding/onboarding-service";
 
@@ -28,7 +31,9 @@ function makeRepo(overrides: Partial<IOnboardingSessionRepository> = {}): IOnboa
     getByUserId: vi.fn().mockResolvedValue(null),
     getByAnonymousId: vi.fn().mockResolvedValue(null),
     getActiveByAnonymousId: vi.fn().mockResolvedValue(null),
-    create: vi.fn().mockImplementation(async (d) => makeSession({ ...d, createdAt: Date.now(), updatedAt: Date.now() })),
+    create: vi
+      .fn()
+      .mockImplementation(async (d) => makeSession({ ...d, createdAt: Date.now(), updatedAt: Date.now() })),
     upgradeAnonymousToUser: vi.fn().mockResolvedValue(null),
     setStatus: vi.fn().mockResolvedValue(undefined),
     graduate: vi.fn().mockResolvedValue(null),
@@ -58,7 +63,21 @@ function makeDaemon(ready = true): IDaemonManager {
 
 function makeUsageRepo(sumCostBySession = 0): ISessionUsageRepository {
   return {
-    insert: vi.fn().mockResolvedValue({ id: "u1", sessionId: "s1", userId: "u1", page: null, inputTokens: 10, outputTokens: 10, cachedTokens: 0, cacheWriteTokens: 0, model: "claude-sonnet-4-20250514", costUsd: 0.01, createdAt: Date.now() }),
+    insert: vi
+      .fn()
+      .mockResolvedValue({
+        id: "u1",
+        sessionId: "s1",
+        userId: "u1",
+        page: null,
+        inputTokens: 10,
+        outputTokens: 10,
+        cachedTokens: 0,
+        cacheWriteTokens: 0,
+        model: "claude-sonnet-4-20250514",
+        costUsd: 0.01,
+        createdAt: Date.now(),
+      }),
     findBySessionId: vi.fn().mockResolvedValue([]),
     sumCostByUser: vi.fn().mockResolvedValue(0),
     sumCostBySession: vi.fn().mockResolvedValue(sumCostBySession),
@@ -247,7 +266,20 @@ describe("OnboardingService", () => {
       const usageRepo = makeUsageRepo(0);
       const ledger = {
         credit: vi.fn(),
-        debit: vi.fn().mockResolvedValue({ id: "tx1", tenantId: "t1", amountCents: -1, balanceAfterCents: 99, type: "onboarding_llm", description: null, referenceId: null, fundingSource: null, attributedUserId: null, createdAt: new Date().toISOString() }),
+        debit: vi
+          .fn()
+          .mockResolvedValue({
+            id: "tx1",
+            tenantId: "t1",
+            amountCents: -1,
+            balanceAfterCents: 99,
+            type: "onboarding_llm",
+            description: null,
+            referenceId: null,
+            fundingSource: null,
+            attributedUserId: null,
+            createdAt: new Date().toISOString(),
+          }),
         balance: vi.fn().mockResolvedValue(100),
         hasReferenceId: vi.fn().mockResolvedValue(false),
         history: vi.fn().mockResolvedValue([]),
@@ -258,7 +290,16 @@ describe("OnboardingService", () => {
       const tenantResolver = vi.fn().mockResolvedValue("tenant-1");
       (repo.getById as ReturnType<typeof vi.fn>).mockResolvedValue(makeSession({ userId: "u1" }));
 
-      service = new OnboardingService(repo, client, defaultConfig, daemon, usageRepo, undefined, ledger, tenantResolver);
+      service = new OnboardingService(
+        repo,
+        client,
+        defaultConfig,
+        daemon,
+        usageRepo,
+        undefined,
+        ledger,
+        tenantResolver,
+      );
       await service.inject("s1", "Hello");
 
       expect(ledger.debit).toHaveBeenCalledOnce();
@@ -285,9 +326,20 @@ describe("OnboardingService", () => {
         lifetimeSpend: vi.fn().mockResolvedValue({ toCents: () => 0 }),
       };
       const tenantResolver = vi.fn().mockResolvedValue("tenant-1");
-      (repo.getById as ReturnType<typeof vi.fn>).mockResolvedValue(makeSession({ userId: null, anonymousId: "anon-1" }));
+      (repo.getById as ReturnType<typeof vi.fn>).mockResolvedValue(
+        makeSession({ userId: null, anonymousId: "anon-1" }),
+      );
 
-      service = new OnboardingService(repo, client, defaultConfig, daemon, usageRepo, undefined, ledger, tenantResolver);
+      service = new OnboardingService(
+        repo,
+        client,
+        defaultConfig,
+        daemon,
+        usageRepo,
+        undefined,
+        ledger,
+        tenantResolver,
+      );
       await service.inject("s1", "Hello");
 
       expect(ledger.debit).not.toHaveBeenCalled();
@@ -308,7 +360,16 @@ describe("OnboardingService", () => {
       const tenantResolver = vi.fn().mockResolvedValue(null); // no tenant found
       (repo.getById as ReturnType<typeof vi.fn>).mockResolvedValue(makeSession({ userId: "u1" }));
 
-      service = new OnboardingService(repo, client, defaultConfig, daemon, usageRepo, undefined, ledger, tenantResolver);
+      service = new OnboardingService(
+        repo,
+        client,
+        defaultConfig,
+        daemon,
+        usageRepo,
+        undefined,
+        ledger,
+        tenantResolver,
+      );
       await service.inject("s1", "Hello");
 
       expect(ledger.debit).not.toHaveBeenCalled();

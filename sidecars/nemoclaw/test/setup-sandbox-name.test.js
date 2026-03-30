@@ -23,25 +23,19 @@ describe("setup.sh sandbox name parameterization (#197)", () => {
   it("sandbox create uses $SANDBOX_NAME, not hardcoded", () => {
     const createLine = content.match(/openshell sandbox create.*--name\s+(\S+)/);
     expect(createLine).toBeTruthy();
-    expect(
-      createLine[1].includes("$SANDBOX_NAME") || createLine[1].includes('"$SANDBOX_NAME"')
-    ).toBeTruthy();
+    expect(createLine[1].includes("$SANDBOX_NAME") || createLine[1].includes('"$SANDBOX_NAME"')).toBeTruthy();
   });
 
   it("sandbox delete uses $SANDBOX_NAME, not hardcoded", () => {
     const deleteLine = content.match(/openshell sandbox delete\s+(\S+)/);
     expect(deleteLine).toBeTruthy();
-    expect(
-      deleteLine[1].includes("$SANDBOX_NAME") || deleteLine[1].includes('"$SANDBOX_NAME"')
-    ).toBeTruthy();
+    expect(deleteLine[1].includes("$SANDBOX_NAME") || deleteLine[1].includes('"$SANDBOX_NAME"')).toBeTruthy();
   });
 
   it("sandbox get uses $SANDBOX_NAME, not hardcoded", () => {
     const getLine = content.match(/openshell sandbox get\s+(\S+)/);
     expect(getLine).toBeTruthy();
-    expect(
-      getLine[1].includes("$SANDBOX_NAME") || getLine[1].includes('"$SANDBOX_NAME"')
-    ).toBeTruthy();
+    expect(getLine[1].includes("$SANDBOX_NAME") || getLine[1].includes('"$SANDBOX_NAME"')).toBeTruthy();
   });
 
   it("gateway name stays hardcoded to nemoclaw", () => {
@@ -50,18 +44,16 @@ describe("setup.sh sandbox name parameterization (#197)", () => {
   });
 
   it("$1 arg actually sets SANDBOX_NAME in bash", () => {
-    const result = execSync(
-      'bash -c \'SANDBOX_NAME="${1:-nemoclaw}"; echo "$SANDBOX_NAME"\' -- my-test-box',
-      { encoding: "utf-8" }
-    ).trim();
+    const result = execSync('bash -c \'SANDBOX_NAME="${1:-nemoclaw}"; echo "$SANDBOX_NAME"\' -- my-test-box', {
+      encoding: "utf-8",
+    }).trim();
     expect(result).toBe("my-test-box");
   });
 
   it("no arg defaults to nemoclaw in bash", () => {
-    const result = execSync(
-      'bash -c \'SANDBOX_NAME="${1:-nemoclaw}"; echo "$SANDBOX_NAME"\'',
-      { encoding: "utf-8" }
-    ).trim();
+    const result = execSync('bash -c \'SANDBOX_NAME="${1:-nemoclaw}"; echo "$SANDBOX_NAME"\'', {
+      encoding: "utf-8",
+    }).trim();
     expect(result).toBe("nemoclaw");
   });
 });

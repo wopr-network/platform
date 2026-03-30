@@ -139,11 +139,7 @@ export function AuthPage() {
               aria-disabled={!canSubmit || mutation.isPending}
               className={`w-full ${!canSubmit && !mutation.isPending ? "opacity-50" : ""}`}
             >
-              {mutation.isPending
-                ? "Working…"
-                : mode === "sign_in"
-                  ? "Sign In"
-                  : "Create Account"}
+              {mutation.isPending ? "Working…" : mode === "sign_in" ? "Sign In" : "Create Account"}
             </Button>
           </form>
 

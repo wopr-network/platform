@@ -175,11 +175,7 @@ describe("ConfigManager", () => {
       await mgr.save();
 
       expect(mkdir).toHaveBeenCalledWith("/fake/wopr", { recursive: true, mode: 0o700 });
-      expect(writeFile).toHaveBeenCalledWith(
-        "/fake/wopr/config.json",
-        expect.any(String),
-        { mode: 0o600 },
-      );
+      expect(writeFile).toHaveBeenCalledWith("/fake/wopr/config.json", expect.any(String), { mode: 0o600 });
       const written = (writeFile as Mock).mock.calls[0][1] as string;
       const parsed = JSON.parse(written);
       expect(parsed.daemon.port).toBe(1234);
@@ -410,10 +406,7 @@ describe("ConfigManager", () => {
 
       // Port should remain unchanged
       expect(mgr.get().daemon.port).toBe(7437);
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining("Reload failed"),
-        expect.any(String),
-      );
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Reload failed"), expect.any(String));
     });
 
     it("should log no-change message when config is identical", async () => {

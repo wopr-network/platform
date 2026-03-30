@@ -26,9 +26,7 @@ const mockFetchRetentionPolicies = vi.fn();
 const mockUpdateRetentionPolicy = vi.fn();
 
 vi.mock("@/lib/admin-compliance-api", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/admin-compliance-api")>(
-    "@/lib/admin-compliance-api",
-  );
+  const actual = await vi.importActual<typeof import("@/lib/admin-compliance-api")>("@/lib/admin-compliance-api");
   return {
     ...actual,
     fetchRetentionPolicies: (...args: unknown[]) => mockFetchRetentionPolicies(...args),
@@ -67,9 +65,8 @@ describe("updateRetentionPolicy", () => {
       recordsAffected: 0,
     });
 
-    const { updateRetentionPolicy } = await vi.importActual<
-      typeof import("@/lib/admin-compliance-api")
-    >("@/lib/admin-compliance-api");
+    const { updateRetentionPolicy } =
+      await vi.importActual<typeof import("@/lib/admin-compliance-api")>("@/lib/admin-compliance-api");
 
     const result2 = await updateRetentionPolicy("audit_logs", {
       retentionDays: 180,

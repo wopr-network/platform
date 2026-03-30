@@ -9,9 +9,7 @@ describe("generateSeccompProfile", () => {
       expect.objectContaining({
         defaultAction: "SCMP_ACT_ERRNO",
         architectures: expect.arrayContaining([expect.any(String)]),
-        syscalls: expect.arrayContaining([
-          expect.objectContaining({ action: "SCMP_ACT_ALLOW" }),
-        ]),
+        syscalls: expect.arrayContaining([expect.objectContaining({ action: "SCMP_ACT_ALLOW" })]),
       }),
     );
   });
@@ -38,7 +36,18 @@ describe("generateSeccompProfile", () => {
   it("allowlists networking syscalls needed by Node.js", () => {
     const profile = JSON.parse(generateSeccompProfile());
     const allowed = profile.syscalls[0].names as string[];
-    for (const name of ["socket", "connect", "bind", "listen", "accept", "accept4", "sendto", "recvfrom", "sendmsg", "recvmsg"]) {
+    for (const name of [
+      "socket",
+      "connect",
+      "bind",
+      "listen",
+      "accept",
+      "accept4",
+      "sendto",
+      "recvfrom",
+      "sendmsg",
+      "recvmsg",
+    ]) {
       expect(allowed).toContain(name);
     }
   });
@@ -55,13 +64,36 @@ describe("generateSeccompProfile", () => {
     const profile = JSON.parse(generateSeccompProfile());
     const allowed = profile.syscalls[0].names as string[];
     for (const name of [
-      "ptrace", "bpf", "keyctl", "perf_event_open", "userfaultfd",
-      "kexec_load", "kexec_file_load", "init_module", "finit_module",
-      "delete_module", "mount", "umount", "umount2", "pivot_root",
-      "reboot", "sethostname", "setdomainname", "acct", "swapon",
-      "swapoff", "nfsservctl", "personality", "mbind", "set_mempolicy",
-      "get_mempolicy", "move_pages", "migrate_pages", "io_uring_setup",
-      "io_uring_enter", "io_uring_register",
+      "ptrace",
+      "bpf",
+      "keyctl",
+      "perf_event_open",
+      "userfaultfd",
+      "kexec_load",
+      "kexec_file_load",
+      "init_module",
+      "finit_module",
+      "delete_module",
+      "mount",
+      "umount",
+      "umount2",
+      "pivot_root",
+      "reboot",
+      "sethostname",
+      "setdomainname",
+      "acct",
+      "swapon",
+      "swapoff",
+      "nfsservctl",
+      "personality",
+      "mbind",
+      "set_mempolicy",
+      "get_mempolicy",
+      "move_pages",
+      "migrate_pages",
+      "io_uring_setup",
+      "io_uring_enter",
+      "io_uring_register",
     ]) {
       expect(allowed, `${name} must NOT be in the allowlist`).not.toContain(name);
     }

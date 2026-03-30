@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  parseAllowedTypes,
-  matchesContentType,
-  DEFAULT_ALLOWED_TYPES,
-} from "../attachment-types.js";
+import { parseAllowedTypes, matchesContentType, DEFAULT_ALLOWED_TYPES } from "../attachment-types.js";
 
 describe("parseAllowedTypes", () => {
   it("returns default image types when input is undefined", () => {
@@ -15,17 +11,11 @@ describe("parseAllowedTypes", () => {
   });
 
   it("parses comma-separated types", () => {
-    expect(parseAllowedTypes("image/*,application/pdf")).toEqual([
-      "image/*",
-      "application/pdf",
-    ]);
+    expect(parseAllowedTypes("image/*,application/pdf")).toEqual(["image/*", "application/pdf"]);
   });
 
   it("trims whitespace", () => {
-    expect(parseAllowedTypes(" image/png , application/pdf ")).toEqual([
-      "image/png",
-      "application/pdf",
-    ]);
+    expect(parseAllowedTypes(" image/png , application/pdf ")).toEqual(["image/png", "application/pdf"]);
   });
 
   it("lowercases entries", () => {
@@ -33,10 +23,7 @@ describe("parseAllowedTypes", () => {
   });
 
   it("filters empty segments", () => {
-    expect(parseAllowedTypes("image/png,,application/pdf,")).toEqual([
-      "image/png",
-      "application/pdf",
-    ]);
+    expect(parseAllowedTypes("image/png,,application/pdf,")).toEqual(["image/png", "application/pdf"]);
   });
 });
 
@@ -58,17 +45,11 @@ describe("matchesContentType", () => {
 
   it("matches .* wildcard patterns", () => {
     const patterns = ["application/vnd.openxmlformats-officedocument.*"];
+    expect(matchesContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", patterns)).toBe(
+      true,
+    );
     expect(
-      matchesContentType(
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        patterns,
-      ),
-    ).toBe(true);
-    expect(
-      matchesContentType(
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        patterns,
-      ),
+      matchesContentType("application/vnd.openxmlformats-officedocument.wordprocessingml.document", patterns),
     ).toBe(true);
     expect(matchesContentType("application/pdf", patterns)).toBe(false);
   });

@@ -22,9 +22,8 @@ const CWD = process.cwd();
 
 // Allow overriding date for testing
 const dateFlag = process.argv.indexOf("--date");
-const TODAY = dateFlag !== -1 && process.argv[dateFlag + 1]
-  ? process.argv[dateFlag + 1]
-  : new Date().toISOString().slice(0, 10);
+const TODAY =
+  dateFlag !== -1 && process.argv[dateFlag + 1] ? process.argv[dateFlag + 1] : new Date().toISOString().slice(0, 10);
 
 // ---------------------------------------------------------------------------
 // Shell helpers (same pattern as upstream-sync.mjs)
@@ -103,7 +102,7 @@ function isInfraChange(commitMsg, files) {
     if (msgLower.includes(kw.toLowerCase())) return true;
   }
   // Check if ALL changed files match infra path patterns
-  if (files.length > 0 && files.every(f => infraPathPatterns.some(p => p.test(f)))) {
+  if (files.length > 0 && files.every((f) => infraPathPatterns.some((p) => p.test(f)))) {
     return true;
   }
   return false;
@@ -117,15 +116,28 @@ function categorize(commitMsg) {
   const msg = commitMsg.trim();
   if (/^feat[(!:]/.test(msg) || /^add[(!:]/.test(msg)) return "New";
   if (/^fix[(!:]/.test(msg) || /^bugfix[(!:]/.test(msg) || /^hotfix[(!:]/.test(msg)) return "Fixed";
-  if (/^improve[(!:]/.test(msg) || /^perf[(!:]/.test(msg) || /^refactor[(!:]/.test(msg) || /^enhance[(!:]/.test(msg)) return "Improved";
-  if (/^docs?[(!:]/.test(msg) || /^chore[(!:]/.test(msg) || /^ci[(!:]/.test(msg) || /^build[(!:]/.test(msg) || /^test[(!:]/.test(msg)) return null; // skip docs/chore/ci/build/test
+  if (/^improve[(!:]/.test(msg) || /^perf[(!:]/.test(msg) || /^refactor[(!:]/.test(msg) || /^enhance[(!:]/.test(msg))
+    return "Improved";
+  if (
+    /^docs?[(!:]/.test(msg) ||
+    /^chore[(!:]/.test(msg) ||
+    /^ci[(!:]/.test(msg) ||
+    /^build[(!:]/.test(msg) ||
+    /^test[(!:]/.test(msg)
+  )
+    return null; // skip docs/chore/ci/build/test
   // Default: treat as "Improved" if it doesn't match known prefixes
   return "Improved";
 }
 
 function cleanCommitMessage(msg) {
   // Strip conventional commit prefix for display
-  return msg.replace(/^(feat|fix|bugfix|hotfix|improve|perf|refactor|enhance|add|docs?|chore|ci|build|test)(\(.+?\))?[!:]?\s*/i, "").trim();
+  return msg
+    .replace(
+      /^(feat|fix|bugfix|hotfix|improve|perf|refactor|enhance|add|docs?|chore|ci|build|test)(\(.+?\))?[!:]?\s*/i,
+      "",
+    )
+    .trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -170,13 +182,16 @@ function main() {
   // Get commit log
   const commitLog = tryRun(`git log --oneline ${from}..${to}`);
   const commits = commitLog.ok
-    ? commitLog.output.split("\n").filter(Boolean).map(line => {
-        const spaceIdx = line.indexOf(" ");
-        return {
-          hash: line.slice(0, spaceIdx),
-          message: line.slice(spaceIdx + 1),
-        };
-      })
+    ? commitLog.output
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          const spaceIdx = line.indexOf(" ");
+          return {
+            hash: line.slice(0, spaceIdx),
+            message: line.slice(spaceIdx + 1),
+          };
+        })
     : [];
 
   if (commits.length === 0) {
@@ -210,9 +225,7 @@ function main() {
   }
 
   // Note which files had hostedMode guards added
-  const guardedFiles = changedFiles.filter(f =>
-    f.startsWith("ui/src/") && !f.includes("__tests__")
-  );
+  const guardedFiles = changedFiles.filter((f) => f.startsWith("ui/src/") && !f.includes("__tests__"));
   if (guardedFiles.length > 0) {
     internalLines.push("", "## Files Potentially Needing hostedMode Guards", "");
     for (const f of guardedFiles) {

@@ -16,8 +16,7 @@ async function trpcFetchWithAuth(url: RequestInfo | URL, options?: RequestInit) 
   if (res.status === 401) {
     // On login page, don't throw — let the batch continue so public queries
     // (like enabledSocialProviders) resolve alongside failing auth queries.
-    const onLoginPage =
-      typeof window !== "undefined" && window.location.pathname.startsWith("/login");
+    const onLoginPage = typeof window !== "undefined" && window.location.pathname.startsWith("/login");
     if (!onLoginPage) {
       handleUnauthorized();
     }

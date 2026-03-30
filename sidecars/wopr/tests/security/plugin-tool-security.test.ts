@@ -23,12 +23,10 @@ vi.mock("../../src/logger.js", () => ({
 // Mock the claude-agent-sdk to avoid real MCP server creation
 vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
   createSdkMcpServer: vi.fn(() => ({ tools: [] })),
-  tool: vi.fn(
-    (name: string, _desc: string, _schema: unknown, handler: (...args: unknown[]) => unknown) => ({
-      name,
-      handler,
-    }),
-  ),
+  tool: vi.fn((name: string, _desc: string, _schema: unknown, handler: (...args: unknown[]) => unknown) => ({
+    name,
+    handler,
+  })),
 }));
 
 const { getStorage, resetStorage } = await import("../../src/storage/index.js");
@@ -108,9 +106,7 @@ describe("Plugin A2A Tool Security (WOP-919)", () => {
 
     // The mock `tool` function captured the wrapped handler
     const toolCalls = vi.mocked(mockTool).mock.calls;
-    const httpFetchCall = toolCalls.find(
-      (call) => call[0] === "test-plugin:http_fetch",
-    );
+    const httpFetchCall = toolCalls.find((call) => call[0] === "test-plugin:http_fetch");
     expect(httpFetchCall).toBeDefined();
 
     // Call the wrapped handler
@@ -148,9 +144,7 @@ describe("Plugin A2A Tool Security (WOP-919)", () => {
     getA2AMcpServer("test-session");
 
     const toolCalls = vi.mocked(mockTool).mock.calls;
-    const httpFetchCall = toolCalls.find(
-      (call) => call[0] === "test-plugin:http_fetch",
-    );
+    const httpFetchCall = toolCalls.find((call) => call[0] === "test-plugin:http_fetch");
     const wrappedHandler = httpFetchCall![3] as (args: Record<string, unknown>) => Promise<unknown>;
     const result = await wrappedHandler({ url: "https://example.com" });
 
@@ -182,9 +176,7 @@ describe("Plugin A2A Tool Security (WOP-919)", () => {
     getA2AMcpServer("test-session");
 
     const toolCalls = vi.mocked(mockTool).mock.calls;
-    const customCall = toolCalls.find(
-      (call) => call[0] === "test-plugin:my_custom_plugin_tool",
-    );
+    const customCall = toolCalls.find((call) => call[0] === "test-plugin:my_custom_plugin_tool");
     const wrappedHandler = customCall![3] as (args: Record<string, unknown>) => Promise<unknown>;
     const result = await wrappedHandler({ input: "hello" });
 
@@ -217,9 +209,7 @@ describe("Plugin A2A Tool Security (WOP-919)", () => {
     getA2AMcpServer("test-session");
 
     const toolCalls = vi.mocked(mockTool).mock.calls;
-    const execCall = toolCalls.find(
-      (call) => call[0] === "test-plugin:exec_command",
-    );
+    const execCall = toolCalls.find((call) => call[0] === "test-plugin:exec_command");
     const wrappedHandler = execCall![3] as (args: Record<string, unknown>) => Promise<unknown>;
     const result = await wrappedHandler({ command: "ls" });
 
@@ -247,9 +237,7 @@ describe("Plugin A2A Tool Security (WOP-919)", () => {
     getA2AMcpServer("no-context-session");
 
     const toolCalls = vi.mocked(mockTool).mock.calls;
-    const httpFetchCall = toolCalls.find(
-      (call) => call[0] === "test-plugin:http_fetch",
-    );
+    const httpFetchCall = toolCalls.find((call) => call[0] === "test-plugin:http_fetch");
     const wrappedHandler = httpFetchCall![3] as (args: Record<string, unknown>) => Promise<unknown>;
     const result = await wrappedHandler({ url: "https://example.com" });
 

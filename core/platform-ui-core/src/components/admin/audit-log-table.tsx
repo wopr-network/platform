@@ -5,22 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AuditLogResponse } from "@/lib/api";
 import { fetchAuditLog } from "@/lib/api";
@@ -65,11 +52,9 @@ function relativeTime(iso: string): string {
 function actionBadgeClasses(action: string): string {
   if (action.startsWith("admin.suspend") || action.startsWith("admin.ban"))
     return "bg-destructive/15 text-red-400 border border-destructive/20";
-  if (action.startsWith("admin.reactivate"))
-    return "bg-terminal/15 text-terminal border border-terminal/20";
+  if (action.startsWith("admin.reactivate")) return "bg-terminal/15 text-terminal border border-terminal/20";
   if (action.startsWith("billing")) return "bg-chart-3/15 text-amber-400 border border-chart-3/20";
-  if (action.startsWith("security"))
-    return "bg-destructive/15 text-red-400 border border-destructive/20";
+  if (action.startsWith("security")) return "bg-destructive/15 text-red-400 border border-destructive/20";
   return "bg-secondary text-muted-foreground border border-border";
 }
 
@@ -96,9 +81,7 @@ export function AuditLogTable() {
       setLoadError(false);
       try {
         const since =
-          dateRange === "all"
-            ? undefined
-            : new Date(Date.now() - Number(dateRange) * 86400000).toISOString();
+          dateRange === "all" ? undefined : new Date(Date.now() - Number(dateRange) * 86400000).toISOString();
         const result = await fetchAuditLog({
           limit: PAGE_SIZE,
           offset: newOffset,
@@ -171,9 +154,7 @@ export function AuditLogTable() {
         <h1 className="text-xl font-bold uppercase tracking-wider text-terminal [text-shadow:0_0_10px_rgba(0,255,65,0.25)]">
           AUDIT LOG
         </h1>
-        <span className="text-sm text-muted-foreground font-mono">
-          {data ? `${data.total} events` : "Loading..."}
-        </span>
+        <span className="text-sm text-muted-foreground font-mono">{data ? `${data.total} events` : "Loading..."}</span>
       </div>
 
       {/* Filters */}
@@ -218,21 +199,13 @@ export function AuditLogTable() {
         <Table>
           <TableHeader>
             <TableRow className="bg-secondary crt-scanlines">
-              <TableHead className="text-xs font-medium uppercase tracking-wider w-[100px]">
-                Time
-              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider w-[100px]">Time</TableHead>
               <TableHead className="text-xs font-medium uppercase tracking-wider">Action</TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Resource
-              </TableHead>
-              <TableHead className="text-xs font-medium uppercase tracking-wider">
-                Details
-              </TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Resource</TableHead>
+              <TableHead className="text-xs font-medium uppercase tracking-wider">Details</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody
-            className={cn("transition-opacity duration-150", loading && data && "opacity-60")}
-          >
+          <TableBody className={cn("transition-opacity duration-150", loading && data && "opacity-60")}>
             {loading && !data ? (
               ["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8"].map((rowKey, i) => (
                 <TableRow key={rowKey} className="h-10">
@@ -274,12 +247,8 @@ export function AuditLogTable() {
                     </span>
                   </TableCell>
                   <TableCell className="text-sm">
-                    <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                      {event.resourceType}
-                    </span>{" "}
-                    <span className="font-mono text-xs">
-                      {event.resourceName ?? event.resourceId}
-                    </span>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">{event.resourceType}</span>{" "}
+                    <span className="font-mono text-xs">{event.resourceName ?? event.resourceId}</span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
                     {event.details ?? "\u2014"}
@@ -309,12 +278,7 @@ export function AuditLogTable() {
             >
               Previous
             </Button>
-            <Button
-              variant="ghost"
-              size="xs"
-              disabled={!data.hasMore}
-              onClick={() => load(offset + PAGE_SIZE)}
-            >
+            <Button variant="ghost" size="xs" disabled={!data.hasMore} onClick={() => load(offset + PAGE_SIZE)}>
               Next
             </Button>
             <Button

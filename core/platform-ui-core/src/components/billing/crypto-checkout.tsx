@@ -51,10 +51,7 @@ export function CryptoCheckout() {
         } else if (res.status === "expired" || res.status === "failed") {
           setStatus(res.status as PaymentStatus);
           clearInterval(interval);
-        } else if (
-          res.amountReceivedCents > 0 &&
-          res.amountReceivedCents >= res.amountExpectedCents
-        ) {
+        } else if (res.amountReceivedCents > 0 && res.amountReceivedCents >= res.amountExpectedCents) {
           setStatus("confirming");
           setStep("confirming");
         } else if (res.amountReceivedCents > 0) {
@@ -100,11 +97,7 @@ export function CryptoCheckout() {
   if (methods.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -131,16 +124,8 @@ export function CryptoCheckout() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
               >
-                <PaymentMethodPicker
-                  methods={methods}
-                  onSelect={handleMethod}
-                  onBack={() => setStep("amount")}
-                />
-                {loading && (
-                  <p className="mt-2 text-xs text-muted-foreground animate-pulse">
-                    Creating checkout...
-                  </p>
-                )}
+                <PaymentMethodPicker methods={methods} onSelect={handleMethod} onBack={() => setStep("amount")} />
+                {loading && <p className="mt-2 text-xs text-muted-foreground animate-pulse">Creating checkout...</p>}
               </motion.div>
             )}
             {step === "deposit" && checkout && (
@@ -167,11 +152,7 @@ export function CryptoCheckout() {
                   credited={status === "credited"}
                 />
                 {status === "credited" && (
-                  <button
-                    type="button"
-                    onClick={handleReset}
-                    className="mt-4 text-sm text-primary hover:underline"
-                  >
+                  <button type="button" onClick={handleReset} className="mt-4 text-sm text-primary hover:underline">
                     Done — buy more credits
                   </button>
                 )}

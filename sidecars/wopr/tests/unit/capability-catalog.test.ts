@@ -101,7 +101,6 @@ describe("capability-catalog", () => {
   });
 
   describe("CAPABILITY_CATALOG (structure)", () => {
-
     it("web-search plugin has empty hostedConfig", () => {
       const webSearch = CAPABILITY_CATALOG.find((c) => c.id === "web-search");
       expect(webSearch?.plugins[0].hostedConfig).toEqual({});

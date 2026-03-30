@@ -23,14 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditDetailed } from "@/components/ui/credit-detailed";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toUserMessage } from "@/lib/errors";
 import { formatCreditStandard } from "@/lib/format-credit";
 import type { OrgCreditBalance, OrgMemberUsageRow } from "@/lib/org-billing-api";
@@ -108,9 +101,7 @@ export function OrgBillingPage({ orgId, orgName, isAdmin }: OrgBillingPageProps)
   const handleSetDefault = useCallback(
     async (paymentMethodId: string) => {
       setSettingDefault(paymentMethodId);
-      setPaymentMethods((pms) =>
-        pms.map((pm) => ({ ...pm, isDefault: pm.id === paymentMethodId })),
-      );
+      setPaymentMethods((pms) => pms.map((pm) => ({ ...pm, isDefault: pm.id === paymentMethodId })));
       try {
         await setOrgDefaultPaymentMethod(orgId, paymentMethodId);
       } catch {
@@ -204,9 +195,7 @@ export function OrgBillingPage({ orgId, orgName, isAdmin }: OrgBillingPageProps)
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: sectionDelays.balance, ease: "easeOut" }}
       >
-        <CreditBalance
-          data={{ balance: balance.balance, dailyBurn: balance.dailyBurn, runway: balance.runway }}
-        />
+        <CreditBalance data={{ balance: balance.balance, dailyBurn: balance.dailyBurn, runway: balance.runway }} />
       </motion.div>
 
       {/* Buy Credits (admin only) */}
@@ -237,9 +226,7 @@ export function OrgBillingPage({ orgId, orgName, isAdmin }: OrgBillingPageProps)
             </CardHeader>
             <CardContent>
               {members.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No usage data for this billing period.
-                </p>
+                <p className="text-sm text-muted-foreground">No usage data for this billing period.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -310,17 +297,11 @@ export function OrgBillingPage({ orgId, orgName, isAdmin }: OrgBillingPageProps)
             ) : (
               <div className="space-y-3">
                 {paymentMethods.map((pm) => (
-                  <div
-                    key={pm.id}
-                    className="flex items-center justify-between rounded-md border p-3"
-                  >
+                  <div key={pm.id} className="flex items-center justify-between rounded-md border p-3">
                     <p className="text-sm font-medium font-mono">
                       **** {pm.last4}
                       {pm.isDefault && (
-                        <Badge
-                          variant="outline"
-                          className="ml-2 border-primary/25 text-primary text-xs"
-                        >
+                        <Badge variant="outline" className="ml-2 border-primary/25 text-primary text-xs">
                           Default
                         </Badge>
                       )}
@@ -365,16 +346,12 @@ export function OrgBillingPage({ orgId, orgName, isAdmin }: OrgBillingPageProps)
               </>
             )}
           </CardContent>
-          <AlertDialog
-            open={!!deletingPmId}
-            onOpenChange={(open) => !open && setDeletingPmId(null)}
-          >
+          <AlertDialog open={!!deletingPmId} onOpenChange={(open) => !open && setDeletingPmId(null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Remove Payment Method</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This payment method will be permanently removed from your organization. This
-                  action cannot be undone.
+                  This payment method will be permanently removed from your organization. This action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

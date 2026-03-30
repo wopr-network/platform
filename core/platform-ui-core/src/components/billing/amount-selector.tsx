@@ -31,9 +31,7 @@ export function AmountSelector({ onSelect }: AmountSelectorProps) {
             }}
             className={cn(
               "rounded-md border p-3 text-lg font-bold transition-colors hover:bg-accent",
-              selected === amt && !custom
-                ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border",
+              selected === amt && !custom ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border",
             )}
           >
             ${amt}

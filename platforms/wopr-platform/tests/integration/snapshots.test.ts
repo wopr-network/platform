@@ -221,5 +221,4 @@ describe("integration: snapshot routes", () => {
       expect(res.status).toBe(403);
     });
   });
-
 });

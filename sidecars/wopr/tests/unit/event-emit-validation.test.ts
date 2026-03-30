@@ -27,9 +27,7 @@ afterEach(() => {
 
 describe("emitCustom validation", () => {
   it("should reject unregistered event types", async () => {
-    await expect(eventBus.emitCustom("unknown.event", {}, "test")).rejects.toThrow(
-      /not a registered event type/,
-    );
+    await expect(eventBus.emitCustom("unknown.event", {}, "test")).rejects.toThrow(/not a registered event type/);
   });
 
   it("should allow core event types", async () => {

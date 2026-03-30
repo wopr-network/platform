@@ -139,24 +139,17 @@ export async function getBotSettings(botId: string): Promise<BotSettings> {
   return apiFetch<BotSettings>(`/fleet/bots/${botId}/settings`);
 }
 
-export async function updateBotIdentity(
-  botId: string,
-  identity: BotIdentity,
-): Promise<BotIdentity> {
+export async function updateBotIdentity(botId: string, identity: BotIdentity): Promise<BotIdentity> {
   return apiFetch<BotIdentity>(`/fleet/bots/${botId}/identity`, {
     method: "PUT",
     body: JSON.stringify(identity),
   });
 }
 
-export async function activateSuperpower(
-  botId: string,
-  superpowerId: string,
-): Promise<{ success: boolean }> {
-  return apiFetch<{ success: boolean }>(
-    `/fleet/bots/${botId}/capabilities/${superpowerId}/activate`,
-    { method: "POST" },
-  );
+export async function activateSuperpower(botId: string, superpowerId: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/fleet/bots/${botId}/capabilities/${superpowerId}/activate`, {
+    method: "POST",
+  });
 }
 
 // --- Storage tier types ---
@@ -199,10 +192,7 @@ export async function getResourceTier(botId: string): Promise<{ tier: string }> 
   return apiFetch<{ tier: string }>(`/fleet/bots/${botId}/resource-tier`);
 }
 
-export async function setResourceTier(
-  botId: string,
-  tier: string,
-): Promise<{ tier: string; dailyCostCents: number }> {
+export async function setResourceTier(botId: string, tier: string): Promise<{ tier: string; dailyCostCents: number }> {
   return apiFetch<{ tier: string; dailyCostCents: number }>(`/fleet/bots/${botId}/resource-tier`, {
     method: "PUT",
     body: JSON.stringify({ tier }),
@@ -248,11 +238,7 @@ export async function disconnectChannel(botId: string, channelId: string): Promi
 }
 
 /** Toggle a plugin's enabled/disabled state */
-export async function togglePlugin(
-  botId: string,
-  pluginId: string,
-  enabled: boolean,
-): Promise<void> {
+export async function togglePlugin(botId: string, pluginId: string, enabled: boolean): Promise<void> {
   await apiFetch(`/fleet/bots/${botId}/plugins/${pluginId}`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),
@@ -280,10 +266,7 @@ export async function uninstallPlugin(botId: string, pluginId: string): Promise<
 }
 
 /** Fetch channel configuration */
-export async function getChannelConfig(
-  botId: string,
-  channelId: string,
-): Promise<Record<string, string>> {
+export async function getChannelConfig(botId: string, channelId: string): Promise<Record<string, string>> {
   return apiFetch<Record<string, string>>(`/fleet/bots/${botId}/channels/${channelId}/config`);
 }
 
@@ -300,10 +283,7 @@ export async function updateChannelConfig(
 }
 
 /** Fetch plugin configuration */
-export async function getPluginConfig(
-  botId: string,
-  pluginId: string,
-): Promise<Record<string, string>> {
+export async function getPluginConfig(botId: string, pluginId: string): Promise<Record<string, string>> {
   return apiFetch<Record<string, string>>(`/fleet/bots/${botId}/plugins/${pluginId}/config`);
 }
 
@@ -320,13 +300,8 @@ export async function updatePluginConfig(
 }
 
 /** Fetch superpower configuration */
-export async function getSuperpowerConfig(
-  botId: string,
-  superpowerId: string,
-): Promise<Record<string, string>> {
-  return apiFetch<Record<string, string>>(
-    `/fleet/bots/${botId}/capabilities/${superpowerId}/config`,
-  );
+export async function getSuperpowerConfig(botId: string, superpowerId: string): Promise<Record<string, string>> {
+  return apiFetch<Record<string, string>>(`/fleet/bots/${botId}/capabilities/${superpowerId}/config`);
 }
 
 /** Save superpower configuration */

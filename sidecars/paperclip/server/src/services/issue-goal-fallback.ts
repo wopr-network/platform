@@ -18,10 +18,8 @@ export function resolveNextIssueGoalId(input: {
   goalId?: MaybeId;
   defaultGoalId: MaybeId;
 }): string | null {
-  const projectId =
-    input.projectId !== undefined ? input.projectId : input.currentProjectId;
-  const goalId =
-    input.goalId !== undefined ? input.goalId : input.currentGoalId;
+  const projectId = input.projectId !== undefined ? input.projectId : input.currentProjectId;
+  const goalId = input.goalId !== undefined ? input.goalId : input.currentGoalId;
 
   if (!projectId && !goalId) {
     return input.defaultGoalId ?? null;

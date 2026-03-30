@@ -1,9 +1,9 @@
 /**
  * WOPR Session Analytics Plugin
- * 
+ *
  * Demonstrates building reactive systems on top of the event bus primitive.
  * Tracks session metrics, response times, and token usage.
- * 
+ *
  * Usage:
  *   Add to your WOPR plugins and see analytics logged.
  */
@@ -55,10 +55,10 @@ const plugin: WOPRPlugin = {
         firstMessageAt: Date.now(),
         lastMessageAt: Date.now(),
       };
-      
+
       state.sessions.set(event.session, metrics);
       state.totalSessions++;
-      
+
       ctx.log.info(`[analytics] New session tracked: ${event.session}`);
     });
 
@@ -82,13 +82,13 @@ const plugin: WOPRPlugin = {
       if (metrics) {
         metrics.messageCount++;
         state.totalMessages++;
-        
+
         // Calculate latency
         const startTime = state.pendingInjects.get(event.session);
         if (startTime) {
           const latency = Date.now() - startTime;
           state.pendingInjects.delete(event.session);
-          
+
           ctx.log.info(`[analytics] Injection completed:`);
           ctx.log.info(`[analytics]   Session: ${event.session}`);
           ctx.log.info(`[analytics]   Latency: ${latency}ms`);
@@ -102,12 +102,14 @@ const plugin: WOPRPlugin = {
       const metrics = state.sessions.get(event.session);
       if (metrics) {
         const sessionDuration = Date.now() - metrics.firstMessageAt;
-        
+
         ctx.log.info(`[analytics] Session ended: ${event.session}`);
         ctx.log.info(`[analytics]   Duration: ${Math.round(sessionDuration / 1000)}s`);
         ctx.log.info(`[analytics]   Total messages: ${metrics.messageCount}`);
-        ctx.log.info(`[analytics]   Avg response length: ${Math.round(metrics.totalResponseLength / metrics.messageCount)} chars`);
-        
+        ctx.log.info(
+          `[analytics]   Avg response length: ${Math.round(metrics.totalResponseLength / metrics.messageCount)} chars`,
+        );
+
         state.sessions.delete(event.session);
         state.pendingInjects.delete(event.session);
       }
@@ -117,18 +119,19 @@ const plugin: WOPRPlugin = {
     // Periodic Reporting (every 5 minutes)
     // ============================================================================
 
-    const reportInterval = setInterval(() => {
-      const activeSessions = state.sessions.size;
-      const avgMessagesPerSession = activeSessions > 0 
-        ? Math.round(state.totalMessages / state.totalSessions)
-        : 0;
+    const reportInterval = setInterval(
+      () => {
+        const activeSessions = state.sessions.size;
+        const avgMessagesPerSession = activeSessions > 0 ? Math.round(state.totalMessages / state.totalSessions) : 0;
 
-      ctx.log.info(`[analytics] === Periodic Report ===`);
-      ctx.log.info(`[analytics] Active sessions: ${activeSessions}`);
-      ctx.log.info(`[analytics] Total sessions: ${state.totalSessions}`);
-      ctx.log.info(`[analytics] Total messages: ${state.totalMessages}`);
-      ctx.log.info(`[analytics] Avg messages/session: ${avgMessagesPerSession}`);
-    }, 5 * 60 * 1000);
+        ctx.log.info(`[analytics] === Periodic Report ===`);
+        ctx.log.info(`[analytics] Active sessions: ${activeSessions}`);
+        ctx.log.info(`[analytics] Total sessions: ${state.totalSessions}`);
+        ctx.log.info(`[analytics] Total messages: ${state.totalMessages}`);
+        ctx.log.info(`[analytics] Avg messages/session: ${avgMessagesPerSession}`);
+      },
+      5 * 60 * 1000,
+    );
 
     (ctx.config as any).reportInterval = reportInterval;
 
@@ -198,7 +201,9 @@ const plugin: WOPRPlugin = {
         `Total messages: ${state.totalMessages}`,
         activeSessions > 0 ? "\nActive Sessions:" : "",
         activeList,
-      ].filter(Boolean).join("\n");
+      ]
+        .filter(Boolean)
+        .join("\n");
     },
 
     async reset(ctx: WOPRPluginContext) {

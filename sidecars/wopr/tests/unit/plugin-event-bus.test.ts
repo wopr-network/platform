@@ -43,10 +43,7 @@ describe("createPluginEventBus", () => {
       bus.on("session:create", handler);
 
       expect(mockCoreEventBus.on).toHaveBeenCalledTimes(1);
-      expect(mockCoreEventBus.on).toHaveBeenCalledWith(
-        "session:create",
-        expect.any(Function),
-      );
+      expect(mockCoreEventBus.on).toHaveBeenCalledWith("session:create", expect.any(Function));
     });
 
     it("should return the unsubscribe function from core eventBus.on", () => {
@@ -75,10 +72,7 @@ describe("createPluginEventBus", () => {
       await capturedWrapper!(payload, evt);
 
       expect(handler).toHaveBeenCalledTimes(1);
-      expect(handler).toHaveBeenCalledWith(
-        payload,
-        expect.objectContaining({ source: PLUGIN_NAME }),
-      );
+      expect(handler).toHaveBeenCalledWith(payload, expect.objectContaining({ source: PLUGIN_NAME }));
     });
 
     it("should support multiple listeners for the same event", () => {
@@ -98,10 +92,7 @@ describe("createPluginEventBus", () => {
       bus.once("plugin:afterInit", handler);
 
       expect(mockCoreEventBus.once).toHaveBeenCalledTimes(1);
-      expect(mockCoreEventBus.once).toHaveBeenCalledWith(
-        "plugin:afterInit",
-        expect.any(Function),
-      );
+      expect(mockCoreEventBus.once).toHaveBeenCalledWith("plugin:afterInit", expect.any(Function));
     });
 
     it("should inject pluginName as source in the once wrapper", async () => {
@@ -118,10 +109,7 @@ describe("createPluginEventBus", () => {
       const evt = { type: "plugin:afterInit", payload, timestamp: 1, source: "core" };
       await capturedWrapper!(payload, evt);
 
-      expect(handler).toHaveBeenCalledWith(
-        payload,
-        expect.objectContaining({ source: PLUGIN_NAME }),
-      );
+      expect(handler).toHaveBeenCalledWith(payload, expect.objectContaining({ source: PLUGIN_NAME }));
     });
   });
 
@@ -184,11 +172,7 @@ describe("createPluginEventBus", () => {
       await bus.emit("session:create", { session: "s1" });
 
       expect(mockCoreEventBus.emit).toHaveBeenCalledTimes(1);
-      expect(mockCoreEventBus.emit).toHaveBeenCalledWith(
-        "session:create",
-        { session: "s1" },
-        PLUGIN_NAME,
-      );
+      expect(mockCoreEventBus.emit).toHaveBeenCalledWith("session:create", { session: "s1" }, PLUGIN_NAME);
     });
   });
 
@@ -199,11 +183,7 @@ describe("createPluginEventBus", () => {
       await bus.emitCustom("test-plugin:custom", { data: "hello" });
 
       expect(mockCoreEventBus.emitCustom).toHaveBeenCalledTimes(1);
-      expect(mockCoreEventBus.emitCustom).toHaveBeenCalledWith(
-        "test-plugin:custom",
-        { data: "hello" },
-        PLUGIN_NAME,
-      );
+      expect(mockCoreEventBus.emitCustom).toHaveBeenCalledWith("test-plugin:custom", { data: "hello" }, PLUGIN_NAME);
     });
   });
 
@@ -225,8 +205,14 @@ describe("createPluginEventBus", () => {
       let wrapper2: ((...args: unknown[]) => Promise<void>) | undefined;
 
       mockCoreEventBus.on
-        .mockImplementationOnce((_e: string, w: (...args: unknown[]) => Promise<void>) => { wrapper1 = w; return vi.fn(); })
-        .mockImplementationOnce((_e: string, w: (...args: unknown[]) => Promise<void>) => { wrapper2 = w; return vi.fn(); });
+        .mockImplementationOnce((_e: string, w: (...args: unknown[]) => Promise<void>) => {
+          wrapper1 = w;
+          return vi.fn();
+        })
+        .mockImplementationOnce((_e: string, w: (...args: unknown[]) => Promise<void>) => {
+          wrapper2 = w;
+          return vi.fn();
+        });
 
       const bus1 = createPluginEventBus("plugin-a");
       const bus2 = createPluginEventBus("plugin-b");

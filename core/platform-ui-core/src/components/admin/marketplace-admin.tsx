@@ -18,14 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import {
   type AdminPlugin,
@@ -352,9 +345,7 @@ export function MarketplaceAdmin() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Add Plugin by npm Package</DialogTitle>
-                    <DialogDescription>
-                      Paste the npm package name to add it to the discovery queue.
-                    </DialogDescription>
+                    <DialogDescription>Paste the npm package name to add it to the discovery queue.</DialogDescription>
                   </DialogHeader>
                   <Input
                     className="font-mono"
@@ -387,9 +378,7 @@ export function MarketplaceAdmin() {
           {queue.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-                  Discovery Queue
-                </h2>
+                <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Discovery Queue</h2>
                 <Badge
                   variant="secondary"
                   className="bg-amber-500/15 text-amber-400 border border-amber-500/20 text-xs"
@@ -403,9 +392,7 @@ export function MarketplaceAdmin() {
                     <TableRow className="bg-amber-500/5 hover:bg-amber-500/5">
                       <TableHead className="text-xs uppercase tracking-wider">Package</TableHead>
                       <TableHead className="text-xs uppercase tracking-wider">Category</TableHead>
-                      <TableHead className="text-xs uppercase tracking-wider text-right">
-                        Actions
-                      </TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -421,16 +408,11 @@ export function MarketplaceAdmin() {
                         <TableCell>
                           <div>
                             <div className="text-sm font-medium">{plugin.name}</div>
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {plugin.npm_package}
-                            </div>
+                            <div className="text-xs text-muted-foreground font-mono">{plugin.npm_package}</div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={cn("text-xs", categoryBadgeClass(plugin.category))}
-                          >
+                          <Badge variant="outline" className={cn("text-xs", categoryBadgeClass(plugin.category))}>
                             {plugin.category}
                           </Badge>
                         </TableCell>
@@ -470,9 +452,7 @@ export function MarketplaceAdmin() {
 
           {/* Enabled Plugins */}
           <div className="space-y-2">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Enabled Plugins
-            </h2>
+            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Enabled Plugins</h2>
             <div className="border border-terminal/10 rounded-sm">
               <Table>
                 <TableHeader>
@@ -489,9 +469,7 @@ export function MarketplaceAdmin() {
                   {enabled.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8">
-                        <span className="text-sm text-muted-foreground font-mono">
-                          &gt; No plugins enabled yet
-                        </span>
+                        <span className="text-sm text-muted-foreground font-mono">&gt; No plugins enabled yet</span>
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -515,10 +493,7 @@ export function MarketplaceAdmin() {
                           <div className="text-sm font-medium">{plugin.name}</div>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant="outline"
-                            className={cn("text-xs", categoryBadgeClass(plugin.category))}
-                          >
+                          <Badge variant="outline" className={cn("text-xs", categoryBadgeClass(plugin.category))}>
                             {plugin.category}
                           </Badge>
                         </TableCell>
@@ -531,9 +506,7 @@ export function MarketplaceAdmin() {
                           />
                         </TableCell>
                         <TableCell>
-                          <span className="text-xs text-muted-foreground font-mono">
-                            v{plugin.version}
-                          </span>
+                          <span className="text-xs text-muted-foreground font-mono">v{plugin.version}</span>
                         </TableCell>
                         <TableCell>
                           <Switch
@@ -596,19 +569,13 @@ export function MarketplaceAdmin() {
                 {!installStatusLoading && installStatus && (
                   <div className="flex items-center gap-2">
                     {installStatus.status === "pending" && (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-500/30 text-amber-400 text-xs animate-pulse"
-                      >
+                      <Badge variant="outline" className="border-amber-500/30 text-amber-400 text-xs animate-pulse">
                         Installing...
                       </Badge>
                     )}
                     {installStatus.status === "installed" && (
                       <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className="border-terminal/30 text-terminal text-xs"
-                        >
+                        <Badge variant="outline" className="border-terminal/30 text-terminal text-xs">
                           Installed
                         </Badge>
                         {installStatus.installedAt && (
@@ -620,16 +587,11 @@ export function MarketplaceAdmin() {
                     )}
                     {installStatus.status === "failed" && (
                       <div className="space-y-1">
-                        <Badge
-                          variant="outline"
-                          className="border-destructive/50 text-destructive text-xs"
-                        >
+                        <Badge variant="outline" className="border-destructive/50 text-destructive text-xs">
                           Install failed
                         </Badge>
                         {installStatus.installError && (
-                          <p className="text-xs text-destructive font-mono">
-                            {installStatus.installError}
-                          </p>
+                          <p className="text-xs text-destructive font-mono">{installStatus.installError}</p>
                         )}
                         <Button
                           variant="ghost"
@@ -683,9 +645,7 @@ export function MarketplaceAdmin() {
 
                 {/* Notes */}
                 <div className="space-y-1.5">
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Internal Notes
-                  </h3>
+                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Internal Notes</h3>
                   <Textarea
                     className="min-h-[80px] text-sm bg-black/30 border-border focus:border-terminal"
                     placeholder="Add internal notes about this plugin..."
@@ -723,8 +683,8 @@ export function MarketplaceAdmin() {
                       <DialogHeader>
                         <DialogTitle>Delete Plugin</DialogTitle>
                         <DialogDescription>
-                          Are you sure you want to delete <strong>{selected.name}</strong>? This
-                          action cannot be undone.
+                          Are you sure you want to delete <strong>{selected.name}</strong>? This action cannot be
+                          undone.
                         </DialogDescription>
                       </DialogHeader>
                       <DialogFooter>
@@ -752,9 +712,7 @@ export function MarketplaceAdmin() {
                 exit={{ opacity: 0 }}
                 className="flex items-center justify-center h-full"
               >
-                <span className="text-sm text-muted-foreground font-mono">
-                  &gt; Select a plugin to preview
-                </span>
+                <span className="text-sm text-muted-foreground font-mono">&gt; Select a plugin to preview</span>
               </motion.div>
             )}
           </AnimatePresence>

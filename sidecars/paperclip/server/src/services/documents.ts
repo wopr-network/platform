@@ -291,10 +291,7 @@ export function documentService(db: Db) {
               })
               .where(eq(documents.id, existing.id));
 
-            await tx
-              .update(issueDocuments)
-              .set({ updatedAt: now })
-              .where(eq(issueDocuments.documentId, existing.id));
+            await tx.update(issueDocuments).set({ updatedAt: now }).where(eq(issueDocuments.documentId, existing.id));
 
             return {
               created: false as const,
@@ -348,10 +345,7 @@ export function documentService(db: Db) {
             })
             .returning();
 
-          await tx
-            .update(documents)
-            .set({ latestRevisionId: revision.id })
-            .where(eq(documents.id, document.id));
+          await tx.update(documents).set({ latestRevisionId: revision.id }).where(eq(documents.id, document.id));
 
           await tx.insert(issueDocuments).values({
             companyId: issue.companyId,

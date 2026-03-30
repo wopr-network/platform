@@ -17,12 +17,8 @@ vi.mock("hono-rate-limiter", () => ({
 
 // Mock auth middleware — make requireAdmin a passthrough
 vi.mock("../../src/daemon/middleware/auth.js", () => ({
-  requireAdmin: vi.fn(
-    () => async (_c: any, next: () => Promise<void>) => next(),
-  ),
-  requireWriteScope: vi.fn(
-    () => async (_c: any, next: () => Promise<void>) => next(),
-  ),
+  requireAdmin: vi.fn(() => async (_c: any, next: () => Promise<void>) => next()),
+  requireWriteScope: vi.fn(() => async (_c: any, next: () => Promise<void>) => next()),
 }));
 
 // Mock logger
@@ -114,8 +110,8 @@ vi.mock("../../src/plugins.js", async (importOriginal) => {
       loadedPlugins.delete(name);
     }),
     // Capability catalog — use real implementation
-    getCapabilityCatalogEntry: (await importOriginal() as any).getCapabilityCatalogEntry,
-    listCapabilityCatalog: (await importOriginal() as any).listCapabilityCatalog,
+    getCapabilityCatalogEntry: ((await importOriginal()) as any).getCapabilityCatalogEntry,
+    listCapabilityCatalog: ((await importOriginal()) as any).listCapabilityCatalog,
   };
 });
 
@@ -465,7 +461,7 @@ describe("POST /api/capabilities/activate — plugin install failure", () => {
     const body = await res.json();
     expect(body.activated).toBe(true);
     expect(body.plugins).toHaveLength(1); // TTS succeeded
-    expect(body.errors).toHaveLength(1);  // STT failed
+    expect(body.errors).toHaveLength(1); // STT failed
     expect(body.errors[0].error).toMatch(/STT install failed/);
   });
 });
@@ -533,7 +529,7 @@ describe("POST /api/capabilities/deactivate — partial failure", () => {
     const body = await res.json();
     expect(body.deactivated).toBe(true);
     expect(body.plugins).toHaveLength(1); // STT succeeded
-    expect(body.errors).toHaveLength(1);  // TTS failed
+    expect(body.errors).toHaveLength(1); // TTS failed
     expect(body.errors[0].error).toMatch(/Unload timeout/);
   });
 });

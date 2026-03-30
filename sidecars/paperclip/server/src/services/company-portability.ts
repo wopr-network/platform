@@ -51,9 +51,15 @@ import { projectService } from "./projects.js";
 /** Build OrgNode tree from manifest agent list (slug + reportsToSlug). */
 function buildOrgTreeFromManifest(agents: CompanyPortabilityManifest["agents"]): OrgNode[] {
   const ROLE_LABELS: Record<string, string> = {
-    ceo: "Chief Executive", cto: "Technology", cmo: "Marketing",
-    cfo: "Finance", coo: "Operations", vp: "VP", manager: "Manager",
-    engineer: "Engineer", agent: "Agent",
+    ceo: "Chief Executive",
+    cto: "Technology",
+    cmo: "Marketing",
+    cfo: "Finance",
+    coo: "Operations",
+    vp: "VP",
+    manager: "Manager",
+    engineer: "Engineer",
+    agent: "Agent",
   };
   const bySlug = new Map(agents.map((a) => [a.slug, a]));
   const childrenOf = new Map<string | null, typeof agents>();
@@ -111,10 +117,12 @@ function resolveImportMode(options?: ImportBehaviorOptions): ImportMode {
 
 function resolveSkillConflictStrategy(mode: ImportMode, collisionStrategy: CompanyPortabilityCollisionStrategy) {
   if (mode === "board_full") return "replace" as const;
-  return collisionStrategy === "skip" ? "skip" as const : "rename" as const;
+  return collisionStrategy === "skip" ? ("skip" as const) : ("rename" as const);
 }
 
-function classifyPortableFileKind(pathValue: string): CompanyPortabilityExportPreviewResult["fileInventory"][number]["kind"] {
+function classifyPortableFileKind(
+  pathValue: string,
+): CompanyPortabilityExportPreviewResult["fileInventory"][number]["kind"] {
   const normalized = normalizePortablePath(pathValue);
   if (normalized === "COMPANY.md") return "company";
   if (normalized === ".paperclip.yaml" || normalized === ".paperclip.yml") return "extension";
@@ -127,7 +135,7 @@ function classifyPortableFileKind(pathValue: string): CompanyPortabilityExportPr
 }
 
 function normalizeSkillSlug(value: string | null | undefined) {
-  return value ? normalizeAgentUrlKey(value) ?? null : null;
+  return value ? (normalizeAgentUrlKey(value) ?? null) : null;
 }
 
 function normalizeSkillKey(value: string | null | undefined) {
@@ -141,15 +149,15 @@ function normalizeSkillKey(value: string | null | undefined) {
 
 function readSkillKey(frontmatter: Record<string, unknown>) {
   const metadata = isPlainRecord(frontmatter.metadata) ? frontmatter.metadata : null;
-  const paperclip = isPlainRecord(metadata?.paperclip) ? metadata?.paperclip as Record<string, unknown> : null;
+  const paperclip = isPlainRecord(metadata?.paperclip) ? (metadata?.paperclip as Record<string, unknown>) : null;
   return normalizeSkillKey(
-    asString(frontmatter.key)
-    ?? asString(frontmatter.skillKey)
-    ?? asString(metadata?.skillKey)
-    ?? asString(metadata?.canonicalKey)
-    ?? asString(metadata?.paperclipSkillKey)
-    ?? asString(paperclip?.skillKey)
-    ?? asString(paperclip?.key),
+    asString(frontmatter.key) ??
+      asString(frontmatter.skillKey) ??
+      asString(metadata?.skillKey) ??
+      asString(metadata?.canonicalKey) ??
+      asString(metadata?.paperclipSkillKey) ??
+      asString(paperclip?.skillKey) ??
+      asString(paperclip?.key),
   );
 }
 
@@ -166,7 +174,11 @@ function deriveManifestSkillKey(
   const sourceKind = asString(metadata?.sourceKind);
   const owner = normalizeSkillSlug(asString(metadata?.owner));
   const repo = normalizeSkillSlug(asString(metadata?.repo));
-  if ((sourceType === "github" || sourceType === "skills_sh" || sourceKind === "github" || sourceKind === "skills_sh") && owner && repo) {
+  if (
+    (sourceType === "github" || sourceType === "skills_sh" || sourceKind === "github" || sourceKind === "skills_sh") &&
+    owner &&
+    repo
+  ) {
     return `${owner}/${repo}/${slug}`;
   }
   if (sourceKind === "paperclip_bundled") {
@@ -206,14 +218,13 @@ function readSkillSourceKind(skill: CompanySkill) {
 
 function deriveLocalExportNamespace(skill: CompanySkill, slug: string) {
   const metadata = isPlainRecord(skill.metadata) ? skill.metadata : null;
-  const candidates = [
-    asString(metadata?.projectName),
-    asString(metadata?.workspaceName),
-  ];
+  const candidates = [asString(metadata?.projectName), asString(metadata?.workspaceName)];
 
   if (skill.sourceLocator) {
     const basename = path.basename(skill.sourceLocator);
-    candidates.push(basename.toLowerCase() === "skill.md" ? path.basename(path.dirname(skill.sourceLocator)) : basename);
+    candidates.push(
+      basename.toLowerCase() === "skill.md" ? path.basename(path.dirname(skill.sourceLocator)) : basename,
+    );
   }
 
   for (const value of candidates) {
@@ -224,27 +235,22 @@ function deriveLocalExportNamespace(skill: CompanySkill, slug: string) {
   return null;
 }
 
-function derivePrimarySkillExportDir(
-  skill: CompanySkill,
-  slug: string,
-  companyIssuePrefix: string | null | undefined,
-) {
+function derivePrimarySkillExportDir(skill: CompanySkill, slug: string, companyIssuePrefix: string | null | undefined) {
   const normalizedKey = normalizeSkillKey(skill.key);
   const keySegments = normalizedKey?.split("/") ?? [];
   const primaryNamespace = keySegments[0] ?? null;
 
   if (primaryNamespace === "company") {
-    const companySegment = normalizeExportPathSegment(companyIssuePrefix, true)
-      ?? normalizeExportPathSegment(keySegments[1], true)
-      ?? "company";
+    const companySegment =
+      normalizeExportPathSegment(companyIssuePrefix, true) ??
+      normalizeExportPathSegment(keySegments[1], true) ??
+      "company";
     return `skills/company/${companySegment}/${slug}`;
   }
 
   if (primaryNamespace === "local") {
     const localNamespace = deriveLocalExportNamespace(skill, slug);
-    return localNamespace
-      ? `skills/local/${localNamespace}/${slug}`
-      : `skills/local/${slug}`;
+    return localNamespace ? `skills/local/${localNamespace}/${slug}` : `skills/local/${slug}`;
   }
 
   if (primaryNamespace === "url") {
@@ -594,10 +600,7 @@ function isPortableBinaryFile(
   return typeof value === "object" && value !== null && value.encoding === "base64" && typeof value.data === "string";
 }
 
-function readPortableTextFile(
-  files: Record<string, CompanyPortabilityFileEntry>,
-  filePath: string,
-) {
+function readPortableTextFile(files: Record<string, CompanyPortabilityFileEntry>, filePath: string) {
   const value = files[filePath];
   return typeof value === "string" ? value : null;
 }
@@ -621,7 +624,10 @@ function inferContentTypeFromPath(filePath: string) {
   }
 }
 
-function resolveCompanyLogoExtension(contentType: string | null | undefined, originalFilename: string | null | undefined) {
+function resolveCompanyLogoExtension(
+  contentType: string | null | undefined,
+  originalFilename: string | null | undefined,
+) {
   const fromContentType = contentType ? COMPANY_LOGO_CONTENT_TYPE_EXTENSIONS[contentType.toLowerCase()] : null;
   if (fromContentType) return fromContentType;
 
@@ -786,9 +792,7 @@ function filterExportFiles(
   }
 
   const selectedFiles = new Set(
-    selectedFilesInput
-      .map((entry) => normalizePortablePath(entry))
-      .filter((entry) => entry.length > 0),
+    selectedFilesInput.map((entry) => normalizePortablePath(entry)).filter((entry) => entry.length > 0),
   );
   const filtered: Record<string, CompanyPortabilityFileEntry> = {};
   for (const [filePath, content] of Object.entries(files)) {
@@ -807,7 +811,9 @@ function filterExportFiles(
 function findPaperclipExtensionPath(files: Record<string, CompanyPortabilityFileEntry>) {
   if (typeof files[".paperclip.yaml"] === "string") return ".paperclip.yaml";
   if (typeof files[".paperclip.yml"] === "string") return ".paperclip.yml";
-  return Object.keys(files).find((entry) => entry.endsWith("/.paperclip.yaml") || entry.endsWith("/.paperclip.yml")) ?? null;
+  return (
+    Object.keys(files).find((entry) => entry.endsWith("/.paperclip.yaml") || entry.endsWith("/.paperclip.yml")) ?? null
+  );
 }
 
 function ensureMarkdownPath(pathValue: string) {
@@ -818,9 +824,7 @@ function ensureMarkdownPath(pathValue: string) {
   return normalized;
 }
 
-function normalizePortableConfig(
-  value: unknown,
-): Record<string, unknown> {
+function normalizePortableConfig(value: unknown): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
   const input = value as Record<string, unknown>;
   const next: Record<string, unknown> = {};
@@ -835,7 +839,8 @@ function normalizePortableConfig(
       key === "promptTemplate" ||
       key === "bootstrapPromptTemplate" ||
       key === "paperclipSkillSync"
-    ) continue;
+    )
+      continue;
     if (key === "env") continue;
     next[key] = entry;
   }
@@ -878,9 +883,7 @@ function extractPortableEnvInputs(
     if (isPlainRecord(binding) && binding.type === "plain") {
       const defaultValue = asString(binding.value);
       const isSensitive = isSensitiveEnvKey(key);
-      const portability = defaultValue && isAbsoluteCommand(defaultValue)
-        ? "system_dependent"
-        : "portable";
+      const portability = defaultValue && isAbsoluteCommand(defaultValue) ? "system_dependent" : "portable";
       if (portability === "system_dependent") {
         warnings.push(`Agent ${agentSlug} env ${key} default was exported as system-dependent.`);
       }
@@ -890,7 +893,7 @@ function extractPortableEnvInputs(
         agentSlug,
         kind: isSensitive ? "secret" : "plain",
         requirement: "optional",
-        defaultValue: isSensitive ? "" : defaultValue ?? "",
+        defaultValue: isSensitive ? "" : (defaultValue ?? ""),
         portability,
       });
       continue;
@@ -973,9 +976,7 @@ function isEmptyArray(value: unknown): boolean {
 
 function stripEmptyValues(value: unknown, opts?: { preserveEmptyStrings?: boolean }): unknown {
   if (Array.isArray(value)) {
-    const next = value
-      .map((entry) => stripEmptyValues(entry, opts))
-      .filter((entry) => entry !== undefined);
+    const next = value.map((entry) => stripEmptyValues(entry, opts)).filter((entry) => entry !== undefined);
     return next.length > 0 ? next : undefined;
   }
   if (isPlainRecord(value)) {
@@ -1031,9 +1032,7 @@ const YAML_KEY_PRIORITY = [
   "metadata",
 ] as const;
 
-const YAML_KEY_PRIORITY_INDEX = new Map<string, number>(
-  YAML_KEY_PRIORITY.map((key, index) => [key, index]),
-);
+const YAML_KEY_PRIORITY_INDEX = new Map<string, number>(YAML_KEY_PRIORITY.map((key, index) => [key, index]));
 
 function compareYamlKeys(left: string, right: string) {
   const leftPriority = YAML_KEY_PRIORITY_INDEX.get(left);
@@ -1062,7 +1061,7 @@ function renderYamlBlock(value: unknown, indentLevel: number): string[] {
         typeof entry === "string" ||
         typeof entry === "boolean" ||
         typeof entry === "number" ||
-        Array.isArray(entry) && entry.length === 0 ||
+        (Array.isArray(entry) && entry.length === 0) ||
         isEmptyObject(entry);
       if (scalar) {
         lines.push(`${indent}- ${renderYamlScalar(entry)}`);
@@ -1084,7 +1083,7 @@ function renderYamlBlock(value: unknown, indentLevel: number): string[] {
         typeof entry === "string" ||
         typeof entry === "boolean" ||
         typeof entry === "number" ||
-        Array.isArray(entry) && entry.length === 0 ||
+        (Array.isArray(entry) && entry.length === 0) ||
         isEmptyObject(entry);
       if (scalar) {
         lines.push(`${indent}${key}: ${renderYamlScalar(entry)}`);
@@ -1108,7 +1107,7 @@ function renderFrontmatter(frontmatter: Record<string, unknown>) {
       typeof value === "string" ||
       typeof value === "boolean" ||
       typeof value === "number" ||
-      Array.isArray(value) && value.length === 0 ||
+      (Array.isArray(value) && value.length === 0) ||
       isEmptyObject(value);
     if (scalar) {
       lines.push(`${key}: ${renderYamlScalar(value)}`);
@@ -1131,18 +1130,10 @@ function buildMarkdown(frontmatter: Record<string, unknown>, body: string) {
 
 function normalizeSelectedFiles(selectedFiles?: string[]) {
   if (!selectedFiles) return null;
-  return new Set(
-    selectedFiles
-      .map((entry) => normalizePortablePath(entry))
-      .filter((entry) => entry.length > 0),
-  );
+  return new Set(selectedFiles.map((entry) => normalizePortablePath(entry)).filter((entry) => entry.length > 0));
 }
 
-function filterCompanyMarkdownIncludes(
-  companyPath: string,
-  markdown: string,
-  selectedFiles: Set<string>,
-) {
+function filterCompanyMarkdownIncludes(companyPath: string, markdown: string, selectedFiles: Set<string>) {
   const parsed = parseFrontmatterMarkdown(markdown);
   const includeEntries = readIncludeEntries(parsed.frontmatter);
   const filteredIncludes = includeEntries.filter((entry) =>
@@ -1163,7 +1154,7 @@ function applySelectedFilesToSource(source: ResolvedSource, selectedFiles?: stri
 
   const companyPath = source.manifest.company
     ? ensureMarkdownPath(source.manifest.company.path)
-    : Object.keys(source.files).find((entry) => entry.endsWith("/COMPANY.md") || entry === "COMPANY.md") ?? null;
+    : (Object.keys(source.files).find((entry) => entry.endsWith("/COMPANY.md") || entry === "COMPANY.md") ?? null);
   if (!companyPath) {
     throw unprocessable("Company package is missing COMPANY.md");
   }
@@ -1180,11 +1171,7 @@ function applySelectedFilesToSource(source: ResolvedSource, selectedFiles?: stri
     effectiveFiles[normalizedPath] = content;
   }
 
-  effectiveFiles[companyPath] = filterCompanyMarkdownIncludes(
-    companyPath,
-    companyMarkdown,
-    normalizedSelection,
-  );
+  effectiveFiles[companyPath] = filterCompanyMarkdownIncludes(companyPath, companyMarkdown, normalizedSelection);
 
   const filtered = buildManifestFromPackageFiles(effectiveFiles, {
     sourceLabel: source.manifest.source,
@@ -1282,9 +1269,7 @@ async function buildReferencedSkillMarkdown(skill: CompanySkill) {
 async function withSkillSourceMetadata(skill: CompanySkill, markdown: string) {
   const sourceEntry = await buildSkillSourceEntry(skill);
   const parsed = parseFrontmatterMarkdown(markdown);
-  const metadata = isPlainRecord(parsed.frontmatter.metadata)
-    ? { ...parsed.frontmatter.metadata }
-    : {};
+  const metadata = isPlainRecord(parsed.frontmatter.metadata) ? { ...parsed.frontmatter.metadata } : {};
   const existingSources = Array.isArray(metadata.sources)
     ? metadata.sources.filter((entry) => isPlainRecord(entry))
     : [];
@@ -1307,7 +1292,6 @@ async function withSkillSourceMetadata(skill: CompanySkill, markdown: string) {
   return buildMarkdown(frontmatter, parsed.body);
 }
 
-
 function parseYamlScalar(rawValue: string): unknown {
   const trimmed = rawValue.trim();
   if (trimmed === "") return "";
@@ -1317,11 +1301,7 @@ function parseYamlScalar(rawValue: string): unknown {
   if (trimmed === "[]") return [];
   if (trimmed === "{}") return {};
   if (/^-?\d+(\.\d+)?$/.test(trimmed)) return Number(trimmed);
-  if (
-    trimmed.startsWith("\"") ||
-    trimmed.startsWith("[") ||
-    trimmed.startsWith("{")
-  ) {
+  if (trimmed.startsWith('"') || trimmed.startsWith("[") || trimmed.startsWith("{")) {
     try {
       return JSON.parse(trimmed);
     } catch {
@@ -1372,7 +1352,7 @@ function parseYamlBlock(
       const inlineObjectSeparator = remainder.indexOf(":");
       if (
         inlineObjectSeparator > 0 &&
-        !remainder.startsWith("\"") &&
+        !remainder.startsWith('"') &&
         !remainder.startsWith("{") &&
         !remainder.startsWith("[")
       ) {
@@ -1552,27 +1532,31 @@ function readAgentEnvInputs(
   return Object.entries(env).flatMap(([key, value]) => {
     if (!isPlainRecord(value)) return [];
     const record = value as EnvInputRecord;
-    return [{
-      key,
-      description: asString(record.description) ?? null,
-      agentSlug,
-      kind: record.kind === "plain" ? "plain" : "secret",
-      requirement: record.requirement === "required" ? "required" : "optional",
-      defaultValue: typeof record.default === "string" ? record.default : null,
-      portability: record.portability === "system_dependent" ? "system_dependent" : "portable",
-    }];
+    return [
+      {
+        key,
+        description: asString(record.description) ?? null,
+        agentSlug,
+        kind: record.kind === "plain" ? "plain" : "secret",
+        requirement: record.requirement === "required" ? "required" : "optional",
+        defaultValue: typeof record.default === "string" ? record.default : null,
+        portability: record.portability === "system_dependent" ? "system_dependent" : "portable",
+      },
+    ];
   });
 }
 
 function readAgentSkillRefs(frontmatter: Record<string, unknown>) {
   const skills = frontmatter.skills;
   if (!Array.isArray(skills)) return [];
-  return Array.from(new Set(
-    skills
-      .filter((entry): entry is string => typeof entry === "string")
-      .map((entry) => normalizeSkillKey(entry) ?? entry.trim())
-      .filter(Boolean),
-  ));
+  return Array.from(
+    new Set(
+      skills
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => normalizeSkillKey(entry) ?? entry.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function buildManifestFromPackageFiles(
@@ -1580,12 +1564,11 @@ function buildManifestFromPackageFiles(
   opts?: { sourceLabel?: { companyId: string; companyName: string } | null },
 ): ResolvedSource {
   const normalizedFiles = normalizeFileMap(files);
-  const companyPath = typeof normalizedFiles["COMPANY.md"] === "string"
-    ? normalizedFiles["COMPANY.md"]
-    : undefined;
-  const resolvedCompanyPath = companyPath !== undefined
-    ? "COMPANY.md"
-    : Object.keys(normalizedFiles).find((entry) => entry.endsWith("/COMPANY.md") || entry === "COMPANY.md");
+  const companyPath = typeof normalizedFiles["COMPANY.md"] === "string" ? normalizedFiles["COMPANY.md"] : undefined;
+  const resolvedCompanyPath =
+    companyPath !== undefined
+      ? "COMPANY.md"
+      : Object.keys(normalizedFiles).find((entry) => entry.endsWith("/COMPANY.md") || entry === "COMPANY.md");
   if (!resolvedCompanyPath) {
     throw unprocessable("Company package is missing COMPANY.md");
   }
@@ -1604,14 +1587,8 @@ function buildManifestFromPackageFiles(
   const paperclipAgents = isPlainRecord(paperclipExtension.agents) ? paperclipExtension.agents : {};
   const paperclipProjects = isPlainRecord(paperclipExtension.projects) ? paperclipExtension.projects : {};
   const paperclipTasks = isPlainRecord(paperclipExtension.tasks) ? paperclipExtension.tasks : {};
-  const companyName =
-    asString(companyFrontmatter.name)
-    ?? opts?.sourceLabel?.companyName
-    ?? "Imported Company";
-  const companySlug =
-    asString(companyFrontmatter.slug)
-    ?? normalizeAgentUrlKey(companyName)
-    ?? "company";
+  const companyName = asString(companyFrontmatter.name) ?? opts?.sourceLabel?.companyName ?? "Imported Company";
+  const companySlug = asString(companyFrontmatter.slug) ?? normalizeAgentUrlKey(companyName) ?? "company";
 
   const includeEntries = readIncludeEntries(companyFrontmatter);
   const referencedAgentPaths = includeEntries
@@ -1691,9 +1668,7 @@ function buildManifestFromPackageFiles(
     const extensionRuntime = isPlainRecord(extension.runtime) ? extension.runtime : null;
     const extensionPermissions = isPlainRecord(extension.permissions) ? extension.permissions : null;
     const extensionMetadata = isPlainRecord(extension.metadata) ? extension.metadata : null;
-    const adapterConfig = isPlainRecord(extensionAdapter?.config)
-      ? extensionAdapter.config
-      : {};
+    const adapterConfig = isPlainRecord(extensionAdapter?.config) ? extensionAdapter.config : {};
     const runtimeConfig = extensionRuntime ?? {};
     const title = asString(frontmatter.title);
 
@@ -1740,17 +1715,18 @@ function buildManifestFromPackageFiles(
       .filter((entry) => entry === skillPath || entry.startsWith(`${skillDir}/`))
       .map((entry) => ({
         path: entry === skillPath ? "SKILL.md" : entry.slice(skillDir.length + 1),
-        kind: entry === skillPath
-          ? "skill"
-          : entry.startsWith(`${skillDir}/references/`)
-            ? "reference"
-            : entry.startsWith(`${skillDir}/scripts/`)
-              ? "script"
-              : entry.startsWith(`${skillDir}/assets/`)
-                ? "asset"
-                : entry.endsWith(".md")
-                  ? "markdown"
-                  : "other",
+        kind:
+          entry === skillPath
+            ? "skill"
+            : entry.startsWith(`${skillDir}/references/`)
+              ? "reference"
+              : entry.startsWith(`${skillDir}/scripts/`)
+                ? "script"
+                : entry.startsWith(`${skillDir}/assets/`)
+                  ? "asset"
+                  : entry.endsWith(".md")
+                    ? "markdown"
+                    : "other",
       }));
     const metadata = isPlainRecord(frontmatter.metadata) ? frontmatter.metadata : null;
     const sources = metadata && Array.isArray(metadata.sources) ? metadata.sources : [];
@@ -1768,19 +1744,23 @@ function buildManifestFromPackageFiles(
       const trackingRef = asString(primarySource?.trackingRef);
       const [owner, repoName] = (repo ?? "").split("/");
       sourceType = "github";
-      sourceLocator = asString(primarySource?.url)
-        ?? (repo ? `https://github.com/${repo}${repoPath ? `/tree/${trackingRef ?? commit ?? "main"}/${repoPath}` : ""}` : null);
+      sourceLocator =
+        asString(primarySource?.url) ??
+        (repo
+          ? `https://github.com/${repo}${repoPath ? `/tree/${trackingRef ?? commit ?? "main"}/${repoPath}` : ""}`
+          : null);
       sourceRef = commit;
-      normalizedMetadata = owner && repoName
-        ? {
-            sourceKind: "github",
-            owner,
-            repo: repoName,
-            ref: commit,
-            trackingRef,
-            repoSkillDir: repoPath ?? `skills/${slug}`,
-          }
-        : null;
+      normalizedMetadata =
+        owner && repoName
+          ? {
+              sourceKind: "github",
+              owner,
+              repo: repoName,
+              ref: commit,
+              trackingRef,
+              repoSkillDir: repoPath ?? `skills/${slug}`,
+            }
+          : null;
     } else if (sourceKind === "url") {
       sourceType = "url";
       sourceLocator = asString(primarySource?.url) ?? asString(primarySource?.rawUrl);
@@ -1856,11 +1836,12 @@ function buildManifestFromPackageFiles(
     const slug = asString(frontmatter.slug) ?? fallbackSlug;
     const extension = isPlainRecord(paperclipTasks[slug]) ? paperclipTasks[slug] : {};
     const schedule = isPlainRecord(frontmatter.schedule) ? frontmatter.schedule : null;
-    const recurrence = schedule && isPlainRecord(schedule.recurrence)
-      ? schedule.recurrence
-      : isPlainRecord(extension.recurrence)
-        ? extension.recurrence
-        : null;
+    const recurrence =
+      schedule && isPlainRecord(schedule.recurrence)
+        ? schedule.recurrence
+        : isPlainRecord(extension.recurrence)
+          ? extension.recurrence
+          : null;
     manifest.issues.push({
       slug,
       identifier: asString(extension.identifier),
@@ -1896,7 +1877,6 @@ function buildManifestFromPackageFiles(
     warnings,
   };
 }
-
 
 function parseGitHubSourceUrl(rawUrl: string) {
   const url = new URL(rawUrl);
@@ -1945,17 +1925,16 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
 
   async function resolveSource(source: CompanyPortabilityPreview["source"]): Promise<ResolvedSource> {
     if (source.type === "inline") {
-      return buildManifestFromPackageFiles(
-        normalizeFileMap(source.files, source.rootPath),
-      );
+      return buildManifestFromPackageFiles(normalizeFileMap(source.files, source.rootPath));
     }
 
     const parsed = parseGitHubSourceUrl(source.url);
     let ref = parsed.ref;
     const warnings: string[] = [];
-    const companyRelativePath = parsed.companyPath === "COMPANY.md"
-      ? [parsed.basePath, "COMPANY.md"].filter(Boolean).join("/")
-      : parsed.companyPath;
+    const companyRelativePath =
+      parsed.companyPath === "COMPANY.md"
+        ? [parsed.basePath, "COMPANY.md"].filter(Boolean).join("/")
+        : parsed.companyPath;
     let companyMarkdown: string | null = null;
     try {
       companyMarkdown = await fetchOptionalText(
@@ -1976,9 +1955,10 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       throw unprocessable("GitHub company package is missing COMPANY.md");
     }
 
-    const companyPath = parsed.companyPath === "COMPANY.md"
-      ? "COMPANY.md"
-      : normalizePortablePath(path.posix.relative(parsed.basePath || ".", parsed.companyPath));
+    const companyPath =
+      parsed.companyPath === "COMPANY.md"
+        ? "COMPANY.md"
+        : normalizePortablePath(path.posix.relative(parsed.basePath || ".", parsed.companyPath));
     const files: Record<string, CompanyPortabilityFileEntry> = {
       [companyPath]: companyMarkdown,
     };
@@ -2014,9 +1994,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       const relativePath = normalizePortablePath(includeEntry.path);
       if (files[relativePath] !== undefined) continue;
       if (!(repoPath.endsWith(".md") || repoPath.endsWith(".yaml") || repoPath.endsWith(".yml"))) continue;
-      files[relativePath] = await fetchText(
-        resolveRawGitHubUrl(parsed.owner, parsed.repo, ref, repoPath),
-      );
+      files[relativePath] = await fetchText(resolveRawGitHubUrl(parsed.owner, parsed.repo, ref, repoPath));
     }
 
     const resolved = buildManifestFromPackageFiles(files);
@@ -2024,12 +2002,12 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
     if (companyLogoPath && !resolved.files[companyLogoPath]) {
       const repoPath = [parsed.basePath, companyLogoPath].filter(Boolean).join("/");
       try {
-        const binary = await fetchBinary(
-          resolveRawGitHubUrl(parsed.owner, parsed.repo, ref, repoPath),
-        );
+        const binary = await fetchBinary(resolveRawGitHubUrl(parsed.owner, parsed.repo, ref, repoPath));
         resolved.files[companyLogoPath] = bufferToPortableBinaryFile(binary, inferContentTypeFromPath(companyLogoPath));
       } catch (err) {
-        warnings.push(`Failed to fetch company logo ${companyLogoPath} from GitHub: ${err instanceof Error ? err.message : String(err)}`);
+        warnings.push(
+          `Failed to fetch company logo ${companyLogoPath} from GitHub: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
     resolved.warnings.unshift(...warnings);
@@ -2069,7 +2047,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       }
     }
 
-    const agentByReference = new Map<string, typeof liveAgentRows[number]>();
+    const agentByReference = new Map<string, (typeof liveAgentRows)[number]>();
     for (const agent of liveAgentRows) {
       agentByReference.set(agent.id, agent);
       agentByReference.set(agent.name, agent);
@@ -2079,7 +2057,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       }
     }
 
-    const selectedAgents = new Map<string, typeof liveAgentRows[number]>();
+    const selectedAgents = new Map<string, (typeof liveAgentRows)[number]>();
     for (const selector of input.agents ?? []) {
       const trimmed = selector.trim();
       if (!trimmed) continue;
@@ -2098,8 +2076,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       }
     }
 
-    const agentRows = Array.from(selectedAgents.values())
-      .sort((left, right) => left.name.localeCompare(right.name));
+    const agentRows = Array.from(selectedAgents.values()).sort((left, right) => left.name.localeCompare(right.name));
 
     const usedSlugs = new Set<string>();
     const idToSlug = new Map<string, string>();
@@ -2114,13 +2091,13 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
     const allProjectsRaw = include.projects || include.issues ? await projectsSvc.list(companyId) : [];
     const allProjects = allProjectsRaw.filter((project) => !project.archivedAt);
     const projectById = new Map(allProjects.map((project) => [project.id, project]));
-    const projectByReference = new Map<string, typeof allProjects[number]>();
+    const projectByReference = new Map<string, (typeof allProjects)[number]>();
     for (const project of allProjects) {
       projectByReference.set(project.id, project);
       projectByReference.set(project.urlKey, project);
     }
 
-    const selectedProjects = new Map<string, typeof allProjects[number]>();
+    const selectedProjects = new Map<string, (typeof allProjects)[number]>();
     const normalizeProjectSelector = (selector: string) => selector.trim().toLowerCase();
     for (const selector of input.projects ?? []) {
       const match = projectByReference.get(selector) ?? projectByReference.get(normalizeProjectSelector(selector));
@@ -2135,9 +2112,7 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
     const resolveIssueBySelector = async (selector: string) => {
       const trimmed = selector.trim();
       if (!trimmed) return null;
-      return trimmed.includes("-")
-        ? issuesSvc.getByIdentifier(trimmed)
-        : issuesSvc.getById(trimmed);
+      return trimmed.includes("-") ? issuesSvc.getByIdentifier(trimmed) : issuesSvc.getById(trimmed);
     };
     for (const selector of input.issues ?? []) {
       const issue = await resolveIssueBySelector(selector);
@@ -2182,8 +2157,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       }
     }
 
-    const selectedProjectRows = Array.from(selectedProjects.values())
-      .sort((left, right) => left.name.localeCompare(right.name));
+    const selectedProjectRows = Array.from(selectedProjects.values()).sort((left, right) =>
+      left.name.localeCompare(right.name),
+    );
     const selectedIssueRows = Array.from(selectedIssues.values())
       .filter((issue): issue is NonNullable<typeof issue> => issue != null)
       .sort((left, right) => (left.identifier ?? left.title).localeCompare(right.identifier ?? right.title));
@@ -2227,7 +2203,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
             companyLogoPath = `images/${COMPANY_LOGO_FILE_NAME}${resolveCompanyLogoExtension(logoAsset.contentType, logoAsset.originalFilename)}`;
             files[companyLogoPath] = bufferToPortableBinaryFile(body, logoAsset.contentType);
           } catch (err) {
-            warnings.push(`Failed to export company logo ${company.logoAssetId}: ${err instanceof Error ? err.message : String(err)}`);
+            warnings.push(
+              `Failed to export company logo ${company.logoAssetId}: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
         }
       }
@@ -2237,14 +2215,14 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
     const paperclipProjectsOut: Record<string, Record<string, unknown>> = {};
     const paperclipTasksOut: Record<string, Record<string, unknown>> = {};
 
-    const skillByReference = new Map<string, typeof companySkillRows[number]>();
+    const skillByReference = new Map<string, (typeof companySkillRows)[number]>();
     for (const skill of companySkillRows) {
       skillByReference.set(skill.id, skill);
       skillByReference.set(skill.key, skill);
       skillByReference.set(skill.slug, skill);
       skillByReference.set(skill.name, skill);
     }
-    const selectedSkills = new Map<string, typeof companySkillRows[number]>();
+    const selectedSkills = new Map<string, (typeof companySkillRows)[number]>();
     for (const selector of input.skills ?? []) {
       const trimmed = selector.trim();
       if (!trimmed) continue;
@@ -2261,8 +2239,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         selectedSkills.set(skill.id, skill);
       }
     }
-    const selectedSkillRows = Array.from(selectedSkills.values())
-      .sort((left, right) => left.key.localeCompare(right.key));
+    const selectedSkillRows = Array.from(selectedSkills.values()).sort((left, right) =>
+      left.key.localeCompare(right.key),
+    );
 
     const skillExportDirs = buildSkillExportDirMap(selectedSkillRows, company.issuePrefix);
     for (const skill of selectedSkillRows) {
@@ -2276,9 +2255,10 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const fileDetail = await companySkills.readFile(companyId, skill.id, inventoryEntry.path).catch(() => null);
         if (!fileDetail) continue;
         const filePath = `${packageDir}/${inventoryEntry.path}`;
-        files[filePath] = inventoryEntry.path === "SKILL.md"
-          ? await withSkillSourceMetadata(skill, fileDetail.content)
-          : fileDetail.content;
+        files[filePath] =
+          inventoryEntry.path === "SKILL.md"
+            ? await withSkillSourceMetadata(skill, fileDetail.content)
+            : fileDetail.content;
       }
     }
 
@@ -2296,25 +2276,19 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         );
         envInputs.push(...exportedEnvInputs);
         const adapterDefaultRules = ADAPTER_DEFAULT_RULES_BY_TYPE[agent.adapterType] ?? [];
-        const portableAdapterConfig = pruneDefaultLikeValue(
-          normalizePortableConfig(agent.adapterConfig),
-          {
-            dropFalseBooleans: true,
-            defaultRules: adapterDefaultRules,
-          },
-        ) as Record<string, unknown>;
-        const portableRuntimeConfig = pruneDefaultLikeValue(
-          normalizePortableConfig(agent.runtimeConfig),
-          {
-            dropFalseBooleans: true,
-            defaultRules: RUNTIME_DEFAULT_RULES,
-          },
-        ) as Record<string, unknown>;
-        const portablePermissions = pruneDefaultLikeValue(agent.permissions ?? {}, { dropFalseBooleans: true }) as Record<string, unknown>;
+        const portableAdapterConfig = pruneDefaultLikeValue(normalizePortableConfig(agent.adapterConfig), {
+          dropFalseBooleans: true,
+          defaultRules: adapterDefaultRules,
+        }) as Record<string, unknown>;
+        const portableRuntimeConfig = pruneDefaultLikeValue(normalizePortableConfig(agent.runtimeConfig), {
+          dropFalseBooleans: true,
+          defaultRules: RUNTIME_DEFAULT_RULES,
+        }) as Record<string, unknown>;
+        const portablePermissions = pruneDefaultLikeValue(agent.permissions ?? {}, {
+          dropFalseBooleans: true,
+        }) as Record<string, unknown>;
         const agentEnvInputs = dedupeEnvInputs(
-          envInputs
-            .slice(envInputsStart)
-            .filter((inputValue) => inputValue.agentSlug === slug),
+          envInputs.slice(envInputsStart).filter((inputValue) => inputValue.agentSlug === slug),
         );
         const reportsToSlug = agent.reportsTo ? (idToSlug.get(agent.reportsTo) ?? null) : null;
         const desiredSkills = readPaperclipSkillSyncPreference(
@@ -2323,7 +2297,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
 
         const commandValue = asString(portableAdapterConfig.command);
         if (commandValue && isAbsoluteCommand(commandValue)) {
-          warnings.push(`Agent ${slug} command ${commandValue} was omitted from export because it is system-dependent.`);
+          warnings.push(
+            `Agent ${slug} command ${commandValue} was omitted from export because it is system-dependent.`,
+          );
           delete portableAdapterConfig.command;
         }
         for (const [relativePath, content] of Object.entries(exportedInstructions.files)) {
@@ -2506,9 +2482,11 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       include: {
         ...input.include,
         issues:
-          input.include?.issues
-          ?? Boolean((input.issues && input.issues.length > 0) || (input.projectIssues && input.projectIssues.length > 0))
-          ?? false,
+          input.include?.issues ??
+          Boolean(
+            (input.issues && input.issues.length > 0) || (input.projectIssues && input.projectIssues.length > 0),
+          ) ??
+          false,
       },
     };
     if (previewInput.include && previewInput.include.issues === undefined) {
@@ -2560,16 +2538,12 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
     }
 
     const selectedSlugs = include.agents
-      ? (
-          input.agents && input.agents !== "all"
-            ? Array.from(new Set(input.agents))
-            : manifest.agents.map((agent) => agent.slug)
-        )
+      ? input.agents && input.agents !== "all"
+        ? Array.from(new Set(input.agents))
+        : manifest.agents.map((agent) => agent.slug)
       : [];
 
-    const selectedAgents = include.agents
-      ? manifest.agents.filter((agent) => selectedSlugs.includes(agent.slug))
-      : [];
+    const selectedAgents = include.agents ? manifest.agents.filter((agent) => selectedSlugs.includes(agent.slug)) : [];
     const selectedMissing = selectedSlugs.filter((slug) => !manifest.agents.some((agent) => agent.slug === slug));
     for (const missing of selectedMissing) {
       errors.push(`Selected agent slug not found in manifest: ${missing}`);
@@ -2601,7 +2575,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       for (const skillRef of agent.skills) {
         const slugMatches = availableSkillSlugs.get(skillRef) ?? [];
         if (!availableSkillKeys.has(skillRef) && slugMatches.length !== 1) {
-          warnings.push(`Agent ${agent.slug} references skill ${skillRef}, but that skill is not present in the package.`);
+          warnings.push(
+            `Agent ${agent.slug} references skill ${skillRef}, but that skill is not present in the package.`,
+          );
         }
       }
     }
@@ -2632,14 +2608,18 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
           warnings.push(`Task markdown ${issue.path} does not declare kind: task in frontmatter.`);
         }
         if (issue.recurrence) {
-          warnings.push(`Task ${issue.slug} has recurrence metadata; Paperclip will import it as a one-time issue for now.`);
+          warnings.push(
+            `Task ${issue.slug} has recurrence metadata; Paperclip will import it as a one-time issue for now.`,
+          );
         }
       }
     }
 
     for (const envInput of manifest.envInputs) {
       if (envInput.portability === "system_dependent") {
-        warnings.push(`Environment input ${envInput.key}${envInput.agentSlug ? ` for ${envInput.agentSlug}` : ""} is system-dependent and may need manual adjustment after import.`);
+        warnings.push(
+          `Environment input ${envInput.key}${envInput.agentSlug ? ` for ${envInput.agentSlug}` : ""} is system-dependent and may need manual adjustment after import.`,
+        );
       }
     }
 
@@ -2683,7 +2663,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const skillSlug = normalizeSkillSlug(skill.slug) ?? skill.slug;
         if (existingSkillKeys.has(skill.key) || existingSkillSlugs.has(skillSlug)) {
           if (mode === "agent_safe") {
-            warnings.push(`Existing skill "${skill.slug}" matched during safe import and will ${collisionStrategy === "skip" ? "be skipped" : "be renamed"} instead of overwritten.`);
+            warnings.push(
+              `Existing skill "${skill.slug}" matched during safe import and will ${collisionStrategy === "skip" ? "be skipped" : "be renamed"} instead of overwritten.`,
+            );
           } else if (collisionStrategy === "replace") {
             warnings.push(`Existing skill "${skill.slug}" (${skill.key}) will be overwritten by import.`);
           }
@@ -2836,11 +2818,8 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       collisionStrategy,
       selectedAgentSlugs: selectedAgents.map((agent) => agent.slug),
       plan: {
-        companyAction: input.target.mode === "new_company"
-          ? "create"
-          : include.company && mode === "board_full"
-            ? "update"
-            : "none",
+        companyAction:
+          input.target.mode === "new_company" ? "create" : include.company && mode === "board_full" ? "update" : "none",
         agentPlans,
         projectPlans,
         issuePlans,
@@ -2880,12 +2859,10 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       throw unprocessable(`Import preview has errors: ${plan.preview.errors.join("; ")}`);
     }
     if (
-      mode === "agent_safe"
-      && (
-        plan.preview.plan.companyAction === "update"
-        || plan.preview.plan.agentPlans.some((entry) => entry.action === "update")
-        || plan.preview.plan.projectPlans.some((entry) => entry.action === "update")
-      )
+      mode === "agent_safe" &&
+      (plan.preview.plan.companyAction === "update" ||
+        plan.preview.plan.agentPlans.some((entry) => entry.action === "update") ||
+        plan.preview.plan.projectPlans.some((entry) => entry.action === "update"))
     ) {
       throw unprocessable("Safe import routes only allow create or skip actions.");
     }
@@ -2904,7 +2881,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       if (mode === "agent_safe" && options?.sourceCompanyId) {
         const sourceMemberships = await access.listActiveUserMemberships(options.sourceCompanyId);
         if (sourceMemberships.length === 0) {
-          throw unprocessable("Safe new-company import requires at least one active user membership on the source company.");
+          throw unprocessable(
+            "Safe new-company import requires at least one active user membership on the source company.",
+          );
         }
       }
       const companyName =
@@ -2986,7 +2965,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
               });
               targetCompany = updated ?? targetCompany;
             } catch (err) {
-              warnings.push(`Failed to import company logo ${logoPath}: ${err instanceof Error ? err.message : String(err)}`);
+              warnings.push(
+                `Failed to import company logo ${logoPath}: ${err instanceof Error ? err.message : String(err)}`,
+              );
             }
           }
         }
@@ -3007,19 +2988,24 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
       existingProjectSlugToId.set(existing.urlKey, existing.id);
     }
 
-    const importedSkills = include.skills || include.agents
-      ? await companySkills.importPackageFiles(targetCompany.id, pickTextFiles(plan.source.files), {
-          onConflict: resolveSkillConflictStrategy(mode, plan.collisionStrategy),
-        })
-      : [];
+    const importedSkills =
+      include.skills || include.agents
+        ? await companySkills.importPackageFiles(targetCompany.id, pickTextFiles(plan.source.files), {
+            onConflict: resolveSkillConflictStrategy(mode, plan.collisionStrategy),
+          })
+        : [];
     const desiredSkillRefMap = new Map<string, string>();
     for (const importedSkill of importedSkills) {
       desiredSkillRefMap.set(importedSkill.originalKey, importedSkill.skill.key);
       desiredSkillRefMap.set(importedSkill.originalSlug, importedSkill.skill.key);
       if (importedSkill.action === "skipped") {
-        warnings.push(`Skipped skill ${importedSkill.originalSlug}; existing skill ${importedSkill.skill.slug} was kept.`);
+        warnings.push(
+          `Skipped skill ${importedSkill.originalSlug}; existing skill ${importedSkill.skill.slug} was kept.`,
+        );
       } else if (importedSkill.originalKey !== importedSkill.skill.key) {
-        warnings.push(`Imported skill ${importedSkill.originalSlug} as ${importedSkill.skill.slug} to avoid overwriting an existing skill.`);
+        warnings.push(
+          `Imported skill ${importedSkill.originalSlug} as ${importedSkill.skill.slug} to avoid overwriting an existing skill.`,
+        );
       }
     }
 
@@ -3042,12 +3028,15 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const bundleFiles = Object.fromEntries(
           Object.entries(plan.source.files)
             .filter(([filePath]) => filePath.startsWith(bundlePrefix))
-            .flatMap(([filePath, content]) => typeof content === "string"
-              ? [[normalizePortablePath(filePath.slice(bundlePrefix.length)), content] as const]
-              : []),
+            .flatMap(([filePath, content]) =>
+              typeof content === "string"
+                ? [[normalizePortablePath(filePath.slice(bundlePrefix.length)), content] as const]
+                : [],
+            ),
         );
         const markdownRaw = bundleFiles["AGENTS.md"] ?? readPortableTextFile(plan.source.files, manifestAgent.path);
-        const fallbackPromptTemplate = asString((manifestAgent.adapterConfig as Record<string, unknown>).promptTemplate) || "";
+        const fallbackPromptTemplate =
+          asString((manifestAgent.adapterConfig as Record<string, unknown>).promptTemplate) || "";
         if (!markdownRaw && fallbackPromptTemplate) {
           bundleFiles["AGENTS.md"] = fallbackPromptTemplate;
         }
@@ -3060,13 +3049,12 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const effectiveAdapterType = adapterOverride?.adapterType ?? manifestAgent.adapterType;
         const baseAdapterConfig = adapterOverride?.adapterConfig
           ? { ...adapterOverride.adapterConfig }
-          : { ...manifestAgent.adapterConfig } as Record<string, unknown>;
+          : ({ ...manifestAgent.adapterConfig } as Record<string, unknown>);
 
-        const desiredSkills = (manifestAgent.skills ?? []).map((skillRef) => desiredSkillRefMap.get(skillRef) ?? skillRef);
-        const adapterConfigWithSkills = writePaperclipSkillSyncPreference(
-          baseAdapterConfig,
-          desiredSkills,
+        const desiredSkills = (manifestAgent.skills ?? []).map(
+          (skillRef) => desiredSkillRefMap.get(skillRef) ?? skillRef,
         );
+        const adapterConfigWithSkills = writePaperclipSkillSyncPreference(baseAdapterConfig, desiredSkills);
         delete adapterConfigWithSkills.promptTemplate;
         delete adapterConfigWithSkills.bootstrapPromptTemplate;
         delete adapterConfigWithSkills.instructionsFilePath;
@@ -3106,9 +3094,11 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
               clearLegacyPromptTemplate: true,
               replaceExisting: true,
             });
-            updated = await agents.update(updated.id, { adapterConfig: materialized.adapterConfig }) ?? updated;
+            updated = (await agents.update(updated.id, { adapterConfig: materialized.adapterConfig })) ?? updated;
           } catch (err) {
-            warnings.push(`Failed to materialize instructions bundle for ${manifestAgent.slug}: ${err instanceof Error ? err.message : String(err)}`);
+            warnings.push(
+              `Failed to materialize instructions bundle for ${manifestAgent.slug}: ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
           importedSlugToAgentId.set(planAgent.slug, updated.id);
           existingSlugToAgentId.set(normalizeAgentUrlKey(updated.name) ?? updated.id, updated.id);
@@ -3137,9 +3127,11 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
             clearLegacyPromptTemplate: true,
             replaceExisting: true,
           });
-          created = await agents.update(created.id, { adapterConfig: materialized.adapterConfig }) ?? created;
+          created = (await agents.update(created.id, { adapterConfig: materialized.adapterConfig })) ?? created;
         } catch (err) {
-          warnings.push(`Failed to materialize instructions bundle for ${manifestAgent.slug}: ${err instanceof Error ? err.message : String(err)}`);
+          warnings.push(
+            `Failed to materialize instructions bundle for ${manifestAgent.slug}: ${err instanceof Error ? err.message : String(err)}`,
+          );
         }
         importedSlugToAgentId.set(planAgent.slug, created.id);
         existingSlugToAgentId.set(normalizeAgentUrlKey(created.name) ?? created.id, created.id);
@@ -3175,9 +3167,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         if (planProject.action === "skip") continue;
 
         const projectLeadAgentId = manifestProject.leadAgentSlug
-          ? importedSlugToAgentId.get(manifestProject.leadAgentSlug)
-            ?? existingSlugToAgentId.get(manifestProject.leadAgentSlug)
-            ?? null
+          ? (importedSlugToAgentId.get(manifestProject.leadAgentSlug) ??
+            existingSlugToAgentId.get(manifestProject.leadAgentSlug) ??
+            null)
           : null;
         const projectPatch = {
           name: planProject.plannedName,
@@ -3185,9 +3177,10 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
           leadAgentId: projectLeadAgentId,
           targetDate: manifestProject.targetDate,
           color: manifestProject.color,
-          status: manifestProject.status && PROJECT_STATUSES.includes(manifestProject.status as any)
-            ? manifestProject.status as typeof PROJECT_STATUSES[number]
-            : "backlog",
+          status:
+            manifestProject.status && PROJECT_STATUSES.includes(manifestProject.status as any)
+              ? (manifestProject.status as (typeof PROJECT_STATUSES)[number])
+              : "backlog",
           executionWorkspacePolicy: manifestProject.executionWorkspacePolicy,
         };
 
@@ -3214,33 +3207,37 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const parsed = markdownRaw ? parseFrontmatterMarkdown(markdownRaw) : null;
         const description = parsed?.body || manifestIssue.description || null;
         const assigneeAgentId = manifestIssue.assigneeAgentSlug
-          ? importedSlugToAgentId.get(manifestIssue.assigneeAgentSlug)
-            ?? existingSlugToAgentId.get(manifestIssue.assigneeAgentSlug)
-            ?? null
+          ? (importedSlugToAgentId.get(manifestIssue.assigneeAgentSlug) ??
+            existingSlugToAgentId.get(manifestIssue.assigneeAgentSlug) ??
+            null)
           : null;
         const projectId = manifestIssue.projectSlug
-          ? importedSlugToProjectId.get(manifestIssue.projectSlug)
-            ?? existingProjectSlugToId.get(manifestIssue.projectSlug)
-            ?? null
+          ? (importedSlugToProjectId.get(manifestIssue.projectSlug) ??
+            existingProjectSlugToId.get(manifestIssue.projectSlug) ??
+            null)
           : null;
         await issues.create(targetCompany.id, {
           projectId,
           title: manifestIssue.title,
           description,
           assigneeAgentId,
-          status: manifestIssue.status && ISSUE_STATUSES.includes(manifestIssue.status as any)
-            ? manifestIssue.status as typeof ISSUE_STATUSES[number]
-            : "backlog",
-          priority: manifestIssue.priority && ISSUE_PRIORITIES.includes(manifestIssue.priority as any)
-            ? manifestIssue.priority as typeof ISSUE_PRIORITIES[number]
-            : "medium",
+          status:
+            manifestIssue.status && ISSUE_STATUSES.includes(manifestIssue.status as any)
+              ? (manifestIssue.status as (typeof ISSUE_STATUSES)[number])
+              : "backlog",
+          priority:
+            manifestIssue.priority && ISSUE_PRIORITIES.includes(manifestIssue.priority as any)
+              ? (manifestIssue.priority as (typeof ISSUE_PRIORITIES)[number])
+              : "medium",
           billingCode: manifestIssue.billingCode,
           assigneeAdapterOverrides: manifestIssue.assigneeAdapterOverrides,
           executionWorkspaceSettings: manifestIssue.executionWorkspaceSettings,
           labelIds: [],
         });
         if (manifestIssue.recurrence) {
-          warnings.push(`Imported task ${manifestIssue.slug} as a one-time issue; recurrence metadata was not activated.`);
+          warnings.push(
+            `Imported task ${manifestIssue.slug} as a one-time issue; recurrence metadata was not activated.`,
+          );
         }
       }
     }

@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  sessionSchema,
-  sessionMessageSchema,
-  sessionsPluginSchema,
-} from "../../src/core/session-schema.js";
+import { sessionSchema, sessionMessageSchema, sessionsPluginSchema } from "../../src/core/session-schema.js";
 
 const validSession = {
   id: "550e8400-e29b-41d4-a716-446655440000",

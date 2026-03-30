@@ -84,9 +84,7 @@ describe.sequential("E2E: Backup & Restore (snapshot → verify → restore)", (
     await mkdir(join(woprHome, "data"), { recursive: true });
     await writeFile(join(woprHome, "data", "memory.db"), "fake-db-content");
 
-    const originalConfigHash = createHash("sha256")
-      .update(originalConfigJson)
-      .digest("hex");
+    const originalConfigHash = createHash("sha256").update(originalConfigJson).digest("hex");
 
     // 2. Create snapshot of bot state
     const snapshot = await snapshotManager.create({
@@ -106,9 +104,15 @@ describe.sequential("E2E: Backup & Restore (snapshot → verify → restore)", (
 
     // 3. Verify snapshot integrity (backup-verifier) via mock SpacesClient
     const spaces = makeSpacesClient({
-      list: vi.fn().mockResolvedValue([
-        { path: `on-demand/${tenantId}/${snapshot.id}.tar.gz`, size: snapshot.sizeBytes ?? 100, date: snapshot.createdAt },
-      ]),
+      list: vi
+        .fn()
+        .mockResolvedValue([
+          {
+            path: `on-demand/${tenantId}/${snapshot.id}.tar.gz`,
+            size: snapshot.sizeBytes ?? 100,
+            date: snapshot.createdAt,
+          },
+        ]),
       download: vi.fn().mockImplementation(async (_remote: string, local: string) => {
         await copyFile(snapshot.storagePath, local);
       }),
@@ -202,9 +206,9 @@ describe.sequential("E2E: Backup & Restore (snapshot → verify → restore)", (
   // -----------------------------------------------------------------------
 
   it("restore rejects with SnapshotNotFoundError for non-existent snapshot", async () => {
-    await expect(
-      snapshotManager.restore("non-existent-id", join(testDir, "instances", "ghost")),
-    ).rejects.toThrow(SnapshotNotFoundError);
+    await expect(snapshotManager.restore("non-existent-id", join(testDir, "instances", "ghost"))).rejects.toThrow(
+      SnapshotNotFoundError,
+    );
   });
 
   // -----------------------------------------------------------------------
@@ -274,9 +278,7 @@ describe.sequential("E2E: Backup & Restore (snapshot → verify → restore)", (
     await writeFile(corruptPath, buf);
 
     const spaces = makeSpacesClient({
-      list: vi.fn().mockResolvedValue([
-        { path: "nightly/node-1/c1/corrupt.tar.gz", size: 200, date: "2026-01-01" },
-      ]),
+      list: vi.fn().mockResolvedValue([{ path: "nightly/node-1/c1/corrupt.tar.gz", size: 200, date: "2026-01-01" }]),
       download: vi.fn().mockImplementation(async (_remote: string, local: string) => {
         await copyFile(corruptPath, local);
       }),

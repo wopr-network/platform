@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
-const isSecureOrigin =
-  (process.env.NEXT_PUBLIC_API_URL ?? "").startsWith("https://");
+const isSecureOrigin = (process.env.NEXT_PUBLIC_API_URL ?? "").startsWith("https://");
 
 const nextConfig: NextConfig = {
   output: "standalone",

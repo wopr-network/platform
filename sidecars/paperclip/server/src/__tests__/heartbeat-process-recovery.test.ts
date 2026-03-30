@@ -252,10 +252,7 @@ describe("heartbeat orphaned process recovery", () => {
     expect(result.reaped).toBe(1);
     expect(result.runIds).toEqual([runId]);
 
-    const runs = await db
-      .select()
-      .from(heartbeatRuns)
-      .where(eq(heartbeatRuns.agentId, agentId));
+    const runs = await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.agentId, agentId));
     expect(runs).toHaveLength(2);
 
     const failedRun = runs.find((row) => row.id === runId);
@@ -286,10 +283,7 @@ describe("heartbeat orphaned process recovery", () => {
     expect(result.reaped).toBe(1);
     expect(result.runIds).toEqual([runId]);
 
-    const runs = await db
-      .select()
-      .from(heartbeatRuns)
-      .where(eq(heartbeatRuns.agentId, agentId));
+    const runs = await db.select().from(heartbeatRuns).where(eq(heartbeatRuns.agentId, agentId));
     expect(runs).toHaveLength(1);
     expect(runs[0]?.status).toBe("failed");
 

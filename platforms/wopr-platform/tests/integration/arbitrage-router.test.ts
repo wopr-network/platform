@@ -190,9 +190,9 @@ describe("ArbitrageRouter e2e", () => {
     const registry = makeRegistry();
     const router = new ArbitrageRouter({ registry, adapters });
 
-    await expect(
-      router.route({ capability: "tts", tenantId, input: { text: "hello" } }),
-    ).rejects.toBeInstanceOf(NoProviderAvailableError);
+    await expect(router.route({ capability: "tts", tenantId, input: { text: "hello" } })).rejects.toBeInstanceOf(
+      NoProviderAvailableError,
+    );
 
     expect(adapterA.callCount).toBe(0);
     expect(adapterB.callCount).toBe(0);

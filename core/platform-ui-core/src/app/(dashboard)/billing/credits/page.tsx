@@ -82,8 +82,7 @@ function CreditsContent() {
             (rawBalance as { balance_cents?: number }).balance_cents ??
             0) / 100,
         dailyBurn:
-          ((rawBalance as { daily_burn_credits?: number; daily_burn_cents?: number })
-            .daily_burn_credits ??
+          ((rawBalance as { daily_burn_credits?: number; daily_burn_cents?: number }).daily_burn_credits ??
             (rawBalance as { daily_burn_cents?: number }).daily_burn_cents ??
             0) / 100,
         runway: (rawBalance as { runway_days?: number | null }).runway_days ?? null,
@@ -116,13 +115,7 @@ function CreditsContent() {
   }
 
   if (orgContext) {
-    return (
-      <OrgBillingPage
-        orgId={orgContext.orgId}
-        orgName={orgContext.orgName}
-        isAdmin={orgContext.isAdmin}
-      />
-    );
+    return <OrgBillingPage orgId={orgContext.orgId} orgName={orgContext.orgName} isAdmin={orgContext.isAdmin} />;
   }
 
   if (loading) {
@@ -169,9 +162,7 @@ function CreditsContent() {
 
       <LowBalanceBanner balance={balance.balance} runway={balance.runway} />
 
-      {showDividends && dividendStats && (
-        <DividendBanner todayAmountCents={todayDividendCents} stats={dividendStats} />
-      )}
+      {showDividends && dividendStats && <DividendBanner todayAmountCents={todayDividendCents} stats={dividendStats} />}
 
       {showCryptoPending && (
         <div className="rounded-md border border-amber-500/25 bg-amber-500/5 p-4">
@@ -205,9 +196,7 @@ function CreditsContent() {
       <AutoTopupCard />
       <TransactionHistory />
 
-      {showDividends && dividendStats && (
-        <FirstDividendDialog todayAmountCents={todayDividendCents} />
-      )}
+      {showDividends && dividendStats && <FirstDividendDialog todayAmountCents={todayDividendCents} />}
     </div>
   );
 }

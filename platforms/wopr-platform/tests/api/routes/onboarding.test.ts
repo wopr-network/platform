@@ -34,9 +34,7 @@ describe("onboardingRoutes", () => {
     };
     const mockRepo = {};
 
-    const { setOnboardingDeps, onboardingRoutes } = await import(
-      "../../../src/api/routes/onboarding.js"
-    );
+    const { setOnboardingDeps, onboardingRoutes } = await import("../../../src/api/routes/onboarding.js");
     setOnboardingDeps(mockService as never, mockRepo as never);
 
     app = new Hono();
@@ -59,14 +57,14 @@ describe("onboardingRoutes", () => {
     const anonApp = new Hono();
     vi.resetModules();
     const mockService = {
-      createSession: vi.fn().mockResolvedValue(makeSession({ userId: null, anonymousId: "550e8400-e29b-41d4-a716-446655440000" })),
+      createSession: vi
+        .fn()
+        .mockResolvedValue(makeSession({ userId: null, anonymousId: "550e8400-e29b-41d4-a716-446655440000" })),
       getHistory: vi.fn().mockResolvedValue([]),
       inject: vi.fn().mockResolvedValue(""),
       upgradeAnonymousToUser: vi.fn(),
     };
-    const { setOnboardingDeps, onboardingRoutes: freshRoutes } = await import(
-      "../../../src/api/routes/onboarding.js"
-    );
+    const { setOnboardingDeps, onboardingRoutes: freshRoutes } = await import("../../../src/api/routes/onboarding.js");
     setOnboardingDeps(mockService as never, {} as never);
     anonApp.route("/api/onboarding", freshRoutes);
 
@@ -80,9 +78,7 @@ describe("onboardingRoutes", () => {
   it("POST /session returns 400 without userId or anonymousId", async () => {
     const bareApp = new Hono();
     vi.resetModules();
-    const { setOnboardingDeps, onboardingRoutes: freshRoutes } = await import(
-      "../../../src/api/routes/onboarding.js"
-    );
+    const { setOnboardingDeps, onboardingRoutes: freshRoutes } = await import("../../../src/api/routes/onboarding.js");
     setOnboardingDeps({ createSession: vi.fn() } as never, {} as never);
     bareApp.route("/api/onboarding", freshRoutes);
 
@@ -106,9 +102,7 @@ describe("onboardingRoutes", () => {
       inject: vi.fn(),
       upgradeAnonymousToUser: vi.fn(),
     };
-    const { setOnboardingDeps, onboardingRoutes: freshRoutes } = await import(
-      "../../../src/api/routes/onboarding.js"
-    );
+    const { setOnboardingDeps, onboardingRoutes: freshRoutes } = await import("../../../src/api/routes/onboarding.js");
     setOnboardingDeps(mockService as never, {} as never);
     const notFoundApp = new Hono();
     notFoundApp.route("/api/onboarding", freshRoutes);

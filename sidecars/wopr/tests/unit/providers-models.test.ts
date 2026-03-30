@@ -59,7 +59,7 @@ vi.mock("../../src/core/providers.js", () => ({
         name: reg.provider.name,
         available: reg.available,
         lastChecked: reg.lastChecked,
-      }))
+      })),
     ),
     getProvider: vi.fn((id: string) => mockProviders.get(id)),
     getActiveProvider: vi.fn(() => {
@@ -207,9 +207,7 @@ describe("GET /providers/:id/models", () => {
     vi.mocked(providerRegistry.getProvider).mockReturnValue(reg);
     vi.mocked(providerRegistry.getCredential).mockReturnValue(undefined);
 
-    const enriched = [
-      { id: "model-a", name: "Model A", contextWindow: "200K", maxOutput: "128K", legacy: false },
-    ];
+    const enriched = [{ id: "model-a", name: "Model A", contextWindow: "200K", maxOutput: "128K", legacy: false }];
     vi.mocked(getPluginExtension).mockReturnValue({
       getModelInfo: vi.fn().mockResolvedValue(enriched),
     });

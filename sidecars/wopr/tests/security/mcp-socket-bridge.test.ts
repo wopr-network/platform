@@ -26,20 +26,15 @@ vi.mock("../../src/security/context.js", () => ({
   getContext: vi.fn().mockReturnValue(null),
 }));
 
-const {
-  createMcpSocketBridge,
-  destroyMcpSocketBridge,
-  getMcpSocketBridge,
-  getMcpBridgeMountArgs,
-} = await import("../../src/security/sandbox.js");
+const { createMcpSocketBridge, destroyMcpSocketBridge, getMcpSocketBridge, getMcpBridgeMountArgs } = await import(
+  "../../src/security/sandbox.js"
+);
 
 describe("MCP socket bridge — sandbox plugin absent", () => {
   it("createMcpSocketBridge throws when session is not sandboxed", async () => {
     // getSandboxExtension() returns undefined (plugin not installed),
     // so getSandboxForSession returns null, and createMcpSocketBridge throws.
-    await expect(
-      createMcpSocketBridge("no-sandbox-session", "/tmp/fake.sock"),
-    ).rejects.toThrow("is not sandboxed");
+    await expect(createMcpSocketBridge("no-sandbox-session", "/tmp/fake.sock")).rejects.toThrow("is not sandboxed");
   });
 
   it("getMcpSocketBridge returns undefined for unknown session", () => {

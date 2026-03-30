@@ -146,9 +146,7 @@ export default function NotificationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Notifications</h1>
-          <p className="text-sm text-muted-foreground">
-            Control which system emails you receive from {brandName()}.
-          </p>
+          <p className="text-sm text-muted-foreground">Control which system emails you receive from {brandName()}.</p>
         </div>
 
         <AnimatePresence>
@@ -199,9 +197,7 @@ export default function NotificationsPage() {
             <Card key={group.title}>
               <CardHeader>
                 <CardTitle className="text-sm font-medium">{group.title}</CardTitle>
-                <CardDescription className="sr-only">
-                  {group.title} notification settings
-                </CardDescription>
+                <CardDescription className="sr-only">{group.title} notification settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {group.items.map((item) => (

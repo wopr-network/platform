@@ -26,11 +26,7 @@ vi.mock("../../src/paths.js", () => ({
 import { existsSync } from "node:fs";
 import { providerRegistry } from "../../src/core/providers.js";
 import { loadedPlugins } from "../../src/plugins/state.js";
-import {
-  _resetForTesting,
-  checkReadiness,
-  markStartupComplete,
-} from "../../src/daemon/readiness.js";
+import { _resetForTesting, checkReadiness, markStartupComplete } from "../../src/daemon/readiness.js";
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
@@ -67,9 +63,7 @@ describe("readiness probe", () => {
   it("checks memory db - file exists and accessible", () => {
     vi.mocked(existsSync).mockReturnValue(true);
     markStartupComplete();
-    vi.mocked(providerRegistry.listProviders).mockReturnValue([
-      { id: "test", name: "Test", available: true },
-    ]);
+    vi.mocked(providerRegistry.listProviders).mockReturnValue([{ id: "test", name: "Test", available: true }]);
     const result = checkReadiness();
     expect(result.checks.memory.healthy).toBe(true);
     expect(result.checks.memory.message).toBe("ok");
@@ -83,9 +77,7 @@ describe("readiness probe", () => {
   });
 
   it("checks providers - none available", () => {
-    vi.mocked(providerRegistry.listProviders).mockReturnValue([
-      { id: "openai", name: "OpenAI", available: false },
-    ]);
+    vi.mocked(providerRegistry.listProviders).mockReturnValue([{ id: "openai", name: "OpenAI", available: false }]);
     const result = checkReadiness();
     expect(result.checks.providers.healthy).toBe(false);
     expect(result.checks.providers.message).toBe("0/1 providers available");
@@ -104,9 +96,7 @@ describe("readiness probe", () => {
   it("checks plugins - not ready during startup", () => {
     const result = checkReadiness();
     expect(result.checks.plugins.healthy).toBe(false);
-    expect(result.checks.plugins.message).toBe(
-      "Plugin loading still in progress",
-    );
+    expect(result.checks.plugins.message).toBe("Plugin loading still in progress");
   });
 
   it("checks plugins - ready after startup with loaded plugins", () => {
@@ -119,9 +109,7 @@ describe("readiness probe", () => {
 
   it("returns ready when all checks pass", () => {
     vi.mocked(existsSync).mockReturnValue(true);
-    vi.mocked(providerRegistry.listProviders).mockReturnValue([
-      { id: "openai", name: "OpenAI", available: true },
-    ]);
+    vi.mocked(providerRegistry.listProviders).mockReturnValue([{ id: "openai", name: "OpenAI", available: true }]);
     markStartupComplete();
     loadedPlugins.set("test-plugin", { plugin: {} as any, context: {} as any });
 

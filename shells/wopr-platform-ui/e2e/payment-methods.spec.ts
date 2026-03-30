@@ -92,9 +92,7 @@ async function mockPaymentAPI(page: Page, state: ReturnType<typeof createMockSta
             const body = route.request().postDataJSON();
             const id = body?.["0"]?.json?.id ?? body?.["0"]?.id;
             if (id) {
-              state.billingInfo.paymentMethods = state.billingInfo.paymentMethods.filter(
-                (pm) => pm.id !== id,
-              );
+              state.billingInfo.paymentMethods = state.billingInfo.paymentMethods.filter((pm) => pm.id !== id);
             }
           } catch {
             // ignore
@@ -234,9 +232,7 @@ test.describe("Payment Methods Page", () => {
     await expect(page.getByRole("button", { name: "Remove" })).toHaveCount(1);
   });
 
-  test("add payment method dialog opens and shows Stripe Elements", async ({
-    authedPage: page,
-  }) => {
+  test("add payment method dialog opens and shows Stripe Elements", async ({ authedPage: page }) => {
     test.skip(
       !process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
       "Requires NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to load Stripe.js",
@@ -260,12 +256,10 @@ test.describe("Payment Methods Page", () => {
     await expect(page.getByText("PCI compliant")).toBeVisible();
 
     // Stripe iframe should load
-    const stripeFrame = page.frameLocator(
-      'iframe[src*="js.stripe.com"], iframe[name*="__privateStripeFrame"]',
-    );
-    await expect(
-      stripeFrame.first().locator('[name="number"], [name="cardNumber"], input').first(),
-    ).toBeVisible({ timeout: 15000 });
+    const stripeFrame = page.frameLocator('iframe[src*="js.stripe.com"], iframe[name*="__privateStripeFrame"]');
+    await expect(stripeFrame.first().locator('[name="number"], [name="cardNumber"], input').first()).toBeVisible({
+      timeout: 15000,
+    });
 
     // Cancel closes dialog
     await page.getByRole("button", { name: "Cancel" }).click();

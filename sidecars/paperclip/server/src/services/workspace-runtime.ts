@@ -89,7 +89,10 @@ function stableStringify(value: unknown): string {
   }
   if (value && typeof value === "object") {
     const rec = value as Record<string, unknown>;
-    return `{${Object.keys(rec).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(rec[key])}`).join(",")}}`;
+    return `{${Object.keys(rec)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(rec[key])}`)
+      .join(",")}}`;
   }
   return JSON.stringify(value);
 }
@@ -174,12 +177,15 @@ function sanitizeSlugPart(value: string | null | undefined, fallback: string): s
   return normalized.length > 0 ? normalized : fallback;
 }
 
-function renderWorkspaceTemplate(template: string, input: {
-  issue: ExecutionWorkspaceIssueRef | null;
-  agent: ExecutionWorkspaceAgentRef;
-  projectId: string | null;
-  repoRef: string | null;
-}) {
+function renderWorkspaceTemplate(
+  template: string,
+  input: {
+    issue: ExecutionWorkspaceIssueRef | null;
+    agent: ExecutionWorkspaceAgentRef;
+    projectId: string | null;
+    repoRef: string | null;
+  },
+) {
   const issueIdentifier = input.issue?.identifier ?? input.issue?.id ?? "issue";
   const slug = sanitizeSlugPart(input.issue?.title, sanitizeSlugPart(issueIdentifier, "issue"));
   return renderTemplate(template, {
@@ -203,12 +209,14 @@ function renderWorkspaceTemplate(template: string, input: {
 }
 
 function sanitizeBranchName(value: string): string {
-  return value
-    .trim()
-    .replace(/[^A-Za-z0-9._/-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^[-/.]+|[-/.]+$/g, "")
-    .slice(0, 120) || "paperclip-work";
+  return (
+    value
+      .trim()
+      .replace(/[^A-Za-z0-9._/-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^[-/.]+|[-/.]+$/g, "")
+      .slice(0, 120) || "paperclip-work"
+  );
 }
 
 function isAbsolutePath(value: string) {
@@ -223,9 +231,7 @@ function resolveConfiguredPath(value: string, baseDir: string): string {
 }
 
 function formatCommandForDisplay(command: string, args: string[]) {
-  return [command, ...args]
-    .map((part) => (/^[A-Za-z0-9_./:-]+$/.test(part) ? part : JSON.stringify(part)))
-    .join(" ");
+  return [command, ...args].map((part) => (/^[A-Za-z0-9_./:-]+$/.test(part) ? part : JSON.stringify(part))).join(" ");
 }
 
 async function executeProcess(input: {
@@ -272,7 +278,10 @@ function gitErrorIncludes(error: unknown, needle: string) {
 }
 
 async function directoryExists(value: string) {
-  return fs.stat(value).then((stats) => stats.isDirectory()).catch(() => false);
+  return fs
+    .stat(value)
+    .then((stats) => stats.isDirectory())
+    .catch(() => false);
 }
 
 function terminateChildProcess(child: ChildProcess) {
@@ -321,12 +330,7 @@ function buildWorkspaceCommandEnv(input: {
   return env;
 }
 
-async function runWorkspaceCommand(input: {
-  command: string;
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  label: string;
-}) {
+async function runWorkspaceCommand(input: { command: string; cwd: string; env: NodeJS.ProcessEnv; label: string }) {
   const shell = process.env.SHELL?.trim() || "/bin/sh";
   const proc = await executeProcess({
     command: shell,
@@ -381,7 +385,7 @@ async function recordGitOperation(
         exitCode: result.code,
         stdout: result.stdout,
         stderr: result.stderr,
-        system: result.code === 0 ? input.successMessage ?? null : null,
+        system: result.code === 0 ? (input.successMessage ?? null) : null,
       };
     },
   });
@@ -438,7 +442,7 @@ async function recordWorkspaceCommandOperation(
         exitCode: result.code,
         stdout: result.stdout,
         stderr: result.stderr,
-        system: result.code === 0 ? input.successMessage ?? null : null,
+        system: result.code === 0 ? (input.successMessage ?? null) : null,
       };
     },
   });
@@ -447,9 +451,7 @@ async function recordWorkspaceCommandOperation(
 
   const details = [stderr.trim(), stdout.trim()].filter(Boolean).join("\n");
   throw new Error(
-    details.length > 0
-      ? `${input.label} failed: ${details}`
-      : `${input.label} failed with exit code ${code ?? -1}`,
+    details.length > 0 ? `${input.label} failed: ${details}` : `${input.label} failed with exit code ${code ?? -1}`,
   );
 }
 
@@ -507,8 +509,7 @@ function buildExecutionWorkspaceCleanupEnv(input: {
   const env: NodeJS.ProcessEnv = sanitizeRuntimeServiceBaseEnv(process.env);
   env.PAPERCLIP_WORKSPACE_CWD = input.workspace.cwd ?? "";
   env.PAPERCLIP_WORKSPACE_PATH = input.workspace.cwd ?? "";
-  env.PAPERCLIP_WORKSPACE_WORKTREE_PATH =
-    input.workspace.providerRef ?? input.workspace.cwd ?? "";
+  env.PAPERCLIP_WORKSPACE_WORKTREE_PATH = input.workspace.providerRef ?? input.workspace.cwd ?? "";
   env.PAPERCLIP_WORKSPACE_BRANCH = input.workspace.branchName ?? "";
   env.PAPERCLIP_WORKSPACE_BASE_CWD = input.projectWorkspaceCwd ?? "";
   env.PAPERCLIP_WORKSPACE_REPO_ROOT = input.projectWorkspaceCwd ?? "";
@@ -526,8 +527,7 @@ async function resolveGitRepoRootForWorkspaceCleanup(
 ): Promise<string | null> {
   if (projectWorkspaceCwd) {
     const resolvedProjectWorkspaceCwd = path.resolve(projectWorkspaceCwd);
-    const gitDir = await runGit(["rev-parse", "--git-common-dir"], resolvedProjectWorkspaceCwd)
-      .catch(() => null);
+    const gitDir = await runGit(["rev-parse", "--git-common-dir"], resolvedProjectWorkspaceCwd).catch(() => null);
     if (gitDir) {
       const resolvedGitDir = path.resolve(resolvedProjectWorkspaceCwd, gitDir);
       return path.dirname(resolvedGitDir);
@@ -712,10 +712,7 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
     projectWorkspaceCwd: input.projectWorkspace?.cwd ?? null,
   });
   const createdByRuntime = input.workspace.metadata?.createdByRuntime === true;
-  const cleanupCommands = [
-    input.projectWorkspace?.cleanupCommand ?? null,
-    input.teardownCommand ?? null,
-  ]
+  const cleanupCommands = [input.projectWorkspace?.cleanupCommand ?? null, input.teardownCommand ?? null]
     .map((value) => asString(value, "").trim())
     .filter(Boolean);
 
@@ -741,10 +738,7 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
   }
 
   if (input.workspace.providerType === "git_worktree" && workspacePath) {
-    const repoRoot = await resolveGitRepoRootForWorkspaceCleanup(
-      workspacePath,
-      input.projectWorkspace?.cwd ?? null,
-    );
+    const repoRoot = await resolveGitRepoRootForWorkspaceCleanup(workspacePath, input.projectWorkspace?.cwd ?? null);
     const worktreeExists = await directoryExists(workspacePath);
     if (worktreeExists) {
       if (!repoRoot) {
@@ -797,10 +791,8 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
     const projectWorkspaceCwd = input.projectWorkspace?.cwd ? path.resolve(input.projectWorkspace.cwd) : null;
     const resolvedWorkspacePath = path.resolve(workspacePath);
     const containsProjectWorkspace = projectWorkspaceCwd
-      ? (
-          resolvedWorkspacePath === projectWorkspaceCwd ||
-          projectWorkspaceCwd.startsWith(`${resolvedWorkspacePath}${path.sep}`)
-        )
+      ? resolvedWorkspacePath === projectWorkspaceCwd ||
+        projectWorkspaceCwd.startsWith(`${resolvedWorkspacePath}${path.sep}`)
       : false;
     if (containsProjectWorkspace) {
       warnings.push(`Refusing to remove path "${workspacePath}" because it contains the project workspace.`);
@@ -825,9 +817,7 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
     }
   }
 
-  const cleaned =
-    !workspacePath ||
-    !(await directoryExists(workspacePath));
+  const cleaned = !workspacePath || !(await directoryExists(workspacePath));
 
   return {
     cleanedPath: workspacePath,
@@ -897,14 +887,16 @@ function resolveServiceScopeId(input: {
   scopeType: "project_workspace" | "execution_workspace" | "run" | "agent";
   scopeId: string | null;
 } {
-  const scopeTypeRaw = asString(input.service.reuseScope, input.service.lifecycle === "shared" ? "project_workspace" : "run");
+  const scopeTypeRaw = asString(
+    input.service.reuseScope,
+    input.service.lifecycle === "shared" ? "project_workspace" : "run",
+  );
   const scopeType =
-    scopeTypeRaw === "project_workspace" ||
-    scopeTypeRaw === "execution_workspace" ||
-    scopeTypeRaw === "agent"
+    scopeTypeRaw === "project_workspace" || scopeTypeRaw === "execution_workspace" || scopeTypeRaw === "agent"
       ? scopeTypeRaw
       : "run";
-  if (scopeType === "project_workspace") return { scopeType, scopeId: input.workspace.workspaceId ?? input.workspace.projectId };
+  if (scopeType === "project_workspace")
+    return { scopeType, scopeId: input.workspace.workspaceId ?? input.workspace.projectId };
   if (scopeType === "execution_workspace") {
     return { scopeType, scopeId: input.executionWorkspaceId ?? input.workspace.cwd };
   }
@@ -912,10 +904,7 @@ function resolveServiceScopeId(input: {
   return { scopeType: "run" as const, scopeId: input.runId };
 }
 
-async function waitForReadiness(input: {
-  service: Record<string, unknown>;
-  url: string | null;
-}) {
+async function waitForReadiness(input: { service: Record<string, unknown>; url: string | null }) {
   const readiness = parseObject(input.service.readiness);
   const readinessType = asString(readiness.type, "");
   if (readinessType !== "http" || !input.url) return;
@@ -936,7 +925,9 @@ async function waitForReadiness(input: {
   throw new Error(`Readiness check failed for ${input.url}: ${lastError}`);
 }
 
-function toPersistedWorkspaceRuntimeService(record: RuntimeServiceRecord): typeof workspaceRuntimeServices.$inferInsert {
+function toPersistedWorkspaceRuntimeService(
+  record: RuntimeServiceRecord,
+): typeof workspaceRuntimeServices.$inferInsert {
   return {
     id: record.id,
     companyId: record.companyId,
@@ -1028,7 +1019,7 @@ export function normalizeAdapterManagedRuntimeServices(input: {
       (scopeType === "project_workspace"
         ? input.workspace.workspaceId
         : scopeType === "execution_workspace"
-          ? input.executionWorkspaceId ?? input.workspace.cwd
+          ? (input.executionWorkspaceId ?? input.workspace.cwd)
           : scopeType === "agent"
             ? input.agent.id
             : input.runId) ??
@@ -1037,8 +1028,7 @@ export function normalizeAdapterManagedRuntimeServices(input: {
     const status = report.status ?? "running";
     const lifecycle = report.lifecycle ?? "ephemeral";
     const healthStatus =
-      report.healthStatus ??
-      (status === "running" ? "healthy" : status === "failed" ? "unhealthy" : "unknown");
+      report.healthStatus ?? (status === "running" ? "healthy" : status === "failed" ? "unhealthy" : "unknown");
     return {
       id: stableRuntimeServiceId({
         adapterType: input.adapterType,
@@ -1144,9 +1134,7 @@ async function startLocalRuntimeService(input: {
 
   const expose = parseObject(input.service.expose);
   const readiness = parseObject(input.service.readiness);
-  const urlTemplate =
-    asString(expose.urlTemplate, "") ||
-    asString(readiness.urlTemplate, "");
+  const urlTemplate = asString(expose.urlTemplate, "") || asString(readiness.urlTemplate, "");
   const url = urlTemplate ? renderTemplate(urlTemplate, templateData) : null;
 
   try {
@@ -1300,9 +1288,7 @@ export async function ensureRuntimeServicesForRun(input: {
       const envFingerprint = createHash("sha256").update(stableStringify(envConfig)).digest("hex");
       const serviceName = asString(service.name, "service");
       const reuseKey =
-        lifecycle === "shared"
-          ? [scopeType, scopeId ?? "", serviceName, envFingerprint].join(":")
-          : null;
+        lifecycle === "shared" ? [scopeType, scopeId ?? "", serviceName, envFingerprint].join(":") : null;
 
       if (reuseKey) {
         const existingId = runtimeServicesByReuseKey.get(reuseKey);
@@ -1377,10 +1363,7 @@ export async function stopRuntimeServicesForExecutionWorkspace(input: {
       if (record.executionWorkspaceId === input.executionWorkspaceId) return true;
       if (!normalizedWorkspaceCwd || !record.cwd) return false;
       const resolvedCwd = path.resolve(record.cwd);
-      return (
-        resolvedCwd === normalizedWorkspaceCwd ||
-        resolvedCwd.startsWith(`${normalizedWorkspaceCwd}${path.sep}`)
-      );
+      return resolvedCwd === normalizedWorkspaceCwd || resolvedCwd.startsWith(`${normalizedWorkspaceCwd}${path.sep}`);
     })
     .map((record) => record.id);
 
@@ -1401,7 +1384,7 @@ export async function listWorkspaceRuntimeServicesForProjectWorkspaces(
   companyId: string,
   projectWorkspaceIds: string[],
 ) {
-  if (projectWorkspaceIds.length === 0) return new Map<string, typeof workspaceRuntimeServices.$inferSelect[]>();
+  if (projectWorkspaceIds.length === 0) return new Map<string, (typeof workspaceRuntimeServices.$inferSelect)[]>();
   const rows = await db
     .select()
     .from(workspaceRuntimeServices)
@@ -1413,7 +1396,7 @@ export async function listWorkspaceRuntimeServicesForProjectWorkspaces(
     )
     .orderBy(desc(workspaceRuntimeServices.updatedAt), desc(workspaceRuntimeServices.createdAt));
 
-  const grouped = new Map<string, typeof workspaceRuntimeServices.$inferSelect[]>();
+  const grouped = new Map<string, (typeof workspaceRuntimeServices.$inferSelect)[]>();
   for (const row of rows) {
     if (!row.projectWorkspaceId) continue;
     const existing = grouped.get(row.projectWorkspaceId);
@@ -1472,7 +1455,12 @@ export async function persistAdapterManagedRuntimeServices(input: {
   const existingRows = await input.db
     .select()
     .from(workspaceRuntimeServices)
-    .where(inArray(workspaceRuntimeServices.id, refs.map((ref) => ref.id)));
+    .where(
+      inArray(
+        workspaceRuntimeServices.id,
+        refs.map((ref) => ref.id),
+      ),
+    );
   const existingById = new Map(existingRows.map((row) => [row.id, row]));
 
   for (const ref of refs) {

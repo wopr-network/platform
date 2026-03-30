@@ -21,10 +21,7 @@ function SheetClose({ ...props }: React.ComponentProps<typeof DialogPrimitive.Cl
   return <DialogPrimitive.Close data-slot="sheet-close" {...props} />;
 }
 
-function SheetOverlay({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
+function SheetOverlay({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Overlay>) {
   return (
     <DialogPrimitive.Overlay
       data-slot="sheet-overlay"
@@ -47,11 +44,9 @@ function SheetContent({
 }) {
   const sideClasses = {
     left: "inset-y-0 left-0 data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left",
-    right:
-      "inset-y-0 right-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+    right: "inset-y-0 right-0 data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
     top: "inset-x-0 top-0 data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top",
-    bottom:
-      "inset-x-0 bottom-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
+    bottom: "inset-x-0 bottom-0 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
   };
 
   return (
@@ -80,13 +75,7 @@ function SheetContent({
 }
 
 function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="sheet-header"
-      className={cn("flex flex-col gap-2 p-6 pb-0", className)}
-      {...props}
-    />
-  );
+  return <div data-slot="sheet-header" className={cn("flex flex-col gap-2 p-6 pb-0", className)} {...props} />;
 }
 
 function SheetTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
@@ -99,10 +88,7 @@ function SheetTitle({ className, ...props }: React.ComponentProps<typeof DialogP
   );
 }
 
-function SheetDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Description>) {
+function SheetDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
       data-slot="sheet-description"

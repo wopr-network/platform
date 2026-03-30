@@ -91,13 +91,7 @@ describe("Stripe refund flow — credit deduction and ledger consistency", () =>
   }
 
   async function spendCredits(cents: number): Promise<void> {
-    await creditLedger.debit(
-      TENANT_ID,
-      Credit.fromCents(cents),
-      "bot_runtime",
-      "Test usage debit",
-      randomUUID(),
-    );
+    await creditLedger.debit(TENANT_ID, Credit.fromCents(cents), "bot_runtime", "Test usage debit", randomUUID());
   }
 
   it("full refund deducts all credits and records refund transaction", async () => {
@@ -177,7 +171,7 @@ describe("Stripe refund flow — credit deduction and ledger consistency", () =>
       chargeId,
       eventId: `evt_${randomUUID()}`,
       amountRefunded: 5000, // cumulative: 3000 + 2000
-      refundAmount: 2000,   // incremental amount of this specific refund
+      refundAmount: 2000, // incremental amount of this specific refund
     });
 
     const result1 = await handleWebhookEvent(deps, event1);

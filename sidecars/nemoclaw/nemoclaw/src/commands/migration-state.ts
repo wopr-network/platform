@@ -273,9 +273,7 @@ function collectExternalRoots(
       }
       const agent = entry as Record<string, unknown>;
       const agentId =
-        typeof agent["id"] === "string" && agent["id"].trim()
-          ? agent["id"].trim()
-          : `agent-${String(index)}`;
+        typeof agent["id"] === "string" && agent["id"].trim() ? agent["id"].trim() : `agent-${String(index)}`;
 
       if (typeof agent["workspace"] === "string" && agent["workspace"].trim()) {
         registerRoot(rootMap, {
@@ -422,11 +420,9 @@ export function detectHostOpenClaw(env: NodeJS.ProcessEnv = process.env): HostOp
     typeof config["agents"] === "object" &&
     config["agents"] &&
     !Array.isArray(config["agents"]) &&
-    typeof (
-      (config["agents"] as Record<string, unknown>)["defaults"] as
-        | Record<string, unknown>
-        | undefined
-    )?.["workspace"] === "string"
+    typeof ((config["agents"] as Record<string, unknown>)["defaults"] as Record<string, unknown> | undefined)?.[
+      "workspace"
+    ] === "string"
       ? resolveUserPath(
           (
             ((config["agents"] as Record<string, unknown>)["defaults"] as Record<string, unknown>)[
@@ -437,21 +433,15 @@ export function detectHostOpenClaw(env: NodeJS.ProcessEnv = process.env): HostOp
         )
       : defaultWorkspacePath(env);
 
-  const extensionsDir = existsSync(path.join(stateDir, "extensions"))
-    ? path.join(stateDir, "extensions")
-    : null;
-  const skillsDir = existsSync(path.join(stateDir, "skills"))
-    ? path.join(stateDir, "skills")
-    : null;
+  const extensionsDir = existsSync(path.join(stateDir, "extensions")) ? path.join(stateDir, "extensions") : null;
+  const skillsDir = existsSync(path.join(stateDir, "skills")) ? path.join(stateDir, "skills") : null;
   const hooksDir = existsSync(path.join(stateDir, "hooks")) ? path.join(stateDir, "hooks") : null;
 
   if (existsSync(workspaceDir)) {
     try {
       const symlinkPaths = collectSymlinkPaths(workspaceDir);
       if (symlinkPaths.length > 0) {
-        warnings.push(
-          `Primary workspace contains ${String(symlinkPaths.length)} symlink(s): ${workspaceDir}.`,
-        );
+        warnings.push(`Primary workspace contains ${String(symlinkPaths.length)} symlink(s): ${workspaceDir}.`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -492,11 +482,7 @@ function computeFileDigest(filePath: string): string | null {
  */
 const CREDENTIAL_SENSITIVE_BASENAMES = new Set(["auth-profiles.json"]);
 
-function copyDirectory(
-  sourcePath: string,
-  destinationPath: string,
-  options?: { stripCredentials?: boolean },
-): void {
+function copyDirectory(sourcePath: string, destinationPath: string, options?: { stripCredentials?: boolean }): void {
   cpSync(sourcePath, destinationPath, {
     recursive: true,
     filter: options?.stripCredentials
@@ -510,9 +496,7 @@ function writeSnapshotManifest(snapshotDir: string, manifest: SnapshotManifest):
 }
 
 function readSnapshotManifest(snapshotDir: string): SnapshotManifest {
-  return JSON.parse(
-    readFileSync(path.join(snapshotDir, "snapshot.json"), "utf-8"),
-  ) as SnapshotManifest;
+  return JSON.parse(readFileSync(path.join(snapshotDir, "snapshot.json"), "utf-8")) as SnapshotManifest;
 }
 
 function resolveConfigSourcePath(manifest: SnapshotManifest, snapshotDir: string): string {
@@ -522,11 +506,7 @@ function resolveConfigSourcePath(manifest: SnapshotManifest, snapshotDir: string
   return path.join(snapshotDir, "openclaw", "openclaw.json");
 }
 
-function setConfigValue(
-  document: Record<string, unknown>,
-  configPath: string,
-  value: string,
-): void {
+function setConfigValue(document: Record<string, unknown>, configPath: string, value: string): void {
   const tokens = configPath.match(/[^.[\]]+/g);
   if (!tokens || tokens.length === 0) {
     throw new Error(`Invalid config path: ${configPath}`);
@@ -605,12 +585,7 @@ export function createSnapshotBundle(
   }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const parentDir = path.join(
-    hostState.homeDir,
-    ".nemoclaw",
-    options.persist ? "snapshots" : "staging",
-    timestamp,
-  );
+  const parentDir = path.join(hostState.homeDir, ".nemoclaw", options.persist ? "snapshots" : "staging", timestamp);
 
   try {
     mkdirSync(parentDir, { recursive: true });
@@ -651,8 +626,7 @@ export function createSnapshotBundle(
       const digest = computeFileDigest(options.blueprintPath);
       if (!digest) {
         throw new Error(
-          `Cannot compute blueprint digest for ${options.blueprintPath}. ` +
-            "The file may be missing or unreadable.",
+          `Cannot compute blueprint digest for ${options.blueprintPath}. ` + "The file may be missing or unreadable.",
         );
       }
       manifest.blueprintDigest = digest;
@@ -681,10 +655,7 @@ export function cleanupSnapshotBundle(bundle: SnapshotBundle): void {
   }
 }
 
-export async function createArchiveFromDirectory(
-  sourceDir: string,
-  archivePath: string,
-): Promise<void> {
+export async function createArchiveFromDirectory(sourceDir: string, archivePath: string): Promise<void> {
   mkdirSync(path.dirname(archivePath), { recursive: true });
   await createTar(
     {
@@ -797,8 +768,7 @@ export function restoreSnapshotToHost(
     const currentDigest = options?.blueprintPath ? computeFileDigest(options.blueprintPath) : null;
     if (!currentDigest) {
       logger.error(
-        "Snapshot contains a blueprintDigest but no blueprint is available for verification. " +
-          "Refusing to restore.",
+        "Snapshot contains a blueprintDigest but no blueprint is available for verification. " + "Refusing to restore.",
       );
       return false;
     }

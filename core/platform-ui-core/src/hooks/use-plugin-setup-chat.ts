@@ -37,9 +37,7 @@ type SseEvent =
   | { type: "tool_call"; tool: string; args: Record<string, unknown> }
   | { type: "typing" };
 
-export function usePluginSetupChat(
-  onComplete?: (pluginId: string) => void,
-): UsePluginSetupChatReturn {
+export function usePluginSetupChat(onComplete?: (pluginId: string) => void): UsePluginSetupChatReturn {
   const [state, setState] = useState<PluginSetupState>(initialState);
   const abortRef = useRef<AbortController | null>(null);
   const botIdRef = useRef<string | null>(null);
@@ -138,8 +136,7 @@ export function usePluginSetupChat(
                   setState((s) => ({ ...s, isComplete: true }));
                   onComplete?.(pluginId);
                 } else if (event.type === "tool_call" && event.tool === "setup.rollback") {
-                  const reason =
-                    typeof event.args?.reason === "string" ? event.args.reason : "Setup failed";
+                  const reason = typeof event.args?.reason === "string" ? event.args.reason : "Setup failed";
                   setState((s) => ({
                     ...s,
                     messages: [

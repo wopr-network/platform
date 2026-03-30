@@ -59,12 +59,32 @@ function makeMockDoClient(): DOClient {
     createDroplet: vi.fn().mockResolvedValue(makeDroplet()),
     getDroplet: vi.fn().mockResolvedValue(makeDroplet()),
     deleteDroplet: vi.fn().mockResolvedValue(undefined),
-    listRegions: vi.fn().mockResolvedValue([
-      { slug: "nyc1", name: "New York 1", available: true, sizes: ["gpu-h100x1-80gb", "s-1vcpu-1gb"] },
-    ] as DORegion[]),
+    listRegions: vi
+      .fn()
+      .mockResolvedValue([
+        { slug: "nyc1", name: "New York 1", available: true, sizes: ["gpu-h100x1-80gb", "s-1vcpu-1gb"] },
+      ] as DORegion[]),
     listSizes: vi.fn().mockResolvedValue([
-      { slug: "gpu-h100x1-80gb", memory: 81920, vcpus: 8, disk: 320, price_monthly: 2999, available: true, regions: ["nyc1"], description: "GPU H100" },
-      { slug: "s-1vcpu-1gb", memory: 1024, vcpus: 1, disk: 25, price_monthly: 6, available: true, regions: ["nyc1"], description: "Basic" },
+      {
+        slug: "gpu-h100x1-80gb",
+        memory: 81920,
+        vcpus: 8,
+        disk: 320,
+        price_monthly: 2999,
+        available: true,
+        regions: ["nyc1"],
+        description: "GPU H100",
+      },
+      {
+        slug: "s-1vcpu-1gb",
+        memory: 1024,
+        vcpus: 1,
+        disk: 25,
+        price_monthly: 6,
+        available: true,
+        regions: ["nyc1"],
+        description: "Basic",
+      },
     ] as DOSize[]),
   } as unknown as DOClient;
 }
@@ -94,12 +114,7 @@ describe("GpuNodeProvisioner", () => {
       expect(repo.updateStage).toHaveBeenCalledWith(expect.any(String), "creating");
       expect(doClient.createDroplet).toHaveBeenCalledOnce();
       expect(repo.updateStage).toHaveBeenCalledWith(expect.any(String), "waiting_active");
-      expect(repo.updateHost).toHaveBeenCalledWith(
-        expect.any(String),
-        "10.0.0.1",
-        "12345",
-        299900,
-      );
+      expect(repo.updateHost).toHaveBeenCalledWith(expect.any(String), "10.0.0.1", "12345", 299900);
       expect(repo.updateStage).toHaveBeenCalledWith(expect.any(String), "waiting_agent");
 
       expect(result).toMatchObject({
@@ -114,15 +129,11 @@ describe("GpuNodeProvisioner", () => {
     it("should use custom name when provided", async () => {
       const result = await provisioner.provision({ name: "my-gpu" });
       expect(result.nodeId).toBe("my-gpu");
-      expect(repo.insert).toHaveBeenCalledWith(
-        expect.objectContaining({ id: "my-gpu" }),
-      );
+      expect(repo.insert).toHaveBeenCalledWith(expect.objectContaining({ id: "my-gpu" }));
     });
 
     it("should set error on repo if provisioning fails", async () => {
-      (doClient.createDroplet as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error("API down"),
-      );
+      (doClient.createDroplet as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("API down"));
 
       await expect(provisioner.provision()).rejects.toThrow("API down");
       expect(repo.updateStatus).toHaveBeenCalledWith(expect.any(String), "failed");
@@ -140,9 +151,7 @@ describe("GpuNodeProvisioner", () => {
     });
 
     it("should throw GpuProvisioningError on poll timeout", async () => {
-      (doClient.getDroplet as ReturnType<typeof vi.fn>).mockResolvedValue(
-        makeDroplet({ status: "new" }),
-      );
+      (doClient.getDroplet as ReturnType<typeof vi.fn>).mockResolvedValue(makeDroplet({ status: "new" }));
 
       provisioner = new GpuNodeProvisioner(repo, doClient, {
         sshKeyId: 42,
@@ -158,9 +167,7 @@ describe("GpuNodeProvisioner", () => {
 
   describe("destroy", () => {
     it("should delete droplet and repo record", async () => {
-      (repo.getById as ReturnType<typeof vi.fn>).mockReturnValue(
-        makeGpuNode({ id: "gpu-1", dropletId: "12345" }),
-      );
+      (repo.getById as ReturnType<typeof vi.fn>).mockReturnValue(makeGpuNode({ id: "gpu-1", dropletId: "12345" }));
 
       await provisioner.destroy("gpu-1");
       expect(doClient.deleteDroplet).toHaveBeenCalledWith(12345);
@@ -173,9 +180,7 @@ describe("GpuNodeProvisioner", () => {
     });
 
     it("should skip droplet deletion if no dropletId", async () => {
-      (repo.getById as ReturnType<typeof vi.fn>).mockReturnValue(
-        makeGpuNode({ id: "gpu-1", dropletId: null }),
-      );
+      (repo.getById as ReturnType<typeof vi.fn>).mockReturnValue(makeGpuNode({ id: "gpu-1", dropletId: null }));
 
       await provisioner.destroy("gpu-1");
       expect(doClient.deleteDroplet).not.toHaveBeenCalled();

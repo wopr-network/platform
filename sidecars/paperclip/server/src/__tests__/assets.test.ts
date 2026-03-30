@@ -38,22 +38,24 @@ function createAsset() {
 }
 
 function createStorageService(contentType = "image/png"): StorageService {
-  const putFile: StorageService["putFile"] = vi.fn(async (input: {
-    companyId: string;
-    namespace: string;
-    originalFilename: string | null;
-    contentType: string;
-    body: Buffer;
-  }) => {
-    return {
-      provider: "local_disk" as const,
-      objectKey: `${input.namespace}/${input.originalFilename ?? "upload"}`,
-      contentType: contentType || input.contentType,
-      byteSize: input.body.length,
-      sha256: "sha256-sample",
-      originalFilename: input.originalFilename,
-    };
-  });
+  const putFile: StorageService["putFile"] = vi.fn(
+    async (input: {
+      companyId: string;
+      namespace: string;
+      originalFilename: string | null;
+      contentType: string;
+      body: Buffer;
+    }) => {
+      return {
+        provider: "local_disk" as const,
+        objectKey: `${input.namespace}/${input.originalFilename ?? "upload"}`,
+        contentType: contentType || input.contentType,
+        byteSize: input.body.length,
+        sha256: "sha256-sample",
+        originalFilename: input.originalFilename,
+      };
+    },
+  );
 
   return {
     provider: "local_disk" as const,
@@ -147,9 +149,7 @@ describe("POST /api/companies/:companyId/logo", () => {
 
     createAssetMock.mockResolvedValue(createAsset());
 
-    const res = await request(app)
-      .post("/api/companies/company-1/logo")
-      .attach("file", Buffer.from("png"), "logo.png");
+    const res = await request(app).post("/api/companies/company-1/logo").attach("file", Buffer.from("png"), "logo.png");
 
     expect(res.status).toBe(201);
     expect(res.body.contentPath).toBe("/api/assets/asset-1/content");
@@ -202,9 +202,7 @@ describe("POST /api/companies/:companyId/logo", () => {
     createAssetMock.mockResolvedValue(createAsset());
 
     const file = Buffer.alloc(150 * 1024, "a");
-    const res = await request(app)
-      .post("/api/companies/company-1/logo")
-      .attach("file", file, "within-limit.png");
+    const res = await request(app).post("/api/companies/company-1/logo").attach("file", file, "within-limit.png");
 
     expect(res.status).toBe(201);
   });
@@ -214,9 +212,7 @@ describe("POST /api/companies/:companyId/logo", () => {
     createAssetMock.mockResolvedValue(createAsset());
 
     const file = Buffer.alloc(MAX_ATTACHMENT_BYTES + 1, "a");
-    const res = await request(app)
-      .post("/api/companies/company-1/logo")
-      .attach("file", file, "too-large.png");
+    const res = await request(app).post("/api/companies/company-1/logo").attach("file", file, "too-large.png");
 
     expect(res.status).toBe(422);
     expect(res.body.error).toBe(`Image exceeds ${MAX_ATTACHMENT_BYTES} bytes`);

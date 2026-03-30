@@ -109,16 +109,11 @@ describe("E2E: node agent registration → heartbeat → fleet bot assignment", 
 
     const onRecovery = vi.fn();
     const onStatusChange = vi.fn();
-    const watchdog = new HeartbeatWatchdog(
-      nodeRepo as INodeRepository,
-      onRecovery,
-      onStatusChange,
-      {
-        unhealthyThresholdS: 90,
-        offlineThresholdS: 300,
-        checkIntervalMs: 1000,
-      },
-    );
+    const watchdog = new HeartbeatWatchdog(nodeRepo as INodeRepository, onRecovery, onStatusChange, {
+      unhealthyThresholdS: 90,
+      offlineThresholdS: 300,
+      checkIntervalMs: 1000,
+    });
 
     try {
       const registered = await nodeRepo.register({

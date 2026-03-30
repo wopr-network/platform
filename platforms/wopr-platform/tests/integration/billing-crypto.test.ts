@@ -7,7 +7,12 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_HEADER, JSON_HEADERS } from "./setup.js";
-import { beginTestTransaction, createTestDb, endTestTransaction, rollbackTestTransaction } from "@wopr-network/platform-core/test/db";
+import {
+  beginTestTransaction,
+  createTestDb,
+  endTestTransaction,
+  rollbackTestTransaction,
+} from "@wopr-network/platform-core/test/db";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 
 const { app } = await import("../../src/api/app.js");
@@ -15,14 +20,18 @@ const { setBillingDeps } = await import("../../src/api/routes/billing.js");
 const { DrizzleLedger } = await import("@wopr-network/platform-core");
 const { MeterAggregator } = await import("@wopr-network/platform-core/metering");
 const { DrizzleUsageSummaryRepository } = await import("@wopr-network/platform-core/metering");
-const { DrizzleAffiliateRepository } = await import("@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository");
+const { DrizzleAffiliateRepository } = await import(
+  "@wopr-network/platform-core/monetization/affiliate/drizzle-affiliate-repository"
+);
 const { DrizzleCryptoChargeRepository, noOpReplayGuard } = await import("@wopr-network/platform-core/billing");
 
 function createMockProcessor(): import("@wopr-network/platform-core/monetization/payment-processor").IPaymentProcessor {
   return {
     name: "mock",
     supportsPortal: () => true,
-    createCheckoutSession: vi.fn().mockResolvedValue({ id: "cs_test", url: "https://checkout.stripe.com/cs_test" }) as never,
+    createCheckoutSession: vi
+      .fn()
+      .mockResolvedValue({ id: "cs_test", url: "https://checkout.stripe.com/cs_test" }) as never,
     createPortalSession: vi.fn().mockResolvedValue({ url: "https://billing.stripe.com/portal_test" }) as never,
     handleWebhook: vi.fn().mockResolvedValue({ handled: false, eventType: "unknown" }) as never,
     setupPaymentMethod: vi.fn().mockResolvedValue({ clientSecret: "seti_test" }) as never,

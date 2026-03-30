@@ -173,10 +173,7 @@ describe("destroySandbox", () => {
     const listProc = createMockProcess("container-a\n\n\ncontainer-b\n\n");
     const rmProc1 = createMockProcess("");
     const rmProc2 = createMockProcess("");
-    spawnMock
-      .mockReturnValueOnce(listProc)
-      .mockReturnValueOnce(rmProc1)
-      .mockReturnValueOnce(rmProc2);
+    spawnMock.mockReturnValueOnce(listProc).mockReturnValueOnce(rmProc1).mockReturnValueOnce(rmProc2);
 
     await destroySandbox("newline-session");
 
@@ -197,10 +194,7 @@ describe("destroySandbox", () => {
     const listProc = createMockProcess("container-x\ncontainer-y\n");
     const rmProc1 = createMockProcess("", 1); // fails
     const rmProc2 = createMockProcess("", 0); // succeeds
-    spawnMock
-      .mockReturnValueOnce(listProc)
-      .mockReturnValueOnce(rmProc1)
-      .mockReturnValueOnce(rmProc2);
+    spawnMock.mockReturnValueOnce(listProc).mockReturnValueOnce(rmProc1).mockReturnValueOnce(rmProc2);
 
     // Should not throw — each rm uses allowFailure: true
     await destroySandbox("partial-fail-session");
@@ -227,10 +221,7 @@ describe("cleanupAllSandboxes", () => {
     const listProc = createMockProcess("sandbox-a\nsandbox-b\n");
     const rmProc1 = createMockProcess("");
     const rmProc2 = createMockProcess("");
-    spawnMock
-      .mockReturnValueOnce(listProc)
-      .mockReturnValueOnce(rmProc1)
-      .mockReturnValueOnce(rmProc2);
+    spawnMock.mockReturnValueOnce(listProc).mockReturnValueOnce(rmProc1).mockReturnValueOnce(rmProc2);
 
     await cleanupAllSandboxes();
 

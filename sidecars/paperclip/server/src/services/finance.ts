@@ -8,13 +8,7 @@ export interface FinanceDateRange {
   to?: Date;
 }
 
-async function assertBelongsToCompany(
-  db: Db,
-  table: any,
-  id: string,
-  companyId: string,
-  label: string,
-) {
+async function assertBelongsToCompany(db: Db, table: any, id: string, companyId: string, label: string) {
   const row = await db
     .select()
     .from(table)
@@ -45,7 +39,8 @@ export function financeService(db: Db) {
       if (data.issueId) await assertBelongsToCompany(db, issues, data.issueId, companyId, "Issue");
       if (data.projectId) await assertBelongsToCompany(db, projects, data.projectId, companyId, "Project");
       if (data.goalId) await assertBelongsToCompany(db, goals, data.goalId, companyId, "Goal");
-      if (data.heartbeatRunId) await assertBelongsToCompany(db, heartbeatRuns, data.heartbeatRunId, companyId, "Heartbeat run");
+      if (data.heartbeatRunId)
+        await assertBelongsToCompany(db, heartbeatRuns, data.heartbeatRunId, companyId, "Heartbeat run");
       if (data.costEventId) await assertBelongsToCompany(db, costEvents, data.costEventId, companyId, "Cost event");
 
       const event = await db

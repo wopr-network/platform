@@ -21,8 +21,7 @@ import { registerWorktreeCommands } from "./commands/worktree.js";
 import { registerPluginCommands } from "./commands/client/plugin.js";
 
 const program = new Command();
-const DATA_DIR_OPTION_HELP =
-  "Paperclip data directory root (isolates state from ~/.paperclip)";
+const DATA_DIR_OPTION_HELP = "Paperclip data directory root (isolates state from ~/.paperclip)";
 
 program
   .name("paperclipai")
@@ -118,11 +117,7 @@ heartbeat
   .option("--profile <name>", "CLI context profile name")
   .option("--api-base <url>", "Base URL for the Paperclip server API")
   .option("--api-key <token>", "Bearer token for agent-authenticated calls")
-  .option(
-    "--source <source>",
-    "Invocation source (timer | assignment | on_demand | automation)",
-    "on_demand",
-  )
+  .option("--source <source>", "Invocation source (timer | assignment | on_demand | automation)", "on_demand")
   .option("--trigger <trigger>", "Trigger detail (manual | ping | callback | system)", "manual")
   .option("--timeout-ms <ms>", "Max time to wait before giving up", "0")
   .option("--json", "Output raw JSON where applicable")

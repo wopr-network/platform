@@ -247,9 +247,7 @@ describe("realizeExecutionWorkspace", () => {
     await expect(fs.readFile(path.join(workspace.cwd, ".paperclip-provision-base"), "utf8")).resolves.toBe(
       `${repoRoot}\n`,
     );
-    await expect(fs.readFile(path.join(workspace.cwd, ".paperclip-provision-created"), "utf8")).resolves.toBe(
-      "true\n",
-    );
+    await expect(fs.readFile(path.join(workspace.cwd, ".paperclip-provision-created"), "utf8")).resolves.toBe("true\n");
 
     const reused = await realizeExecutionWorkspace({
       base: {
@@ -289,11 +287,7 @@ describe("realizeExecutionWorkspace", () => {
     await fs.mkdir(path.join(repoRoot, "scripts"), { recursive: true });
     await fs.writeFile(
       path.join(repoRoot, "scripts", "provision.sh"),
-      [
-        "#!/usr/bin/env bash",
-        "set -euo pipefail",
-        "printf 'provisioned\\n'",
-      ].join("\n"),
+      ["#!/usr/bin/env bash", "set -euo pipefail", "printf 'provisioned\\n'"].join("\n"),
       "utf8",
     );
     await runGit(repoRoot, ["add", "scripts/provision.sh"]);
@@ -328,10 +322,7 @@ describe("realizeExecutionWorkspace", () => {
       recorder,
     });
 
-    expect(operations.map((operation) => operation.phase)).toEqual([
-      "worktree_prepare",
-      "workspace_provision",
-    ]);
+    expect(operations.map((operation) => operation.phase)).toEqual(["worktree_prepare", "workspace_provision"]);
     expect(operations[0]?.command).toContain("git worktree add");
     expect(operations[0]?.metadata).toMatchObject({
       branchName: "PAP-540-record-workspace-operations",

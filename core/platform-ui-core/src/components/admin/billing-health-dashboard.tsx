@@ -79,9 +79,7 @@ function CheckRow({ ok, label, detail }: { ok: boolean; label: string; detail?: 
   return (
     <div className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
       <div className="flex items-center gap-2">
-        <div
-          className={cn("w-2 h-2 rounded-full flex-shrink-0", ok ? "bg-green-500" : "bg-red-500")}
-        />
+        <div className={cn("w-2 h-2 rounded-full flex-shrink-0", ok ? "bg-green-500" : "bg-red-500")} />
         <span className="text-sm">{label}</span>
       </div>
       {detail && <span className="text-xs text-muted-foreground">{detail}</span>}
@@ -131,9 +129,7 @@ export function BillingHealthDashboard() {
 
     async function poll() {
       try {
-        const result = (await trpcVanilla.admin.billingHealth.query(
-          undefined,
-        )) as BillingHealthData;
+        const result = (await trpcVanilla.admin.billingHealth.query(undefined)) as BillingHealthData;
         if (active) {
           setData(result);
           setError(null);
@@ -184,9 +180,7 @@ export function BillingHealthDashboard() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <StatusBadge status={data.overall} />
-          {data.severity && (
-            <span className="text-sm text-muted-foreground font-medium">{data.severity}</span>
-          )}
+          {data.severity && <span className="text-sm text-muted-foreground font-medium">{data.severity}</span>}
         </div>
         {lastUpdated && (
           <span className="text-xs text-muted-foreground">
@@ -230,9 +224,7 @@ export function BillingHealthDashboard() {
           label="Revenue (24h)"
           value={formatCents(data.business.revenueToday)}
           sub={
-            data.business.activeTenantCount !== null
-              ? `${data.business.activeTenantCount} active tenants`
-              : undefined
+            data.business.activeTenantCount !== null ? `${data.business.activeTenantCount} active tenants` : undefined
           }
         />
       </div>
@@ -298,12 +290,7 @@ export function BillingHealthDashboard() {
           </CardHeader>
           <CardContent>
             {data.alerts.map((alert) => (
-              <CheckRow
-                key={alert.name}
-                ok={!alert.firing}
-                label={alert.name}
-                detail={alert.message}
-              />
+              <CheckRow key={alert.name} ok={!alert.firing} label={alert.name} detail={alert.message} />
             ))}
           </CardContent>
         </Card>
@@ -319,11 +306,7 @@ export function BillingHealthDashboard() {
             <div>
               <div className="text-xs text-muted-foreground mb-1">CPU</div>
               <div className="text-lg font-medium">
-                {(data.system.cpuCount > 0
-                  ? (data.system.cpuLoad1m / data.system.cpuCount) * 100
-                  : 0
-                ).toFixed(0)}
-                %
+                {(data.system.cpuCount > 0 ? (data.system.cpuLoad1m / data.system.cpuCount) * 100 : 0).toFixed(0)}%
               </div>
               <div className="text-xs text-muted-foreground">
                 Load {data.system.cpuLoad1m.toFixed(2)} / {data.system.cpuCount} cores
@@ -339,8 +322,7 @@ export function BillingHealthDashboard() {
                 %
               </div>
               <div className="text-xs text-muted-foreground">
-                {formatBytes(data.system.memoryUsedBytes)} /{" "}
-                {formatBytes(data.system.memoryTotalBytes)}
+                {formatBytes(data.system.memoryUsedBytes)} / {formatBytes(data.system.memoryTotalBytes)}
               </div>
             </div>
             <div>

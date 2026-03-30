@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 import { creditAutoTopup } from "@wopr-network/platform-core/db/schema/credit-auto-topup";
 import { Credit } from "@wopr-network/platform-core";
-import { type AutoTopupChargeDeps, chargeAutoTopup } from "@wopr-network/platform-core/monetization/credits/auto-topup-charge";
+import {
+  type AutoTopupChargeDeps,
+  chargeAutoTopup,
+} from "@wopr-network/platform-core/monetization/credits/auto-topup-charge";
 import { DrizzleAutoTopupEventLogRepository } from "@wopr-network/platform-core/monetization/credits/auto-topup-event-log-repository";
 import { DrizzleAutoTopupSettingsRepository } from "@wopr-network/platform-core/monetization/credits/auto-topup-settings-repository";
 import { CreditLedger } from "@wopr-network/platform-core";

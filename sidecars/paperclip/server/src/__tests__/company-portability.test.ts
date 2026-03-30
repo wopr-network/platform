@@ -244,9 +244,10 @@ describe("company portability", () => {
           skillId,
           path: relativePath,
           kind: relativePath === "SKILL.md" ? "skill" : "reference",
-          content: relativePath === "SKILL.md"
-            ? "---\nname: company-playbook\ndescription: Internal company skill\n---\n\n# Company Playbook\n"
-            : "# Checklist\n",
+          content:
+            relativePath === "SKILL.md"
+              ? "---\nname: company-playbook\ndescription: Internal company skill\n---\n\n# Company Playbook\n"
+              : "# Checklist\n",
           language: "markdown",
           markdown: true,
           editable: true,
@@ -257,9 +258,10 @@ describe("company portability", () => {
         skillId,
         path: relativePath,
         kind: relativePath === "SKILL.md" ? "skill" : "reference",
-        content: relativePath === "SKILL.md"
-          ? "---\nname: paperclip\ndescription: Paperclip coordination skill\n---\n\n# Paperclip\n"
-          : "# API\n",
+        content:
+          relativePath === "SKILL.md"
+            ? "---\nname: paperclip\ndescription: Paperclip coordination skill\n---\n\n# Paperclip\n"
+            : "# API\n",
         language: "markdown",
         markdown: true,
         editable: false,
@@ -289,16 +291,18 @@ describe("company portability", () => {
       entryFile: "AGENTS.md",
       warnings: [],
     }));
-    agentInstructionsSvc.materializeManagedBundle.mockImplementation(async (agent: { adapterConfig: Record<string, unknown> }) => ({
-      bundle: null,
-      adapterConfig: {
-        ...agent.adapterConfig,
-        instructionsBundleMode: "managed",
-        instructionsRootPath: `/tmp/${agent.id}`,
-        instructionsEntryFile: "AGENTS.md",
-        instructionsFilePath: `/tmp/${agent.id}/AGENTS.md`,
-      },
-    }));
+    agentInstructionsSvc.materializeManagedBundle.mockImplementation(
+      async (agent: { adapterConfig: Record<string, unknown> }) => ({
+        bundle: null,
+        adapterConfig: {
+          ...agent.adapterConfig,
+          instructionsBundleMode: "managed",
+          instructionsRootPath: `/tmp/${agent.id}`,
+          instructionsEntryFile: "AGENTS.md",
+          instructionsFilePath: `/tmp/${agent.id}/AGENTS.md`,
+        },
+      }),
+    );
   });
 
   it("exports referenced skills as stubs by default with sanitized Paperclip extension data", async () => {
@@ -320,10 +324,14 @@ describe("company portability", () => {
     expect(asTextFile(exported.files["agents/claudecoder/AGENTS.md"])).toContain(`- "${paperclipKey}"`);
     expect(asTextFile(exported.files["agents/cmo/AGENTS.md"])).not.toContain("skills:");
     expect(asTextFile(exported.files["skills/paperclipai/paperclip/paperclip/SKILL.md"])).toContain("metadata:");
-    expect(asTextFile(exported.files["skills/paperclipai/paperclip/paperclip/SKILL.md"])).toContain('kind: "github-dir"');
+    expect(asTextFile(exported.files["skills/paperclipai/paperclip/paperclip/SKILL.md"])).toContain(
+      'kind: "github-dir"',
+    );
     expect(exported.files["skills/paperclipai/paperclip/paperclip/references/api.md"]).toBeUndefined();
     expect(asTextFile(exported.files["skills/company/PAP/company-playbook/SKILL.md"])).toContain("# Company Playbook");
-    expect(asTextFile(exported.files["skills/company/PAP/company-playbook/references/checklist.md"])).toContain("# Checklist");
+    expect(asTextFile(exported.files["skills/company/PAP/company-playbook/references/checklist.md"])).toContain(
+      "# Checklist",
+    );
 
     const extension = asTextFile(exported.files[".paperclip.yaml"]);
     expect(extension).toContain('schema: "paperclip/v1"');
@@ -340,8 +348,12 @@ describe("company portability", () => {
     expect(extension).not.toContain("PATH:");
     expect(extension).not.toContain("requireBoardApprovalForNewAgents: true");
     expect(extension).not.toContain("budgetMonthlyCents: 0");
-    expect(exported.warnings).toContain("Agent claudecoder command /Users/dotta/.local/bin/claude was omitted from export because it is system-dependent.");
-    expect(exported.warnings).toContain("Agent claudecoder PATH override was omitted from export because it is system-dependent.");
+    expect(exported.warnings).toContain(
+      "Agent claudecoder command /Users/dotta/.local/bin/claude was omitted from export because it is system-dependent.",
+    );
+    expect(exported.warnings).toContain(
+      "Agent claudecoder PATH override was omitted from export because it is system-dependent.",
+    );
   });
 
   it("expands referenced skills when requested", async () => {
@@ -522,9 +534,15 @@ describe("company portability", () => {
       },
     });
 
-    expect(asTextFile(exported.files["skills/local/release-changelog/SKILL.md"])).toContain("# Local Release Changelog");
-    expect(asTextFile(exported.files["skills/paperclipai/paperclip/release-changelog/SKILL.md"])).toContain("metadata:");
-    expect(asTextFile(exported.files["skills/paperclipai/paperclip/release-changelog/SKILL.md"])).toContain("paperclipai/paperclip/release-changelog");
+    expect(asTextFile(exported.files["skills/local/release-changelog/SKILL.md"])).toContain(
+      "# Local Release Changelog",
+    );
+    expect(asTextFile(exported.files["skills/paperclipai/paperclip/release-changelog/SKILL.md"])).toContain(
+      "metadata:",
+    );
+    expect(asTextFile(exported.files["skills/paperclipai/paperclip/release-changelog/SKILL.md"])).toContain(
+      "paperclipai/paperclip/release-changelog",
+    );
   });
 
   it("builds export previews without tasks by default", async () => {
@@ -694,56 +712,64 @@ describe("company portability", () => {
     ]);
     expect(preview.envInputs).toEqual([]);
 
-    await portability.importBundle({
-      source: {
-        type: "inline",
-        rootPath: "paperclip-demo",
-        files: {
-          "COMPANY.md": [
-            "---",
-            'schema: "agentcompanies/v1"',
-            'name: "Imported Paperclip"',
-            'description: "Portable company package"',
-            "---",
-            "",
-            "# Imported Paperclip",
-            "",
-          ].join("\n"),
-          "agents/claudecoder/AGENTS.md": [
-            "---",
-            'name: "ClaudeCoder"',
-            'title: "Software Engineer"',
-            "---",
-            "",
-            "# ClaudeCoder",
-            "",
-            "You write code.",
-            "",
-          ].join("\n"),
+    await portability.importBundle(
+      {
+        source: {
+          type: "inline",
+          rootPath: "paperclip-demo",
+          files: {
+            "COMPANY.md": [
+              "---",
+              'schema: "agentcompanies/v1"',
+              'name: "Imported Paperclip"',
+              'description: "Portable company package"',
+              "---",
+              "",
+              "# Imported Paperclip",
+              "",
+            ].join("\n"),
+            "agents/claudecoder/AGENTS.md": [
+              "---",
+              'name: "ClaudeCoder"',
+              'title: "Software Engineer"',
+              "---",
+              "",
+              "# ClaudeCoder",
+              "",
+              "You write code.",
+              "",
+            ].join("\n"),
+          },
         },
+        include: {
+          company: true,
+          agents: true,
+          projects: false,
+          issues: false,
+        },
+        target: {
+          mode: "new_company",
+          newCompanyName: "Imported Paperclip",
+        },
+        agents: "all",
+        collisionStrategy: "rename",
       },
-      include: {
-        company: true,
-        agents: true,
-        projects: false,
-        issues: false,
-      },
-      target: {
-        mode: "new_company",
-        newCompanyName: "Imported Paperclip",
-      },
-      agents: "all",
-      collisionStrategy: "rename",
-    }, "user-1");
+      "user-1",
+    );
 
-    expect(companySvc.create).toHaveBeenCalledWith(expect.objectContaining({
-      name: "Imported Paperclip",
-      description: "Portable company package",
-    }));
-    expect(agentSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
-      name: "ClaudeCoder",
-      adapterType: "process",
-    }));
+    expect(companySvc.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Imported Paperclip",
+        description: "Portable company package",
+      }),
+    );
+    expect(agentSvc.create).toHaveBeenCalledWith(
+      "company-imported",
+      expect.objectContaining({
+        name: "ClaudeCoder",
+        adapterType: "process",
+      }),
+    );
   });
 
   it("treats no-separator auth and api key env names as secrets during export", async () => {
@@ -827,37 +853,43 @@ describe("company portability", () => {
 
     agentSvc.list.mockResolvedValue([]);
 
-    await portability.importBundle({
-      source: {
-        type: "inline",
-        rootPath: exported.rootPath,
-        files: exported.files,
+    await portability.importBundle(
+      {
+        source: {
+          type: "inline",
+          rootPath: exported.rootPath,
+          files: exported.files,
+        },
+        include: {
+          company: true,
+          agents: true,
+          projects: false,
+          issues: false,
+        },
+        target: {
+          mode: "new_company",
+          newCompanyName: "Imported Paperclip",
+        },
+        agents: "all",
+        collisionStrategy: "rename",
       },
-      include: {
-        company: true,
-        agents: true,
-        projects: false,
-        issues: false,
-      },
-      target: {
-        mode: "new_company",
-        newCompanyName: "Imported Paperclip",
-      },
-      agents: "all",
-      collisionStrategy: "rename",
-    }, "user-1");
+      "user-1",
+    );
 
     const textOnlyFiles = Object.fromEntries(Object.entries(exported.files).filter(([, v]) => typeof v === "string"));
     expect(companySkillSvc.importPackageFiles).toHaveBeenCalledWith("company-imported", textOnlyFiles, {
       onConflict: "replace",
     });
-    expect(agentSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
-      adapterConfig: expect.objectContaining({
-        paperclipSkillSync: {
-          desiredSkills: [paperclipKey],
-        },
+    expect(agentSvc.create).toHaveBeenCalledWith(
+      "company-imported",
+      expect.objectContaining({
+        adapterConfig: expect.objectContaining({
+          paperclipSkillSync: {
+            desiredSkills: [paperclipKey],
+          },
+        }),
       }),
-    }));
+    );
   });
 
   it("imports a packaged company logo and attaches it to the target company", async () => {
@@ -908,38 +940,46 @@ describe("company portability", () => {
 
     agentSvc.list.mockResolvedValue([]);
 
-    await portability.importBundle({
-      source: {
-        type: "inline",
-        rootPath: exported.rootPath,
-        files: exported.files,
+    await portability.importBundle(
+      {
+        source: {
+          type: "inline",
+          rootPath: exported.rootPath,
+          files: exported.files,
+        },
+        include: {
+          company: true,
+          agents: true,
+          projects: false,
+          issues: false,
+        },
+        target: {
+          mode: "new_company",
+          newCompanyName: "Imported Paperclip",
+        },
+        agents: "all",
+        collisionStrategy: "rename",
       },
-      include: {
-        company: true,
-        agents: true,
-        projects: false,
-        issues: false,
-      },
-      target: {
-        mode: "new_company",
-        newCompanyName: "Imported Paperclip",
-      },
-      agents: "all",
-      collisionStrategy: "rename",
-    }, "user-1");
+      "user-1",
+    );
 
-    expect(storage.putFile).toHaveBeenCalledWith(expect.objectContaining({
-      companyId: "company-imported",
-      namespace: "assets/companies",
-      originalFilename: "company-logo.png",
-      contentType: "image/png",
-      body: Buffer.from("png-bytes"),
-    }));
-    expect(assetSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
-      objectKey: "assets/companies/imported-logo",
-      contentType: "image/png",
-      createdByUserId: "user-1",
-    }));
+    expect(storage.putFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-imported",
+        namespace: "assets/companies",
+        originalFilename: "company-logo.png",
+        contentType: "image/png",
+        body: Buffer.from("png-bytes"),
+      }),
+    );
+    expect(assetSvc.create).toHaveBeenCalledWith(
+      "company-imported",
+      expect.objectContaining({
+        objectKey: "assets/companies/imported-logo",
+        contentType: "image/png",
+        createdByUserId: "user-1",
+      }),
+    );
     expect(companySvc.update).toHaveBeenCalledWith("company-imported", {
       logoAssetId: "asset-created",
     });
@@ -968,32 +1008,42 @@ describe("company portability", () => {
 
     agentSvc.list.mockResolvedValue([]);
 
-    await portability.importBundle({
-      source: {
-        type: "inline",
-        rootPath: exported.rootPath,
-        files: exported.files,
+    await portability.importBundle(
+      {
+        source: {
+          type: "inline",
+          rootPath: exported.rootPath,
+          files: exported.files,
+        },
+        include: {
+          company: true,
+          agents: true,
+          projects: false,
+          issues: false,
+        },
+        target: {
+          mode: "new_company",
+          newCompanyName: "Imported Paperclip",
+        },
+        agents: "all",
+        collisionStrategy: "rename",
       },
-      include: {
-        company: true,
-        agents: true,
-        projects: false,
-        issues: false,
+      null,
+      {
+        mode: "agent_safe",
+        sourceCompanyId: "company-1",
       },
-      target: {
-        mode: "new_company",
-        newCompanyName: "Imported Paperclip",
-      },
-      agents: "all",
-      collisionStrategy: "rename",
-    }, null, {
-      mode: "agent_safe",
-      sourceCompanyId: "company-1",
-    });
+    );
 
     expect(accessSvc.listActiveUserMemberships).toHaveBeenCalledWith("company-1");
     expect(accessSvc.copyActiveUserMemberships).toHaveBeenCalledWith("company-1", "company-imported");
-    expect(accessSvc.ensureMembership).not.toHaveBeenCalledWith("company-imported", "user", expect.anything(), "owner", "active");
+    expect(accessSvc.ensureMembership).not.toHaveBeenCalledWith(
+      "company-imported",
+      "user",
+      expect.anything(),
+      "owner",
+      "active",
+    );
     const textOnlyFiles = Object.fromEntries(Object.entries(exported.files).filter(([, v]) => typeof v === "string"));
     expect(companySkillSvc.importPackageFiles).toHaveBeenCalledWith("company-imported", textOnlyFiles, {
       onConflict: "rename",
@@ -1026,26 +1076,29 @@ describe("company portability", () => {
       name: "CMO",
     });
 
-    const result = await portability.importBundle({
-      source: {
-        type: "inline",
-        rootPath: exported.rootPath,
-        files: exported.files,
+    const result = await portability.importBundle(
+      {
+        source: {
+          type: "inline",
+          rootPath: exported.rootPath,
+          files: exported.files,
+        },
+        include: {
+          company: true,
+          agents: true,
+          projects: true,
+          issues: true,
+        },
+        selectedFiles: ["agents/cmo/AGENTS.md"],
+        target: {
+          mode: "existing_company",
+          companyId: "company-1",
+        },
+        agents: "all",
+        collisionStrategy: "rename",
       },
-      include: {
-        company: true,
-        agents: true,
-        projects: true,
-        issues: true,
-      },
-      selectedFiles: ["agents/cmo/AGENTS.md"],
-      target: {
-        mode: "existing_company",
-        companyId: "company-1",
-      },
-      agents: "all",
-      collisionStrategy: "rename",
-    }, "user-1");
+      "user-1",
+    );
 
     expect(companySvc.update).not.toHaveBeenCalled();
     expect(companySkillSvc.importPackageFiles).toHaveBeenCalledWith(
@@ -1068,9 +1121,12 @@ describe("company portability", () => {
       },
     );
     expect(agentSvc.create).toHaveBeenCalledTimes(1);
-    expect(agentSvc.create).toHaveBeenCalledWith("company-1", expect.objectContaining({
-      name: "CMO",
-    }));
+    expect(agentSvc.create).toHaveBeenCalledWith(
+      "company-1",
+      expect.objectContaining({
+        name: "CMO",
+      }),
+    );
     expect(result.company.action).toBe("unchanged");
     expect(result.agents).toEqual([
       {
@@ -1107,47 +1163,56 @@ describe("company portability", () => {
 
     agentSvc.list.mockResolvedValue([]);
 
-    await portability.importBundle({
-      source: {
-        type: "inline",
-        rootPath: exported.rootPath,
-        files: exported.files,
-      },
-      include: {
-        company: true,
-        agents: true,
-        projects: false,
-        issues: false,
-      },
-      target: {
-        mode: "new_company",
-        newCompanyName: "Imported Paperclip",
-      },
-      agents: "all",
-      collisionStrategy: "rename",
-      adapterOverrides: {
-        claudecoder: {
-          adapterType: "codex_local",
-          adapterConfig: {
-            dangerouslyBypassApprovalsAndSandbox: true,
-            instructionsFilePath: "/tmp/should-not-survive.md",
+    await portability.importBundle(
+      {
+        source: {
+          type: "inline",
+          rootPath: exported.rootPath,
+          files: exported.files,
+        },
+        include: {
+          company: true,
+          agents: true,
+          projects: false,
+          issues: false,
+        },
+        target: {
+          mode: "new_company",
+          newCompanyName: "Imported Paperclip",
+        },
+        agents: "all",
+        collisionStrategy: "rename",
+        adapterOverrides: {
+          claudecoder: {
+            adapterType: "codex_local",
+            adapterConfig: {
+              dangerouslyBypassApprovalsAndSandbox: true,
+              instructionsFilePath: "/tmp/should-not-survive.md",
+            },
           },
         },
       },
-    }, "user-1");
+      "user-1",
+    );
 
-    expect(agentSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
-      adapterType: "codex_local",
-      adapterConfig: expect.objectContaining({
-        dangerouslyBypassApprovalsAndSandbox: true,
+    expect(agentSvc.create).toHaveBeenCalledWith(
+      "company-imported",
+      expect.objectContaining({
+        adapterType: "codex_local",
+        adapterConfig: expect.objectContaining({
+          dangerouslyBypassApprovalsAndSandbox: true,
+        }),
       }),
-    }));
-    expect(agentSvc.create).toHaveBeenCalledWith("company-imported", expect.objectContaining({
-      adapterConfig: expect.not.objectContaining({
-        instructionsFilePath: expect.anything(),
-        promptTemplate: expect.anything(),
+    );
+    expect(agentSvc.create).toHaveBeenCalledWith(
+      "company-imported",
+      expect.objectContaining({
+        adapterConfig: expect.not.objectContaining({
+          instructionsFilePath: expect.anything(),
+          promptTemplate: expect.anything(),
+        }),
       }),
-    }));
+    );
     expect(agentInstructionsSvc.materializeManagedBundle).toHaveBeenCalledWith(
       expect.objectContaining({ name: "ClaudeCoder" }),
       expect.objectContaining({

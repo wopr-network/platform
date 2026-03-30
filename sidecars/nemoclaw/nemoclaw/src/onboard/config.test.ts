@@ -107,9 +107,7 @@ describe("onboard/config", () => {
         endpointType: "build",
         providerLabel: undefined,
       });
-      expect(describeOnboardProvider({ ...config, endpointType: "bogus" as EndpointType })).toBe(
-        "Unknown",
-      );
+      expect(describeOnboardProvider({ ...config, endpointType: "bogus" as EndpointType })).toBe("Unknown");
     });
   });
 

@@ -28,9 +28,7 @@ describe("01-welcome step", () => {
   });
 
   it("should call printHeader, intro, and note then return empty object", async () => {
-    const { welcomeStep } = await import(
-      "../../../../src/commands/onboard/steps/01-welcome.js"
-    );
+    const { welcomeStep } = await import("../../../../src/commands/onboard/steps/01-welcome.js");
 
     const ctx = {
       opts: {},

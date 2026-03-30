@@ -5,9 +5,9 @@
  * real bearer auth middleware and in-memory PGlite credit ledger.
  */
 import type { PGlite } from "@electric-sql/pglite";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTH_HEADER, JSON_HEADERS } from "./setup.js";
-import { createTestDb, truncateAllTables } from "@wopr-network/platform-core/test/db"
+import { createTestDb, truncateAllTables } from "@wopr-network/platform-core/test/db";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
 import { Credit } from "@wopr-network/platform-core";
 
@@ -178,9 +178,9 @@ describe("integration: quota routes", () => {
       });
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.Memory).toBeTypeOf('number');
-      expect(body.CpuQuota).toBeTypeOf('number');
-      expect(body.PidsLimit).toBeTypeOf('number');
+      expect(body.Memory).toBeTypeOf("number");
+      expect(body.CpuQuota).toBeTypeOf("number");
+      expect(body.PidsLimit).toBeTypeOf("number");
     });
   });
 });

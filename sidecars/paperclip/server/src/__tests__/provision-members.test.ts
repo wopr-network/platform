@@ -88,16 +88,9 @@ function createApp(mockDb: ReturnType<typeof createMockDb>) {
   const app = express();
   app.use(express.json());
   app.use("/internal", provisionRoutes(mockDb as any));
-  app.use(
-    (
-      err: any,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction,
-    ) => {
-      res.status(err.status ?? 500).json({ error: err.message });
-    },
-  );
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(err.status ?? 500).json({ error: err.message });
+  });
   return app;
 }
 
@@ -153,20 +146,18 @@ describe("provision member routes", () => {
       expect(mockDb.insert).toHaveBeenCalled();
 
       // ensureMembership with member role
-      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-        "member",
-        "active",
-      );
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "member", "active");
 
       // setPrincipalGrants with member permissions
       expect(accessSvcMock.setPrincipalGrants).toHaveBeenCalledWith(
         "comp-1",
         "user",
         "user-1",
-        [{ permissionKey: "agents:create" }, { permissionKey: "tasks:assign" }, { permissionKey: "tasks:assign_scope" }],
+        [
+          { permissionKey: "agents:create" },
+          { permissionKey: "tasks:assign" },
+          { permissionKey: "tasks:assign_scope" },
+        ],
         null,
       );
 
@@ -190,13 +181,7 @@ describe("provision member routes", () => {
         });
 
       expect(res.status).toBe(200);
-      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-        "owner",
-        "active",
-      );
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "owner", "active");
       expect(accessSvcMock.promoteInstanceAdmin).toHaveBeenCalledWith("user-1");
     });
 
@@ -216,13 +201,7 @@ describe("provision member routes", () => {
         });
 
       expect(res.status).toBe(200);
-      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-        "owner",
-        "active",
-      );
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "owner", "active");
       expect(accessSvcMock.promoteInstanceAdmin).toHaveBeenCalledWith("user-1");
     });
 
@@ -247,9 +226,7 @@ describe("provision member routes", () => {
 
   describe("POST /internal/members/remove", () => {
     it("rejects requests without auth header", async () => {
-      const res = await request(app)
-        .post("/internal/members/remove")
-        .send({ companyId: "c1", userId: "u1" });
+      const res = await request(app).post("/internal/members/remove").send({ companyId: "c1", userId: "u1" });
       expect(res.status).toBe(401);
     });
 
@@ -265,19 +242,13 @@ describe("provision member routes", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
-      expect(accessSvcMock.removeMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-      );
+      expect(accessSvcMock.removeMembership).toHaveBeenCalledWith("comp-1", "user", "user-1");
       expect(accessSvcMock.demoteInstanceAdmin).toHaveBeenCalledWith("user-1");
     });
 
     it("does not demote if user still has other companies", async () => {
       accessSvcMock.removeMembership.mockResolvedValue(undefined);
-      accessSvcMock.listUserCompanyAccess.mockResolvedValue([
-        { companyId: "comp-2", membershipRole: "owner" },
-      ]);
+      accessSvcMock.listUserCompanyAccess.mockResolvedValue([{ companyId: "comp-2", membershipRole: "owner" }]);
 
       const res = await request(app)
         .post("/internal/members/remove")
@@ -285,11 +256,7 @@ describe("provision member routes", () => {
         .send({ companyId: "comp-1", userId: "user-1" });
 
       expect(res.status).toBe(200);
-      expect(accessSvcMock.removeMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-      );
+      expect(accessSvcMock.removeMembership).toHaveBeenCalledWith("comp-1", "user", "user-1");
       expect(accessSvcMock.demoteInstanceAdmin).not.toHaveBeenCalled();
     });
   });
@@ -314,13 +281,7 @@ describe("provision member routes", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
-      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-        "owner",
-        "active",
-      );
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "owner", "active");
       expect(accessSvcMock.promoteInstanceAdmin).toHaveBeenCalledWith("user-1");
       expect(accessSvcMock.setPrincipalGrants).toHaveBeenCalledWith(
         "comp-1",
@@ -342,19 +303,17 @@ describe("provision member routes", () => {
         .send({ companyId: "comp-1", userId: "user-1", role: "member" });
 
       expect(res.status).toBe(200);
-      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-        "member",
-        "active",
-      );
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "member", "active");
       expect(accessSvcMock.demoteInstanceAdmin).toHaveBeenCalledWith("user-1");
       expect(accessSvcMock.setPrincipalGrants).toHaveBeenCalledWith(
         "comp-1",
         "user",
         "user-1",
-        [{ permissionKey: "agents:create" }, { permissionKey: "tasks:assign" }, { permissionKey: "tasks:assign_scope" }],
+        [
+          { permissionKey: "agents:create" },
+          { permissionKey: "tasks:assign" },
+          { permissionKey: "tasks:assign_scope" },
+        ],
         null,
       );
     });

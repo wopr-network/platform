@@ -237,9 +237,7 @@ describe("Anthropic protocol handler", () => {
     it("pipes SSE stream through when stream: true", async () => {
       const sseBody = new ReadableStream({
         start(controller) {
-          controller.enqueue(
-            new TextEncoder().encode("event: content_block_delta\ndata: {}\n\n"),
-          );
+          controller.enqueue(new TextEncoder().encode("event: content_block_delta\ndata: {}\n\n"));
           controller.close();
         },
       });
@@ -260,7 +258,11 @@ describe("Anthropic protocol handler", () => {
     });
 
     it("meters streaming cost from header", async () => {
-      const sseBody = new ReadableStream({ start(c) { c.close(); } });
+      const sseBody = new ReadableStream({
+        start(c) {
+          c.close();
+        },
+      });
       (deps.fetchFn as ReturnType<typeof vi.fn>).mockResolvedValue(
         new Response(sseBody, {
           status: 200,
@@ -277,7 +279,11 @@ describe("Anthropic protocol handler", () => {
     });
 
     it("skips meter when streaming cost is 0", async () => {
-      const sseBody = new ReadableStream({ start(c) { c.close(); } });
+      const sseBody = new ReadableStream({
+        start(c) {
+          c.close();
+        },
+      });
       (deps.fetchFn as ReturnType<typeof vi.fn>).mockResolvedValue(
         new Response(sseBody, {
           status: 200,

@@ -80,14 +80,15 @@ export async function createApp(
 ) {
   const app = express();
 
-  app.use(express.json({
-    verify: (req, _res, buf) => {
-      (req as unknown as { rawBody: Buffer }).rawBody = buf;
-    },
-  }));
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        (req as unknown as { rawBody: Buffer }).rawBody = buf;
+      },
+    }),
+  );
   app.use(httpLogger);
-  const privateHostnameGateEnabled =
-    opts.deploymentMode === "authenticated" && opts.deploymentExposure === "private";
+  const privateHostnameGateEnabled = opts.deploymentMode === "authenticated" && opts.deploymentExposure === "private";
   const privateHostnameAllowSet = resolvePrivateHostnameAllowSet({
     allowedHostnames: opts.allowedHostnames,
     bindHost: opts.bindHost,
@@ -209,16 +210,7 @@ export async function createApp(
       },
     },
   );
-  api.use(
-    pluginRoutes(
-      db,
-      loader,
-      { scheduler, jobStore },
-      { workerManager },
-      { toolDispatcher },
-      { workerManager },
-    ),
-  );
+  api.use(pluginRoutes(db, loader, { scheduler, jobStore }, { workerManager }, { toolDispatcher }, { workerManager }));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
@@ -231,17 +223,16 @@ export async function createApp(
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API route not found" });
   });
-  app.use(pluginUiStaticRoutes(db, {
-    localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
-  }));
+  app.use(
+    pluginUiStaticRoutes(db, {
+      localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
+    }),
+  );
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   if (opts.uiMode === "static") {
     // Try published location first (server/ui-dist/), then monorepo dev location (../../ui/dist)
-    const candidates = [
-      path.resolve(__dirname, "../ui-dist"),
-      path.resolve(__dirname, "../../ui/dist"),
-    ];
+    const candidates = [path.resolve(__dirname, "../ui-dist"), path.resolve(__dirname, "../../ui/dist")];
     const uiDist = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
     if (uiDist) {
       const indexHtml = applyUiBranding(fs.readFileSync(path.join(uiDist, "index.html"), "utf-8"));
@@ -292,22 +283,26 @@ export async function createApp(
   void toolDispatcher.initialize().catch((err) => {
     logger.error({ err }, "Failed to initialize plugin tool dispatcher");
   });
-  const devWatcher = opts.uiMode === "vite-dev"
-    ? createPluginDevWatcher(
-      lifecycle,
-      async (pluginId) => (await pluginRegistry.getById(pluginId))?.packagePath ?? null,
-    )
-    : null;
-  void loader.loadAll().then((result) => {
-    if (!result) return;
-    for (const loaded of result.results) {
-      if (devWatcher && loaded.success && loaded.plugin.packagePath) {
-        devWatcher.watch(loaded.plugin.id, loaded.plugin.packagePath);
+  const devWatcher =
+    opts.uiMode === "vite-dev"
+      ? createPluginDevWatcher(
+          lifecycle,
+          async (pluginId) => (await pluginRegistry.getById(pluginId))?.packagePath ?? null,
+        )
+      : null;
+  void loader
+    .loadAll()
+    .then((result) => {
+      if (!result) return;
+      for (const loaded of result.results) {
+        if (devWatcher && loaded.success && loaded.plugin.packagePath) {
+          devWatcher.watch(loaded.plugin.id, loaded.plugin.packagePath);
+        }
       }
-    }
-  }).catch((err) => {
-    logger.error({ err }, "Failed to load ready plugins on startup");
-  });
+    })
+    .catch((err) => {
+      logger.error({ err }, "Failed to load ready plugins on startup");
+    });
   process.once("exit", () => {
     devWatcher?.close();
     hostServiceCleanup.disposeAll();

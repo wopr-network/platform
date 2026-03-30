@@ -148,9 +148,9 @@ describe("E2E: org/team management — create org → invite → assign role →
   it("rejects changing the owner's role", async () => {
     const org = await orgService.createOrg(OWNER_ID, "Owner Role Org", "owner-role");
 
-    await expect(
-      orgService.changeRole(org.id, OWNER_ID, OWNER_ID, "member"),
-    ).rejects.toThrow("Cannot change the owner's role");
+    await expect(orgService.changeRole(org.id, OWNER_ID, OWNER_ID, "member")).rejects.toThrow(
+      "Cannot change the owner's role",
+    );
   });
 
   // =========================================================================
@@ -267,9 +267,7 @@ describe("E2E: org/team management — create org → invite → assign role →
 
     // Now countAdminsAndOwners = 1 (only MEMBER_ID with role "admin")
     // MEMBER_ID (admin) attempts to remove themselves — guard should prevent it
-    await expect(
-      orgService.removeMember(org.id, MEMBER_ID, MEMBER_ID),
-    ).rejects.toThrow("Cannot remove the last admin");
+    await expect(orgService.removeMember(org.id, MEMBER_ID, MEMBER_ID)).rejects.toThrow("Cannot remove the last admin");
   });
 
   // =========================================================================
@@ -332,9 +330,7 @@ describe("E2E: org/team management — create org → invite → assign role →
       joinedAt: Date.now(),
     });
 
-    await expect(
-      orgService.deleteOrg(org.id, MEMBER_ID),
-    ).rejects.toThrow("Only the owner can delete the organization");
+    await expect(orgService.deleteOrg(org.id, MEMBER_ID)).rejects.toThrow("Only the owner can delete the organization");
   });
 
   // =========================================================================
@@ -352,8 +348,8 @@ describe("E2E: org/team management — create org → invite → assign role →
       joinedAt: Date.now(),
     });
 
-    await expect(
-      orgService.inviteMember(org.id, MEMBER_ID, "sneaky@example.com", "admin"),
-    ).rejects.toThrow("Admin or owner role required");
+    await expect(orgService.inviteMember(org.id, MEMBER_ID, "sneaky@example.com", "admin")).rejects.toThrow(
+      "Admin or owner role required",
+    );
   });
 });

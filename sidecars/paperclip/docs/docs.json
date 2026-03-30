@@ -26,12 +26,7 @@
         "groups": [
           {
             "group": "Introduction",
-            "pages": [
-              "start/what-is-paperclip",
-              "start/quickstart",
-              "start/core-concepts",
-              "start/architecture"
-            ]
+            "pages": ["start/what-is-paperclip", "start/quickstart", "start/core-concepts", "start/architecture"]
           }
         ]
       },
@@ -126,11 +121,7 @@
         "groups": [
           {
             "group": "CLI Reference",
-            "pages": [
-              "cli/overview",
-              "cli/setup-commands",
-              "cli/control-plane-commands"
-            ]
+            "pages": ["cli/overview", "cli/setup-commands", "cli/control-plane-commands"]
           }
         ]
       }

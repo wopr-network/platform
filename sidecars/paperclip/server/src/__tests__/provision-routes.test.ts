@@ -27,7 +27,15 @@ vi.mock("drizzle-orm", () => ({
 
 vi.mock("@paperclipai/db", () => ({
   authUsers: { id: "id" },
-  authAccounts: { id: "id", userId: "userId", accountId: "accountId", providerId: "providerId", password: "password", createdAt: "createdAt", updatedAt: "updatedAt" },
+  authAccounts: {
+    id: "id",
+    userId: "userId",
+    accountId: "accountId",
+    providerId: "providerId",
+    password: "password",
+    createdAt: "createdAt",
+    updatedAt: "updatedAt",
+  },
 }));
 
 vi.mock("better-auth/crypto", () => ({
@@ -76,16 +84,9 @@ function createApp(mockDb: ReturnType<typeof createMockDb>) {
   const app = express();
   app.use(express.json());
   app.use("/internal", provisionRoutes(mockDb as any));
-  app.use(
-    (
-      err: any,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction,
-    ) => {
-      res.status(err.status ?? 500).json({ error: err.message });
-    },
-  );
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(err.status ?? 500).json({ error: err.message });
+  });
   return app;
 }
 
@@ -172,13 +173,7 @@ describe("provision routes", () => {
       // Auth user should be pre-created
       expect(mockDb.insert).toHaveBeenCalled();
 
-      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith(
-        "comp-1",
-        "user",
-        "user-1",
-        "owner",
-        "active",
-      );
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "owner", "active");
       expect(accessSvcMock.promoteInstanceAdmin).toHaveBeenCalledWith("user-1");
     });
 

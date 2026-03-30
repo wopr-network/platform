@@ -5,11 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import postgres from "postgres";
-import {
-  applyPendingMigrations,
-  ensurePostgresDatabase,
-  inspectMigrations,
-} from "./client.js";
+import { applyPendingMigrations, ensurePostgresDatabase, inspectMigrations } from "./client.js";
 
 type EmbeddedPostgresInstance = {
   initialise(): Promise<void>;
@@ -81,10 +77,7 @@ async function createTempDatabase(): Promise<string> {
 }
 
 async function migrationHash(migrationFile: string): Promise<string> {
-  const content = await fs.promises.readFile(
-    new URL(`./migrations/${migrationFile}`, import.meta.url),
-    "utf8",
-  );
+  const content = await fs.promises.readFile(new URL(`./migrations/${migrationFile}`, import.meta.url), "utf8");
   return createHash("sha256").update(content).digest("hex");
 }
 
@@ -102,56 +95,47 @@ afterEach(async () => {
 });
 
 describe("applyPendingMigrations", () => {
-  it(
-    "applies an inserted earlier migration without replaying later legacy migrations",
-    async () => {
-      const connectionString = await createTempDatabase();
+  it("applies an inserted earlier migration without replaying later legacy migrations", async () => {
+    const connectionString = await createTempDatabase();
 
-      await applyPendingMigrations(connectionString);
+    await applyPendingMigrations(connectionString);
 
-      const sql = postgres(connectionString, { max: 1, onnotice: () => {} });
-      try {
-        const richMagnetoHash = await migrationHash("0030_rich_magneto.sql");
+    const sql = postgres(connectionString, { max: 1, onnotice: () => {} });
+    try {
+      const richMagnetoHash = await migrationHash("0030_rich_magneto.sql");
 
-        await sql.unsafe(
-          `DELETE FROM "drizzle"."__drizzle_migrations" WHERE hash = '${richMagnetoHash}'`,
-        );
-        await sql.unsafe(`DROP TABLE "company_logos"`);
-      } finally {
-        await sql.end();
-      }
+      await sql.unsafe(`DELETE FROM "drizzle"."__drizzle_migrations" WHERE hash = '${richMagnetoHash}'`);
+      await sql.unsafe(`DROP TABLE "company_logos"`);
+    } finally {
+      await sql.end();
+    }
 
-      const pendingState = await inspectMigrations(connectionString);
-      expect(pendingState).toMatchObject({
-        status: "needsMigrations",
-        pendingMigrations: ["0030_rich_magneto.sql"],
-        reason: "pending-migrations",
-      });
+    const pendingState = await inspectMigrations(connectionString);
+    expect(pendingState).toMatchObject({
+      status: "needsMigrations",
+      pendingMigrations: ["0030_rich_magneto.sql"],
+      reason: "pending-migrations",
+    });
 
-      await applyPendingMigrations(connectionString);
+    await applyPendingMigrations(connectionString);
 
-      const finalState = await inspectMigrations(connectionString);
-      expect(finalState.status).toBe("upToDate");
+    const finalState = await inspectMigrations(connectionString);
+    expect(finalState.status).toBe("upToDate");
 
-      const verifySql = postgres(connectionString, { max: 1, onnotice: () => {} });
-      try {
-        const rows = await verifySql.unsafe<{ table_name: string }[]>(
-          `
+    const verifySql = postgres(connectionString, { max: 1, onnotice: () => {} });
+    try {
+      const rows = await verifySql.unsafe<{ table_name: string }[]>(
+        `
             SELECT table_name
             FROM information_schema.tables
             WHERE table_schema = 'public'
               AND table_name IN ('company_logos', 'execution_workspaces')
             ORDER BY table_name
           `,
-        );
-        expect(rows.map((row) => row.table_name)).toEqual([
-          "company_logos",
-          "execution_workspaces",
-        ]);
-      } finally {
-        await verifySql.end();
-      }
-    },
-    20_000,
-  );
+      );
+      expect(rows.map((row) => row.table_name)).toEqual(["company_logos", "execution_workspaces"]);
+    } finally {
+      await verifySql.end();
+    }
+  }, 20_000);
 });

@@ -7,24 +7,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Promotion, Redemption } from "@/lib/promotions-types";
 import { trpcVanilla } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -142,9 +129,7 @@ export default function PromotionDetailPage() {
   }
 
   const budgetUsedPercent =
-    promo.budgetCap && promo.budgetCap > 0
-      ? Math.min(100, (promo.totalCreditsGranted / promo.budgetCap) * 100)
-      : null;
+    promo.budgetCap && promo.budgetCap > 0 ? Math.min(100, (promo.totalCreditsGranted / promo.budgetCap) * 100) : null;
 
   return (
     <div className="p-6 space-y-6">
@@ -171,18 +156,14 @@ export default function PromotionDetailPage() {
             <div className="text-2xl font-bold tabular-nums">
               {promo.totalUses}
               {promo.totalUseLimit !== null && (
-                <span className="text-sm text-muted-foreground font-normal">
-                  /{promo.totalUseLimit}
-                </span>
+                <span className="text-sm text-muted-foreground font-normal">/{promo.totalUseLimit}</span>
               )}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
-              Credits Granted
-            </CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Credits Granted</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tabular-nums text-terminal">
@@ -192,9 +173,7 @@ export default function PromotionDetailPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
-              Budget Remaining
-            </CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Budget Remaining</CardTitle>
           </CardHeader>
           <CardContent>
             {promo.budgetCap !== null ? (
@@ -211,9 +190,7 @@ export default function PromotionDetailPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs text-muted-foreground font-normal">
-              Time Remaining
-            </CardTitle>
+            <CardTitle className="text-xs text-muted-foreground font-normal">Time Remaining</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{timeRemaining(promo.endsAt)}</div>
@@ -252,11 +229,7 @@ export default function PromotionDetailPage() {
                 />
               </div>
               {genResult && <p className="text-sm text-muted-foreground">{genResult}</p>}
-              <Button
-                onClick={handleGenerate}
-                disabled={generating || genCount < 1}
-                className="w-full"
-              >
+              <Button onClick={handleGenerate} disabled={generating || genCount < 1} className="w-full">
                 {generating ? "Generating..." : `Generate ${genCount} codes`}
               </Button>
             </div>
@@ -286,9 +259,7 @@ export default function PromotionDetailPage() {
               <TableBody>
                 {redemptions.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-mono text-xs">
-                      {r.tenantId.slice(0, 12)}...
-                    </TableCell>
+                    <TableCell className="font-mono text-xs">{r.tenantId.slice(0, 12)}...</TableCell>
                     <TableCell className="text-right tabular-nums text-terminal">
                       {formatCreditCount(r.creditsGranted)}
                     </TableCell>

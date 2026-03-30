@@ -28,15 +28,13 @@ async function main() {
   const res = await fetch(`${gatewayUrl}/chat/completions`, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${serviceKey}`,
+      Authorization: `Bearer ${serviceKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
       model: "deepseek/deepseek-chat-v3-0324",
       stream: true,
-      messages: [
-        { role: "user", content: "Count from 1 to 20, one number per line." },
-      ],
+      messages: [{ role: "user", content: "Count from 1 to 20, one number per line." }],
       max_tokens: 200,
     }),
   });
@@ -91,7 +89,7 @@ async function main() {
           // Print each token with timestamp as it arrives
           const display = content.replace(/\n/g, "\\n");
           console.log(
-            `  [${event.timestampMs.toFixed(0).padStart(6)}ms] +${event.deltaMs.toFixed(0).padStart(4)}ms  token[${String(event.index).padStart(3)}]: "${display}"`
+            `  [${event.timestampMs.toFixed(0).padStart(6)}ms] +${event.deltaMs.toFixed(0).padStart(4)}ms  token[${String(event.index).padStart(3)}]: "${display}"`,
           );
         }
       } catch {

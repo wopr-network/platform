@@ -175,9 +175,8 @@ describe("E2E: runtime billing cron — daily bot cost & suspension", () => {
     const startBalance = totalExpected + 50;
     await ledger.credit(tenantId, Credit.fromCents(startBalance), "purchase", "grant");
 
-    const getResourceTierCosts = buildResourceTierCosts(
-      botInstanceRepo,
-      async (tid: string) => botInstanceRepo.listActiveIdsByTenant(tid),
+    const getResourceTierCosts = buildResourceTierCosts(botInstanceRepo, async (tid: string) =>
+      botInstanceRepo.listActiveIdsByTenant(tid),
     );
 
     const result = await runRuntimeDeductions({

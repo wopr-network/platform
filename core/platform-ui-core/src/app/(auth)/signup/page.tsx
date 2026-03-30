@@ -10,14 +10,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { ResendVerificationButton } from "@/components/auth/resend-verification-button";
 import { OAuthButtons } from "@/components/oauth-buttons";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,13 +30,7 @@ function getPasswordStrength(password: string): { score: number; label: string }
   return { score, label: labels[Math.min(score, labels.length) - 1] ?? "" };
 }
 
-const strengthColors = [
-  "bg-red-500",
-  "bg-red-500",
-  "bg-amber-500",
-  "bg-terminal",
-  "bg-terminal-dim",
-];
+const strengthColors = ["bg-red-500", "bg-red-500", "bg-amber-500", "bg-terminal", "bg-terminal-dim"];
 
 const strengthLabelColors = [
   "text-destructive",
@@ -141,10 +128,7 @@ function SignupForm() {
             <ResendVerificationButton email={email} />
           </CardContent>
           <CardFooter className="justify-center">
-            <Link
-              href="/login"
-              className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal"
-            >
+            <Link href="/login" className="text-sm text-terminal-dim underline underline-offset-4 hover:text-terminal">
               Back to sign in
             </Link>
           </CardFooter>
@@ -157,9 +141,7 @@ function SignupForm() {
     <AuthShell>
       <Card className="crt-scanlines border-terminal/20 bg-black/80 shadow-[0_0_30px_rgba(0,255,65,0.08)]">
         <CardHeader>
-          <CardTitle className="text-sm font-medium uppercase tracking-widest text-terminal">
-            Create account
-          </CardTitle>
+          <CardTitle className="text-sm font-medium uppercase tracking-widest text-terminal">Create account</CardTitle>
           <CardDescription>Register for {productName()} access</CardDescription>
         </CardHeader>
         <CardContent>
@@ -210,18 +192,14 @@ function SignupForm() {
                       <div
                         key={seg.key}
                         className={`h-1 flex-1 rounded-full ${
-                          seg.index < strength.score
-                            ? strengthColors[strength.score - 1]
-                            : "bg-terminal/20"
+                          seg.index < strength.score ? strengthColors[strength.score - 1] : "bg-terminal/20"
                         }`}
                       />
                     ))}
                   </div>
                   <span
                     className={`text-xs ${
-                      strength.score > 0
-                        ? strengthLabelColors[strength.score - 1]
-                        : "text-muted-foreground"
+                      strength.score > 0 ? strengthLabelColors[strength.score - 1] : "text-muted-foreground"
                     }`}
                   >
                     {strength.label}
@@ -249,22 +227,13 @@ function SignupForm() {
                 onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
                 className="mt-0.5 data-[state=checked]:border-terminal data-[state=checked]:bg-terminal"
               />
-              <Label
-                htmlFor="agree-terms"
-                className="text-muted-foreground font-normal cursor-pointer"
-              >
+              <Label htmlFor="agree-terms" className="text-muted-foreground font-normal cursor-pointer">
                 I agree to the{" "}
-                <Link
-                  href="/terms"
-                  className="text-terminal-dim underline underline-offset-4 hover:text-terminal"
-                >
+                <Link href="/terms" className="text-terminal-dim underline underline-offset-4 hover:text-terminal">
                   Terms of Service
                 </Link>{" "}
                 and{" "}
-                <Link
-                  href="/privacy"
-                  className="text-terminal-dim underline underline-offset-4 hover:text-terminal"
-                >
+                <Link href="/privacy" className="text-terminal-dim underline underline-offset-4 hover:text-terminal">
                   Privacy Policy
                 </Link>
               </Label>
@@ -286,10 +255,7 @@ function SignupForm() {
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link
-              href="/login"
-              className="text-terminal-dim underline underline-offset-4 hover:text-terminal"
-            >
+            <Link href="/login" className="text-terminal-dim underline underline-offset-4 hover:text-terminal">
               Sign in
             </Link>
           </p>

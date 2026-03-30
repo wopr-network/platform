@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/core/a2a-tools/_base.js", () => ({
   pluginTools: new Map(),
-  isAsyncIterable: vi.fn((v: unknown) => v != null && typeof (v as AsyncIterable<unknown>)[Symbol.asyncIterator] === "function"),
+  isAsyncIterable: vi.fn(
+    (v: unknown) => v != null && typeof (v as AsyncIterable<unknown>)[Symbol.asyncIterator] === "function",
+  ),
 }));
 
 vi.mock("../../src/plugins/state.js", () => ({
@@ -32,9 +34,7 @@ describe("resolveA2AToolDependencies", () => {
   });
 
   it("injects resolved tools into plugin context", () => {
-    const searchHandler = vi
-      .fn()
-      .mockResolvedValue({ content: [{ type: "text", text: "found" }] });
+    const searchHandler = vi.fn().mockResolvedValue({ content: [{ type: "text", text: "found" }] });
     (pluginTools as Map<string, unknown>).set("search", {
       name: "search",
       description: "Search tool",
@@ -60,9 +60,7 @@ describe("resolveA2AToolDependencies", () => {
   });
 
   it("proxy calls the registered handler", async () => {
-    const handler = vi
-      .fn()
-      .mockResolvedValue({ content: [{ type: "text", text: "result" }] });
+    const handler = vi.fn().mockResolvedValue({ content: [{ type: "text", text: "result" }] });
     (pluginTools as Map<string, unknown>).set("mytool", {
       name: "mytool",
       description: "My tool",
@@ -98,9 +96,7 @@ describe("resolveA2AToolDependencies", () => {
     const result = resolveA2AToolDependencies();
 
     expect(result.missing).toContain("plugin-a:nonexistent");
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("nonexistent"),
-    );
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("nonexistent"));
   });
 
   it("logs error for missing required dependency", () => {
@@ -115,9 +111,7 @@ describe("resolveA2AToolDependencies", () => {
     const result = resolveA2AToolDependencies();
 
     expect(result.missing).toContain("plugin-a:nonexistent");
-    expect(logger.error).toHaveBeenCalledWith(
-      expect.stringContaining("nonexistent"),
-    );
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("nonexistent"));
   });
 
   it("handles plugins with no toolDependencies gracefully", () => {

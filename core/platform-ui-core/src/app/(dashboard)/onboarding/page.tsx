@@ -5,14 +5,7 @@ import { Bot, ChevronRight, Rocket, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getBrandConfig, storageKey } from "@/lib/brand-config";
 import { presets } from "@/lib/onboarding-data";
@@ -103,9 +96,7 @@ export default function OnboardingPage() {
           {[0, 1, 2].map((s) => (
             <div
               key={s}
-              className={`h-1.5 w-12 rounded-full transition-colors ${
-                s <= step ? "bg-terminal" : "bg-terminal/20"
-              }`}
+              className={`h-1.5 w-12 rounded-full transition-colors ${s <= step ? "bg-terminal" : "bg-terminal/20"}`}
             />
           ))}
         </div>
@@ -170,9 +161,7 @@ export default function OnboardingPage() {
                 <CardTitle className="text-sm font-medium uppercase tracking-widest text-terminal">
                   Pick a preset
                 </CardTitle>
-                <CardDescription>
-                  Choose a starting configuration. You can customize everything later.
-                </CardDescription>
+                <CardDescription>Choose a starting configuration. You can customize everything later.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {presets
@@ -240,9 +229,7 @@ export default function OnboardingPage() {
                 {selectedPresetData && selectedPresetData.channels.length > 0 && (
                   <div className="flex items-center justify-between rounded-sm border border-terminal/10 px-3 py-2">
                     <span className="text-muted-foreground">Channels</span>
-                    <span className="font-medium text-terminal">
-                      {selectedPresetData.channels.join(", ")}
-                    </span>
+                    <span className="font-medium text-terminal">{selectedPresetData.channels.join(", ")}</span>
                   </div>
                 )}
               </CardContent>
@@ -250,11 +237,7 @@ export default function OnboardingPage() {
                 <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
                   Back
                 </Button>
-                <Button
-                  data-onboarding-id="onboarding.launch"
-                  variant="terminal"
-                  onClick={handleLaunch}
-                >
+                <Button data-onboarding-id="onboarding.launch" variant="terminal" onClick={handleLaunch}>
                   Launch <Rocket className="ml-1 size-4" />
                 </Button>
               </CardFooter>

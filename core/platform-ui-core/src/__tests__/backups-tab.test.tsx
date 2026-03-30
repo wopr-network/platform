@@ -183,9 +183,7 @@ describe("BackupsTab", () => {
   });
 
   it("retries load when retry button is clicked", async () => {
-    mockListSnapshots
-      .mockRejectedValueOnce(new Error("Network error"))
-      .mockResolvedValueOnce(MOCK_SNAPSHOTS);
+    mockListSnapshots.mockRejectedValueOnce(new Error("Network error")).mockResolvedValueOnce(MOCK_SNAPSHOTS);
     const user = userEvent.setup();
     render(<BackupsTab botId="bot-1" />);
     await waitFor(() => {

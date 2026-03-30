@@ -36,12 +36,7 @@ interface UpdateAvailableBadgeProps {
   onUpdated?: () => void;
 }
 
-export function UpdateAvailableBadge({
-  instanceId,
-  instanceName,
-  changelog,
-  onUpdated,
-}: UpdateAvailableBadgeProps) {
+export function UpdateAvailableBadge({ instanceId, instanceName, changelog, onUpdated }: UpdateAvailableBadgeProps) {
   const [pulling, setPulling] = useState(false);
 
   async function handleUpdate() {
@@ -96,11 +91,7 @@ export function UpdateAvailableBadge({
 
         <AlertDialogFooter>
           <AlertDialogCancel>Later</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleUpdate}
-            disabled={pulling}
-            className="bg-amber-600 hover:bg-amber-700"
-          >
+          <AlertDialogAction onClick={handleUpdate} disabled={pulling} className="bg-amber-600 hover:bg-amber-700">
             {pulling ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

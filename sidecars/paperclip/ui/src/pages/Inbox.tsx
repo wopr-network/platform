@@ -24,20 +24,8 @@ import { timeAgo } from "../lib/timeAgo";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Inbox as InboxIcon,
-  AlertTriangle,
-  XCircle,
-  X,
-  RotateCcw,
-} from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Inbox as InboxIcon, AlertTriangle, XCircle, X, RotateCcw } from "lucide-react";
 import { PageTabBar } from "../components/PageTabBar";
 import type { Approval, HeartbeatRun, Issue, JoinRequest } from "@paperclipai/shared";
 import {
@@ -53,21 +41,15 @@ import {
 } from "../lib/inbox";
 import { useDismissedInboxItems } from "../hooks/useInboxBadge";
 
-type InboxCategoryFilter =
-  | "everything"
-  | "issues_i_touched"
-  | "join_requests"
-  | "approvals"
-  | "failed_runs"
-  | "alerts";
-type SectionKey =
-  | "work_items"
-  | "join_requests"
-  | "alerts";
+type InboxCategoryFilter = "everything" | "issues_i_touched" | "join_requests" | "approvals" | "failed_runs" | "alerts";
+type SectionKey = "work_items" | "join_requests" | "alerts";
 
 function firstNonEmptyLine(value: string | null | undefined): string | null {
   if (!value) return null;
-  const line = value.split("\n").map((chunk) => chunk.trim()).find(Boolean);
+  const line = value
+    .split("\n")
+    .map((chunk) => chunk.trim())
+    .find(Boolean);
   return line ?? null;
 }
 
@@ -110,7 +92,7 @@ function FailedRunInboxRow({
   isRetrying: boolean;
 }) {
   const issueId = readIssueIdFromRun(run);
-  const issue = issueId ? issueById.get(issueId) ?? null : null;
+  const issue = issueId ? (issueById.get(issueId) ?? null) : null;
   const displayError = runFailureMessage(run);
 
   return (
@@ -209,8 +191,7 @@ function ApprovalInboxRow({
   const Icon = typeIcon[approval.type] ?? defaultTypeIcon;
   const label = approvalLabel(approval.type, approval.payload as Record<string, unknown> | null);
   const showResolutionButtons =
-    approval.type !== "budget_override_required" &&
-    ACTIONABLE_APPROVAL_STATUSES.has(approval.status);
+    approval.type !== "budget_override_required" && ACTIONABLE_APPROVAL_STATUSES.has(approval.status);
 
   return (
     <div className="border-b border-border px-2 py-2.5 last:border-b-0 sm:px-1 sm:pr-3 sm:py-2">
@@ -225,9 +206,7 @@ function ApprovalInboxRow({
             <Icon className="h-4 w-4 text-muted-foreground" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="line-clamp-2 text-sm font-medium sm:truncate sm:line-clamp-none">
-              {label}
-            </span>
+            <span className="line-clamp-2 text-sm font-medium sm:truncate sm:line-clamp-none">{label}</span>
             <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <span className="capitalize">{approvalStatusLabel(approval.status)}</span>
               {requesterName ? <span>requested by {requesterName}</span> : null}
@@ -245,13 +224,7 @@ function ApprovalInboxRow({
             >
               Approve
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="h-8 px-3"
-              onClick={onReject}
-              disabled={isPending}
-            >
+            <Button variant="destructive" size="sm" className="h-8 px-3" onClick={onReject} disabled={isPending}>
               Reject
             </Button>
           </div>
@@ -267,13 +240,7 @@ function ApprovalInboxRow({
           >
             Approve
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="h-8 px-3"
-            onClick={onReject}
-            disabled={isPending}
-          >
+          <Button variant="destructive" size="sm" className="h-8 px-3" onClick={onReject} disabled={isPending}>
             Reject
           </Button>
         </div>
@@ -301,14 +268,9 @@ export function Inbox() {
   const isHosted = healthQuery.data?.hostedMode === true;
 
   const pathSegment = location.pathname.split("/").pop() ?? "recent";
-  const tab: InboxTab =
-    pathSegment === "all" || pathSegment === "unread" ? pathSegment : "recent";
+  const tab: InboxTab = pathSegment === "all" || pathSegment === "unread" ? pathSegment : "recent";
   const issueLinkState = useMemo(
-    () =>
-      createIssueDetailLocationState(
-        "Inbox",
-        `${location.pathname}${location.search}${location.hash}`,
-      ),
+    () => createIssueDetailLocationState("Inbox", `${location.pathname}${location.search}${location.hash}`),
     [location.pathname, location.search, location.hash],
   );
 
@@ -336,10 +298,7 @@ export function Inbox() {
     enabled: !!selectedCompanyId,
   });
 
-  const {
-    data: joinRequests = [],
-    isLoading: isJoinRequestsLoading,
-  } = useQuery({
+  const { data: joinRequests = [], isLoading: isJoinRequestsLoading } = useQuery({
     queryKey: queryKeys.access.joinRequests(selectedCompanyId!),
     queryFn: async () => {
       try {
@@ -366,10 +325,7 @@ export function Inbox() {
     queryFn: () => issuesApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
-  const {
-    data: touchedIssuesRaw = [],
-    isLoading: isTouchedIssuesLoading,
-  } = useQuery({
+  const { data: touchedIssuesRaw = [], isLoading: isTouchedIssuesLoading } = useQuery({
     queryKey: queryKeys.issues.listTouchedByMe(selectedCompanyId!),
     queryFn: () =>
       issuesApi.list(selectedCompanyId!, {
@@ -386,10 +342,7 @@ export function Inbox() {
   });
 
   const touchedIssues = useMemo(() => getRecentTouchedIssues(touchedIssuesRaw), [touchedIssuesRaw]);
-  const unreadTouchedIssues = useMemo(
-    () => touchedIssues.filter((issue) => issue.isUnreadForMe),
-    [touchedIssues],
-  );
+  const unreadTouchedIssues = useMemo(() => touchedIssues.filter((issue) => issue.isUnreadForMe), [touchedIssues]);
   const issuesToRender = useMemo(
     () => (tab === "unread" ? unreadTouchedIssues : touchedIssues),
     [tab, touchedIssues, unreadTouchedIssues],
@@ -425,14 +378,10 @@ export function Inbox() {
     () => getApprovalsForTab(approvals ?? [], tab, allApprovalFilter),
     [approvals, tab, allApprovalFilter],
   );
-  const showJoinRequestsCategory =
-    allCategoryFilter === "everything" || allCategoryFilter === "join_requests";
-  const showTouchedCategory =
-    allCategoryFilter === "everything" || allCategoryFilter === "issues_i_touched";
-  const showApprovalsCategory =
-    allCategoryFilter === "everything" || allCategoryFilter === "approvals";
-  const showFailedRunsCategory =
-    allCategoryFilter === "everything" || allCategoryFilter === "failed_runs";
+  const showJoinRequestsCategory = allCategoryFilter === "everything" || allCategoryFilter === "join_requests";
+  const showTouchedCategory = allCategoryFilter === "everything" || allCategoryFilter === "issues_i_touched";
+  const showApprovalsCategory = allCategoryFilter === "everything" || allCategoryFilter === "approvals";
+  const showFailedRunsCategory = allCategoryFilter === "everything" || allCategoryFilter === "failed_runs";
   const showAlertsCategory = allCategoryFilter === "everything" || allCategoryFilter === "alerts";
   const failedRunsForTab = useMemo(() => {
     if (tab === "all" && !showFailedRunsCategory) return [];
@@ -478,8 +427,7 @@ export function Inbox() {
   });
 
   const approveJoinMutation = useMutation({
-    mutationFn: (joinRequest: JoinRequest) =>
-      accessApi.approveJoinRequest(selectedCompanyId!, joinRequest.id),
+    mutationFn: (joinRequest: JoinRequest) => accessApi.approveJoinRequest(selectedCompanyId!, joinRequest.id),
     onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.access.joinRequests(selectedCompanyId!) });
@@ -493,8 +441,7 @@ export function Inbox() {
   });
 
   const rejectJoinMutation = useMutation({
-    mutationFn: (joinRequest: JoinRequest) =>
-      accessApi.rejectJoinRequest(selectedCompanyId!, joinRequest.id),
+    mutationFn: (joinRequest: JoinRequest) => accessApi.rejectJoinRequest(selectedCompanyId!, joinRequest.id),
     onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.access.joinRequests(selectedCompanyId!) });
@@ -603,7 +550,8 @@ export function Inbox() {
   }
 
   const hasRunFailures = failedRuns.length > 0;
-  const showAggregateAgentError = !!dashboard && dashboard.agents.error > 0 && !hasRunFailures && !dismissed.has("alert:agent-errors");
+  const showAggregateAgentError =
+    !!dashboard && dashboard.agents.error > 0 && !hasRunFailures && !dismissed.has("alert:agent-errors");
   const showBudgetAlert =
     !!dashboard &&
     dashboard.costs.monthBudgetCents > 0 &&
@@ -637,9 +585,7 @@ export function Inbox() {
     !isRunsLoading;
 
   const showSeparatorBefore = (key: SectionKey) => visibleSections.indexOf(key) > 0;
-  const unreadIssueIds = unreadTouchedIssues
-    .filter((issue) => !fadingOutIssues.has(issue.id))
-    .map((issue) => issue.id);
+  const unreadIssueIds = unreadTouchedIssues.filter((issue) => !fadingOutIssues.has(issue.id)).map((issue) => issue.id);
   const canMarkAllRead = unreadIssueIds.length > 0;
 
   return (
@@ -714,9 +660,7 @@ export function Inbox() {
       {approvalsError && <p className="text-sm text-destructive">{approvalsError.message}</p>}
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
 
-      {!allLoaded && visibleSections.length === 0 && (
-        <PageSkeleton variant="inbox" />
-      )}
+      {!allLoaded && visibleSections.length === 0 && <PageSkeleton variant="inbox" />}
 
       {allLoaded && visibleSections.length === 0 && (
         <EmptyState
@@ -773,7 +717,7 @@ export function Inbox() {
                     key={`issue:${issue.id}`}
                     issue={issue}
                     issueLinkState={issueLinkState}
-                    desktopMetaLeading={(
+                    desktopMetaLeading={
                       <>
                         <span className="hidden sm:inline-flex">
                           <PriorityIcon priority={issue.priority} />
@@ -796,7 +740,7 @@ export function Inbox() {
                           </span>
                         )}
                       </>
-                    )}
+                    }
                     mobileMeta={
                       issue.lastExternalCommentAt
                         ? `commented ${timeAgo(issue.lastExternalCommentAt)}`
@@ -821,9 +765,7 @@ export function Inbox() {
         <>
           {showSeparatorBefore("join_requests") && <Separator />}
           <div>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Join Requests
-            </h3>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Join Requests</h3>
             <div className="grid gap-3">
               {joinRequests.map((joinRequest) => (
                 <div key={joinRequest.id} className="rounded-xl border border-border bg-card p-4">
@@ -838,9 +780,7 @@ export function Inbox() {
                         requested {timeAgo(joinRequest.createdAt)} from IP {joinRequest.requestIp}
                       </p>
                       {joinRequest.requestEmailSnapshot && (
-                        <p className="text-xs text-muted-foreground">
-                          email: {joinRequest.requestEmailSnapshot}
-                        </p>
+                        <p className="text-xs text-muted-foreground">email: {joinRequest.requestEmailSnapshot}</p>
                       )}
                       {!isHosted && joinRequest.adapterType && (
                         <p className="text-xs text-muted-foreground">adapter: {joinRequest.adapterType}</p>
@@ -871,14 +811,11 @@ export function Inbox() {
         </>
       )}
 
-
       {showAlertsSection && (
         <>
           {showSeparatorBefore("alerts") && <Separator />}
           <div>
-            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Alerts
-            </h3>
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Alerts</h3>
             <div className="divide-y divide-border border border-border">
               {showAggregateAgentError && (
                 <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
@@ -904,14 +841,10 @@ export function Inbox() {
               )}
               {showBudgetAlert && (
                 <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
-                  <Link
-                    to="/costs"
-                    className="flex flex-1 cursor-pointer items-center gap-3 no-underline text-inherit"
-                  >
+                  <Link to="/costs" className="flex flex-1 cursor-pointer items-center gap-3 no-underline text-inherit">
                     <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
                     <span className="text-sm">
-                      Budget at{" "}
-                      <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>{" "}
+                      Budget at <span className="font-medium">{dashboard!.costs.monthUtilizationPercent}%</span>{" "}
                       utilization this month
                     </span>
                   </Link>
@@ -929,7 +862,6 @@ export function Inbox() {
           </div>
         </>
       )}
-
     </div>
   );
 }

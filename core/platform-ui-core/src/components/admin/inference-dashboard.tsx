@@ -3,28 +3,10 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
-import type {
-  CacheStats,
-  DailyCostAggregate,
-  PageCostAggregate,
-  SessionCostSummary,
-} from "@/lib/admin-inference-api";
-import {
-  getCacheStats,
-  getDailyCost,
-  getPageCost,
-  getSessionCost,
-} from "@/lib/admin-inference-api";
+import type { CacheStats, DailyCostAggregate, PageCostAggregate, SessionCostSummary } from "@/lib/admin-inference-api";
+import { getCacheStats, getDailyCost, getPageCost, getSessionCost } from "@/lib/admin-inference-api";
 import { cn } from "@/lib/utils";
 
 // ---- Time ranges ----
@@ -88,9 +70,7 @@ function KpiCard({ label, value, subtext, valueClassName, loading, index }: KpiC
       {loading ? (
         <div className="h-8 w-24 bg-muted animate-pulse rounded-sm" />
       ) : (
-        <div className={`text-2xl font-bold tabular-nums ${valueClassName ?? "text-foreground"}`}>
-          {value}
-        </div>
+        <div className={`text-2xl font-bold tabular-nums ${valueClassName ?? "text-foreground"}`}>{value}</div>
       )}
       {subtext && <div className="text-xs text-muted-foreground mt-1">{subtext}</div>}
     </motion.div>
@@ -112,9 +92,7 @@ function ChartTooltip({
   return (
     <div className="bg-card border border-terminal/30 rounded-sm shadow-lg shadow-terminal/5 px-3 py-2">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-sm font-bold tabular-nums text-foreground">
-        ${payload[0].value.toFixed(4)}
-      </div>
+      <div className="text-sm font-bold tabular-nums text-foreground">${payload[0].value.toFixed(4)}</div>
     </div>
   );
 }
@@ -198,9 +176,7 @@ export function InferenceDashboard() {
 
       {/* Error state */}
       {error && (
-        <div className="mx-6 p-4 bg-card border border-destructive/30 rounded-sm text-destructive text-sm">
-          {error}
-        </div>
+        <div className="mx-6 p-4 bg-card border border-destructive/30 rounded-sm text-destructive text-sm">{error}</div>
       )}
 
       {/* KPI Cards */}
@@ -247,9 +223,7 @@ export function InferenceDashboard() {
         transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
         className="mx-6 bg-card border border-border rounded-sm p-4"
       >
-        <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
-          DAILY COST
-        </div>
+        <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">DAILY COST</div>
         {loading ? (
           <div className="h-[280px] bg-muted/20 animate-pulse rounded-sm" />
         ) : dailyCost.length === 0 ? (
@@ -294,9 +268,7 @@ export function InferenceDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 px-6 pb-6">
         {/* Page Cost Table */}
         <div className="bg-card border border-border rounded-sm p-4">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
-            COST BY PAGE
-          </div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">COST BY PAGE</div>
           {loading ? (
             <div className="space-y-3">
               {["sk-1", "sk-2", "sk-3", "sk-4", "sk-5"].map((id) => (
@@ -320,14 +292,10 @@ export function InferenceDashboard() {
                 >
                   <div className="flex-1 text-sm font-medium">{p.page || "/unknown"}</div>
                   <div className="w-20 text-right tabular-nums text-sm">{p.callCount}</div>
-                  <div className="w-24 text-right tabular-nums text-sm">
-                    ${p.avgCostUsd.toFixed(4)}
-                  </div>
+                  <div className="w-24 text-right tabular-nums text-sm">${p.avgCostUsd.toFixed(4)}</div>
                   <div
                     className={`w-24 text-right tabular-nums text-sm font-medium ${
-                      p.totalCostUsd === maxPageCost && maxPageCost > 0
-                        ? "text-amber-400"
-                        : "text-foreground"
+                      p.totalCostUsd === maxPageCost && maxPageCost > 0 ? "text-amber-400" : "text-foreground"
                     }`}
                   >
                     ${p.totalCostUsd.toFixed(4)}
@@ -340,9 +308,7 @@ export function InferenceDashboard() {
 
         {/* Cache Performance Panel */}
         <div className="bg-card border border-border rounded-sm p-4">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
-            CACHE PERFORMANCE
-          </div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">CACHE PERFORMANCE</div>
           {loading ? (
             <div className="space-y-4">
               <div className="h-10 w-24 bg-muted animate-pulse rounded-sm" />
@@ -353,9 +319,7 @@ export function InferenceDashboard() {
               <div className="text-4xl font-bold text-terminal tabular-nums">
                 {((cacheStats?.hitRate ?? 0) * 100).toFixed(1)}%
               </div>
-              <div className="text-xs text-muted-foreground mb-4">
-                of input tokens served from cache
-              </div>
+              <div className="text-xs text-muted-foreground mb-4">of input tokens served from cache</div>
 
               {/* Hit rate bar */}
               <div className="relative mb-4">
@@ -373,9 +337,7 @@ export function InferenceDashboard() {
                   style={{ left: "60%" }}
                 >
                   TARGET: 60%
-                  {(cacheStats?.hitRate ?? 0) >= 0.6 && (
-                    <Check className="text-terminal" size={10} />
-                  )}
+                  {(cacheStats?.hitRate ?? 0) >= 0.6 && <Check className="text-terminal" size={10} />}
                 </div>
               </div>
 
@@ -402,9 +364,7 @@ export function InferenceDashboard() {
               </div>
 
               {(cacheStats?.hitRate ?? 0) === 0 && (
-                <div className="text-xs text-muted-foreground mt-4">
-                  Awaiting first cached request
-                </div>
+                <div className="text-xs text-muted-foreground mt-4">Awaiting first cached request</div>
               )}
             </>
           )}

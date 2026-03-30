@@ -35,12 +35,7 @@ export function InlineEditor({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const markdownRef = useRef<MarkdownEditorRef>(null);
   const autosaveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const {
-    state: autosaveState,
-    markDirty,
-    reset,
-    runSave,
-  } = useAutosaveIndicator();
+  const { state: autosaveState, markDirty, reset, runSave } = useAutosaveIndicator();
 
   useEffect(() => {
     if (multiline && multilineFocused) return;
@@ -79,17 +74,20 @@ export function InlineEditor({
     return () => cancelAnimationFrame(frame);
   }, [editing, multiline]);
 
-  const commit = useCallback(async (nextValue = draft) => {
-    const trimmed = nextValue.trim();
-    if (trimmed && trimmed !== value) {
-      await Promise.resolve(onSave(trimmed));
-    } else {
-      setDraft(value);
-    }
-    if (!multiline) {
-      setEditing(false);
-    }
-  }, [draft, multiline, onSave, value]);
+  const commit = useCallback(
+    async (nextValue = draft) => {
+      const trimmed = nextValue.trim();
+      if (trimmed && trimmed !== value) {
+        await Promise.resolve(onSave(trimmed));
+      } else {
+        setDraft(value);
+      }
+      if (!multiline) {
+        setEditing(false);
+      }
+    },
+    [draft, multiline, onSave, value],
+  );
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !multiline) {
@@ -205,7 +203,6 @@ export function InlineEditor({
   }
 
   if (editing) {
-
     return (
       <textarea
         ref={inputRef}
@@ -219,11 +216,7 @@ export function InlineEditor({
           void commit();
         }}
         onKeyDown={handleKeyDown}
-        className={cn(
-          "w-full bg-transparent rounded outline-none resize-none overflow-hidden",
-          pad,
-          className
-        )}
+        className={cn("w-full bg-transparent rounded outline-none resize-none overflow-hidden", pad, className)}
       />
     );
   }

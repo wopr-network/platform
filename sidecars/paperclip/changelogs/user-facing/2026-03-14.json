@@ -4,9 +4,7 @@
   "sections": [
     {
       "title": "Fixed",
-      "items": [
-        "set AGENT_HOME env var for agent processes"
-      ]
+      "items": ["set AGENT_HOME env var for agent processes"]
     }
   ]
 }

@@ -50,12 +50,7 @@ describe("daemon auth middleware (WOP-1572)", () => {
   });
 
   describe("skip-auth paths", () => {
-    const skipPaths = [
-      "/health",
-      "/ready",
-      "/healthz",
-      "/",
-    ];
+    const skipPaths = ["/health", "/ready", "/healthz", "/"];
 
     for (const path of skipPaths) {
       it(`skips auth for ${path}`, async () => {
@@ -66,12 +61,7 @@ describe("daemon auth middleware (WOP-1572)", () => {
   });
 
   describe("WOPR_EXPOSE_DOCS gating (WOP-1550)", () => {
-    const docPaths = [
-      "/openapi.json",
-      "/docs",
-      "/openapi/websocket.json",
-      "/openapi/plugin-manifest.schema.json",
-    ];
+    const docPaths = ["/openapi.json", "/docs", "/openapi/websocket.json", "/openapi/plugin-manifest.schema.json"];
 
     // Ensure env is unset and app is rebuilt fresh for each test in this block,
     // regardless of what the outer environment has set.

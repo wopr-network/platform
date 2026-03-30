@@ -87,12 +87,7 @@ function ipInCidr(ipBytes: Uint8Array, range: CidrRange): boolean {
 
 function isIPv4Mapped(bytes: Uint8Array): boolean {
   // ::ffff:x.x.x.x — first 10 bytes zero, bytes 10-11 are 0xff
-  return (
-    bytes.length === 16 &&
-    bytes[10] === 0xff &&
-    bytes[11] === 0xff &&
-    bytes.slice(0, 10).every((b) => b === 0)
-  );
+  return bytes.length === 16 && bytes[10] === 0xff && bytes[11] === 0xff && bytes.slice(0, 10).every((b) => b === 0);
 }
 
 export function isPrivateIp(addr: string): boolean {

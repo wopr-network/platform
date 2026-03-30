@@ -112,8 +112,6 @@ describe("gate.repo unique constraint handling", () => {
 
   it("create() throws ConflictError on duplicate gate name", async () => {
     await repo.create({ name: "ci-check", type: "command", command: "echo ok" });
-    await expect(
-      repo.create({ name: "ci-check", type: "command", command: "echo ok" }),
-    ).rejects.toThrow(ConflictError);
+    await expect(repo.create({ name: "ci-check", type: "command", command: "echo ok" })).rejects.toThrow(ConflictError);
   });
 });

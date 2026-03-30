@@ -61,12 +61,7 @@ function twilioWebhookHeaders(path: string, bodyParams: Record<string, unknown> 
   // Coerce scalars to strings — same as middleware JSON body handling
   const stringParams: Record<string, string> = {};
   for (const [key, value] of Object.entries(bodyParams)) {
-    if (
-      value !== null &&
-      value !== undefined &&
-      !Array.isArray(value) &&
-      typeof value !== "object"
-    ) {
+    if (value !== null && value !== undefined && !Array.isArray(value) && typeof value !== "object") {
       stringParams[key] = String(value);
     }
   }
@@ -167,9 +162,7 @@ async function makeGatewayApp(
 ): Promise<Hono<GatewayAuthEnv>> {
   const config: GatewayConfig = {
     meter: createStubMeter() as unknown as GatewayConfig["meter"],
-    budgetChecker: createStubBudgetChecker(
-      opts.budgetAllowed ?? true,
-    ) as unknown as GatewayConfig["budgetChecker"],
+    budgetChecker: createStubBudgetChecker(opts.budgetAllowed ?? true) as unknown as GatewayConfig["budgetChecker"],
     creditLedger:
       opts.creditBalance !== undefined
         ? (new StubCreditLedger(opts.creditBalance) as unknown as GatewayConfig["creditLedger"])
@@ -479,35 +472,38 @@ describe("Gateway proxy endpoints", () => {
   // Phone Outbound
   // -----------------------------------------------------------------------
 
-    describe("POST /v1/phone/outbound", () => {
-      const stubFetch = async (_url: string, opts?: { method?: string; headers?: Record<string, string>; body?: string }) => {
-        const url = _url as string;
-        if (url.includes("/Calls.json")) {
-          return new Response(JSON.stringify({ sid: "CA1234567890", status: "queued" }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
-        return new Response(JSON.stringify({ sid: "SM123", status: "sent" }), {
+  describe("POST /v1/phone/outbound", () => {
+    const stubFetch = async (
+      _url: string,
+      opts?: { method?: string; headers?: Record<string, string>; body?: string },
+    ) => {
+      const url = _url as string;
+      if (url.includes("/Calls.json")) {
+        return new Response(JSON.stringify({ sid: "CA1234567890", status: "queued" }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
-      };
-
-      it("makes outbound call and meters cost", async () => {
-        const app = await makeGatewayApp({ fetchFn: stubFetch });
-        const res = await app.request("/v1/phone/outbound", {
-          method: "POST",
-          headers: { ...authHeaders(), "Content-Type": "application/json" },
-          body: JSON.stringify({ to: "+15551234567", from: "+15559876543" }),
-        });
-
-        expect(res.status).toBe(200);
-        const body = (await res.json()) as { sid: string; status: string };
-        expect(body.sid).toBe("CA1234567890");
-        expect(body.status).toBe("queued");
+      }
+      return new Response(JSON.stringify({ sid: "SM123", status: "sent" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
       });
+    };
+
+    it("makes outbound call and meters cost", async () => {
+      const app = await makeGatewayApp({ fetchFn: stubFetch });
+      const res = await app.request("/v1/phone/outbound", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ to: "+15551234567", from: "+15559876543" }),
+      });
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { sid: string; status: string };
+      expect(body.sid).toBe("CA1234567890");
+      expect(body.status).toBe("queued");
     });
+  });
 
   // -----------------------------------------------------------------------
   // Phone Inbound

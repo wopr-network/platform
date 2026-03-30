@@ -82,10 +82,7 @@ export function useInboxBadge(companyId: string | null | undefined) {
     enabled: !!companyId,
   });
 
-  const unreadIssues = useMemo(
-    () => getUnreadTouchedIssues(getRecentTouchedIssues(touchedIssues)),
-    [touchedIssues],
-  );
+  const unreadIssues = useMemo(() => getUnreadTouchedIssues(getRecentTouchedIssues(touchedIssues)), [touchedIssues]);
 
   const { data: heartbeatRuns = [] } = useQuery({
     queryKey: queryKeys.heartbeats(companyId!),

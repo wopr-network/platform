@@ -24,9 +24,7 @@ describe("04-flow step", () => {
   });
 
   it("should return empty when flow already set via CLI flag", async () => {
-    const { flowStep } = await import(
-      "../../../../src/commands/onboard/steps/04-flow.js"
-    );
+    const { flowStep } = await import("../../../../src/commands/onboard/steps/04-flow.js");
 
     const ctx = {
       opts: { flow: "quickstart" },
@@ -42,9 +40,7 @@ describe("04-flow step", () => {
 
   it("should set flow to quickstart when user selects it and show defaults note", async () => {
     selectMock.mockResolvedValue("quickstart");
-    const { flowStep } = await import(
-      "../../../../src/commands/onboard/steps/04-flow.js"
-    );
+    const { flowStep } = await import("../../../../src/commands/onboard/steps/04-flow.js");
 
     const ctx = {
       opts: {},
@@ -64,9 +60,7 @@ describe("04-flow step", () => {
 
   it("should set flow to advanced when user selects it with no defaults note", async () => {
     selectMock.mockResolvedValue("advanced");
-    const { flowStep } = await import(
-      "../../../../src/commands/onboard/steps/04-flow.js"
-    );
+    const { flowStep } = await import("../../../../src/commands/onboard/steps/04-flow.js");
 
     const ctx = {
       opts: {},

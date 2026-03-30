@@ -2,13 +2,11 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateCheckout, mockGetSupportedPaymentMethods, mockGetChargeStatus } = vi.hoisted(
-  () => ({
-    mockCreateCheckout: vi.fn(),
-    mockGetSupportedPaymentMethods: vi.fn(),
-    mockGetChargeStatus: vi.fn(),
-  }),
-);
+const { mockCreateCheckout, mockGetSupportedPaymentMethods, mockGetChargeStatus } = vi.hoisted(() => ({
+  mockCreateCheckout: vi.fn(),
+  mockGetSupportedPaymentMethods: vi.fn(),
+  mockGetChargeStatus: vi.fn(),
+}));
 
 vi.mock("@/lib/api", () => ({
   createCheckout: (...args: unknown[]) => mockCreateCheckout(...args),

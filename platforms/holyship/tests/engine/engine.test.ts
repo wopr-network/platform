@@ -18,28 +18,52 @@ import type { IEventBusAdapter, EngineEvent } from "../../src/engine/event-types
 
 function makeEntity(overrides: Partial<Entity> = {}): Entity {
   return {
-    id: "ent-1", flowId: "flow-1", state: "open",
-    refs: null, artifacts: null, claimedBy: null, claimedAt: null,
-    flowVersion: 1, priority: 0, createdAt: new Date(), updatedAt: new Date(),
-    affinityWorkerId: null, affinityRole: null, affinityExpiresAt: null,
+    id: "ent-1",
+    flowId: "flow-1",
+    state: "open",
+    refs: null,
+    artifacts: null,
+    claimedBy: null,
+    claimedAt: null,
+    flowVersion: 1,
+    priority: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    affinityWorkerId: null,
+    affinityRole: null,
+    affinityExpiresAt: null,
     ...overrides,
   };
 }
 
 function makeState(overrides: Partial<State> = {}): State {
   return {
-    id: "s-1", flowId: "flow-1", name: "coding",
-    modelTier: null, mode: "active",
-    promptTemplate: "Do the thing", constraints: null,
+    id: "s-1",
+    flowId: "flow-1",
+    name: "coding",
+    modelTier: null,
+    mode: "active",
+    promptTemplate: "Do the thing",
+    constraints: null,
     ...overrides,
   };
 }
 
 function makeFlow(overrides: Partial<Flow> = {}): Flow {
   return {
-    id: "flow-1", name: "test-flow", description: null, entitySchema: null,
-    initialState: "open", maxConcurrent: 0, maxConcurrentPerRepo: 0, affinityWindowMs: 300000,
-    version: 1, createdBy: null, discipline: "coder", createdAt: null, updatedAt: null,
+    id: "flow-1",
+    name: "test-flow",
+    description: null,
+    entitySchema: null,
+    initialState: "open",
+    maxConcurrent: 0,
+    maxConcurrentPerRepo: 0,
+    affinityWindowMs: 300000,
+    version: 1,
+    createdBy: null,
+    discipline: "coder",
+    createdAt: null,
+    updatedAt: null,
     states: [
       makeState({ name: "open", promptTemplate: "Plan" }),
       makeState({ name: "coding", promptTemplate: "Code" }),
@@ -47,14 +71,30 @@ function makeFlow(overrides: Partial<Flow> = {}): Flow {
     ],
     transitions: [
       {
-        id: "t-1", flowId: "flow-1", fromState: "open", toState: "coding",
-        trigger: "start", gateId: null, condition: null, priority: 0,
-        spawnFlow: null, spawnTemplate: null, createdAt: null,
+        id: "t-1",
+        flowId: "flow-1",
+        fromState: "open",
+        toState: "coding",
+        trigger: "start",
+        gateId: null,
+        condition: null,
+        priority: 0,
+        spawnFlow: null,
+        spawnTemplate: null,
+        createdAt: null,
       },
       {
-        id: "t-2", flowId: "flow-1", fromState: "coding", toState: "done",
-        trigger: "complete", gateId: null, condition: null, priority: 0,
-        spawnFlow: null, spawnTemplate: null, createdAt: null,
+        id: "t-2",
+        flowId: "flow-1",
+        fromState: "coding",
+        toState: "done",
+        trigger: "complete",
+        gateId: null,
+        condition: null,
+        priority: 0,
+        spawnFlow: null,
+        spawnTemplate: null,
+        createdAt: null,
       },
     ],
     ...overrides,
@@ -70,9 +110,7 @@ function makeMockRepos() {
     get: vi.fn().mockResolvedValue(makeEntity()),
     findByFlowAndState: vi.fn().mockResolvedValue([]),
     hasAnyInFlowAndState: vi.fn().mockResolvedValue(false),
-    transition: vi.fn().mockImplementation(async (id: string, toState: string) =>
-      makeEntity({ id, state: toState }),
-    ),
+    transition: vi.fn().mockImplementation(async (id: string, toState: string) => makeEntity({ id, state: toState })),
     updateArtifacts: vi.fn().mockResolvedValue(undefined),
     claim: vi.fn().mockResolvedValue(null),
     claimById: vi.fn().mockResolvedValue(null),
@@ -98,10 +136,21 @@ function makeMockRepos() {
   };
   const invocationRepo: IInvocationRepository = {
     create: vi.fn().mockResolvedValue({
-      id: "inv-1", entityId: "ent-1", stage: "coding",
-      mode: "active", prompt: "Do the thing", context: null,
-      claimedBy: null, claimedAt: null, startedAt: null, completedAt: null,
-      failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+      id: "inv-1",
+      entityId: "ent-1",
+      stage: "coding",
+      mode: "active",
+      prompt: "Do the thing",
+      context: null,
+      claimedBy: null,
+      claimedAt: null,
+      startedAt: null,
+      completedAt: null,
+      failedAt: null,
+      signal: null,
+      artifacts: null,
+      error: null,
+      ttlMs: 1800000,
     } satisfies Invocation),
     get: vi.fn(),
     claim: vi.fn(),
@@ -121,20 +170,31 @@ function makeMockRepos() {
     get: vi.fn().mockResolvedValue(null),
     getByName: vi.fn(),
     record: vi.fn().mockResolvedValue({
-      id: "gr-1", entityId: "ent-1", gateId: "g-1",
-      passed: true, output: "ok", evaluatedAt: new Date(),
+      id: "gr-1",
+      entityId: "ent-1",
+      gateId: "g-1",
+      passed: true,
+      output: "ok",
+      evaluatedAt: new Date(),
     }),
     resultsFor: vi.fn().mockResolvedValue([]),
   };
   const transitionLogRepo: ITransitionLogRepository = {
     record: vi.fn().mockResolvedValue({
-      id: "tl-1", entityId: "ent-1", fromState: "open", toState: "coding",
-      trigger: "start", invocationId: null, timestamp: new Date(),
+      id: "tl-1",
+      entityId: "ent-1",
+      fromState: "open",
+      toState: "coding",
+      trigger: "start",
+      invocationId: null,
+      timestamp: new Date(),
     }),
     historyFor: vi.fn().mockResolvedValue([]),
   };
   const eventEmitter: IEventBusAdapter = {
-    emit: vi.fn().mockImplementation(async (e: EngineEvent) => { events.push(e); }),
+    emit: vi.fn().mockImplementation(async (e: EngineEvent) => {
+      events.push(e);
+    }),
   };
 
   return { entityRepo, flowRepo, invocationRepo, gateRepo, transitionLogRepo, eventEmitter, events, flow };
@@ -177,17 +237,30 @@ describe("Engine", () => {
       const flowWithGate = makeFlow({
         transitions: [
           {
-            id: "t-1", flowId: "flow-1", fromState: "open", toState: "coding",
-            trigger: "start", gateId: "gate-1", condition: null, priority: 0,
-            spawnFlow: null, spawnTemplate: null, createdAt: null,
+            id: "t-1",
+            flowId: "flow-1",
+            fromState: "open",
+            toState: "coding",
+            trigger: "start",
+            gateId: "gate-1",
+            condition: null,
+            priority: 0,
+            spawnFlow: null,
+            spawnTemplate: null,
+            createdAt: null,
           },
         ],
       });
       (mocks.flowRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(flowWithGate);
       (mocks.flowRepo.getAtVersion as ReturnType<typeof vi.fn>).mockResolvedValue(flowWithGate);
       (mocks.gateRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-        id: "gate-1", name: "lint", type: "command", command: "exit 1",
-        functionRef: null, apiConfig: null, timeoutMs: 30000,
+        id: "gate-1",
+        name: "lint",
+        type: "command",
+        command: "exit 1",
+        functionRef: null,
+        apiConfig: null,
+        timeoutMs: 30000,
       });
 
       const engine = new Engine({ ...mocks, adapters: new Map() });
@@ -203,17 +276,30 @@ describe("Engine", () => {
       const flowWithGate = makeFlow({
         transitions: [
           {
-            id: "t-1", flowId: "flow-1", fromState: "open", toState: "coding",
-            trigger: "start", gateId: "gate-1", condition: null, priority: 0,
-            spawnFlow: null, spawnTemplate: null, createdAt: null,
+            id: "t-1",
+            flowId: "flow-1",
+            fromState: "open",
+            toState: "coding",
+            trigger: "start",
+            gateId: "gate-1",
+            condition: null,
+            priority: 0,
+            spawnFlow: null,
+            spawnTemplate: null,
+            createdAt: null,
           },
         ],
       });
       (mocks.flowRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(flowWithGate);
       (mocks.flowRepo.getAtVersion as ReturnType<typeof vi.fn>).mockResolvedValue(flowWithGate);
       (mocks.gateRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-        id: "gate-1", name: "lint", type: "command", command: "exit 1",
-        functionRef: null, apiConfig: null, timeoutMs: 30000,
+        id: "gate-1",
+        name: "lint",
+        type: "command",
+        command: "exit 1",
+        functionRef: null,
+        apiConfig: null,
+        timeoutMs: 30000,
       });
 
       const engine = new Engine({ ...mocks, adapters: new Map() });
@@ -235,34 +321,49 @@ describe("Engine", () => {
 
     it("appends to existing gate_failures array", async () => {
       const mocks = makeMockRepos();
-      const existingFailure = { gateId: "gate-0", gateName: "typecheck", output: "type error", failedAt: "2026-01-01T00:00:00.000Z" };
+      const existingFailure = {
+        gateId: "gate-0",
+        gateName: "typecheck",
+        output: "type error",
+        failedAt: "2026-01-01T00:00:00.000Z",
+      };
       (mocks.entityRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(
         makeEntity({ artifacts: { gate_failures: [existingFailure] } }),
       );
       const flowWithGate = makeFlow({
         transitions: [
           {
-            id: "t-1", flowId: "flow-1", fromState: "open", toState: "coding",
-            trigger: "start", gateId: "gate-1", condition: null, priority: 0,
-            spawnFlow: null, spawnTemplate: null, createdAt: null,
+            id: "t-1",
+            flowId: "flow-1",
+            fromState: "open",
+            toState: "coding",
+            trigger: "start",
+            gateId: "gate-1",
+            condition: null,
+            priority: 0,
+            spawnFlow: null,
+            spawnTemplate: null,
+            createdAt: null,
           },
         ],
       });
       (mocks.flowRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(flowWithGate);
       (mocks.flowRepo.getAtVersion as ReturnType<typeof vi.fn>).mockResolvedValue(flowWithGate);
       (mocks.gateRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-        id: "gate-1", name: "lint", type: "command", command: "exit 1",
-        functionRef: null, apiConfig: null, timeoutMs: 30000,
+        id: "gate-1",
+        name: "lint",
+        type: "command",
+        command: "exit 1",
+        functionRef: null,
+        apiConfig: null,
+        timeoutMs: 30000,
       });
 
       const engine = new Engine({ ...mocks, adapters: new Map() });
       await engine.processSignal("ent-1", "start");
 
       expect(mocks.entityRepo.updateArtifacts).toHaveBeenCalledWith("ent-1", {
-        gate_failures: [
-          existingFailure,
-          expect.objectContaining({ gateId: "gate-1", gateName: "lint" }),
-        ],
+        gate_failures: [existingFailure, expect.objectContaining({ gateId: "gate-1", gateName: "lint" })],
       });
     });
 
@@ -291,7 +392,12 @@ describe("Engine", () => {
     it("passes entity with cleared gate_failures to buildInvocation after successful transition", async () => {
       const mocks = makeMockRepos();
       // Entity has stale gate_failures from a prior retry
-      const priorFailure = { gateId: "gate-old", gateName: "lint", output: "fail", failedAt: "2026-01-01T00:00:00.000Z" };
+      const priorFailure = {
+        gateId: "gate-old",
+        gateName: "lint",
+        output: "fail",
+        failedAt: "2026-01-01T00:00:00.000Z",
+      };
       (mocks.entityRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(
         makeEntity({ artifacts: { gate_failures: [priorFailure] } }),
       );
@@ -307,10 +413,21 @@ describe("Engine", () => {
         async (_entityId: string, _stage: string, prompt: string) => {
           capturedPrompt = prompt;
           return {
-            id: "inv-1", entityId: "ent-1", stage: "coding",
-            mode: "active", prompt, context: null,
-            claimedBy: null, claimedAt: null, startedAt: null, completedAt: null,
-            failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+            id: "inv-1",
+            entityId: "ent-1",
+            stage: "coding",
+            mode: "active",
+            prompt,
+            context: null,
+            claimedBy: null,
+            claimedAt: null,
+            startedAt: null,
+            completedAt: null,
+            failedAt: null,
+            signal: null,
+            artifacts: null,
+            error: null,
+            ttlMs: 1800000,
           };
         },
       );
@@ -349,11 +466,13 @@ describe("Engine", () => {
       await engine.processSignal("ent-1", "start");
 
       const transitioned = mocks.events.find((e) => e.type === "entity.transitioned");
-      expect(transitioned).toEqual(expect.objectContaining({
-        type: "entity.transitioned",
-        fromState: "open",
-        toState: "coding",
-      }));
+      expect(transitioned).toEqual(
+        expect.objectContaining({
+          type: "entity.transitioned",
+          fromState: "open",
+          toState: "coding",
+        }),
+      );
     });
   });
 
@@ -393,10 +512,21 @@ describe("Engine", () => {
       const claimedEntity = makeEntity({ state: "coding", claimedBy: "agent-1" });
       (mocks.entityRepo.claim as ReturnType<typeof vi.fn>).mockResolvedValue(claimedEntity);
       const claimedInvocation: Invocation = {
-        id: "inv-1", entityId: "ent-1", stage: "coding",
-        mode: "active", prompt: "Do the thing", context: null,
-        claimedBy: "agent:coder", claimedAt: new Date(), startedAt: null, completedAt: null,
-        failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+        id: "inv-1",
+        entityId: "ent-1",
+        stage: "coding",
+        mode: "active",
+        prompt: "Do the thing",
+        context: null,
+        claimedBy: "agent:coder",
+        claimedAt: new Date(),
+        startedAt: null,
+        completedAt: null,
+        failedAt: null,
+        signal: null,
+        artifacts: null,
+        error: null,
+        ttlMs: 1800000,
       };
       (mocks.invocationRepo.claim as ReturnType<typeof vi.fn>).mockResolvedValue(claimedInvocation);
       const engine = new Engine({ ...mocks, adapters: new Map() });
@@ -436,10 +566,21 @@ describe("Engine", () => {
       const mocks = makeMockRepos();
       const claimedEntity = makeEntity({ state: "coding", claimedBy: "agent:coder" });
       const unclaimedInvocation: Invocation = {
-        id: "inv-1", entityId: "ent-1", stage: "coding",
-        mode: "active", prompt: "Do the thing", context: null,
-        claimedBy: null, claimedAt: null, startedAt: null, completedAt: null,
-        failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+        id: "inv-1",
+        entityId: "ent-1",
+        stage: "coding",
+        mode: "active",
+        prompt: "Do the thing",
+        context: null,
+        claimedBy: null,
+        claimedAt: null,
+        startedAt: null,
+        completedAt: null,
+        failedAt: null,
+        signal: null,
+        artifacts: null,
+        error: null,
+        ttlMs: 1800000,
       };
 
       // findUnclaimedByFlow returns a pending invocation
@@ -461,7 +602,7 @@ describe("Engine", () => {
       // Should return null since no work was successfully claimed
       expect(result).toBeNull();
       // Entity claim should have been released
-      expect(mocks.entityRepo.release).toHaveBeenCalledWith(claimedEntity.id, 'agent:coder');
+      expect(mocks.entityRepo.release).toHaveBeenCalledWith(claimedEntity.id, "agent:coder");
     });
 
     it("does not call invocationRepo.fail when claim() returns null in step-8 fallback (race condition)", async () => {
@@ -473,10 +614,21 @@ describe("Engine", () => {
       (mocks.entityRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(claimedEntity);
       // invocationRepo.create returns a new invocation
       const createdInv: Invocation = {
-        id: "inv-new", entityId: "ent-1", stage: "coding",
-        mode: "active", prompt: "Do the thing", context: null,
-        claimedBy: null, claimedAt: null, startedAt: null, completedAt: null,
-        failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+        id: "inv-new",
+        entityId: "ent-1",
+        stage: "coding",
+        mode: "active",
+        prompt: "Do the thing",
+        context: null,
+        claimedBy: null,
+        claimedAt: null,
+        startedAt: null,
+        completedAt: null,
+        failedAt: null,
+        signal: null,
+        artifacts: null,
+        error: null,
+        ttlMs: 1800000,
       };
       (mocks.invocationRepo.create as ReturnType<typeof vi.fn>).mockResolvedValue(createdInv);
       // claim returns null — another worker won the race
@@ -506,10 +658,21 @@ describe("Engine", () => {
       const mocks = makeMockRepos();
       const claimedEntity = makeEntity({ state: "coding", claimedBy: "wkr_123" });
       const unclaimedInvocation: Invocation = {
-        id: "inv-1", entityId: "ent-1", stage: "coding",
-        mode: "active", prompt: "Do the thing", context: null,
-        claimedBy: null, claimedAt: null, startedAt: null, completedAt: null,
-        failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+        id: "inv-1",
+        entityId: "ent-1",
+        stage: "coding",
+        mode: "active",
+        prompt: "Do the thing",
+        context: null,
+        claimedBy: null,
+        claimedAt: null,
+        startedAt: null,
+        completedAt: null,
+        failedAt: null,
+        signal: null,
+        artifacts: null,
+        error: null,
+        ttlMs: 1800000,
       };
 
       (mocks.invocationRepo.findUnclaimedByFlow as ReturnType<typeof vi.fn>).mockResolvedValue([unclaimedInvocation]);
@@ -517,7 +680,9 @@ describe("Engine", () => {
       (mocks.entityRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(makeEntity({ state: "coding" }));
       (mocks.entityRepo.claimById as ReturnType<typeof vi.fn>).mockResolvedValue(claimedEntity);
       (mocks.invocationRepo.claim as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ...unclaimedInvocation, claimedBy: "wkr_123", claimedAt: new Date(),
+        ...unclaimedInvocation,
+        claimedBy: "wkr_123",
+        claimedAt: new Date(),
       });
 
       const engine = new Engine({ ...mocks, adapters: new Map() });
@@ -536,9 +701,21 @@ describe("Engine", () => {
       // Simulate one pending invocation already in the flow
       (mocks.invocationRepo.findByFlow as ReturnType<typeof vi.fn>).mockResolvedValue([
         {
-          id: "inv-existing", entityId: "ent-other", stage: "coding",
-          mode: "active", prompt: "Do thing", context: null, claimedBy: null, claimedAt: null,
-          startedAt: null, completedAt: null, failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+          id: "inv-existing",
+          entityId: "ent-other",
+          stage: "coding",
+          mode: "active",
+          prompt: "Do thing",
+          context: null,
+          claimedBy: null,
+          claimedAt: null,
+          startedAt: null,
+          completedAt: null,
+          failedAt: null,
+          signal: null,
+          artifacts: null,
+          error: null,
+          ttlMs: 1800000,
         },
       ]);
       const engine = new Engine({ ...mocks, adapters: new Map() });
@@ -605,8 +782,9 @@ describe("Engine", () => {
       (mocks.entityRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(
         makeEntity({ refs: { issue: { adapter: "linear", id: "L-1" } } }),
       );
-      (mocks.entityRepo.transition as ReturnType<typeof vi.fn>).mockImplementation(async (id: string, toState: string) =>
-        makeEntity({ id, state: toState, refs: { issue: { adapter: "linear", id: "L-1" } } }),
+      (mocks.entityRepo.transition as ReturnType<typeof vi.fn>).mockImplementation(
+        async (id: string, toState: string) =>
+          makeEntity({ id, state: toState, refs: { issue: { adapter: "linear", id: "L-1" } } }),
       );
       const engine = new Engine({ ...mocks, adapters });
 
@@ -620,9 +798,7 @@ describe("Engine", () => {
       const mockAdapter = { get: vi.fn().mockResolvedValue({ title: "test" }) };
       const adapters = new Map<string, unknown>([["linear", mockAdapter]]);
       const refs = { issue: { adapter: "linear", id: "L-2" } };
-      (mocks.entityRepo.create as ReturnType<typeof vi.fn>).mockResolvedValue(
-        makeEntity({ refs }),
-      );
+      (mocks.entityRepo.create as ReturnType<typeof vi.fn>).mockResolvedValue(makeEntity({ refs }));
       const engine = new Engine({ ...mocks, adapters });
 
       await engine.createEntity("test-flow", refs);
@@ -635,7 +811,8 @@ describe("Engine", () => {
       const mockAdapter = { get: vi.fn().mockResolvedValue({ title: "test" }) };
       const adapters = new Map<string, unknown>([["linear", mockAdapter]]);
       const claimedEntity = makeEntity({
-        state: "coding", claimedBy: "agent:coder",
+        state: "coding",
+        claimedBy: "agent:coder",
         refs: { issue: { adapter: "linear", id: "L-3" } },
       });
       (mocks.entityRepo.claim as ReturnType<typeof vi.fn>).mockResolvedValue(claimedEntity);
@@ -649,10 +826,21 @@ describe("Engine", () => {
     it("claimWork (unclaimed invocation path) returns slim claim result without buildInvocation", async () => {
       const mocks = makeMockRepos();
       const pendingInvocation: Invocation = {
-        id: "inv-pending", entityId: "ent-1", stage: "coding",
-        mode: "active", prompt: "Do the thing", context: null,
-        claimedBy: null, claimedAt: null, startedAt: null, completedAt: null,
-        failedAt: null, signal: null, artifacts: null, error: null, ttlMs: 1800000,
+        id: "inv-pending",
+        entityId: "ent-1",
+        stage: "coding",
+        mode: "active",
+        prompt: "Do the thing",
+        context: null,
+        claimedBy: null,
+        claimedAt: null,
+        startedAt: null,
+        completedAt: null,
+        failedAt: null,
+        signal: null,
+        artifacts: null,
+        error: null,
+        ttlMs: 1800000,
       };
       const claimedEntity = makeEntity({ state: "coding", claimedBy: "agent:coder" });
       (mocks.invocationRepo.findUnclaimedByFlow as ReturnType<typeof vi.fn>).mockResolvedValue([pendingInvocation]);
@@ -660,7 +848,8 @@ describe("Engine", () => {
       (mocks.entityRepo.get as ReturnType<typeof vi.fn>).mockResolvedValue(makeEntity({ state: "coding" }));
       (mocks.entityRepo.claimById as ReturnType<typeof vi.fn>).mockResolvedValue(claimedEntity);
       (mocks.invocationRepo.claim as ReturnType<typeof vi.fn>).mockResolvedValue({
-        ...pendingInvocation, claimedBy: "agent:coder",
+        ...pendingInvocation,
+        claimedBy: "agent:coder",
       });
       const engine = new Engine({ ...mocks, adapters: new Map() });
 
@@ -668,7 +857,13 @@ describe("Engine", () => {
 
       expect(result).not.toBeNull();
       expect(result).not.toBe("all_claimed");
-      const claim = result as { entityId: string; invocationId: string; stage: string; refs: unknown; artifacts: unknown };
+      const claim = result as {
+        entityId: string;
+        invocationId: string;
+        stage: string;
+        refs: unknown;
+        artifacts: unknown;
+      };
       expect(claim.entityId).toBe("ent-1");
       expect(claim.invocationId).toBe("inv-pending");
       expect(claim.stage).toBe("coding");
@@ -682,12 +877,13 @@ describe("Engine", () => {
       const mocks = makeMockRepos();
 
       // Two entities in "open", one in "coding"
-      (mocks.entityRepo.findByFlowAndState as ReturnType<typeof vi.fn>)
-        .mockImplementation(async (_flowId: string, state: string) => {
+      (mocks.entityRepo.findByFlowAndState as ReturnType<typeof vi.fn>).mockImplementation(
+        async (_flowId: string, state: string) => {
           if (state === "open") return [makeEntity(), makeEntity()];
           if (state === "coding") return [makeEntity({ state: "coding" })];
           return [];
-        });
+        },
+      );
 
       // One active (claimed, not completed), one pending (unclaimed, not completed)
       (mocks.invocationRepo.countActiveByFlow as ReturnType<typeof vi.fn>).mockResolvedValue(1);
@@ -721,21 +917,25 @@ describe("Engine", () => {
       (mocks.flowRepo.listAll as ReturnType<typeof vi.fn>).mockResolvedValue([flowA, flowB]);
 
       // flow-a: 1 entity in "open", 0 elsewhere; flow-b: 2 in "coding", 0 elsewhere
-      (mocks.entityRepo.findByFlowAndState as ReturnType<typeof vi.fn>)
-        .mockImplementation(async (flowId: string, state: string) => {
+      (mocks.entityRepo.findByFlowAndState as ReturnType<typeof vi.fn>).mockImplementation(
+        async (flowId: string, state: string) => {
           if (flowId === "flow-a" && state === "open") return [makeEntity({ flowId: "flow-a" })];
-          if (flowId === "flow-b" && state === "coding") return [
-            makeEntity({ id: "ent-b1", flowId: "flow-b", state: "coding" }),
-            makeEntity({ id: "ent-b2", flowId: "flow-b", state: "coding" }),
-          ];
+          if (flowId === "flow-b" && state === "coding")
+            return [
+              makeEntity({ id: "ent-b1", flowId: "flow-b", state: "coding" }),
+              makeEntity({ id: "ent-b2", flowId: "flow-b", state: "coding" }),
+            ];
           return [];
-        });
+        },
+      );
 
       // flow-a: 1 active, 0 pending; flow-b: 0 active, 2 pending
-      (mocks.invocationRepo.countActiveByFlow as ReturnType<typeof vi.fn>)
-        .mockImplementation(async (flowId: string) => flowId === "flow-a" ? 1 : 0);
-      (mocks.invocationRepo.countPendingByFlow as ReturnType<typeof vi.fn>)
-        .mockImplementation(async (flowId: string) => flowId === "flow-b" ? 2 : 0);
+      (mocks.invocationRepo.countActiveByFlow as ReturnType<typeof vi.fn>).mockImplementation(async (flowId: string) =>
+        flowId === "flow-a" ? 1 : 0,
+      );
+      (mocks.invocationRepo.countPendingByFlow as ReturnType<typeof vi.fn>).mockImplementation(
+        async (flowId: string) => (flowId === "flow-b" ? 2 : 0),
+      );
 
       const engine = new Engine({ ...mocks, adapters: new Map() });
       const status = await engine.getStatus();

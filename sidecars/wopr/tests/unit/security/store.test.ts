@@ -158,7 +158,11 @@ describe("SecurityStore", () => {
     });
 
     it("should warn when store not initialized and not throw", async () => {
-      const freshStore = new SecurityStore("/tmp/test", () => configRepo as any, () => rulesRepo as any);
+      const freshStore = new SecurityStore(
+        "/tmp/test",
+        () => configRepo as any,
+        () => rulesRepo as any,
+      );
       // Should not throw, just warn
       await expect(freshStore.saveConfig(DEFAULT_SECURITY_CONFIG)).resolves.toBeUndefined();
       expect(configRepo.update).not.toHaveBeenCalled();
@@ -188,7 +192,11 @@ describe("SecurityStore", () => {
     });
 
     it("should throw when store not initialized", async () => {
-      const freshStore = new SecurityStore("/tmp/test", () => configRepo as any, () => rulesRepo as any);
+      const freshStore = new SecurityStore(
+        "/tmp/test",
+        () => configRepo as any,
+        () => rulesRepo as any,
+      );
       await expect(
         freshStore.registerPluginRule({ pluginName: "p", ruleType: "trust-override", ruleData: {} }),
       ).rejects.toThrow("Security store not initialized");
@@ -207,7 +215,11 @@ describe("SecurityStore", () => {
     });
 
     it("should throw when store not initialized", async () => {
-      const freshStore = new SecurityStore("/tmp/test", () => configRepo as any, () => rulesRepo as any);
+      const freshStore = new SecurityStore(
+        "/tmp/test",
+        () => configRepo as any,
+        () => rulesRepo as any,
+      );
       await expect(freshStore.removePluginRules("p")).rejects.toThrow("Security store not initialized");
     });
   });
@@ -236,7 +248,11 @@ describe("SecurityStore", () => {
     });
 
     it("should return empty array when not initialized", async () => {
-      const freshStore = new SecurityStore("/tmp/test", () => configRepo as any, () => rulesRepo as any);
+      const freshStore = new SecurityStore(
+        "/tmp/test",
+        () => configRepo as any,
+        () => rulesRepo as any,
+      );
       const rules = await freshStore.getPluginRules();
       expect(rules).toEqual([]);
     });

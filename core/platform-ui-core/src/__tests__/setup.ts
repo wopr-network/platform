@@ -3,10 +3,7 @@ import { vi } from "vitest";
 
 // Default fetch mock: reject all API calls so components fall back to mock data immediately.
 // Individual tests can override with vi.stubGlobal("fetch", ...) as needed.
-vi.stubGlobal(
-  "fetch",
-  vi.fn().mockRejectedValue(new Error("Network request not allowed in tests")),
-);
+vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network request not allowed in tests")));
 
 // Polyfill IntersectionObserver for framer-motion whileInView in test env
 class MockIntersectionObserver {
@@ -28,8 +25,7 @@ class MockIntersectionObserver {
 }
 
 if (typeof globalThis.IntersectionObserver === "undefined") {
-  globalThis.IntersectionObserver =
-    MockIntersectionObserver as unknown as typeof IntersectionObserver;
+  globalThis.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
 }
 
 // Polyfill window.matchMedia for components that call it in useEffect (e.g. TerminalSequence).

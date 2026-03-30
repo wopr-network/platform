@@ -35,10 +35,7 @@ describe("adapter model listing", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
-        data: [
-          { id: "gpt-5-pro" },
-          { id: "gpt-5" },
-        ],
+        data: [{ id: "gpt-5-pro" }, { id: "gpt-5" }],
       }),
     } as Response);
 
@@ -62,7 +59,6 @@ describe("adapter model listing", () => {
     const models = await listAdapterModels("codex_local");
     expect(models).toEqual(codexFallbackModels);
   });
-
 
   it("returns cursor fallback models when CLI discovery is unavailable", async () => {
     setCursorModelsRunnerForTests(() => ({

@@ -41,10 +41,7 @@ function shouldPatchCoredns(runtime) {
 
 function getColimaDockerSocketCandidates(opts = {}) {
   const home = opts.home ?? process.env.HOME ?? "/tmp";
-  return [
-    path.join(home, ".colima/default/docker.sock"),
-    path.join(home, ".config/colima/default/docker.sock"),
-  ];
+  return [path.join(home, ".colima/default/docker.sock"), path.join(home, ".config/colima/default/docker.sock")];
 }
 
 function findColimaDockerSocket(opts = {}) {
@@ -57,10 +54,7 @@ function getDockerSocketCandidates(opts = {}) {
   const platform = opts.platform ?? process.platform;
 
   if (platform === "darwin") {
-    return [
-      ...getColimaDockerSocketCandidates({ home }),
-      path.join(home, ".docker/run/docker.sock"),
-    ];
+    return [...getColimaDockerSocketCandidates({ home }), path.join(home, ".docker/run/docker.sock")];
   }
 
   return [];

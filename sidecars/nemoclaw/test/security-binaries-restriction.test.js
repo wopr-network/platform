@@ -20,7 +20,10 @@ describe("binaries restriction: baseline policy", () => {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (/^network_policies:/.test(line)) { inNetworkPolicies = true; continue; }
+      if (/^network_policies:/.test(line)) {
+        inNetworkPolicies = true;
+        continue;
+      }
       if (inNetworkPolicies && /^\S/.test(line) && line.trim() !== "") {
         if (currentBlock) blocks.push(currentBlock);
         currentBlock = null;
@@ -40,15 +43,15 @@ describe("binaries restriction: baseline policy", () => {
 
     expect(blocks.length).toBeGreaterThan(0);
 
-    const violators = blocks.filter(b => !b.lines.some(l => /^\s+binaries:/.test(l)));
+    const violators = blocks.filter((b) => !b.lines.some((l) => /^\s+binaries:/.test(l)));
 
-    expect(violators.map(b => b.name)).toEqual([]);
+    expect(violators.map((b) => b.name)).toEqual([]);
   });
 });
 
 describe("binaries restriction: policy presets", () => {
   it("every preset YAML has a binaries section", () => {
-    const presets = fs.readdirSync(PRESETS_DIR).filter(f => f.endsWith(".yaml"));
+    const presets = fs.readdirSync(PRESETS_DIR).filter((f) => f.endsWith(".yaml"));
     expect(presets.length).toBeGreaterThan(0);
 
     const missing = [];

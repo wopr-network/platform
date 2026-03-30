@@ -32,14 +32,7 @@ vi.mock("@/lib/trpc", () => ({
 
 vi.mock("@/lib/api", () => ({
   mapBotStatusToFleetInstance: vi.fn(
-    (bot: {
-      id: string;
-      name: string;
-      state: string;
-      health: string | null;
-      uptime: string | null;
-      stats: null;
-    }) => ({
+    (bot: { id: string; name: string; state: string; health: string | null; uptime: string | null; stats: null }) => ({
       id: bot.id,
       name: bot.name,
       status: bot.state === "running" ? "running" : "stopped",

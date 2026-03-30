@@ -98,10 +98,7 @@ async function loadSdk() {
 
   // Try local, then global (with explicit ESM entry point)
   const globalRoot = execSync("npm root -g", { encoding: "utf-8" }).trim();
-  const candidates = [
-    "@anthropic-ai/claude-agent-sdk",
-    `${globalRoot}/@anthropic-ai/claude-agent-sdk/sdk.mjs`,
-  ];
+  const candidates = ["@anthropic-ai/claude-agent-sdk", `${globalRoot}/@anthropic-ai/claude-agent-sdk/sdk.mjs`];
 
   for (const candidate of candidates) {
     try {
@@ -127,7 +124,9 @@ async function runAgent(prompt, opts = {}) {
   let result = "";
   let turnCount = 0;
 
-  log(`Agent [${phase}] starting (model: ${opts.model ?? "claude-haiku-4-5-20251001"}, maxTurns: ${opts.maxTurns ?? 60})`);
+  log(
+    `Agent [${phase}] starting (model: ${opts.model ?? "claude-haiku-4-5-20251001"}, maxTurns: ${opts.maxTurns ?? 60})`,
+  );
   logEvent(phase, { type: "agent_start", model: opts.model, maxTurns: opts.maxTurns ?? 60 });
 
   for await (const message of _query({
@@ -144,7 +143,13 @@ async function runAgent(prompt, opts = {}) {
     if (message.type === "result") {
       result = message.result || "";
       turnCount = message.num_turns || turnCount;
-      logEvent(phase, { type: "result", num_turns: message.num_turns, stop_reason: message.stop_reason, is_error: message.is_error, preview: result.slice(0, 500) });
+      logEvent(phase, {
+        type: "result",
+        num_turns: message.num_turns,
+        stop_reason: message.stop_reason,
+        is_error: message.is_error,
+        preview: result.slice(0, 500),
+      });
     } else if (message.type === "assistant") {
       turnCount++;
       logEvent(phase, { type: "assistant", keys: Object.keys(message) });
@@ -343,9 +348,7 @@ function scanForHostedModeGaps() {
     if (!existsSync(`${CWD}/${dir}`)) continue;
 
     // Find files with infra patterns
-    const infraResult = tryRun(
-      `grep -rl --include="*.tsx" -E '(${pattern})' ${dir}`,
-    );
+    const infraResult = tryRun(`grep -rl --include="*.tsx" -E '(${pattern})' ${dir}`);
     if (!infraResult.ok || !infraResult.output) continue;
 
     const infraFiles = infraResult.output.split("\n").filter(Boolean);
@@ -364,7 +367,7 @@ function scanForHostedModeGaps() {
 
       // Skip components whose parent already guards them
       if (file.includes("OnboardingWizard")) continue; // suppressed by App.tsx
-      if (file.includes("LiveRunWidget")) continue;    // passes adapterType as data, doesn't render it
+      if (file.includes("LiveRunWidget")) continue; // passes adapterType as data, doesn't render it
 
       // Check if file has hostedMode guard
       const hasGuard = tryRun(`grep -l 'hostedMode\\|isHosted' ${file}`);
@@ -432,9 +435,7 @@ async function buildCheck() {
     }
   }
 
-  const buildCmd = hasTsconfig
-    ? "cd ui && npx tsc --noEmit 2>&1"
-    : "npx tsc --noEmit 2>&1";
+  const buildCmd = hasTsconfig ? "cd ui && npx tsc --noEmit 2>&1" : "npx tsc --noEmit 2>&1";
 
   const result = tryRun(buildCmd);
 
@@ -634,9 +635,7 @@ async function main() {
     if (fixedFiles) {
       log("Committing hostedMode gap fixes and changelogs...");
       run("git add -A");
-      tryRun(
-        `git commit -m "fix: add hostedMode guards for new upstream UI elements"`,
-      );
+      tryRun(`git commit -m "fix: add hostedMode guards for new upstream UI elements"`);
     }
 
     pushOrPr();

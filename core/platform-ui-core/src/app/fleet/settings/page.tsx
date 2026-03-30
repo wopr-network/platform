@@ -9,9 +9,7 @@ export default function FleetSettingsPage() {
           <Settings2 className="h-6 w-6 text-muted-foreground" />
           Fleet Settings
         </h1>
-        <p className="text-muted-foreground mt-1">
-          Configure update behavior and maintenance windows for your fleet.
-        </p>
+        <p className="text-muted-foreground mt-1">Configure update behavior and maintenance windows for your fleet.</p>
       </div>
       <UpdateSettingsCard />
     </div>

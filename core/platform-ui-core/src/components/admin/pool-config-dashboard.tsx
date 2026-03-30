@@ -70,8 +70,8 @@ export function PoolConfigDashboard() {
         <h2 className="text-lg font-semibold mb-2">Hot Pool</h2>
         <p className="text-muted-foreground">
           Hot pool is not enabled for this product. Enable the{" "}
-          <code className="text-xs bg-muted px-1 py-0.5 rounded">hotPool</code> feature flag in the
-          boot config to use pre-provisioned instances.
+          <code className="text-xs bg-muted px-1 py-0.5 rounded">hotPool</code> feature flag in the boot config to use
+          pre-provisioned instances.
         </p>
       </div>
     );
@@ -81,9 +81,7 @@ export function PoolConfigDashboard() {
     <div className="space-y-6 p-6">
       <div>
         <h2 className="text-lg font-semibold">Hot Pool</h2>
-        <p className="text-sm text-muted-foreground">
-          Pre-provisioned warm containers for instant instance creation.
-        </p>
+        <p className="text-sm text-muted-foreground">Pre-provisioned warm containers for instant instance creation.</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -122,11 +120,7 @@ export function PoolConfigDashboard() {
             onChange={(e) => setSizeInput(e.target.value)}
             className="w-24"
           />
-          <Button
-            onClick={handleSave}
-            disabled={saving || sizeInput === String(config.poolSize)}
-            size="sm"
-          >
+          <Button onClick={handleSave} disabled={saving || sizeInput === String(config.poolSize)} size="sm">
             {saving ? "Saving..." : "Update"}
           </Button>
           <span className="text-xs text-muted-foreground">

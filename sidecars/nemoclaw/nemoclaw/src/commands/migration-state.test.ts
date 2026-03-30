@@ -540,10 +540,7 @@ describe("commands/migration-state", () => {
         "/home/user/.openclaw/agents/main/agent/auth-profiles.json",
         JSON.stringify({ "nvidia:manual": { type: "api_key" } }),
       );
-      addFile(
-        "/home/user/.openclaw/agents/main/agent/config.json",
-        JSON.stringify({ name: "main" }),
-      );
+      addFile("/home/user/.openclaw/agents/main/agent/config.json", JSON.stringify({ name: "main" }));
 
       const hostState: HostOpenClawState = {
         exists: true,
@@ -932,9 +929,7 @@ describe("commands/migration-state", () => {
 
         const result = restoreSnapshotToHost("/snapshots/snap1", logger);
         expect(result).toBe(false);
-        expect(logger.error).toHaveBeenCalledWith(
-          expect.stringContaining("does not match OPENCLAW_STATE_DIR"),
-        );
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("does not match OPENCLAW_STATE_DIR"));
       } finally {
         if (origHome === undefined) {
           delete process.env.HOME;
@@ -1031,9 +1026,7 @@ describe("commands/migration-state", () => {
 
         const result = restoreSnapshotToHost("/snapshots/snap1", logger);
         expect(result).toBe(false);
-        expect(logger.error).toHaveBeenCalledWith(
-          expect.stringContaining("does not match OPENCLAW_CONFIG_PATH"),
-        );
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("does not match OPENCLAW_CONFIG_PATH"));
       } finally {
         if (origHome === undefined) {
           delete process.env.HOME;
@@ -1172,9 +1165,7 @@ describe("commands/migration-state", () => {
 
         const result = restoreSnapshotToHost("/snapshots/snap1", logger);
         expect(result).toBe(false);
-        expect(logger.error).toHaveBeenCalledWith(
-          expect.stringContaining("invalid blueprintDigest"),
-        );
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("invalid blueprintDigest"));
       } finally {
         if (origHome === undefined) {
           delete process.env.HOME;
@@ -1205,9 +1196,7 @@ describe("commands/migration-state", () => {
 
         const result = restoreSnapshotToHost("/snapshots/snap1", logger);
         expect(result).toBe(false);
-        expect(logger.error).toHaveBeenCalledWith(
-          expect.stringContaining("no blueprint is available"),
-        );
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("no blueprint is available"));
       } finally {
         if (origHome === undefined) {
           delete process.env.HOME;

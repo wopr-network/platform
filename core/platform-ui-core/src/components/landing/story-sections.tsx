@@ -40,9 +40,7 @@ export function StorySections() {
           }}
         >
           <h2 className="font-mono text-lg font-bold text-terminal sm:text-xl">{story.heading}</h2>
-          <p className="mt-4 font-mono text-sm leading-relaxed text-terminal/60 sm:text-base">
-            {story.body}
-          </p>
+          <p className="mt-4 font-mono text-sm leading-relaxed text-terminal/60 sm:text-base">{story.body}</p>
         </motion.div>
       ))}
     </section>

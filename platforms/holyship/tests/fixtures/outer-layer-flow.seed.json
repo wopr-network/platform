@@ -12,7 +12,12 @@
   ],
   "states": [
     { "name": "open", "flowName": "outer-test-flow", "mode": "passive" },
-    { "name": "working", "flowName": "outer-test-flow", "mode": "active", "promptTemplate": "Do work on {{entity.id}}" },
+    {
+      "name": "working",
+      "flowName": "outer-test-flow",
+      "mode": "active",
+      "promptTemplate": "Do work on {{entity.id}}"
+    },
     { "name": "review", "flowName": "outer-test-flow", "mode": "passive" },
     { "name": "done", "flowName": "outer-test-flow", "mode": "passive" },
     { "name": "cancelled", "flowName": "outer-test-flow", "mode": "passive" }
@@ -27,7 +32,14 @@
   ],
   "transitions": [
     { "flowName": "outer-test-flow", "fromState": "open", "toState": "working", "trigger": "start", "priority": 0 },
-    { "flowName": "outer-test-flow", "fromState": "working", "toState": "review", "trigger": "submit", "gateName": "always-pass", "priority": 0 },
+    {
+      "flowName": "outer-test-flow",
+      "fromState": "working",
+      "toState": "review",
+      "trigger": "submit",
+      "gateName": "always-pass",
+      "priority": 0
+    },
     { "flowName": "outer-test-flow", "fromState": "review", "toState": "done", "trigger": "approve", "priority": 0 }
   ]
 }

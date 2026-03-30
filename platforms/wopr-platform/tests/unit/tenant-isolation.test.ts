@@ -54,7 +54,12 @@ import { Hono } from "hono";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BotProfile, BotStatus } from "@wopr-network/platform-core/fleet/types";
 import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
-import { beginTestTransaction, createTestDb, endTestTransaction, rollbackTestTransaction } from "@wopr-network/platform-core/test/db";
+import {
+  beginTestTransaction,
+  createTestDb,
+  endTestTransaction,
+  rollbackTestTransaction,
+} from "@wopr-network/platform-core/test/db";
 import { TenantKeyRepository } from "@wopr-network/platform-core";
 
 // ---------------------------------------------------------------------------

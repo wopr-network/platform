@@ -1,10 +1,6 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
-import {
-  companyMemberships,
-  instanceUserRoles,
-  principalPermissionGrants,
-} from "@paperclipai/db";
+import { companyMemberships, instanceUserRoles, principalPermissionGrants } from "@paperclipai/db";
 import type { PermissionKey, PrincipalType } from "@paperclipai/shared";
 
 type MembershipRow = typeof companyMemberships.$inferSelect;
@@ -232,11 +228,7 @@ export function accessService(db: Db) {
       .then((rows) => rows[0]);
   }
 
-  async function removeMembership(
-    companyId: string,
-    principalType: PrincipalType,
-    principalId: string,
-  ): Promise<void> {
+  async function removeMembership(companyId: string, principalType: PrincipalType, principalId: string): Promise<void> {
     await db
       .delete(companyMemberships)
       .where(
@@ -284,22 +276,12 @@ export function accessService(db: Db) {
   async function copyActiveUserMemberships(sourceCompanyId: string, targetCompanyId: string) {
     const sourceMemberships = await listActiveUserMemberships(sourceCompanyId);
     for (const membership of sourceMemberships) {
-      await ensureMembership(
-        targetCompanyId,
-        "user",
-        membership.principalId,
-        membership.membershipRole,
-        "active",
-      );
+      await ensureMembership(targetCompanyId, "user", membership.principalId, membership.membershipRole, "active");
     }
     return sourceMemberships;
   }
 
-  async function listPrincipalGrants(
-    companyId: string,
-    principalType: PrincipalType,
-    principalId: string,
-  ) {
+  async function listPrincipalGrants(companyId: string, principalType: PrincipalType, principalId: string) {
     return db
       .select()
       .from(principalPermissionGrants)

@@ -343,12 +343,8 @@
           "name": "entities_flow_id_flow_definitions_id_fk",
           "tableFrom": "entities",
           "tableTo": "flow_definitions",
-          "columnsFrom": [
-            "flow_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["flow_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -461,12 +457,8 @@
           "name": "entity_history_entity_id_entities_id_fk",
           "tableFrom": "entity_history",
           "tableTo": "entities",
-          "columnsFrom": [
-            "entity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entity_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -474,12 +466,8 @@
           "name": "entity_history_invocation_id_invocations_id_fk",
           "tableFrom": "entity_history",
           "tableTo": "invocations",
-          "columnsFrom": [
-            "invocation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invocation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1093,12 +1081,8 @@
           "name": "flow_versions_flow_id_flow_definitions_id_fk",
           "tableFrom": "flow_versions",
           "tableTo": "flow_definitions",
-          "columnsFrom": [
-            "flow_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["flow_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1327,12 +1311,8 @@
           "name": "gate_results_entity_id_entities_id_fk",
           "tableFrom": "gate_results",
           "tableTo": "entities",
-          "columnsFrom": [
-            "entity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entity_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1340,12 +1320,8 @@
           "name": "gate_results_gate_id_gate_definitions_id_fk",
           "tableFrom": "gate_results",
           "tableTo": "gate_definitions",
-          "columnsFrom": [
-            "gate_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gate_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1561,12 +1537,8 @@
           "name": "holyshipper_containers_entity_id_entities_id_fk",
           "tableFrom": "holyshipper_containers",
           "tableTo": "entities",
-          "columnsFrom": [
-            "entity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entity_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1728,12 +1700,8 @@
           "name": "invocations_entity_id_entities_id_fk",
           "tableFrom": "invocations",
           "tableTo": "entities",
-          "columnsFrom": [
-            "entity_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["entity_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1862,12 +1830,8 @@
           "name": "state_definitions_flow_id_flow_definitions_id_fk",
           "tableFrom": "state_definitions",
           "tableTo": "flow_definitions",
-          "columnsFrom": [
-            "flow_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["flow_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2008,12 +1972,8 @@
           "name": "transition_rules_flow_id_flow_definitions_id_fk",
           "tableFrom": "transition_rules",
           "tableTo": "flow_definitions",
-          "columnsFrom": [
-            "flow_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["flow_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2021,12 +1981,8 @@
           "name": "transition_rules_gate_id_gate_definitions_id_fk",
           "tableFrom": "transition_rules",
           "tableTo": "gate_definitions",
-          "columnsFrom": [
-            "gate_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gate_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

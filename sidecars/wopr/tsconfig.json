@@ -13,8 +13,5 @@
     "noFallthroughCasesInSwitch": true,
     "useUnknownInCatchVariables": true
   },
-  "include": [
-    "src/**/*",
-    "plugins/**/*"
-  ]
+  "include": ["src/**/*", "plugins/**/*"]
 }

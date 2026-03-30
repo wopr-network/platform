@@ -5,12 +5,7 @@ import { ConfirmationTracker } from "@/components/billing/confirmation-tracker";
 describe("ConfirmationTracker", () => {
   it("shows confirmation progress", () => {
     render(
-      <ConfirmationTracker
-        confirmations={8}
-        confirmationsRequired={20}
-        displayAmount="25.00 USDT"
-        credited={false}
-      />,
+      <ConfirmationTracker confirmations={8} confirmationsRequired={20} displayAmount="25.00 USDT" credited={false} />,
     );
     expect(screen.getByText(/8/)).toBeInTheDocument();
     expect(screen.getByText(/20/)).toBeInTheDocument();
@@ -19,24 +14,14 @@ describe("ConfirmationTracker", () => {
 
   it("shows credited state", () => {
     render(
-      <ConfirmationTracker
-        confirmations={20}
-        confirmationsRequired={20}
-        displayAmount="25.00 USDT"
-        credited={true}
-      />,
+      <ConfirmationTracker confirmations={20} confirmationsRequired={20} displayAmount="25.00 USDT" credited={true} />,
     );
     expect(screen.getByText(/credits applied/i)).toBeInTheDocument();
   });
 
   it("renders progress bar", () => {
     render(
-      <ConfirmationTracker
-        confirmations={10}
-        confirmationsRequired={20}
-        displayAmount="25.00 USDT"
-        credited={false}
-      />,
+      <ConfirmationTracker confirmations={10} confirmationsRequired={20} displayAmount="25.00 USDT" credited={false} />,
     );
     const bar = screen.getByRole("progressbar");
     expect(bar).toBeInTheDocument();

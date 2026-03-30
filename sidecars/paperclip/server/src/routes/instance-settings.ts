@@ -25,35 +25,31 @@ export function instanceSettingsRoutes(db: Db) {
     res.json(await svc.getGeneral());
   });
 
-  router.patch(
-    "/instance/settings/general",
-    validate(patchInstanceGeneralSettingsSchema),
-    async (req, res) => {
-      assertCanManageInstanceSettings(req);
-      const updated = await svc.updateGeneral(req.body);
-      const actor = getActorInfo(req);
-      const companyIds = await svc.listCompanyIds();
-      await Promise.all(
-        companyIds.map((companyId) =>
-          logActivity(db, {
-            companyId,
-            actorType: actor.actorType,
-            actorId: actor.actorId,
-            agentId: actor.agentId,
-            runId: actor.runId,
-            action: "instance.settings.general_updated",
-            entityType: "instance_settings",
-            entityId: updated.id,
-            details: {
-              general: updated.general,
-              changedKeys: Object.keys(req.body).sort(),
-            },
-          }),
-        ),
-      );
-      res.json(updated.general);
-    },
-  );
+  router.patch("/instance/settings/general", validate(patchInstanceGeneralSettingsSchema), async (req, res) => {
+    assertCanManageInstanceSettings(req);
+    const updated = await svc.updateGeneral(req.body);
+    const actor = getActorInfo(req);
+    const companyIds = await svc.listCompanyIds();
+    await Promise.all(
+      companyIds.map((companyId) =>
+        logActivity(db, {
+          companyId,
+          actorType: actor.actorType,
+          actorId: actor.actorId,
+          agentId: actor.agentId,
+          runId: actor.runId,
+          action: "instance.settings.general_updated",
+          entityType: "instance_settings",
+          entityId: updated.id,
+          details: {
+            general: updated.general,
+            changedKeys: Object.keys(req.body).sort(),
+          },
+        }),
+      ),
+    );
+    res.json(updated.general);
+  });
 
   router.get("/instance/settings/experimental", async (req, res) => {
     assertCanManageInstanceSettings(req);

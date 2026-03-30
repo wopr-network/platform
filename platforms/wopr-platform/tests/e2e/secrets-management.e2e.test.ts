@@ -44,8 +44,12 @@ function deriveTenantKey(tenantId: string, platformSecret: string): Buffer {
 // Dynamic imports — populated in beforeAll after env stubs + resetModules
 let tenantKeyRoutes: Awaited<typeof import("../../src/api/routes/tenant-keys.js")>["tenantKeyRoutes"];
 let setRepo: Awaited<typeof import("../../src/api/routes/tenant-keys.js")>["setRepo"];
-let resolveApiKey: Awaited<typeof import("@wopr-network/platform-core/security/tenant-keys/key-resolution")>["resolveApiKey"];
-let DrizzleKeyResolutionRepository: Awaited<typeof import("@wopr-network/platform-core/security/tenant-keys/key-resolution-repository")>["DrizzleKeyResolutionRepository"];
+let resolveApiKey: Awaited<
+  typeof import("@wopr-network/platform-core/security/tenant-keys/key-resolution")
+>["resolveApiKey"];
+let DrizzleKeyResolutionRepository: Awaited<
+  typeof import("@wopr-network/platform-core/security/tenant-keys/key-resolution-repository")
+>["DrizzleKeyResolutionRepository"];
 let app: Hono;
 
 // ---------------------------------------------------------------------------
@@ -166,12 +170,7 @@ describe("E2E: secrets management — store → retrieve → rotate → resolve 
     const rows = await db
       .select({ encryptedKey: tenantApiKeys.encryptedKey })
       .from(tenantApiKeys)
-      .where(
-        and(
-          eq(tenantApiKeys.tenantId, TENANT_ID),
-          eq(tenantApiKeys.provider, "anthropic"),
-        ),
-      );
+      .where(and(eq(tenantApiKeys.tenantId, TENANT_ID), eq(tenantApiKeys.provider, "anthropic")));
 
     expect(rows).toHaveLength(1);
     // Raw value must NOT contain plaintext
@@ -219,19 +218,11 @@ describe("E2E: secrets management — store → retrieve → rotate → resolve 
     const rows = await db
       .select({ encryptedKey: tenantApiKeys.encryptedKey })
       .from(tenantApiKeys)
-      .where(
-        and(
-          eq(tenantApiKeys.tenantId, TENANT_ID),
-          eq(tenantApiKeys.provider, "anthropic"),
-        ),
-      );
+      .where(and(eq(tenantApiKeys.tenantId, TENANT_ID), eq(tenantApiKeys.provider, "anthropic")));
 
     expect(rows).toHaveLength(1);
     const tenantKey = deriveTenantKey(TENANT_ID, PLATFORM_SECRET);
-    const decrypted = decrypt(
-      JSON.parse(rows[0].encryptedKey) as EncryptedPayload,
-      tenantKey,
-    );
+    const decrypted = decrypt(JSON.parse(rows[0].encryptedKey) as EncryptedPayload, tenantKey);
     // New key is stored
     expect(decrypted).toBe(newKey);
     // Old key is NOT stored
@@ -256,13 +247,7 @@ describe("E2E: secrets management — store → retrieve → rotate → resolve 
     const tenantKey = deriveTenantKey(TENANT_ID, PLATFORM_SECRET);
     const emptyPooledKeys = new Map();
 
-    const resolved = await resolveApiKey(
-      resolutionRepo,
-      TENANT_ID,
-      "anthropic",
-      tenantKey,
-      emptyPooledKeys,
-    );
+    const resolved = await resolveApiKey(resolutionRepo, TENANT_ID, "anthropic", tenantKey, emptyPooledKeys);
 
     expect(resolved).not.toBeNull();
     expect(resolved!.key).toBe(apiKey);
@@ -307,12 +292,7 @@ describe("E2E: secrets management — store → retrieve → rotate → resolve 
     const rows = await db
       .select({ id: tenantApiKeys.id })
       .from(tenantApiKeys)
-      .where(
-        and(
-          eq(tenantApiKeys.tenantId, TENANT_ID),
-          eq(tenantApiKeys.provider, "openai"),
-        ),
-      );
+      .where(and(eq(tenantApiKeys.tenantId, TENANT_ID), eq(tenantApiKeys.provider, "openai")));
     expect(rows).toHaveLength(0);
   });
 
@@ -366,29 +346,16 @@ describe("E2E: secrets management — store → retrieve → rotate → resolve 
     const rows = await db
       .select({ id: tenantApiKeys.id })
       .from(tenantApiKeys)
-      .where(
-        and(
-          eq(tenantApiKeys.tenantId, TENANT_ID),
-          eq(tenantApiKeys.provider, "anthropic"),
-        ),
-      );
+      .where(and(eq(tenantApiKeys.tenantId, TENANT_ID), eq(tenantApiKeys.provider, "anthropic")));
     expect(rows).toHaveLength(1);
 
     // And it should have the latest value
     const allRows = await db
       .select({ encryptedKey: tenantApiKeys.encryptedKey })
       .from(tenantApiKeys)
-      .where(
-        and(
-          eq(tenantApiKeys.tenantId, TENANT_ID),
-          eq(tenantApiKeys.provider, "anthropic"),
-        ),
-      );
+      .where(and(eq(tenantApiKeys.tenantId, TENANT_ID), eq(tenantApiKeys.provider, "anthropic")));
     const tenantKey = deriveTenantKey(TENANT_ID, PLATFORM_SECRET);
-    const decrypted = decrypt(
-      JSON.parse(allRows[0].encryptedKey) as EncryptedPayload,
-      tenantKey,
-    );
+    const decrypted = decrypt(JSON.parse(allRows[0].encryptedKey) as EncryptedPayload, tenantKey);
     expect(decrypted).toBe("sk-ant-v3");
   });
 

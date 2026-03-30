@@ -56,9 +56,7 @@ describe("getOAuthErrorMessage", () => {
   });
 
   it("returns generic fallback for unknown code", () => {
-    expect(getOAuthErrorMessage("something_random")).toBe(
-      "Authentication failed. Please try again.",
-    );
+    expect(getOAuthErrorMessage("something_random")).toBe("Authentication failed. Please try again.");
   });
 
   it("returns generic fallback for malicious input — never reflects raw value", () => {
@@ -76,9 +74,7 @@ const { default: OAuthCallbackPage } = await import("@/app/auth/callback/[provid
 describe("OAuthCallbackPage — error reflection", () => {
   it("never renders raw malicious error param in the DOM", () => {
     const malicious = "<img src=x onerror=alert(1)>";
-    vi.mocked(useSearchParams).mockReturnValue(
-      new URLSearchParams(`error=${encodeURIComponent(malicious)}`) as never,
-    );
+    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams(`error=${encodeURIComponent(malicious)}`) as never);
 
     render(<OAuthCallbackPage />);
 

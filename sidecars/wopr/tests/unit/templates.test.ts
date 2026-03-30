@@ -97,7 +97,10 @@ describe("listTemplates", () => {
 
     const templates = listTemplates();
     expect(templates).toHaveLength(BUILTIN_TEMPLATES.length + 1);
-    expect(templates.find((t) => t.name === "custom-one")).toMatchObject({ name: "custom-one", description: "Custom template" });
+    expect(templates.find((t) => t.name === "custom-one")).toMatchObject({
+      name: "custom-one",
+      description: "Custom template",
+    });
   });
 });
 

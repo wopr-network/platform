@@ -48,10 +48,7 @@ const testPluginSchema = {
     users: {
       schema: testSchema,
       primaryKey: "id" as const,
-      indexes: [
-        { fields: ["name" as const] },
-        { fields: ["age" as const, "name" as const], unique: false },
-      ],
+      indexes: [{ fields: ["name" as const] }, { fields: ["age" as const, "name" as const], unique: false }],
     },
   },
 };
@@ -226,7 +223,7 @@ describe("Storage Module (WOP-545)", () => {
       const repo = storage.getRepository<TestRecord>("test", "users") as InternalRepository<TestRecord>;
       const result = await repo.raw('PRAGMA index_list("test_users")');
       const indexes = result as Array<{ name: string }>;
-      const nameIndex = indexes.find(idx => idx.name === "idx_test_users_name");
+      const nameIndex = indexes.find((idx) => idx.name === "idx_test_users_name");
       expect(nameIndex).toMatchObject({ name: "idx_test_users_name" });
     });
 
@@ -234,7 +231,7 @@ describe("Storage Module (WOP-545)", () => {
       const repo = storage.getRepository<TestRecord>("test", "users") as InternalRepository<TestRecord>;
       const result = await repo.raw('PRAGMA index_list("test_users")');
       const indexes = result as Array<{ name: string }>;
-      const multiIndex = indexes.find(idx => idx.name === "idx_test_users_age_name");
+      const multiIndex = indexes.find((idx) => idx.name === "idx_test_users_age_name");
       expect(multiIndex).toMatchObject({ name: "idx_test_users_age_name" });
     });
 
@@ -242,7 +239,7 @@ describe("Storage Module (WOP-545)", () => {
       const repo = storage.getRepository<TestRecord>("test", "users") as InternalRepository<TestRecord>;
       const result = await repo.raw('PRAGMA index_list("test_users")');
       const indexes = result as Array<{ unique: number }>;
-      const nameIndex = indexes.find(idx => (idx as unknown as { name: string }).name === "idx_test_users_name");
+      const nameIndex = indexes.find((idx) => (idx as unknown as { name: string }).name === "idx_test_users_name");
       expect(nameIndex?.unique).toBe(0); // 0 = not unique
     });
   });
@@ -264,9 +261,7 @@ describe("Storage Module (WOP-545)", () => {
 
     it("should validate against Zod schema", async () => {
       const repo = storage.getRepository<TestRecord>("test", "users");
-      await expect(
-        repo.insert({ id: "1", name: "Alice", age: "invalid" as unknown as number })
-      ).rejects.toThrow();
+      await expect(repo.insert({ id: "1", name: "Alice", age: "invalid" as unknown as number })).rejects.toThrow();
     });
 
     it("should insertMany", async () => {
@@ -510,17 +505,14 @@ describe("Storage Module (WOP-545)", () => {
 
     it("should chain multiple where clauses (AND logic)", async () => {
       const repo = storage.getRepository<TestRecord>("test", "users");
-      const results = await repo.query()
-        .where("age", "$gte", 30)
-        .where("name", "$startsWith", "A")
-        .execute();
+      const results = await repo.query().where("age", "$gte", 30).where("name", "$startsWith", "A").execute();
       expect(results).toHaveLength(1);
       expect(results[0].name).toBe("Alice");
     });
 
     it("should project only selected fields at SQL level (WOP-598)", async () => {
       const repo = storage.getRepository<TestRecord>("test", "users");
-      const results = await repo.query().select("id", "name").execute() as Array<Record<string, unknown>>;
+      const results = (await repo.query().select("id", "name").execute()) as Array<Record<string, unknown>>;
       expect(results).toHaveLength(3);
       // Each row should have only the selected fields
       for (const row of results) {
@@ -531,10 +523,9 @@ describe("Storage Module (WOP-545)", () => {
 
     it("should project selected fields with a where clause (WOP-598)", async () => {
       const repo = storage.getRepository<TestRecord>("test", "users");
-      const results = await repo.query()
-        .select("id", "name")
-        .where("name", "Bob")
-        .execute() as Array<Record<string, unknown>>;
+      const results = (await repo.query().select("id", "name").where("name", "Bob").execute()) as Array<
+        Record<string, unknown>
+      >;
       expect(results).toHaveLength(1);
       expect(results[0].name).toBe("Bob");
       expect(results[0].age).toBeUndefined();
@@ -571,7 +562,7 @@ describe("Storage Module (WOP-545)", () => {
           const repo = trx.getRepository<TestRecord>("test", "users");
           await repo.insert({ id: "1", name: "Alice", age: 30 });
           throw new Error("Rollback");
-        })
+        }),
       ).rejects.toThrow("Rollback");
 
       const repo = storage.getRepository<TestRecord>("test", "users");
@@ -585,7 +576,7 @@ describe("Storage Module (WOP-545)", () => {
           await trx.transaction(async () => {
             // Nested transaction
           });
-        })
+        }),
       ).rejects.toThrow();
     });
 
@@ -607,7 +598,7 @@ describe("Storage Module (WOP-545)", () => {
         repo.transaction(async (trxRepo) => {
           await trxRepo.insert({ id: "1", name: "Alice", age: 30 });
           throw new Error("abort");
-        })
+        }),
       ).rejects.toThrow("abort");
 
       // Alice should not be persisted
@@ -756,16 +747,14 @@ describe("Storage Module (WOP-545)", () => {
       await expect(
         storage.transaction(async (trx) => {
           await trx.register(testPluginSchema);
-        })
-      ).rejects.toThrow();  // Just check that it throws (better-sqlite3 throws different error)
+        }),
+      ).rejects.toThrow(); // Just check that it throws (better-sqlite3 throws different error)
     });
 
     it("should throw ZodError for invalid data", async () => {
       await storage.register(testPluginSchema);
       const repo = storage.getRepository<TestRecord>("test", "users");
-      await expect(
-        repo.insert({ id: "1", name: 123 as unknown as string, age: 30 })
-      ).rejects.toThrow();
+      await expect(repo.insert({ id: "1", name: 123 as unknown as string, age: 30 })).rejects.toThrow();
     });
   });
 });

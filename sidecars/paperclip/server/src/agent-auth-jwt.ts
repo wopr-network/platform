@@ -52,7 +52,7 @@ function signPayload(secret: string, signingInput: string) {
 function parseJson(value: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
   } catch {
     return null;
   }

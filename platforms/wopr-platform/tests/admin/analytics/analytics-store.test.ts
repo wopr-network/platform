@@ -205,7 +205,7 @@ describe("AnalyticsStore — getRevenueBreakdown", () => {
 
     // Per-use events
     await seedMeterEvent(pool, "t1", "chat", "openai", 0.01, 0.02, NOW);
-    await seedMeterEvent(pool, "t1", "image-generation", "replicate", 0.05, 0.10, NOW);
+    await seedMeterEvent(pool, "t1", "image-generation", "replicate", 0.05, 0.1, NOW);
 
     // Monthly credit transactions
     await seedCredits(pool, "t1", "bot_runtime", -500, NOW_ISO);
@@ -249,9 +249,9 @@ describe("AnalyticsStore — getMarginByCapability", () => {
     const range = { from: THIRTY_DAYS_AGO, to: NOW };
 
     // chat: charge=0.20, cost=0.10 → margin=0.10 (50%)
-    await seedMeterEvent(pool, "t1", "chat", "openai", 0.10, 0.20, NOW);
+    await seedMeterEvent(pool, "t1", "chat", "openai", 0.1, 0.2, NOW);
     // image-generation: charge=0.50, cost=0.25 → margin=0.25 (50%)
-    await seedMeterEvent(pool, "t1", "image-generation", "replicate", 0.25, 0.50, NOW);
+    await seedMeterEvent(pool, "t1", "image-generation", "replicate", 0.25, 0.5, NOW);
 
     const result = await store.getMarginByCapability(range);
 
@@ -270,7 +270,7 @@ describe("AnalyticsStore — getMarginByCapability", () => {
     const range = { from: THIRTY_DAYS_AGO, to: NOW };
 
     // cost=0.10, charge=0.00 → revenue=0, margin should be 0%, not NaN
-    await seedMeterEvent(pool, "t1", "chat", "openai", 0.10, 0.00, NOW);
+    await seedMeterEvent(pool, "t1", "chat", "openai", 0.1, 0.0, NOW);
 
     const result = await store.getMarginByCapability(range);
 
@@ -304,7 +304,7 @@ describe("AnalyticsStore — getProviderSpend", () => {
 
     await seedMeterEvent(pool, "t1", "chat", "openai", 0.01, 0.02, NOW);
     await seedMeterEvent(pool, "t1", "chat", "openai", 0.01, 0.02, NOW);
-    await seedMeterEvent(pool, "t1", "image", "replicate", 0.05, 0.10, NOW);
+    await seedMeterEvent(pool, "t1", "image", "replicate", 0.05, 0.1, NOW);
     await seedMeterEvent(pool, "t1", "tts", "elevenlabs", 0.02, 0.04, NOW);
 
     const result = await store.getProviderSpend(range);
@@ -402,9 +402,9 @@ describe("AnalyticsStore — getTimeSeries", () => {
     const day2Iso = new Date(day2 + 1000).toISOString();
     const day3Iso = new Date(day3 + 1000).toISOString();
 
-    await seedMeterEvent(pool, "t1", "chat", "openai", 0.10, 0.20, day1 + 1000);
-    await seedMeterEvent(pool, "t1", "chat", "openai", 0.10, 0.20, day2 + 1000);
-    await seedMeterEvent(pool, "t1", "chat", "openai", 0.10, 0.20, day3 + 1000);
+    await seedMeterEvent(pool, "t1", "chat", "openai", 0.1, 0.2, day1 + 1000);
+    await seedMeterEvent(pool, "t1", "chat", "openai", 0.1, 0.2, day2 + 1000);
+    await seedMeterEvent(pool, "t1", "chat", "openai", 0.1, 0.2, day3 + 1000);
 
     await seedCredits(pool, "t1", "purchase", 1000, day1Iso);
     await seedCredits(pool, "t1", "purchase", 1000, day2Iso);
@@ -440,7 +440,7 @@ describe("AnalyticsStore — getTimeSeries", () => {
     const day2 = now - 1 * DAY;
 
     // day1: meter event only (no credit transaction)
-    await seedMeterEvent(pool, "t1", "chat", "openai", 0.10, 0.20, day1 + 1000);
+    await seedMeterEvent(pool, "t1", "chat", "openai", 0.1, 0.2, day1 + 1000);
 
     // day2: credit transaction only (no meter event) — exercises the else branch in getTimeSeries
     const day2Iso = new Date(day2 + 1000).toISOString();

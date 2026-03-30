@@ -19,12 +19,12 @@ type InviteSummary = {
 type AcceptInviteInput =
   | { requestType: "human" }
   | {
-    requestType: "agent";
-    agentName: string;
-    adapterType?: AgentAdapterType;
-    capabilities?: string | null;
-    agentDefaultsPayload?: Record<string, unknown> | null;
-  };
+      requestType: "agent";
+      agentName: string;
+      adapterType?: AgentAdapterType;
+      capabilities?: string | null;
+      agentDefaultsPayload?: Record<string, unknown> | null;
+    };
 
 type AgentJoinRequestAccepted = JoinRequest & {
   claimSecret: string;
@@ -83,23 +83,17 @@ export const accessApi = {
       defaultsPayload?: Record<string, unknown> | null;
       agentMessage?: string | null;
     } = {},
-  ) =>
-    api.post<CompanyInviteCreated>(`/companies/${companyId}/invites`, input),
+  ) => api.post<CompanyInviteCreated>(`/companies/${companyId}/invites`, input),
 
   createOpenClawInvitePrompt: (
     companyId: string,
     input: {
       agentMessage?: string | null;
     } = {},
-  ) =>
-    api.post<CompanyInviteCreated>(
-      `/companies/${companyId}/openclaw/invite-prompt`,
-      input,
-    ),
+  ) => api.post<CompanyInviteCreated>(`/companies/${companyId}/openclaw/invite-prompt`, input),
 
   getInvite: (token: string) => api.get<InviteSummary>(`/invites/${token}`),
-  getInviteOnboarding: (token: string) =>
-    api.get<InviteOnboardingManifest>(`/invites/${token}/onboarding`),
+  getInviteOnboarding: (token: string) => api.get<InviteOnboardingManifest>(`/invites/${token}/onboarding`),
 
   acceptInvite: (token: string, input: AcceptInviteInput) =>
     api.post<AgentJoinRequestAccepted | JoinRequest | { bootstrapAccepted: true; userId: string }>(

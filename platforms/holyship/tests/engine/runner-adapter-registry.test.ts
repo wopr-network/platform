@@ -30,10 +30,7 @@ describe("RunnerAdapterRegistry", () => {
 
     expect(result.outcome).toBe("passed");
     expect(result.message).toBe("All checks passed");
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://runner:8080/gate",
-      expect.objectContaining({ method: "POST" }),
-    );
+    expect(mockFetch).toHaveBeenCalledWith("http://runner:8080/gate", expect.objectContaining({ method: "POST" }));
   });
 
   it("returns error when no runner available", async () => {
@@ -99,10 +96,7 @@ describe("RunnerAdapterRegistry", () => {
 
     await registry.execute("int-1", "vcs.ci_status", { ref: "abc" });
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://runner:8080/gate",
-      expect.anything(),
-    );
+    expect(mockFetch).toHaveBeenCalledWith("http://runner:8080/gate", expect.anything());
   });
 
   it("forwards caller abort signal", async () => {

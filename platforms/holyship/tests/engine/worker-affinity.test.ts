@@ -164,11 +164,7 @@ function makeFlowRepo(flow: Flow): IFlowRepository {
   } as unknown as IFlowRepository;
 }
 
-function makeEngine(
-  entityRepo: IEntityRepository,
-  flowRepo: IFlowRepository,
-  invocationRepo: IInvocationRepository,
-) {
+function makeEngine(entityRepo: IEntityRepository, flowRepo: IFlowRepository, invocationRepo: IInvocationRepository) {
   const gateRepo: IGateRepository = {
     create: vi.fn(),
     get: vi.fn(),

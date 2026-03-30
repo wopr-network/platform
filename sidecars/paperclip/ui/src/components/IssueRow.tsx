@@ -48,17 +48,13 @@ export function IssueRow({
         className,
       )}
     >
-      <span className="shrink-0 pt-px sm:hidden">
-        {mobileLeading ?? <StatusIcon status={issue.status} />}
-      </span>
+      <span className="shrink-0 pt-px sm:hidden">{mobileLeading ?? <StatusIcon status={issue.status} />}</span>
       <span className="flex min-w-0 flex-1 flex-col gap-1 sm:contents">
         <span className="line-clamp-2 text-sm sm:order-2 sm:min-w-0 sm:flex-1 sm:truncate sm:line-clamp-none">
           {issue.title}
         </span>
         <span className="flex items-center gap-2 sm:order-1 sm:shrink-0">
-          {desktopLeadingSpacer ? (
-            <span className="hidden w-3.5 shrink-0 sm:block" />
-          ) : null}
+          {desktopLeadingSpacer ? <span className="hidden w-3.5 shrink-0 sm:block" /> : null}
           {desktopMetaLeading ?? (
             <>
               <span className="hidden sm:inline-flex">
@@ -67,9 +63,7 @@ export function IssueRow({
               <span className="hidden shrink-0 sm:inline-flex">
                 <StatusIcon status={issue.status} />
               </span>
-              <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                {identifier}
-              </span>
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">{identifier}</span>
             </>
           )}
           {mobileMeta ? (
@@ -82,12 +76,10 @@ export function IssueRow({
           ) : null}
         </span>
       </span>
-      {(desktopTrailing || trailingMeta) ? (
+      {desktopTrailing || trailingMeta ? (
         <span className="ml-auto hidden shrink-0 items-center gap-2 sm:order-3 sm:flex sm:gap-3">
           {desktopTrailing}
-          {trailingMeta ? (
-            <span className="text-xs text-muted-foreground">{trailingMeta}</span>
-          ) : null}
+          {trailingMeta ? <span className="text-xs text-muted-foreground">{trailingMeta}</span> : null}
         </span>
       ) : null}
       {showUnreadSlot ? (

@@ -23,9 +23,7 @@ class InMemorySetupSessionRepository implements ISetupSessionRepository {
 
   async findStale(olderThanMs: number): Promise<SetupSession[]> {
     const cutoff = Date.now() - olderThanMs;
-    return [...this.sessions.values()].filter(
-      (s) => s.status === "in_progress" && s.startedAt < cutoff,
-    );
+    return [...this.sessions.values()].filter((s) => s.status === "in_progress" && s.startedAt < cutoff);
   }
 
   async insert(session: NewSetupSession): Promise<SetupSession> {

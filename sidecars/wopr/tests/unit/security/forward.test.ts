@@ -154,10 +154,7 @@ describe("executeForward", () => {
     vi.mocked(gw.createForwardedContext).mockReturnValue({ source: {}, session: "target" } as any);
 
     const injectFn = vi.fn().mockRejectedValue(new Error("boom"));
-    await forward.executeForward(
-      { requestId: "fwd-1", sourceSession: "gw", targetSession: "target" } as any,
-      injectFn,
-    );
+    await forward.executeForward({ requestId: "fwd-1", sourceSession: "gw", targetSession: "target" } as any, injectFn);
 
     expect(ctx.clearContext).toHaveBeenCalledWith("target");
   });
@@ -199,11 +196,7 @@ describe("routeThroughGateway", () => {
     vi.mocked(gw.requiresGateway).mockReturnValue(true);
     vi.mocked(gw.findGatewayForSource).mockReturnValue(null);
 
-    const result = await forward.routeThroughGateway(
-      { type: "p2p", trustLevel: "untrusted" },
-      "target",
-      "hello",
-    );
+    const result = await forward.routeThroughGateway({ type: "p2p", trustLevel: "untrusted" }, "target", "hello");
 
     expect(result).not.toBeNull();
     expect(result!.success).toBe(false);
