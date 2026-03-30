@@ -18,14 +18,9 @@
 	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
 }
 
-# Dashboard UI — app.runpaperclip.com
-app.runpaperclip.com {
-	reverse_proxy localhost:3200
-}
-
-# Root domain — runpaperclip.com (redirect to dashboard)
+# Dashboard UI — runpaperclip.com
 runpaperclip.com {
-	redir https://app.runpaperclip.com{uri} permanent
+	reverse_proxy localhost:3200
 }
 
 # Wildcard catch-all — *.runpaperclip.com
