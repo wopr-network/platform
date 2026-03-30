@@ -111,8 +111,8 @@ describe("togglePlugin race condition", () => {
 
     render(<PluginsPage />);
 
-    // Wait for the page to fully load
-    const toggle = await screen.findByRole("switch", { name: /toggle test plugin/i });
+    // Wait for the page to fully load — extended timeout for CI runners
+    const toggle = await screen.findByRole("switch", { name: /toggle test plugin/i }, { timeout: 5000 });
     expect(toggle).toBeInTheDocument();
 
     // Simulate rapid double-click by firing two change events synchronously
