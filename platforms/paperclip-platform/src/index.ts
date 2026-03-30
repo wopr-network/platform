@@ -211,7 +211,9 @@ if (container.fleet) {
     pool: container.pool,
     db: container.db,
     secret: secrets.betterAuthSecret,
+    baseURL: productDomain ? `https://api.${productDomain}` : undefined,
     cookieDomain: productDomain ? `.${productDomain}` : undefined,
+    trustedOrigins: productDomain ? [`https://${productDomain}`, `https://app.${productDomain}`] : undefined,
     socialProviders: {
       ...(secrets.githubClientId && secrets.githubClientSecret
         ? { github: { clientId: secrets.githubClientId, clientSecret: secrets.githubClientSecret } }
