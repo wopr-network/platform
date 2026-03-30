@@ -53,3 +53,4 @@ export type { VaultConfig } from "./vault-provider.js";
 export { resolveVaultConfig, VaultConfigProvider, vaultPaths } from "./vault-provider.js";
 // no-cache rebuild
 // buildx fix
+// plain docker build
