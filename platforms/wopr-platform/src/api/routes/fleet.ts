@@ -350,7 +350,11 @@ fleetRoutes.post(
       });
     } catch (placementErr) {
       const msg = placementErr instanceof Error ? placementErr.message : String(placementErr);
-      if (msg.includes("DATABASE_URL") || msg.includes("Pool not initialized") || msg.includes("Secrets not initialized")) {
+      if (
+        msg.includes("DATABASE_URL") ||
+        msg.includes("Pool not initialized") ||
+        msg.includes("Secrets not initialized")
+      ) {
         // Node repo not configured (single-node dev mode) — skip placement
         logger.warn("Placement skipped: node repo unavailable", { reason: msg });
       } else {

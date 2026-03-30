@@ -66,7 +66,11 @@ initSecrets({ ...TEST_SECRETS_BASE });
 
 /** Re-init secrets with crypto service enabled */
 function enableCryptoSecrets(): void {
-  initSecrets({ ...TEST_SECRETS_BASE, cryptoServiceUrl: "http://localhost:3100", cryptoServiceKey: "test-service-key" });
+  initSecrets({
+    ...TEST_SECRETS_BASE,
+    cryptoServiceUrl: "http://localhost:3100",
+    cryptoServiceKey: "test-service-key",
+  });
 }
 
 /** Restore default secrets (no crypto) */

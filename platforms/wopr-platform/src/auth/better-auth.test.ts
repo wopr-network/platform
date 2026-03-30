@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  * pg.Pool-compatible wrapper around PGlite for better-auth.
  * better-auth's Kysely PostgresDialect requires pool.connect() → client with query + release.
  */
-// biome-ignore lint/suspicious/noExplicitAny: test helper wrapping PGlite as pg.Pool
 function pgliteAsPool(pg: PGlite): any {
   const client = {
     query: (text: string, params?: unknown[]) => pg.query(text, params),
