@@ -44,5 +44,10 @@ const platform = await bootPlatformServer({
 logger.info(`Core server starting on port ${process.env.PORT ?? 3001}`);
 await platform.start();
 
-process.on("SIGINT", () => platform.stop().then(() => process.exit(0)));
-process.on("SIGTERM", () => platform.stop().then(() => process.exit(0)));
+const shutdown = () =>
+  platform
+    .stop()
+    .catch((err) => logger.error("Shutdown error", { error: err }))
+    .finally(() => process.exit(0));
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

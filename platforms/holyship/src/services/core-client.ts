@@ -4,7 +4,10 @@
 import { createCoreClient } from "@wopr-network/core-client";
 
 const CORE_URL = process.env.CORE_URL ?? "http://core:3001";
-const CORE_SERVICE_TOKEN = process.env.CORE_SERVICE_TOKEN ?? "";
+const CORE_SERVICE_TOKEN = process.env.CORE_SERVICE_TOKEN;
+if (!CORE_SERVICE_TOKEN) {
+  throw new Error("CORE_SERVICE_TOKEN is required — holyship cannot start without a valid core service token");
+}
 
 export const coreClient = createCoreClient({
   url: CORE_URL,

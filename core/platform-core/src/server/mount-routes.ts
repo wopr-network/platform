@@ -93,9 +93,16 @@ export async function mountRoutes(
       allowedTokens: bootConfig.standalone.allowedServiceTokens,
     });
 
-    // Apply internal auth to /trpc/* and /api/* (but NOT /v1/* — gateway has its own auth)
+    // Apply internal auth to /trpc/* and /api/* (but NOT /v1/* — gateway has its own auth,
+    // and NOT /api/auth/* — BetterAuth login/signup/OAuth must be public)
     app.use("/trpc/*", authMiddleware);
-    app.use("/api/*", authMiddleware);
+    app.use("/api/*", async (c, next) => {
+      // BetterAuth routes must bypass internal auth — they handle browser sessions directly
+      if (c.req.path.startsWith("/api/auth")) return next();
+      // Health check endpoint must be public (used by docker healthcheck / LB)
+      if (c.req.path === "/api/health" || c.req.path === "/health") return next();
+      return authMiddleware(c, next);
+    });
 
     // Wire org member repo into tRPC middleware
     const { setTrpcOrgMemberRepo } = await import("../trpc/init.js");
@@ -146,7 +153,7 @@ export async function mountRoutes(
             fleet: {
               creditLedger: container.creditLedger,
               profileStore: container.fleet.profileStore,
-              productConfig: container.productConfig,
+              productConfig: container.productConfig, // Fleet uses boot-time config for defaults; per-product image comes from ProductFleetConfig at provision time
               serviceKeyRepo: container.fleet.serviceKeyRepo,
               assertOrgAdminOrOwner,
               getFleetForInstance: (_instanceId: string) => container.fleet!.manager,
@@ -181,14 +188,41 @@ export async function mountRoutes(
   // 2d. BetterAuth routes (when auth config provided)
   if (bootConfig?.auth) {
     const { initBetterAuth, runAuthMigrations, getAuth } = await import("../auth/better-auth.js");
-    const productDomain = container.productConfig.product?.domain;
+
+    // In standalone mode, resolve all product domains for multi-brand auth.
+    // BetterAuth needs to trust origins from ALL products, not just one.
+    let baseURL: string | undefined;
+    let cookieDomain: string | undefined;
+    let trustedOrigins: string[] | undefined;
+
+    if (bootConfig.standalone) {
+      // Multi-product: trust all product domains
+      const allProducts = await container.productConfigService.listAll();
+      trustedOrigins = [];
+      for (const pc of allProducts) {
+        const p = pc.product;
+        trustedOrigins.push(`https://${p.domain}`, `https://${p.appDomain}`);
+        for (const d of pc.domains) {
+          if (d.role !== "redirect") trustedOrigins.push(`https://${d.host}`);
+        }
+      }
+      // No single baseURL or cookieDomain in multi-product mode — per-request resolution
+      // happens via the Origin header matching trustedOrigins
+    } else {
+      // Single-product mode (backwards compat)
+      const productDomain = container.productConfig.product?.domain;
+      baseURL = productDomain ? `https://api.${productDomain}` : undefined;
+      cookieDomain = productDomain ? `.${productDomain}` : undefined;
+      trustedOrigins = productDomain ? [`https://${productDomain}`, `https://app.${productDomain}`] : undefined;
+    }
+
     initBetterAuth({
       pool: container.pool,
       db: container.db,
       secret: bootConfig.auth.secret,
-      baseURL: productDomain ? `https://api.${productDomain}` : undefined,
-      cookieDomain: productDomain ? `.${productDomain}` : undefined,
-      trustedOrigins: productDomain ? [`https://${productDomain}`, `https://app.${productDomain}`] : undefined,
+      baseURL,
+      cookieDomain,
+      trustedOrigins,
       socialProviders: bootConfig.auth.socialProviders,
       onUserCreated: async (userId) => {
         try {
