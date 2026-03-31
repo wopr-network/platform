@@ -118,7 +118,7 @@ vi.mock("@wopr-network/platform-core/fleet/services", () => ({
 }));
 
 // Import AFTER mocks are set up
-const { botPluginRoutes, setBotPluginDeps } = await import("./bot-plugins.js");
+const { createBotPluginRoutes } = await import("./bot-plugins.js");
 
 const mockBotInstanceRepo = {
   getById: vi.fn().mockResolvedValue(mockBotInstance),
@@ -146,11 +146,15 @@ const mockBotInstanceRepo = {
   listActiveStorageTiers: vi.fn().mockResolvedValue([]),
 };
 
-// Wire in mock deps
-setBotPluginDeps({
+const { getMarketplacePluginRepo } = await import("@wopr-network/platform-core/fleet/services");
+
+const botPluginRoutes = createBotPluginRoutes({
   credentialVault: vaultMock,
   meterEmitter: meterMock,
   botInstanceRepo: mockBotInstanceRepo,
+  pluginRepoFactory: getMarketplacePluginRepo,
+  fleetManager: fleetMock,
+  fleetDataDir: "/data/fleet",
 });
 
 const app = new Hono();

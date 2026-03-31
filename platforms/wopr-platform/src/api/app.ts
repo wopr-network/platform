@@ -19,6 +19,7 @@ import {
   getBotProfileRepo,
   getDb,
   getEvidenceCollector,
+  getMarketplaceContentRepo,
   getMarketplacePluginRepo,
   getOnboardingScriptRepo,
   getPluginConfigRepo,
@@ -49,12 +50,13 @@ import { adminUsersApiRoutes } from "./routes/admin-users.js";
 import { adminAuditRoutes, auditRoutes } from "./routes/audit.js";
 import { billingRoutes } from "./routes/billing.js";
 import { createBotPluginProxyRoutes } from "./routes/bot-plugin-proxy.js";
-import { botPluginRoutes } from "./routes/bot-plugins.js";
+import type { BotPluginDeps } from "./routes/bot-plugins.js";
+import { createBotPluginRoutes } from "./routes/bot-plugins.js";
 import { botSnapshotRoutes } from "./routes/bot-snapshots.js";
 import { channelOAuthRoutes } from "./routes/channel-oauth.js";
 import { channelValidateRoutes } from "./routes/channel-validate.js";
 import { chatRoutes } from "./routes/chat.js";
-import { fleetRoutes, getFleetEventEmitter } from "./routes/fleet.js";
+import { fleet, fleetRoutes, getFleetEventEmitter } from "./routes/fleet.js";
 import { createFleetEventsRoute } from "./routes/fleet-events.js";
 import { fleetResourceRoutes } from "./routes/fleet-resources.js";
 import { friendsRoutes } from "./routes/friends.js";
@@ -63,7 +65,11 @@ import { incidentResponseRoutes } from "./routes/incident-response.js";
 import { internalGpuRoutes } from "./routes/internal-gpu.js";
 import { internalNodeRoutes } from "./routes/internal-nodes.js";
 import { loginHistoryRoutes } from "./routes/login-history.js";
-import { marketplaceRoutes } from "./routes/marketplace.js";
+// ---------------------------------------------------------------------------
+// Runtime deps — set by index.ts after vault/meter init, read by lazy factories.
+// ---------------------------------------------------------------------------
+import type { MarketplaceDeps } from "./routes/marketplace.js";
+import { createMarketplaceRoutes } from "./routes/marketplace.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
 import { createOrgRoutes } from "./routes/orgs.js";
 import { publicPricingRoutes } from "./routes/public-pricing.js";
@@ -75,6 +81,15 @@ import { snapshotRoutes } from "./routes/snapshots.js";
 import { tenantKeyRoutes } from "./routes/tenant-keys.js";
 import { tenantProxyMiddleware } from "./routes/tenant-proxy.js";
 import { verifyEmailRoutes } from "./routes/verify-email.js";
+
+type RuntimeDeps = Pick<MarketplaceDeps, "credentialVault" | "meterEmitter"> & Pick<BotPluginDeps, "botInstanceRepo">;
+
+const _runtimeDeps: Partial<RuntimeDeps> = {};
+
+/** Called by index.ts after vault/meter init to inject runtime deps. */
+export function setPluginRuntimeDeps(deps: RuntimeDeps): void {
+  Object.assign(_runtimeDeps, deps);
+}
 
 // =============================================================================
 // REST vs tRPC Boundary Policy (WOP-805)
@@ -288,7 +303,26 @@ app.get("/health/certs", async (c) => {
 // SSE fleet events — must be mounted BEFORE /fleet to take precedence (WOP-1527)
 app.route("/fleet/events", createFleetEventsRoute(getFleetEventEmitter()));
 app.route("/fleet", fleetRoutes);
-app.route("/fleet", botPluginRoutes);
+// Bot plugin routes — deps factory defers until first request so the DB
+// is not opened at module load time (tests import app.ts without a live DB).
+{
+  let _botPluginRoutes: ReturnType<typeof createBotPluginRoutes> | null = null;
+  const _botPluginWrapper = new Hono();
+  _botPluginWrapper.all("*", (c) => {
+    if (!_botPluginRoutes) {
+      _botPluginRoutes = createBotPluginRoutes({
+        pluginRepoFactory: getMarketplacePluginRepo,
+        fleetManager: fleet,
+        fleetDataDir: process.env.FLEET_DATA_DIR || "/data/fleet",
+        credentialVault: _runtimeDeps.credentialVault,
+        meterEmitter: _runtimeDeps.meterEmitter,
+        botInstanceRepo: _runtimeDeps.botInstanceRepo,
+      });
+    }
+    return _botPluginRoutes.fetch(c.req.raw);
+  });
+  app.route("/fleet", _botPluginWrapper);
+}
 // Plugin proxy routes — forward install/config/enable/disable to running daemon.
 // Deps factory defers getPluginConfigRepo() until first request so the DB
 // is not opened at module load time (tests import app.ts without a live DB).
@@ -387,7 +421,26 @@ app.route("/api/tenant-keys", tenantKeyRoutes);
 app.route("/api/v1/pricing", publicPricingRoutes);
 app.route("/api/activity", activityRoutes);
 app.route("/api/fleet/resources", fleetResourceRoutes);
-app.route("/api/marketplace", marketplaceRoutes);
+// Marketplace routes — deps factory defers until first request so the DB
+// is not opened at module load time (tests import app.ts without a live DB).
+{
+  let _marketplaceRoutes: ReturnType<typeof createMarketplaceRoutes> | null = null;
+  const _marketplaceWrapper = new Hono();
+  _marketplaceWrapper.all("*", (c) => {
+    if (!_marketplaceRoutes) {
+      _marketplaceRoutes = createMarketplaceRoutes({
+        pluginRepoFactory: getMarketplacePluginRepo,
+        contentRepoFactory: getMarketplaceContentRepo,
+        fleetDataDir: process.env.FLEET_DATA_DIR || "/data/fleet",
+        fleetManager: fleet,
+        credentialVault: _runtimeDeps.credentialVault,
+        meterEmitter: _runtimeDeps.meterEmitter,
+      });
+    }
+    return _marketplaceRoutes.fetch(c.req.raw);
+  });
+  app.route("/api/marketplace", _marketplaceWrapper);
+}
 app.route("/api/chat/setup", setupRoutes);
 app.route("/api/chat", chatRoutes);
 // Org management routes (WOP-1000)

@@ -47,14 +47,12 @@ import {
 } from "@wopr-network/platform-core/security";
 import type { WebSocket } from "ws";
 import { WebSocketServer } from "ws";
-import { app } from "./api/app.js";
+import { app, setPluginRuntimeDeps } from "./api/app.js";
 import { DrizzleOAuthStateRepository } from "./api/drizzle-oauth-state-repository.js";
 import { setBillingDeps } from "./api/routes/billing.js";
-import { setBotPluginDeps } from "./api/routes/bot-plugins.js";
 import { setChannelOAuthRepo } from "./api/routes/channel-oauth.js";
 import { setChatDeps } from "./api/routes/chat.js";
 import { imagePoller, setFleetDeps, updater } from "./api/routes/fleet.js";
-import { setMarketplaceDeps } from "./api/routes/marketplace.js";
 import { setOnboardingDeps } from "./api/routes/onboarding.js";
 import { setSetupDeps } from "./api/routes/setup.js";
 import { authenticateWebSocketUpgrade } from "./api/routes/ws-auth.js";
@@ -385,8 +383,7 @@ if (process.env.NODE_ENV !== "test") {
     const vaultKey = getVaultEncryptionKey(secrets.platformSecret);
     const credentialRepo = new DrizzleCredentialRepository(getDb());
     const credentialVault = new CredentialVaultStore(credentialRepo, vaultKey, undefined, getSecretAuditRepo());
-    setBotPluginDeps({ credentialVault, meterEmitter: meter, botInstanceRepo: getBotInstanceRepo() });
-    setMarketplaceDeps({ credentialVault, meterEmitter: meter });
+    setPluginRuntimeDeps({ credentialVault, meterEmitter: meter, botInstanceRepo: getBotInstanceRepo() });
 
     const { DrizzleSpendingLimitsRepository } = await import(
       "@wopr-network/platform-core/monetization/drizzle-spending-limits-repository"

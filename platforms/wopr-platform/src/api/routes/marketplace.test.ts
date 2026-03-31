@@ -5,7 +5,7 @@ import { FIRST_PARTY_PLUGINS } from "@wopr-network/platform-core/marketplace/fir
 import type { MarketplacePlugin } from "@wopr-network/platform-core/marketplace/marketplace-repository-types";
 import { Hono } from "hono";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { marketplaceRoutes, setMarketplaceDeps } from "./marketplace.js";
+import { createMarketplaceRoutes } from "./marketplace.js";
 
 const BOT_ID = "00000000-0000-4000-8000-000000000001";
 const OWNER_ID = "test-user";
@@ -47,12 +47,14 @@ vi.mock("@wopr-network/platform-core/fleet/services", () => ({
   })),
 }));
 
+const fleetMock = {
+  update: vi.fn(async (_botId: string, patch: { env?: Record<string, string> }) => {
+    if (patch.env) mockEnv = patch.env;
+  }),
+};
+
 vi.mock("./fleet.js", () => ({
-  fleet: {
-    update: vi.fn(async (_botId: string, patch: { env?: Record<string, string> }) => {
-      if (patch.env) mockEnv = patch.env;
-    }),
-  },
+  fleet: fleetMock,
 }));
 
 vi.mock("@wopr-network/platform-core/fleet/profile-store", () => ({
@@ -76,6 +78,12 @@ function makeApp(user: { id: string; roles: string[] } | null = { id: OWNER_ID, 
     }
     return next();
   });
+  const marketplaceRoutes = createMarketplaceRoutes({
+    pluginRepoFactory: getMarketplacePluginRepo,
+    contentRepoFactory: getMarketplaceContentRepo,
+    fleetDataDir: "/data/fleet",
+    fleetManager: fleetMock,
+  });
   app.route("/api/marketplace", marketplaceRoutes);
   return app;
 }
@@ -83,7 +91,6 @@ function makeApp(user: { id: string; roles: string[] } | null = { id: OWNER_ID, 
 beforeEach(() => {
   mockEnv = {};
   mockTenantId = OWNER_ID;
-  setMarketplaceDeps({ credentialVault: null, meterEmitter: null });
 });
 
 type PluginsPage = { plugins: PluginManifest[]; nextCursor: string | null; hasNextPage: boolean };
