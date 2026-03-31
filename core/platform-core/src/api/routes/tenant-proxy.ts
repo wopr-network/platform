@@ -1,9 +1,25 @@
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import { getAuth } from "../../auth/better-auth.js";
-import { validateTenantAccess } from "../../auth.js";
+import { validateTenantAccess } from "../../auth/index.js";
 import { logger } from "../../config/logger.js";
-import { getBotProfileRepo, getOrgMemberRepo } from "../../fleet/services.js";
+import { getBotProfileRepo } from "../../fleet/services.js";
+import type { IOrgMemberRepository } from "../../tenancy/index.js";
+
+// TODO: wire via DI — getOrgMemberRepo does not exist in platform-core fleet/services
+let _orgMemberRepo: IOrgMemberRepository | null = null;
+
+/** Inject the org member repository. Call before serving. */
+export function setTenantProxyOrgMemberRepo(repo: IOrgMemberRepository): void {
+  _orgMemberRepo = repo;
+}
+
+function getOrgMemberRepo(): IOrgMemberRepository {
+  if (!_orgMemberRepo) {
+    throw new Error("Tenant proxy org member repo not initialized — call setTenantProxyOrgMemberRepo() first");
+  }
+  return _orgMemberRepo;
+}
 
 /**
  * Domain config, read once at startup.

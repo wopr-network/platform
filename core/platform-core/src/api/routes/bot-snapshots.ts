@@ -1,13 +1,13 @@
 import { Hono } from "hono";
-import type { AuthEnv } from "../../auth.js";
-import { buildTokenMetadataMap, scopedBearerAuthWithTenant } from "../../auth.js";
+import type { AuthEnv } from "../../auth/index.js";
+import { buildTokenMetadataMap, scopedBearerAuthWithTenant } from "../../auth/index.js";
 import {
   InsufficientCreditsError,
   type OnDemandSnapshotService,
   SnapshotQuotaExceededError,
 } from "../../backup/on-demand-snapshot-service.js";
 import { createOnDemandSnapshotSchema, tierSchema } from "../../backup/types.js";
-import type { TenantCustomerRepository } from "../../billing.js";
+import type { TenantCustomerRepository } from "../../billing/index.js";
 import { logger } from "../../config/logger.js";
 
 /** Only allow safe characters in IDs used for filesystem paths. */

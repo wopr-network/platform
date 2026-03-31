@@ -1,9 +1,31 @@
 import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import { z } from "zod";
-import type { AuthEnv } from "../../auth.js";
+import type { AuthEnv } from "../../auth/index.js";
 import { logger } from "../../config/logger.js";
-import type { IOAuthStateRepository } from "../oauth-state-repository.js";
+
+// TODO: wire via DI — oauth-state-repository.ts does not exist in platform-core api/
+// Inline interface until the repository module is migrated.
+interface IOAuthStateRepository {
+  create(data: {
+    state: string;
+    provider: string;
+    userId: string;
+    redirectUri: string;
+    createdAt: number;
+    expiresAt: number;
+  }): Promise<void>;
+  consumePending(state: string): Promise<{
+    provider: string;
+    userId: string;
+    redirectUri: string;
+  } | null>;
+  completeWithToken(state: string, token: string, userId: string): Promise<void>;
+  consumeCompleted(state: string, userId: string): Promise<{ token: string } | null>;
+  purgeExpired(): Promise<void>;
+}
+
+export type { IOAuthStateRepository };
 
 // ---------------------------------------------------------------------------
 // Types

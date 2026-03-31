@@ -16,7 +16,13 @@ function getFleet(): FleetManager {
     const docker = new Docker();
     const store = new ProfileStore(DATA_DIR);
     const networkPolicy = new NetworkPolicy(docker);
-    _fleet = new FleetManager(docker, store, config.discovery, networkPolicy);
+    // TODO: wire via DI — config.discovery does not exist in platform-core
+    _fleet = new FleetManager(
+      docker,
+      store,
+      (config as Record<string, unknown>).discovery as ConstructorParameters<typeof FleetManager>[2],
+      networkPolicy,
+    );
   }
   return _fleet;
 }

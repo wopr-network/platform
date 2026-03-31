@@ -1,12 +1,15 @@
 import { Hono } from "hono";
-import type { AuthEnv } from "../../auth.js";
-import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth.js";
+import type { AuthEnv } from "../../auth/index.js";
+import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth/index.js";
 import { enforceRetention } from "../../backup/retention.js";
 import { type SnapshotManager, SnapshotNotFoundError } from "../../backup/snapshot-manager.js";
 import { createSnapshotSchema, tierSchema } from "../../backup/types.js";
-import type { ITenantCustomerRepository } from "../../billing.js";
+import type { ITenantCustomerRepository } from "../../billing/index.js";
 import { logger } from "../../config/logger.js";
-import { getSnapshotManager, getTenantCustomerRepository } from "../../fleet/services.js";
+import { getSnapshotManager } from "../../fleet/services.js";
+
+// TODO: wire via DI — getTenantCustomerRepository does not exist in platform-core fleet/services
+// import { getTenantCustomerRepository } from "../../fleet/services.js";
 
 const WOPR_HOME_BASE = process.env.WOPR_HOME_BASE || "/data/instances";
 const FLEET_DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
@@ -35,12 +38,8 @@ export function setTenantRepoForTest(store: ITenantCustomerRepository | undefine
 }
 
 function getTenantRepo(): ITenantCustomerRepository | null {
-  if (_tenantRepo) return _tenantRepo;
-  try {
-    return getTenantCustomerRepository();
-  } catch {
-    return null;
-  }
+  // TODO: wire via DI — getTenantCustomerRepository was a wopr-platform singleton
+  return _tenantRepo;
 }
 
 export const snapshotRoutes = new Hono<AuthEnv>();

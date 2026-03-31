@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import type { RoleStore } from "../../admin.js";
-import type { AuthEnv } from "../../auth.js";
-import type { IOrgRepository } from "../../org/drizzle-org-repository.js";
+import type { RoleStore } from "../../admin/index.js";
+import type { AuthEnv } from "../../auth/index.js";
+import type { IOrgRepository } from "../../tenancy/drizzle-org-repository.js";
 
 export interface OrgRouteDeps {
   orgRepo: IOrgRepository;

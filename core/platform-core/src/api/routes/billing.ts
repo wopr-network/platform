@@ -3,8 +3,8 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getClientIpFromContext } from "../../api/middleware/get-client-ip.js";
 import type { ISigPenaltyRepository } from "../../api/sig-penalty-repository.js";
-import { buildTokenMetadataMap, scopedBearerAuthWithTenant } from "../../auth.js";
-import type { ICryptoChargeRepository, IWebhookSeenRepository } from "../../billing.js";
+import { buildTokenMetadataMap, scopedBearerAuthWithTenant } from "../../auth/index.js";
+import type { ICryptoChargeRepository, IWebhookSeenRepository } from "../../billing/index.js";
 import {
   CryptoServiceClient,
   type CryptoWebhookPayload,
@@ -13,13 +13,14 @@ import {
   loadCryptoConfig,
   MIN_PAYMENT_USD,
   PaymentMethodOwnershipError,
-} from "../../billing.js";
+} from "../../billing/index.js";
 import { logger } from "../../config/logger.js";
-import type { ILedger } from "../../credits.js";
-import { getSecrets } from "../../fleet/services.js";
-import type { IMeterAggregator } from "../../metering.js";
+import type { ILedger } from "../../credits/index.js";
+// TODO: wire via DI — getSecrets does not exist in platform-core fleet/services
+// import { getSecrets } from "../../fleet/services.js";
+import type { IMeterAggregator } from "../../metering/index.js";
 import type { IAffiliateRepository } from "../../monetization/affiliate/drizzle-affiliate-repository.js";
-import { assertSafeRedirectUrl } from "../../security.js";
+import { assertSafeRedirectUrl } from "../../security/index.js";
 
 export interface BillingRouteDeps {
   processor: IPaymentProcessor;
@@ -108,12 +109,17 @@ let _deps: BillingRouteDeps | null = null;
 let cryptoClient: CryptoServiceClient | null = null;
 
 /** Inject dependencies (call before serving). */
-export function setBillingDeps(d: BillingRouteDeps): void {
+export function setBillingDeps(
+  d: BillingRouteDeps,
+  secrets?: { cryptoServiceUrl?: string; cryptoServiceKey?: string },
+): void {
   _deps = d;
 
   // Crypto initialization (optional — only if crypto service configured in Vault)
-  const s = getSecrets();
-  const cryptoConfig = loadCryptoConfig({ baseUrl: s.cryptoServiceUrl, serviceKey: s.cryptoServiceKey });
+  // TODO: wire via DI — getSecrets was a wopr-platform singleton. Caller must pass secrets.
+  const cryptoConfig = secrets
+    ? loadCryptoConfig({ baseUrl: secrets.cryptoServiceUrl, serviceKey: secrets.cryptoServiceKey })
+    : null;
   if (cryptoConfig) {
     cryptoClient = new CryptoServiceClient(cryptoConfig);
   } else {

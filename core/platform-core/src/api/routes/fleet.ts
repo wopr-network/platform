@@ -1,16 +1,27 @@
 import Docker from "dockerode";
 import { Hono } from "hono";
 import { z } from "zod";
-import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth.js";
+import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth/index.js";
 import { config } from "../../config/index.js";
 import { logger } from "../../config/logger.js";
-import type { ILedger } from "../../credits.js";
-import { Credit } from "../../credits.js";
-import { type IEmailVerifier, requireEmailVerified } from "../../email.js";
+import type { ILedger } from "../../credits/index.js";
+import { Credit } from "../../credits/index.js";
+import { type IEmailVerifier, requireEmailVerified } from "../../email/index.js";
 import { CAPABILITY_ENV_MAP } from "../../fleet/capability-env-map.js";
 import { FleetEventEmitter } from "../../fleet/fleet-event-emitter.js";
 import { BotNotFoundError, FleetManager } from "../../fleet/fleet-manager.js";
-import { removeInstance } from "../../fleet/fleet-remove.js";
+
+// TODO: wire via DI — fleet-remove.ts does not exist in platform-core
+// import { removeInstance } from "../../fleet/fleet-remove.js";
+const removeInstance = async (
+  _fleet: unknown,
+  _keyRepo: unknown,
+  _botId: string,
+  _removeVolumes: boolean,
+): Promise<void> => {
+  throw new Error("removeInstance not available in platform-core — wire via DI");
+};
+
 import { ImagePoller } from "../../fleet/image-poller.js";
 import { findPlacement } from "../../fleet/placement.js";
 import { defaultTemplatesDir, loadProfileTemplates } from "../../fleet/profile-loader.js";
@@ -21,7 +32,8 @@ import {
   getCommandBus,
   getNodeRepo,
   getRecoveryOrchestrator,
-  getServiceKeyRepo,
+  // TODO: wire via DI — getServiceKeyRepo does not exist in platform-core fleet/services
+  // getServiceKeyRepo,
 } from "../../fleet/services.js";
 import { createBotSchema, updateBotSchema } from "../../fleet/types.js";
 import { ContainerUpdater } from "../../fleet/updater.js";
@@ -30,7 +42,7 @@ import { checkInstanceQuota, DEFAULT_INSTANCE_LIMITS } from "../../monetization/
 import { buildResourceLimits } from "../../monetization/quotas/resource-limits.js";
 import { NetworkPolicy } from "../../network/network-policy.js";
 import { getProxyManager } from "../../proxy/singleton.js";
-import { assertSafeRedirectUrl } from "../../security.js";
+import { assertSafeRedirectUrl } from "../../security/index.js";
 
 const DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
 
@@ -63,7 +75,8 @@ function getFleet(): FleetManager {
     _fleet = new FleetManager(
       docker,
       store,
-      config.discovery,
+      // TODO: wire via DI — config.discovery does not exist in platform-core
+      (config as Record<string, unknown>).discovery as ConstructorParameters<typeof FleetManager>[2],
       networkPolicy,
       getProxyManager(),
       commandBus,
@@ -364,7 +377,8 @@ fleetRoutes.post(
       // Failures must not block instance creation — the key can be regenerated later.
       let gatewayKey: string | undefined;
       try {
-        gatewayKey = await getServiceKeyRepo().generate(parsed.data.tenantId, profile.id);
+        // TODO: wire via DI — getServiceKeyRepo does not exist in platform-core
+        throw new Error("getServiceKeyRepo not available");
       } catch (keyErr) {
         logger.warn("Gateway service key generation failed (non-fatal)", { botId: profile.id, err: keyErr });
       }
@@ -476,12 +490,8 @@ fleetRoutes.delete("/bots/:id", writeAuth, async (c) => {
     return ownershipError;
   }
 
-  let keyRepo = null;
-  try {
-    keyRepo = getServiceKeyRepo();
-  } catch {
-    /* non-fatal — proceed without revocation */
-  }
+  // TODO: wire via DI — getServiceKeyRepo does not exist in platform-core
+  const keyRepo = null;
 
   try {
     await removeInstance(fleet, keyRepo, botId, c.req.query("removeVolumes") === "true");
@@ -1038,15 +1048,18 @@ fleetRoutes.post("/bots/:id/upgrade-to-vps", writeAuth, async (c) => {
     return c.json({ error: "VPS tier not configured" }, 503);
   }
 
-  const { getVpsRepo, getTenantCustomerRepository } = await import("../../fleet/services.js");
+  // TODO: wire via DI — getTenantCustomerRepository does not exist in platform-core fleet/services
+  const { getVpsRepo } = await import("../../fleet/services.js");
   const vpsRepo = getVpsRepo();
   const existing = await vpsRepo.getByBotId(botId);
   if (existing && existing.status === "active") {
     return c.json({ error: "Bot already on VPS tier" }, 409);
   }
 
-  const tenantRepo = getTenantCustomerRepository();
-  const customer = await tenantRepo.getByTenant(profile.tenantId);
+  // TODO: wire via DI — getTenantCustomerRepository was a wopr-platform singleton
+  type _ITenantCustomerRepo = import("../../billing/index.js").ITenantCustomerRepository;
+  const tenantRepo = null as unknown as _ITenantCustomerRepo;
+  const customer = await tenantRepo?.getByTenant(profile.tenantId);
   if (!customer) {
     return c.json(
       {
@@ -1084,11 +1097,11 @@ fleetRoutes.post("/bots/:id/upgrade-to-vps", writeAuth, async (c) => {
     }
   }
 
-  const { createVpsCheckoutSession } = await import("../../billing.js");
-  const { createStripeClient, loadStripeConfig } = await import("../../billing.js");
+  const { createVpsCheckoutSession } = await import("../../billing/index.js");
+  const { createStripeClient, loadStripeConfig } = await import("../../billing/index.js");
 
-  const { getSecrets } = await import("../../fleet/services.js");
-  const stripeConfig = loadStripeConfig(getSecrets());
+  // TODO: wire via DI — getSecrets does not exist in platform-core fleet/services
+  const stripeConfig = loadStripeConfig({} as Record<string, string | undefined>);
   if (!stripeConfig) {
     return c.json({ error: "Stripe not configured" }, 503);
   }

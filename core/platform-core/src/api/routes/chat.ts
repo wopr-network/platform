@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import type { IChatBackend } from "../../chat/chat-backend.js";
-import { ChatStreamRegistry, type SSEWriter } from "../../chat/chat-stream-registry.js";
+import type { IChatBackend } from "../../chat/backend.js";
+import { ChatStreamRegistry, type SSEWriter } from "../../chat/stream-registry.js";
 import type { ChatEvent } from "../../chat/types.js";
 import { logger } from "../../config/logger.js";
 
