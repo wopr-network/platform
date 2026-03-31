@@ -1,10 +1,9 @@
-import { validateTenantAccess } from "../../auth.js";
-import { getAuth } from "../../auth/better-auth.js";
-import { logger } from "../../config/logger.js";
-import { getBotProfileRepo } from "../../fleet/services.js";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
-import { getOrgMemberRepo } from "../../fleet/services.js";
+import { getAuth } from "../../auth/better-auth.js";
+import { validateTenantAccess } from "../../auth.js";
+import { logger } from "../../config/logger.js";
+import { getBotProfileRepo, getOrgMemberRepo } from "../../fleet/services.js";
 
 /**
  * Domain config, read once at startup.

@@ -1,11 +1,7 @@
-import {
-  buildTokenMetadataMap,
-  scopedBearerAuthWithTenant,
-  validateTenantOwnership,
-} from "../../auth.js";
-import { logger } from "../../config/logger.js";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth.js";
+import { logger } from "../../config/logger.js";
 import { proxyToInstance } from "./friends-proxy.js";
 import { autoAcceptRuleSchema, sendFriendRequestSchema, updateCapabilitiesSchema } from "./friends-types.js";
 

@@ -1,12 +1,12 @@
 // src/api/routes/fleet-resources.ts
 
+import Docker from "dockerode";
+import { Hono } from "hono";
 import type { AuditEnv } from "../../audit/types.js";
+import { config } from "../../config/index.js";
 import { FleetManager } from "../../fleet/fleet-manager.js";
 import { ProfileStore } from "../../fleet/profile-store.js";
 import { NetworkPolicy } from "../../network/network-policy.js";
-import Docker from "dockerode";
-import { Hono } from "hono";
-import { config } from "../../config/index.js";
 
 const DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
 

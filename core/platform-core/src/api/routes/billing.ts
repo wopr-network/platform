@@ -1,4 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
+import { Hono } from "hono";
+import { z } from "zod";
 import { getClientIpFromContext } from "../../api/middleware/get-client-ip.js";
 import type { ISigPenaltyRepository } from "../../api/sig-penalty-repository.js";
 import { buildTokenMetadataMap, scopedBearerAuthWithTenant } from "../../auth.js";
@@ -14,12 +16,10 @@ import {
 } from "../../billing.js";
 import { logger } from "../../config/logger.js";
 import type { ILedger } from "../../credits.js";
+import { getSecrets } from "../../fleet/services.js";
 import type { IMeterAggregator } from "../../metering.js";
 import type { IAffiliateRepository } from "../../monetization/affiliate/drizzle-affiliate-repository.js";
 import { assertSafeRedirectUrl } from "../../security.js";
-import { Hono } from "hono";
-import { z } from "zod";
-import { getSecrets } from "../../fleet/services.js";
 
 export interface BillingRouteDeps {
   processor: IPaymentProcessor;

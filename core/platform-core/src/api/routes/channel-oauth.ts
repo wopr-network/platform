@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import type { AuthEnv } from "../../auth.js";
-import { logger } from "../../config/logger.js";
 import { Hono } from "hono";
 import { z } from "zod";
+import type { AuthEnv } from "../../auth.js";
+import { logger } from "../../config/logger.js";
 import type { IOAuthStateRepository } from "../oauth-state-repository.js";
 
 // ---------------------------------------------------------------------------

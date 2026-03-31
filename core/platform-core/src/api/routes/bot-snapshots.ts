@@ -1,3 +1,4 @@
+import { Hono } from "hono";
 import type { AuthEnv } from "../../auth.js";
 import { buildTokenMetadataMap, scopedBearerAuthWithTenant } from "../../auth.js";
 import {
@@ -8,7 +9,6 @@ import {
 import { createOnDemandSnapshotSchema, tierSchema } from "../../backup/types.js";
 import type { TenantCustomerRepository } from "../../billing.js";
 import { logger } from "../../config/logger.js";
-import { Hono } from "hono";
 
 /** Only allow safe characters in IDs used for filesystem paths. */
 const SAFE_ID_RE = /^[a-zA-Z0-9_-]+$/;

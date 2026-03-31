@@ -1,8 +1,8 @@
-import {
-  buildTokenMetadataMap,
-  scopedBearerAuthWithTenant,
-  validateTenantOwnership,
-} from "../../auth.js";
+import Docker from "dockerode";
+import { Hono } from "hono";
+import { z } from "zod";
+import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth.js";
+import { config } from "../../config/index.js";
 import { logger } from "../../config/logger.js";
 import type { ILedger } from "../../credits.js";
 import { Credit } from "../../credits.js";
@@ -10,6 +10,7 @@ import { type IEmailVerifier, requireEmailVerified } from "../../email.js";
 import { CAPABILITY_ENV_MAP } from "../../fleet/capability-env-map.js";
 import { FleetEventEmitter } from "../../fleet/fleet-event-emitter.js";
 import { BotNotFoundError, FleetManager } from "../../fleet/fleet-manager.js";
+import { removeInstance } from "../../fleet/fleet-remove.js";
 import { ImagePoller } from "../../fleet/image-poller.js";
 import { findPlacement } from "../../fleet/placement.js";
 import { defaultTemplatesDir, loadProfileTemplates } from "../../fleet/profile-loader.js";
@@ -20,24 +21,16 @@ import {
   getCommandBus,
   getNodeRepo,
   getRecoveryOrchestrator,
+  getServiceKeyRepo,
 } from "../../fleet/services.js";
 import { createBotSchema, updateBotSchema } from "../../fleet/types.js";
 import { ContainerUpdater } from "../../fleet/updater.js";
 import type { IBotBilling } from "../../monetization/credits/bot-billing.js";
-import {
-  checkInstanceQuota,
-  DEFAULT_INSTANCE_LIMITS,
-} from "../../monetization/quotas/quota-check.js";
+import { checkInstanceQuota, DEFAULT_INSTANCE_LIMITS } from "../../monetization/quotas/quota-check.js";
 import { buildResourceLimits } from "../../monetization/quotas/resource-limits.js";
 import { NetworkPolicy } from "../../network/network-policy.js";
 import { getProxyManager } from "../../proxy/singleton.js";
 import { assertSafeRedirectUrl } from "../../security.js";
-import Docker from "dockerode";
-import { Hono } from "hono";
-import { z } from "zod";
-import { config } from "../../config/index.js";
-import { removeInstance } from "../../fleet/fleet-remove.js";
-import { getServiceKeyRepo } from "../../fleet/services.js";
 
 const DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
 

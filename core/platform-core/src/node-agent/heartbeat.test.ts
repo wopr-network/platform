@@ -1,7 +1,7 @@
-import { NodeAgent } from "./index.js";
-import { DockerManager } from "./docker.js";
-import { nodeAgentConfigSchema } from "./types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DockerManager } from "./docker.js";
+import { NodeAgent } from "./index.js";
+import { nodeAgentConfigSchema } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // vi.hoisted — runs before any import; creates the shared WS instance store

@@ -1,17 +1,12 @@
+import { Hono } from "hono";
 import type { AuthEnv } from "../../auth.js";
-import {
-  buildTokenMetadataMap,
-  scopedBearerAuthWithTenant,
-  validateTenantOwnership,
-} from "../../auth.js";
+import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth.js";
 import { enforceRetention } from "../../backup/retention.js";
 import { type SnapshotManager, SnapshotNotFoundError } from "../../backup/snapshot-manager.js";
 import { createSnapshotSchema, tierSchema } from "../../backup/types.js";
 import type { ITenantCustomerRepository } from "../../billing.js";
 import { logger } from "../../config/logger.js";
-import { getSnapshotManager } from "../../fleet/services.js";
-import { Hono } from "hono";
-import { getTenantCustomerRepository } from "../../fleet/services.js";
+import { getSnapshotManager, getTenantCustomerRepository } from "../../fleet/services.js";
 
 const WOPR_HOME_BASE = process.env.WOPR_HOME_BASE || "/data/instances";
 const FLEET_DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
