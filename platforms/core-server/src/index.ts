@@ -3,7 +3,24 @@ import { logger } from "@wopr-network/platform-core/config/logger";
 import { bootPlatformServer } from "@wopr-network/platform-core/server";
 
 const slug = process.env.PRODUCT_SLUG ?? "wopr";
-const secrets = await resolveSecrets(slug);
+const vaultSecrets = await resolveSecrets(slug);
+
+// Merge env vars as fallback — container gets secrets via .env, not Vault directly
+const secrets = {
+  ...vaultSecrets,
+  dbPassword: vaultSecrets.dbPassword ?? process.env.POSTGRES_PASSWORD,
+  stripeSecretKey: vaultSecrets.stripeSecretKey ?? process.env.STRIPE_SECRET_KEY,
+  stripeWebhookSecret: vaultSecrets.stripeWebhookSecret ?? process.env.STRIPE_WEBHOOK_SECRET,
+  betterAuthSecret: vaultSecrets.betterAuthSecret ?? process.env.BETTER_AUTH_SECRET,
+  cryptoServiceKey: vaultSecrets.cryptoServiceKey ?? process.env.CRYPTO_SERVICE_KEY,
+  cryptoServiceUrl: vaultSecrets.cryptoServiceUrl ?? process.env.CRYPTO_SERVICE_URL,
+  openrouterApiKey: vaultSecrets.openrouterApiKey ?? process.env.OPENROUTER_API_KEY,
+  provisionSecret: vaultSecrets.provisionSecret ?? process.env.PROVISION_SECRET,
+  githubClientId: vaultSecrets.githubClientId ?? process.env.GITHUB_CLIENT_ID,
+  githubClientSecret: vaultSecrets.githubClientSecret ?? process.env.GITHUB_CLIENT_SECRET,
+  googleClientId: vaultSecrets.googleClientId ?? process.env.GOOGLE_CLIENT_ID,
+  googleClientSecret: vaultSecrets.googleClientSecret ?? process.env.GOOGLE_CLIENT_SECRET,
+};
 
 const dbHost = process.env.DB_HOST ?? "postgres";
 const dbName = process.env.DB_NAME ?? "platform";
