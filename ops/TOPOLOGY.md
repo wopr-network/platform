@@ -13,31 +13,35 @@ Four products on shared infrastructure. Same GPUs, same platform-core, same cred
 
 ## Monorepo (source of truth)
 
-**All products build from `wopr-network/platform`** (consolidated 2026-03-28).
+**All products build from `wopr-network/platform`** (consolidated 2026-03-28, core extraction 2026-03-31).
 
 ```
 platform/
   core/
-    platform-core/          # DB schema, auth, billing, fleet, gateway, credits
+    platform-core/          # THE server: auth, billing, fleet, gateway, credits, metering
     platform-ui-core/       # Brand-agnostic Next.js UI components
+    core-client/            # Typed tRPC client SDK for services calling core
   platforms/
-    wopr-platform/          # WOPR API server
-    paperclip-platform/     # Paperclip API server
-    holyship/               # Holy Ship flow engine + API
-    nemoclaw-platform/      # NemoPod API server
+    core-server/            # Core server entry point (47 lines) + Dockerfile + docker-compose
+    holyship/               # Holy Ship flow engine (the one product with its own server)
   shells/
-    wopr-platform-ui/       # WOPR dashboard (thin shell re-exports from core)
+    wopr-platform-ui/       # WOPR dashboard (thin brand shell)
     paperclip-platform-ui/  # Paperclip dashboard
     holyship-platform-ui/   # Holy Ship dashboard
     nemoclaw-platform-ui/   # NemoPod dashboard
+    core-admin/             # Internal cross-product admin dashboard
   sidecars/
     paperclip/              # Paperclip managed bot (one container per tenant)
     nemoclaw/               # NemoPod managed bot
     holyshipper/            # Holy Ship ephemeral agent workers
     wopr/                   # WOPR bot core
   services/
-    provision-client/       # Shared provisioning client
-  ops/                      # This logbook (was wopr-ops)
+    provision-client/       # Shared provisioning protocol client
+    provision-server/       # Shared provisioning protocol server (sidecars embed this)
+  ops/                      # This logbook
+```
+
+**Deleted (2026-03-31):** wopr-platform, paperclip-platform, nemoclaw-platform — replaced by core-server. Products are rows in the `products` table.
   .github/workflows/
     staging.yml             # Build + deploy all changed products to staging
     promote.yml             # Retag :staging → :latest, deploy to production
@@ -55,18 +59,25 @@ platform/
 The following repos were consolidated into the monorepo. They should be archived once all references are removed:
 wopr-platform, paperclip-platform, nemoclaw-platform, holyship, wopr-platform-ui, paperclip-platform-ui, nemoclaw-platform-ui, holyship-platform-ui, wopr-ops
 
-### Docker images (all built from monorepo)
+### Docker images (all on registry.wopr.bot, built by .github/workflows/build-core.yml)
 
-| Image | Source | VPS |
-|-------|--------|-----|
-| ghcr.io/wopr-network/wopr-platform | platforms/wopr-platform/Dockerfile | 138.68.30.247 |
-| ghcr.io/wopr-network/wopr-platform-ui | shells/wopr-platform-ui/Dockerfile | 138.68.30.247 |
-| ghcr.io/wopr-network/paperclip-platform | platforms/paperclip-platform/Dockerfile | 68.183.160.201 |
-| ghcr.io/wopr-network/paperclip-platform-ui | shells/paperclip-platform-ui/Dockerfile | 68.183.160.201 |
-| ghcr.io/wopr-network/holyship | platforms/holyship/Dockerfile | 138.68.46.192 |
-| ghcr.io/wopr-network/holyship-platform-ui | shells/holyship-platform-ui/Dockerfile | 138.68.46.192 |
-| ghcr.io/wopr-network/nemoclaw-platform | platforms/nemoclaw-platform/Dockerfile | 167.172.208.149 |
-| ghcr.io/wopr-network/nemoclaw-platform-ui | shells/nemoclaw-platform-ui/Dockerfile | 167.172.208.149 |
+| Image | Source | Service |
+|-------|--------|---------|
+| registry.wopr.bot/core-server | platforms/core-server/Dockerfile | Core API (serves all products) |
+| registry.wopr.bot/wopr-ui | shells/wopr-platform-ui/Dockerfile | WOPR dashboard |
+| registry.wopr.bot/paperclip-ui | shells/paperclip-platform-ui/Dockerfile | Paperclip dashboard |
+| registry.wopr.bot/nemoclaw-ui | shells/nemoclaw-platform-ui/Dockerfile | NemoPod dashboard |
+| registry.wopr.bot/holyship | platforms/holyship/Dockerfile | Holy Ship flow engine |
+| registry.wopr.bot/holyship-ui | shells/holyship-platform-ui/Dockerfile | Holy Ship dashboard |
+
+### Legacy images (to be decommissioned after DNS cutover)
+
+| Image | Old VPS |
+|-------|---------|
+| ghcr.io/wopr-network/wopr-platform | 138.68.30.247 |
+| ghcr.io/wopr-network/paperclip-platform | 68.183.160.201 |
+| ghcr.io/wopr-network/holyship (old) | 138.68.46.192 |
+| ghcr.io/wopr-network/nemoclaw-platform | 167.172.208.149 |
 
 ## Deployment Pipeline
 

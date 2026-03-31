@@ -2,6 +2,33 @@
 
 > Why we made the infrastructure calls we did. Written by the DevOps agent when a significant choice is made.
 
+## 2026-03-31 — Core server consolidation: 4 platforms → 1
+
+Four product platforms (wopr-platform, paperclip-platform, nemoclaw-platform, holyship engine) collapsed into one core server. platform-core already had all the logic — the platforms were just 4 different ways of writing boot glue + copy-pasted tRPC routers.
+
+**What changed:**
+- `platforms/wopr-platform`, `platforms/paperclip-platform`, `platforms/nemoclaw-platform` deleted (-156,636 lines)
+- `platforms/core-server` is the one server (47-line entry point)
+- `platforms/holyship` stays (flow engine is genuinely different domain)
+- Product differentiation is a row in the `products` table, not a server
+- All images pushed to `registry.wopr.bot` (not GHCR)
+
+**Why:** Every billing fix, auth change, gateway tweak was applied 4 times. Adding product #5 meant forking a platform, copying 1000 lines of billing router, setting up a droplet. Now it's a DB insert + a UI deploy + a DNS record.
+
+**Droplet consolidation:** 4 droplets → 1. One Postgres, one core, 4 UI containers, holyship, Caddy. Start at s-1vcpu-1gb ($6/mo), scale to s-4vcpu-8gb when needed.
+
+**Registry:** `registry.wopr.bot` — all 6 images. CI builds on push to main via `.github/workflows/build-core.yml`.
+
+## 2026-03-31 — Per-request product config, not boot-time
+
+Core serves all products from one process. Every request carries `X-Product` header. Product config (margin, model, fleet image, nav items, billing config) resolved per-request from DB via `ProductConfigService` with 60s TTL cache. Write-through invalidation — cache busts on any upsert.
+
+Gateway margin and model are on the `GatewayTenant` (resolved at service key resolution time from product config). No mutable globals, no boot-time state.
+
+## 2026-03-31 — Service key identity: product + tenant + instance
+
+Gateway service keys carry `productSlug` column. Every meter event and usage summary includes `instanceId` and `productSlug`. Billing is per-instance, per-product. The UI can show which instance is spending what.
+
 ## 2026-02-28 — Bare VPS over managed platforms
 
 Tenant bots are persistent always-on containers with named volumes. Managed platforms (Fly.io, Railway, Render) don't support this cleanly. docker-compose gives full control over Docker socket, named volumes, and container lifecycle. Fly.io was specifically rejected after sprint agents deployed it without authorization (WOP-370).

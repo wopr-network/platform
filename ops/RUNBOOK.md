@@ -4,9 +4,55 @@
 
 ## Current State
 
-**Status:** PRODUCTION — all 4 products deployed from monorepo (wopr-network/platform). Full E2E verified on Paperclip + NemoPod. Billing pipeline working: signup grant → metered gateway → SSE credit debit → double-entry ledger.
-**Last Updated:** 2026-03-29
-**Last Operation:** Monorepo consolidation + all 4 products promoted. NemoPod billing E2E verified (balance drops on chat).
+**Status:** CORE CONSOLIDATION COMPLETE — 4 platforms collapsed into 1 core server. All code merged to main. Images building on registry.wopr.bot. Pending: provision new droplet, DNS cutover, decommission old droplets.
+**Last Updated:** 2026-03-31
+**Last Operation:** Core server extraction (PRs #13, #17 merged). 3 platforms deleted (-156,636 lines). Per-request product config. Per-instance billing. All UIs fetch brand config from core.
+
+## 2026-03-31 — Core Server Deployment (PENDING)
+
+### Deploy sequence
+
+1. **Images build** — CI pushes 6 images to `registry.wopr.bot` via `build-core.yml`
+2. **Provision droplet** — `doctl compute droplet create core-platform --size s-1vcpu-1gb --image ubuntu-24-04-x64 --user-data-file ops/core-server/cloud-init.sh`
+3. **SCP .env** — `scp .env deploy@<new-ip>:/opt/core-server/.env` (secrets from Vault)
+4. **Docker login** — `ssh deploy@<new-ip> 'docker login registry.wopr.bot'`
+5. **Pull + start** — `ssh deploy@<new-ip> 'cd /opt/core-server && docker compose -f docker-compose.prod.yml pull && docker compose -f docker-compose.prod.yml up -d'`
+6. **Health check** — `curl https://<new-ip>:3001/health`
+7. **DNS cutover** — point all 8 domains (4x app.* + 4x api.*) to new IP
+8. **Verify** — test each product E2E
+9. **Decommission** — destroy old 4 droplets after 48h monitoring
+
+### Rollback
+
+DNS back to old IPs. Old droplets stay up for 48h after cutover.
+
+### Service topology (one box)
+
+```
+Internet → Caddy (80/443)
+             ├── app.wopr.bot → wopr-ui:3000
+             ├── app.runpaperclip.com → paperclip-ui:3002
+             ├── app.nemopod.com → nemoclaw-ui:3003
+             ├── app.holyship.wtf → holyship-ui:3004
+             ├── api.wopr.bot → core:3001
+             ├── api.runpaperclip.com → core:3001
+             ├── api.nemopod.com → core:3001
+             └── api.holyship.wtf → holyship:3005 → core:3001
+                                      ↑
+                                  (flow engine)
+Postgres:5432 ← core + holyship (shared DB)
+```
+
+### Scaling path
+
+| Stage | What | Cost |
+|-------|------|------|
+| Day 1 | Everything on 1 box (s-1vcpu-1gb) | $6/mo |
+| Scale up | `doctl compute droplet-action resize <id> --size s-4vcpu-8gb` | $48/mo |
+| Scale out DB | Move Postgres to DO Managed Database | +$15/mo |
+| Scale out UIs | Move UIs to Vercel/Cloudflare | $0 (free tier) |
+| Scale out fleet | Add worker nodes via NodeCommandBus | per-node |
+| HA | 2+ core behind LB, leader election via pg_try_advisory_lock | per-core |
 
 ## 2026-03-28/29 — Monorepo Consolidation + Billing Pipeline
 
