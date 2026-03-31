@@ -1,17 +1,11 @@
-# Consolidated Caddyfile — all 4 product brands behind one Caddy instance.
-# Automatic HTTPS via Let's Encrypt (Caddy default).
-# Most api.* domains route to core. Holy Ship has its own flow engine.
-
-# --- WOPR ---
-
-app.wopr.bot {
+# WOPR
+wopr.bot {
 	reverse_proxy wopr-ui:3000 {
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
-
 api.wopr.bot {
 	reverse_proxy core:3001 {
 		header_up X-Real-IP {remote_host}
@@ -20,16 +14,14 @@ api.wopr.bot {
 	}
 }
 
-# --- Paperclip ---
-
-app.runpaperclip.com {
+# Paperclip
+runpaperclip.com {
 	reverse_proxy paperclip-ui:3002 {
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
-
 api.runpaperclip.com {
 	reverse_proxy core:3001 {
 		header_up X-Real-IP {remote_host}
@@ -38,16 +30,14 @@ api.runpaperclip.com {
 	}
 }
 
-# --- NemoPod ---
-
-app.nemopod.com {
+# NemoPod
+nemopod.com {
 	reverse_proxy nemoclaw-ui:3003 {
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
-
 api.nemopod.com {
 	reverse_proxy core:3001 {
 		header_up X-Real-IP {remote_host}
@@ -56,16 +46,14 @@ api.nemopod.com {
 	}
 }
 
-# --- Holy Ship ---
-
-app.holyship.wtf {
+# Holy Ship
+holyship.wtf {
 	reverse_proxy holyship-ui:3004 {
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
-
 api.holyship.wtf {
 	reverse_proxy holyship:3005 {
 		header_up X-Real-IP {remote_host}
