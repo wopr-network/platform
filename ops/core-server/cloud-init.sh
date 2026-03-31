@@ -198,7 +198,7 @@ services:
       - platform
 
   core:
-    image: ghcr.io/wopr-network/core-server:latest
+    image: registry.wopr.bot/core-server:latest
     depends_on:
       postgres:
         condition: service_healthy
@@ -238,7 +238,7 @@ services:
       - platform
 
   wopr-ui:
-    image: ghcr.io/wopr-network/wopr-ui:latest
+    image: registry.wopr.bot/wopr-ui:latest
     depends_on:
       core:
         condition: service_healthy
@@ -265,7 +265,7 @@ services:
       - platform
 
   paperclip-ui:
-    image: ghcr.io/wopr-network/paperclip-ui:latest
+    image: registry.wopr.bot/paperclip-ui:latest
     depends_on:
       core:
         condition: service_healthy
@@ -293,7 +293,7 @@ services:
       - platform
 
   nemoclaw-ui:
-    image: ghcr.io/wopr-network/nemoclaw-ui:latest
+    image: registry.wopr.bot/nemoclaw-ui:latest
     depends_on:
       core:
         condition: service_healthy
@@ -321,7 +321,7 @@ services:
       - platform
 
   holyship:
-    image: ghcr.io/wopr-network/holyship:latest
+    image: registry.wopr.bot/holyship:latest
     depends_on:
       core:
         condition: service_healthy
@@ -353,7 +353,7 @@ services:
       - platform
 
   holyship-ui:
-    image: ghcr.io/wopr-network/holyship-ui:latest
+    image: registry.wopr.bot/holyship-ui:latest
     depends_on:
       holyship:
         condition: service_healthy
