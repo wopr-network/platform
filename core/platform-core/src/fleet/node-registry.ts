@@ -10,6 +10,8 @@
 
 import Docker from "dockerode";
 import { logger } from "../config/logger.js";
+import type { DrizzleDb } from "../db/index.js";
+import { nodes } from "../db/schema/nodes.js";
 import { FleetManager } from "./fleet-manager.js";
 import type { IProfileStore } from "./profile-store.js";
 
@@ -182,9 +184,59 @@ export class NodeRegistry {
   }
 
   /**
-   * Ensure at least one node is registered.
-   * If no nodes exist, registers localhost as the default node.
-   * Called during core boot — no env vars needed.
+   * Load fleet nodes from the `nodes` DB table and register each one.
+   *
+   * If the table is empty, inserts a default "local" row (localhost,
+   * local Docker socket) so day-1 single-box deployments just work.
+   *
+   * This is the ONLY way nodes get registered — no in-memory fallbacks.
+   */
+  async loadFromDb(db: DrizzleDb, store: IProfileStore): Promise<void> {
+    const rows = await (db as any).select().from(nodes);
+
+    // Day 1: no rows yet — seed the local node
+    if (rows.length === 0) {
+      const now = Math.floor(Date.now() / 1000);
+      await (db as any).insert(nodes).values({
+        id: LOCAL_NODE_ID,
+        host: "localhost",
+        status: "active",
+        capacityMb: 0,
+        registeredAt: now,
+        updatedAt: now,
+      });
+      rows.push({
+        id: LOCAL_NODE_ID,
+        host: "localhost",
+        status: "active",
+        dockerUrl: null,
+      });
+      logger.info("Seeded default local fleet node in DB");
+    }
+
+    for (const row of rows) {
+      if (row.status === "offline" || row.status === "failed") continue;
+      try {
+        this.register(
+          {
+            id: row.id,
+            name: row.label ?? row.id,
+            host: row.host,
+            dockerUrl: row.dockerUrl ?? undefined,
+            maxContainers: row.maxContainers ?? undefined,
+            useContainerNames: row.id === LOCAL_NODE_ID ? true : Boolean(row.useContainerNames ?? false),
+          },
+          store,
+        );
+      } catch (err) {
+        logger.warn(`Failed to register node ${row.id} from DB`, { error: String(err) });
+      }
+    }
+  }
+
+  /**
+   * @deprecated Use loadFromDb() instead — nodes come from the DB, not memory.
+   * Kept temporarily for test compatibility.
    */
   ensureDefaultNode(store: IProfileStore): void {
     if (this.nodes.size > 0) return;

@@ -127,6 +127,8 @@ export interface PlatformContainer {
   hotPool: HotPoolServices | null;
   /** Pool repository — exposed for fleet createInstance to try warm claim. Null when hotPool disabled. */
   poolRepo: import("./services/pool-repository.js").IPoolRepository | null;
+  /** Leader election — gates singleton background services. Always present. */
+  leaderElection: import("../leader/leader-election.js").LeaderElection;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,47 +227,43 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   const pageContextRepo: IPageContextRepository = new DrizzlePageContextRepository(db as never);
 
   // 8. Fleet services (when enabled)
+  //
+  // ALL Docker access goes through the NodeRegistry. The registry reads
+  // fleet nodes from the `nodes` DB table. Day 1: one row (localhost,
+  // local socket). Scale day: add rows, each with its own Docker host.
+  // No parallel paths — the registry IS the source of truth.
   let fleet: FleetServices | null = null;
   if (bootConfig.features.fleet) {
-    const { FleetManager: FleetManagerClass } = await import("../fleet/fleet-manager.js");
     const { ProfileStore } = await import("../fleet/profile-store.js");
     const { ProxyManager } = await import("../proxy/manager.js");
     const { DrizzleServiceKeyRepository } = await import("../gateway/service-key-repository.js");
-    const DockerModule = await import("dockerode");
-    const DockerClass = DockerModule.default ?? DockerModule;
-
-    const docker: Docker = new (DockerClass as new () => Docker)();
-    const fleetDataDir = productConfig.fleet?.fleetDataDir ?? "/data/fleet";
-    const profileStore: IProfileStore = new ProfileStore(fleetDataDir);
-    const proxy: ProxyManagerInterface = new ProxyManager();
-    const serviceKeyRepo: IServiceKeyRepository = new DrizzleServiceKeyRepository(db as never);
-    const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
-    const botInstanceRepo = new DrizzleBotInstanceRepository(db as never);
-
-    const manager: FleetManager = new FleetManagerClass(
-      docker,
-      profileStore,
-      undefined, // platformDiscovery
-      undefined, // networkPolicy
-      proxy,
-      undefined, // commandBus
-      botInstanceRepo,
-    );
-
     const { NodeRegistry: NodeRegistryClass } = await import("../fleet/node-registry.js");
     const { createContainerPlacementStrategy } = await import("../fleet/container-placement.js");
     const { FleetResolver: FleetResolverClass } = await import("../fleet/fleet-resolver.js");
     const { OrgInstanceResolver: OrgInstanceResolverClass } = await import("../fleet/org-instance-resolver.js");
 
+    const fleetDataDir = productConfig.fleet?.fleetDataDir ?? "/data/fleet";
+    const profileStore: IProfileStore = new ProfileStore(fleetDataDir);
+    const proxy: ProxyManagerInterface = new ProxyManager();
+    const serviceKeyRepo: IServiceKeyRepository = new DrizzleServiceKeyRepository(db as never);
+
+    // Build node registry from DB — single source of truth for all Docker hosts
     const nodeRegistry = new NodeRegistryClass();
-    nodeRegistry.ensureDefaultNode(profileStore);
+    await nodeRegistry.loadFromDb(db, profileStore);
+
     const placementStrategy = createContainerPlacementStrategy("least-loaded");
     const fleetResolver = new FleetResolverClass(proxy);
     const orgInstanceResolver = new OrgInstanceResolverClass({ profileStore, proxyManager: proxy });
 
+    // The "manager" and "docker" are from the local node — for backwards compat
+    // with callers that haven't migrated to node-aware fleet operations yet.
+    // All new code should go through nodeRegistry.getFleetManager(nodeId).
+    const localNode = nodeRegistry.get("local");
+    if (!localNode) throw new Error("No local fleet node registered — ensure a 'local' row exists in the nodes table");
+
     fleet = {
-      manager,
-      docker,
+      manager: localNode.fleet,
+      docker: localNode.docker,
       proxy,
       profileStore,
       serviceKeyRepo,
@@ -344,7 +342,11 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     tenantCustomerRepo = stripe.customerRepo;
   }
 
-  // 13. Build the container (hotPool bound after construction)
+  // 13. Leader election
+  const { LeaderElection: LeaderElectionClass } = await import("../leader/leader-election.js");
+  const leaderElection = new LeaderElectionClass(db);
+
+  // 14. Build the container (hotPool bound after construction)
   const result: PlatformContainer = {
     db,
     pool,
@@ -371,6 +373,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     gateway,
     hotPool: null,
     poolRepo: null,
+    leaderElection,
   };
 
   // Bind hot pool after container construction (closures need the full container)

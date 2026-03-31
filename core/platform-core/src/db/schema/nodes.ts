@@ -52,6 +52,12 @@ export const nodes = pgTable(
     nodeSecret: text("node_secret"),
     /** Human-friendly label from the registration token */
     label: text("label"),
+    /** Docker API URL. Null = local socket (/var/run/docker.sock). For remote: "tcp://host:2376" or "ssh://user@host". */
+    dockerUrl: text("docker_url"),
+    /** Max containers this node should host. Null = unlimited. */
+    maxContainers: integer("max_containers"),
+    /** Use Docker DNS container names for routing (true for local, false for remote nodes). */
+    useContainerNames: integer("use_container_names"),
   },
   (table) => [
     index("idx_nodes_status").on(table.status),

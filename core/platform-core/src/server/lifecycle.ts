@@ -1,9 +1,13 @@
 /**
- * Lifecycle management — background services and graceful shutdown.
+ * Lifecycle management — background services, leader election, and graceful shutdown.
  *
- * Products currently handle background tasks in their serve() callbacks.
- * This module provides a standard interface for starting and stopping
- * those tasks so bootPlatformServer can manage them uniformly.
+ * Background services are split into two categories:
+ *
+ * 1. **All-instance services** — safe to run on every platform-core instance
+ *    (proxy hydration, profile backfill). Started immediately.
+ *
+ * 2. **Leader-only services** — singletons that must run on exactly one instance
+ *    (hot pool, billing cron, health sweeps). Started/stopped by leader election.
  */
 
 import { logger } from "../config/logger.js";
@@ -19,53 +23,12 @@ export interface BackgroundHandles {
 }
 
 // ---------------------------------------------------------------------------
-// startBackgroundServices
+// startLeaderServices — only run on the leader instance
 // ---------------------------------------------------------------------------
 
-/**
- * Start background services that run after the server is listening.
- *
- * Currently a thin scaffold — the hooks exist so products can migrate their
- * background tasks (fleet updater, notification worker, caddy hydration,
- * health monitor) incrementally without changing the boot contract.
- */
-export async function startBackgroundServices(container: PlatformContainer): Promise<BackgroundHandles> {
+async function startLeaderServices(container: PlatformContainer): Promise<BackgroundHandles> {
   const handles: BackgroundHandles = { intervals: [], unsubscribes: [] };
-
-  // Caddy proxy hydration (if fleet + proxy are enabled)
-  if (container.fleet?.proxy) {
-    try {
-      await container.fleet.proxy.start?.();
-    } catch {
-      // Non-fatal — proxy sync will retry on next health tick
-    }
-  }
-
-  // Backfill bot_instances from YAML profiles (one-time sync on startup)
-  if (container.fleet) {
-    try {
-      const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
-      const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
-      const profiles = await container.fleet.profileStore.list();
-      let synced = 0;
-      for (const profile of profiles) {
-        const existing = await botInstanceRepo.getById(profile.id);
-        if (!existing) {
-          try {
-            await botInstanceRepo.register(profile.id, profile.tenantId, profile.name);
-            synced++;
-          } catch {
-            // Ignore duplicates / constraint violations
-          }
-        }
-      }
-      if (synced > 0) {
-        logger.info(`Backfilled ${synced} bot instances from profiles into DB`);
-      }
-    } catch (err) {
-      logger.warn("Failed to backfill bot_instances (non-fatal)", { error: String(err) });
-    }
-  }
+  logger.info("Starting leader-only background services");
 
   // Hot pool manager (if enabled)
   if (container.hotPool) {
@@ -73,8 +36,6 @@ export async function startBackgroundServices(container: PlatformContainer): Pro
       const poolHandles = await container.hotPool.start();
       handles.unsubscribes.push(poolHandles.stop);
     } catch (err) {
-      // Non-fatal — pool will be empty but claiming falls back to cold create
-      const { logger } = await import("../config/logger.js");
       logger.warn("Hot pool start failed (non-fatal)", { error: (err as Error)?.message ?? err });
     }
   }
@@ -121,6 +82,90 @@ export async function startBackgroundServices(container: PlatformContainer): Pro
       logger.warn("Failed to start runtime billing scheduler (non-fatal)", { error: String(err) });
     }
   }
+
+  return handles;
+}
+
+function stopLeaderServices(handles: BackgroundHandles): void {
+  for (const interval of handles.intervals) clearInterval(interval);
+  for (const unsub of handles.unsubscribes) unsub();
+  handles.intervals.length = 0;
+  handles.unsubscribes.length = 0;
+  logger.info("Stopped leader-only background services");
+}
+
+// ---------------------------------------------------------------------------
+// startBackgroundServices
+// ---------------------------------------------------------------------------
+
+/**
+ * Start background services after the server is listening.
+ *
+ * All-instance work runs immediately. Leader-only singletons are started
+ * and stopped by the leader election callback — if this instance wins the
+ * lease, it starts them; if it loses, it stops them.
+ */
+export async function startBackgroundServices(container: PlatformContainer): Promise<BackgroundHandles> {
+  const handles: BackgroundHandles = { intervals: [], unsubscribes: [] };
+  let leaderHandles: BackgroundHandles | null = null;
+
+  // -- All-instance services (safe on every replica) --
+
+  // Caddy proxy hydration (if fleet + proxy are enabled)
+  if (container.fleet?.proxy) {
+    try {
+      await container.fleet.proxy.start?.();
+    } catch {
+      // Non-fatal — proxy sync will retry on next health tick
+    }
+  }
+
+  // Backfill bot_instances from YAML profiles (one-time sync on startup)
+  if (container.fleet) {
+    try {
+      const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
+      const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
+      const profiles = await container.fleet.profileStore.list();
+      let synced = 0;
+      for (const profile of profiles) {
+        const existing = await botInstanceRepo.getById(profile.id);
+        if (!existing) {
+          try {
+            await botInstanceRepo.register(profile.id, profile.tenantId, profile.name);
+            synced++;
+          } catch {
+            // Ignore duplicates / constraint violations
+          }
+        }
+      }
+      if (synced > 0) {
+        logger.info(`Backfilled ${synced} bot instances from profiles into DB`);
+      }
+    } catch (err) {
+      logger.warn("Failed to backfill bot_instances (non-fatal)", { error: String(err) });
+    }
+  }
+
+  // -- Leader election: gates singleton services --
+
+  const election = container.leaderElection;
+
+  election.onPromoted(async () => {
+    leaderHandles = await startLeaderServices(container);
+  });
+
+  election.onDemoted(() => {
+    if (leaderHandles) {
+      stopLeaderServices(leaderHandles);
+      leaderHandles = null;
+    }
+  });
+
+  election.start();
+  handles.unsubscribes.push(() => {
+    void election.stop();
+    if (leaderHandles) stopLeaderServices(leaderHandles);
+  });
 
   return handles;
 }

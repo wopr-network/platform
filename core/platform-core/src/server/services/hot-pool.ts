@@ -188,9 +188,13 @@ async function cleanupDead(container: PlatformContainer, repo: IPoolRepository):
   if (!container.fleet) return;
 
   const docker = container.fleet.docker;
+
+  // 1. Check DB-tracked warm instances — mark dead if container is gone/stopped
   const warmInstances = await repo.listWarm();
+  const trackedContainerIds = new Set<string>();
 
   for (const instance of warmInstances) {
+    trackedContainerIds.add(instance.containerId);
     try {
       const c = docker.getContainer(instance.containerId);
       const info = await c.inspect();
@@ -210,6 +214,27 @@ async function cleanupDead(container: PlatformContainer, repo: IPoolRepository):
   }
 
   await repo.deleteDead();
+
+  // 2. Reconcile orphan Docker containers — pool-* containers not tracked in DB
+  try {
+    const allContainers = await docker.listContainers({ all: true });
+    for (const c of allContainers) {
+      const name = (c.Names?.[0] ?? "").replace(/^\//, "");
+      if (!name.startsWith("pool-")) continue;
+      if (trackedContainerIds.has(c.Id)) continue;
+      // Orphan — not in DB. Remove it.
+      try {
+        const orphan = docker.getContainer(c.Id);
+        await orphan.stop().catch(() => {});
+        await orphan.remove({ force: true });
+        logger.info(`Hot pool: removed orphan container ${name}`);
+      } catch {
+        // Already gone
+      }
+    }
+  } catch (err) {
+    logger.warn("Hot pool: orphan reconciliation failed (non-fatal)", { error: (err as Error).message });
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -143,6 +143,14 @@ export function createTestContainer(overrides?: Partial<PlatformContainer>): Pla
     gateway: null,
     hotPool: null,
     poolRepo: null,
+    leaderElection: {
+      isLeader: true,
+      instanceId: "test",
+      start: () => {},
+      stop: async () => {},
+      onPromoted: () => {},
+      onDemoted: () => {},
+    } as never,
   };
 
   return { ...defaults, ...overrides };
