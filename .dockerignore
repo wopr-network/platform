@@ -1,8 +1,8 @@
-node_modules/
-dist/
-.next/
-*.tsbuildinfo
-.turbo/
+**/node_modules/
+**/dist/
+**/.next/
+**/*.tsbuildinfo
+**/.turbo/
 .git/
 
 # Test/dev files not needed in Docker builds
@@ -25,6 +25,9 @@ dist/
 
 # Claude Code worktrees (full repo copies)
 .claude/
+
+# Sidecars are separate images, not needed in platform builds
+sidecars/
 
 # IDE/editor
 **/.vscode/
