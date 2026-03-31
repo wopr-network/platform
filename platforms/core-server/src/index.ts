@@ -6,20 +6,23 @@ const slug = process.env.PRODUCT_SLUG ?? "wopr";
 const vaultSecrets = await resolveSecrets(slug);
 
 // Merge env vars as fallback — container gets secrets via .env, not Vault directly
+// Merge env vars as fallback — container gets secrets via .env, not Vault directly.
+// Convert undefined → null to match PlatformSecrets types.
+const env = (key: string): string | null => process.env[key] ?? null;
 const secrets = {
   ...vaultSecrets,
-  dbPassword: vaultSecrets.dbPassword ?? process.env.POSTGRES_PASSWORD,
-  stripeSecretKey: vaultSecrets.stripeSecretKey ?? process.env.STRIPE_SECRET_KEY,
-  stripeWebhookSecret: vaultSecrets.stripeWebhookSecret ?? process.env.STRIPE_WEBHOOK_SECRET,
-  betterAuthSecret: vaultSecrets.betterAuthSecret ?? process.env.BETTER_AUTH_SECRET,
-  cryptoServiceKey: vaultSecrets.cryptoServiceKey ?? process.env.CRYPTO_SERVICE_KEY,
-  cryptoServiceUrl: vaultSecrets.cryptoServiceUrl ?? process.env.CRYPTO_SERVICE_URL,
-  openrouterApiKey: vaultSecrets.openrouterApiKey ?? process.env.OPENROUTER_API_KEY,
-  provisionSecret: vaultSecrets.provisionSecret ?? process.env.PROVISION_SECRET,
-  githubClientId: vaultSecrets.githubClientId ?? process.env.GITHUB_CLIENT_ID,
-  githubClientSecret: vaultSecrets.githubClientSecret ?? process.env.GITHUB_CLIENT_SECRET,
-  googleClientId: vaultSecrets.googleClientId ?? process.env.GOOGLE_CLIENT_ID,
-  googleClientSecret: vaultSecrets.googleClientSecret ?? process.env.GOOGLE_CLIENT_SECRET,
+  dbPassword: vaultSecrets.dbPassword ?? env("POSTGRES_PASSWORD") ?? "changeme",
+  stripeSecretKey: vaultSecrets.stripeSecretKey ?? env("STRIPE_SECRET_KEY"),
+  stripeWebhookSecret: vaultSecrets.stripeWebhookSecret ?? env("STRIPE_WEBHOOK_SECRET"),
+  betterAuthSecret: vaultSecrets.betterAuthSecret ?? env("BETTER_AUTH_SECRET") ?? "",
+  cryptoServiceKey: vaultSecrets.cryptoServiceKey ?? env("CRYPTO_SERVICE_KEY"),
+  cryptoServiceUrl: vaultSecrets.cryptoServiceUrl ?? env("CRYPTO_SERVICE_URL"),
+  openrouterApiKey: vaultSecrets.openrouterApiKey ?? env("OPENROUTER_API_KEY"),
+  provisionSecret: vaultSecrets.provisionSecret ?? env("PROVISION_SECRET"),
+  githubClientId: vaultSecrets.githubClientId ?? env("GITHUB_CLIENT_ID"),
+  githubClientSecret: vaultSecrets.githubClientSecret ?? env("GITHUB_CLIENT_SECRET"),
+  googleClientId: vaultSecrets.googleClientId ?? env("GOOGLE_CLIENT_ID"),
+  googleClientSecret: vaultSecrets.googleClientSecret ?? env("GOOGLE_CLIENT_SECRET"),
 };
 
 const dbHost = process.env.DB_HOST ?? "postgres";
