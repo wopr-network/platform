@@ -276,31 +276,40 @@ export function envKey(suffix: string): string {
 }
 
 /**
- * Fetch brand config from the platform API and apply it.
- * Call once in root layout server component.
- * Falls back to env var defaults if API unavailable.
+ * Fetch brand config from core server and apply it.
+ * Call once in root layout server component with the product slug.
+ * Falls back to env var defaults if core is unavailable.
  *
- * @param apiBaseUrl - The platform API base URL (e.g. from NEXT_PUBLIC_API_URL)
+ * Uses INTERNAL_API_URL (server-side, private network) with service token auth.
+ * The slug determines which product config is returned from the product table.
+ *
+ * @param slug - Product slug (e.g. "paperclip", "wopr", "nemoclaw", "holyship")
  */
-export async function initBrandConfig(apiBaseUrl: string): Promise<void> {
+export async function initBrandConfig(slug?: string): Promise<void> {
+  const productSlug = slug ?? process.env.PRODUCT_SLUG ?? process.env.NEXT_PUBLIC_PRODUCT_SLUG;
+  if (!productSlug) return; // No slug — env var defaults remain active
+
+  const coreUrl = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+  const serviceToken = process.env.CORE_SERVICE_TOKEN ?? "";
+
   try {
-    const res = await fetch(`${apiBaseUrl}/trpc/product.getBrandConfig`, {
-      credentials: "include",
+    const headers: Record<string, string> = {
+      "X-Product": productSlug,
+    };
+    if (serviceToken) {
+      headers.Authorization = `Bearer ${serviceToken}`;
+    }
+
+    const res = await fetch(`${coreUrl}/api/products/${encodeURIComponent(productSlug)}`, {
+      headers,
       next: { revalidate: 60 },
     });
     if (!res.ok) return;
-    const text = await res.text();
-    let json: unknown;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      return; // Non-JSON response (proxy error, HTML page, etc.)
-    }
-    const data = (json as { result?: { data?: unknown } })?.result?.data;
+    const data = (await res.json()) as Partial<BrandConfig>;
     if (data) {
-      setBrandConfig(data as Partial<BrandConfig>);
+      setBrandConfig(data);
     }
   } catch {
-    // API unavailable — env var defaults remain active
+    // Core unavailable — env var defaults remain active
   }
 }

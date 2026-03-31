@@ -1,6 +1,6 @@
 import { ThemeProvider } from "@core/components/theme-provider";
 import { SITE_URL } from "@core/lib/api-config";
-import { getBrandConfig, setBrandConfig } from "@core/lib/brand-config";
+import { getBrandConfig, initBrandConfig } from "@core/lib/brand-config";
 import { TRPCProvider } from "@core/lib/trpc";
 import { MotionConfig } from "framer-motion";
 import type { Metadata } from "next";
@@ -27,16 +27,7 @@ const dmSans = DM_Sans({
   weight: ["400", "500", "700"],
 });
 
-setBrandConfig({
-  homePath: "/",
-  chatEnabled: false,
-  navItems: [
-    { label: "Paperclips", href: "/instances" },
-    { label: "Billing", href: "/billing/plans" },
-    { label: "Settings", href: "/settings/profile" },
-    { label: "Admin", href: "/admin" },
-  ],
-});
+await initBrandConfig("paperclip");
 
 const brand = getBrandConfig();
 

@@ -1,6 +1,6 @@
 import { ThemeProvider } from "@core/components/theme-provider";
 import { SITE_URL } from "@core/lib/api-config";
-import { getBrandConfig, setBrandConfig } from "@core/lib/brand-config";
+import { getBrandConfig, initBrandConfig } from "@core/lib/brand-config";
 import { TRPCProvider } from "@core/lib/trpc";
 import { MotionConfig } from "framer-motion";
 import type { Metadata } from "next";
@@ -15,25 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600", "700"],
 });
 
-setBrandConfig({
-  productName: "Holy Ship",
-  brandName: "Holy Ship",
-  domains: [
-    { host: "holyship.wtf", role: "canonical" },
-    { host: "holyship.dev", role: "redirect" },
-  ],
-  tagline: "It's what you'll say when you see the results.",
-  storagePrefix: "holyship",
-  homePath: "/",
-  navItems: [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Ship It", href: "/ship" },
-    { label: "Approvals", href: "/approvals" },
-    { label: "Pipeline", href: "/settings/pipeline" },
-    { label: "Billing", href: "/billing/plans" },
-    { label: "Settings", href: "/settings/profile" },
-  ],
-});
+await initBrandConfig("holyship");
 
 const brand = getBrandConfig();
 
