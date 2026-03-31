@@ -1,9 +1,10 @@
 /**
  * tRPC admin-core router — audit log, credits, users, tenant status,
- * notifications, billing health, and compliance procedures.
+ * notifications, billing health, compliance, notes, analytics, bulk,
+ * and rate management procedures.
  *
- * Contains the 25 generic admin procedures shared across all products.
- * Product-specific admin procedures (rates, GPU, affiliate, etc.) stay
+ * Contains the 54 generic admin procedures shared across all products.
+ * Product-specific admin procedures (GPU, affiliate, etc.) stay
  * in each product's own admin router.
  *
  * Pure platform-core — all deps injected via factory pattern.
@@ -11,7 +12,11 @@
 
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import type { AnalyticsStore } from "../../admin/analytics/analytics-store.js";
 import type { AdminAuditLog } from "../../admin/audit-log.js";
+import type { IBulkOperationsStore } from "../../admin/bulk/bulk-operations-store.js";
+import type { IAdminNotesRepository } from "../../admin/notes/admin-notes-repository.js";
+import type { RateStore } from "../../admin/rates/rate-store.js";
 import type { RoleStore } from "../../admin/role-store.js";
 import type { ITenantStatusRepository } from "../../admin/tenant-status/tenant-status-repository.js";
 import { logger } from "../../config/logger.js";
@@ -88,6 +93,11 @@ export interface AdminCoreRouterDeps {
   getAutoTopupSettingsRepo?: () => IAutoTopupSettingsRepository;
   getExportStore?: () => IAccountExportStore;
   getAccountDeletionStore?: () => IAccountDeletionStore;
+  // Phase 2 stores: notes, analytics, bulk, rates
+  getNotesStore?: () => IAdminNotesRepository;
+  getAnalyticsStore?: () => AnalyticsStore;
+  getBulkStore?: () => IBulkOperationsStore;
+  getRateStore?: () => RateStore;
   /** Detach all Stripe payment methods for a tenant. Returns count detached. */
   detachAllPaymentMethods?: (tenantId: string) => Promise<number>;
   /** Suspend all product instances for a tenant. Returns list of suspended IDs. */
@@ -117,6 +127,31 @@ const VALID_STATUSES = ["active", "suspended", "grace_period", "dormant"] as con
 const VALID_ROLES = ["platform_admin", "tenant_admin", "user"] as const;
 const VALID_SORT_BY = ["last_seen", "created_at", "balance", "agent_count"] as const;
 const VALID_SORT_ORDER = ["asc", "desc"] as const;
+
+const dateRangeSchema = z.object({
+  from: z.number().int().positive(),
+  to: z.number().int().positive(),
+});
+
+const VALID_CSV_SECTIONS = [
+  "revenue_overview",
+  "revenue_breakdown",
+  "margin_by_capability",
+  "provider_spend",
+  "tenant_health",
+  "time_series",
+  "auto_topup",
+] as const;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function resolveRange(input: { from?: number; to?: number }): { from: number; to: number } {
+  const to = input.to ?? Date.now();
+  const from = input.from ?? to - 30 * 24 * 60 * 60 * 1000; // 30 days
+  return { from, to };
+}
 
 // ---------------------------------------------------------------------------
 // Factory
@@ -1031,5 +1066,626 @@ export function createAdminCoreRouter(d: AdminCoreRouterDeps) {
         });
         return { success: true };
       }),
+
+    // ---------------------------------------------------------------------
+    // Notes (4 procedures)
+    // ---------------------------------------------------------------------
+
+    /** List notes for a tenant. */
+    notesList: adminProcedure
+      .input(
+        z.object({
+          tenantId: tenantIdSchema,
+          limit: z.number().int().positive().max(250).optional(),
+          offset: z.number().int().min(0).optional(),
+        }),
+      )
+      .query(({ input }) => {
+        const store = d.getNotesStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Notes store not initialized" });
+        }
+        return store.list(input);
+      }),
+
+    /** Create a note on a tenant. */
+    notesCreate: adminProcedure
+      .input(
+        z.object({
+          tenantId: tenantIdSchema,
+          content: z.string().min(1).max(10000),
+          isPinned: z.boolean().optional(),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const store = d.getNotesStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Notes store not initialized" });
+        }
+        const note = await store.create({
+          tenantId: input.tenantId,
+          authorId: ctx.user?.id ?? "unknown",
+          content: input.content,
+          isPinned: input.isPinned,
+        });
+        void d.getAuditLog().log({
+          adminUser: ctx.user?.id ?? "unknown",
+          action: "note.create",
+          category: "support",
+          targetTenant: input.tenantId,
+          details: { noteId: note.id },
+        });
+        return note;
+      }),
+
+    /** Update a note. */
+    notesUpdate: adminProcedure
+      .input(
+        z.object({
+          noteId: z.string().min(1),
+          tenantId: tenantIdSchema,
+          content: z.string().min(1).max(10000).optional(),
+          isPinned: z.boolean().optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getNotesStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Notes store not initialized" });
+        }
+        const adminUser = ctx.user?.id ?? "unknown";
+        const { noteId, tenantId, ...updates } = input;
+        try {
+          const note = store.update(noteId, tenantId, updates);
+          if (!note) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Forbidden" });
+          }
+          d.getAuditLog().log({
+            adminUser,
+            action: "note.update",
+            category: "support",
+            targetTenant: tenantId,
+            details: { noteId, hasContentChange: !!updates.content, hasPinChange: updates.isPinned !== undefined },
+            outcome: "success",
+          });
+          return note;
+        } catch (err) {
+          d.getAuditLog().log({
+            adminUser,
+            action: "note.update",
+            category: "support",
+            targetTenant: tenantId,
+            details: { noteId, error: String(err) },
+            outcome: "failure",
+          });
+          throw err;
+        }
+      }),
+
+    /** Delete a note. */
+    notesDelete: adminProcedure
+      .input(z.object({ noteId: z.string().min(1), tenantId: tenantIdSchema }))
+      .mutation(({ input, ctx }) => {
+        const store = d.getNotesStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Notes store not initialized" });
+        }
+        const adminUser = ctx.user?.id ?? "unknown";
+        try {
+          const deleted = store.delete(input.noteId, input.tenantId);
+          if (!deleted) {
+            throw new TRPCError({ code: "FORBIDDEN", message: "Forbidden" });
+          }
+          d.getAuditLog().log({
+            adminUser,
+            action: "note.delete",
+            category: "support",
+            targetTenant: input.tenantId,
+            details: { noteId: input.noteId },
+            outcome: "success",
+          });
+          return { success: true };
+        } catch (err) {
+          d.getAuditLog().log({
+            adminUser,
+            action: "note.delete",
+            category: "support",
+            targetTenant: input.tenantId,
+            details: { noteId: input.noteId, error: String(err) },
+            outcome: "failure",
+          });
+          throw err;
+        }
+      }),
+
+    // ---------------------------------------------------------------------
+    // Revenue Analytics (9 procedures)
+    // ---------------------------------------------------------------------
+
+    /** Revenue overview cards: credits sold, consumed, provider cost, margin. */
+    analyticsRevenue: adminProcedure.input(dateRangeSchema.partial()).query(({ input }) => {
+      const store = d.getAnalyticsStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+      }
+      return store.getRevenueOverview(resolveRange(input));
+    }),
+
+    /** Credit float: total unspent credits across all tenants. */
+    analyticsFloat: adminProcedure.query(() => {
+      const store = d.getAnalyticsStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+      }
+      return store.getFloat();
+    }),
+
+    /** Revenue breakdown by category and capability. */
+    analyticsRevenueBreakdown: adminProcedure.input(dateRangeSchema.partial()).query(({ input }) => {
+      const store = d.getAnalyticsStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+      }
+      return { breakdown: store.getRevenueBreakdown(resolveRange(input)) };
+    }),
+
+    /** Margin by capability: revenue, cost, margin for each capability. */
+    analyticsMarginByCapability: adminProcedure.input(dateRangeSchema.partial()).query(({ input }) => {
+      const store = d.getAnalyticsStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+      }
+      return { margins: store.getMarginByCapability(resolveRange(input)) };
+    }),
+
+    /** Provider spend breakdown. */
+    analyticsProviderSpend: adminProcedure.input(dateRangeSchema.partial()).query(({ input }) => {
+      const store = d.getAnalyticsStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+      }
+      return { providers: store.getProviderSpend(resolveRange(input)) };
+    }),
+
+    /** Tenant health summary. */
+    analyticsTenantHealth: adminProcedure.query(() => {
+      const store = d.getAnalyticsStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+      }
+      return store.getTenantHealth();
+    }),
+
+    /** Auto-topup metrics: event counts, revenue, failure rate. */
+    analyticsAutoTopup: adminProcedure.input(dateRangeSchema.partial()).query(({ input }) => {
+      const store = d.getAnalyticsStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+      }
+      return store.getAutoTopupMetrics(resolveRange(input));
+    }),
+
+    /** Time series data for charts. */
+    analyticsTimeSeries: adminProcedure
+      .input(
+        z.object({
+          from: z.number().int().positive().optional(),
+          to: z.number().int().positive().optional(),
+          bucketMs: z.number().int().positive().optional(),
+        }),
+      )
+      .query(({ input }) => {
+        const store = d.getAnalyticsStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+        }
+        const range = resolveRange(input);
+        const bucketMs = input.bucketMs ?? 86_400_000; // default 1 day
+        return { series: store.getTimeSeries(range, bucketMs) };
+      }),
+
+    /** Export analytics data as CSV. */
+    analyticsExport: adminProcedure
+      .input(
+        z.object({
+          from: z.number().int().positive().optional(),
+          to: z.number().int().positive().optional(),
+          section: z.enum(VALID_CSV_SECTIONS),
+        }),
+      )
+      .query(({ input }) => {
+        const store = d.getAnalyticsStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Analytics not initialized" });
+        }
+        return { csv: store.exportCsv(resolveRange(input), input.section) };
+      }),
+
+    // ---------------------------------------------------------------------
+    // Bulk Operations (7 procedures)
+    // ---------------------------------------------------------------------
+
+    /** Get all tenant IDs matching current filters (for "select all matching"). */
+    bulkSelectAll: adminProcedure
+      .input(
+        z.object({
+          search: z.string().optional(),
+          status: z.enum(VALID_STATUSES).optional(),
+          role: z.enum(VALID_ROLES).optional(),
+          hasCredits: z.boolean().optional(),
+          lowBalance: z.boolean().optional(),
+        }),
+      )
+      .query(async ({ input }) => {
+        const store = d.getBulkStore?.();
+        if (!store) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bulk store not initialized" });
+        return { tenantIds: await store.listMatchingTenantIds(input) };
+      }),
+
+    /** Dry-run: preview which tenants would be affected. */
+    bulkDryRun: adminProcedure
+      .input(z.object({ tenantIds: z.array(tenantIdSchema).min(1).max(500) }))
+      .query(async ({ input }) => {
+        const store = d.getBulkStore?.();
+        if (!store) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bulk store not initialized" });
+        return { tenants: await store.dryRun(input.tenantIds) };
+      }),
+
+    /** Mass grant credits. */
+    bulkGrant: adminProcedure
+      .input(
+        z.object({
+          tenantIds: z.array(tenantIdSchema).min(1).max(500),
+          amountCents: z.number().int().positive().max(100_000_00),
+          reason: z.string().min(1).max(1000),
+          notifyByEmail: z.boolean().default(false),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getBulkStore?.();
+        if (!store) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bulk store not initialized" });
+        return store.bulkGrant(input, ctx.user?.id ?? "unknown");
+      }),
+
+    /** Undo a mass grant within 5 minutes. */
+    bulkGrantUndo: adminProcedure.input(z.object({ operationId: z.string().uuid() })).mutation(({ input, ctx }) => {
+      const store = d.getBulkStore?.();
+      if (!store) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bulk store not initialized" });
+      return store.undoGrant(input.operationId, ctx.user?.id ?? "unknown");
+    }),
+
+    /** Mass suspend tenants. */
+    bulkSuspend: adminProcedure
+      .input(
+        z.object({
+          tenantIds: z.array(tenantIdSchema).min(1).max(500),
+          reason: z.string().min(1).max(1000),
+          notifyByEmail: z.boolean().default(false),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getBulkStore?.();
+        if (!store) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bulk store not initialized" });
+        return store.bulkSuspend(input, ctx.user?.id ?? "unknown");
+      }),
+
+    /** Mass reactivate tenants. */
+    bulkReactivate: adminProcedure
+      .input(z.object({ tenantIds: z.array(tenantIdSchema).min(1).max(500) }))
+      .mutation(({ input, ctx }) => {
+        const store = d.getBulkStore?.();
+        if (!store) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bulk store not initialized" });
+        return store.bulkReactivate(input, ctx.user?.id ?? "unknown");
+      }),
+
+    /** Mass export to CSV. */
+    bulkExport: adminProcedure
+      .input(
+        z.object({
+          tenantIds: z.array(tenantIdSchema).min(1).max(500),
+          fields: z.array(
+            z.object({
+              key: z.enum([
+                "account_info",
+                "credit_balance",
+                "monthly_products",
+                "lifetime_spend",
+                "last_seen",
+                "transaction_history",
+              ]),
+              enabled: z.boolean(),
+            }),
+          ),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getBulkStore?.();
+        if (!store) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Bulk store not initialized" });
+        return store.bulkExport(input, ctx.user?.id ?? "unknown");
+      }),
+
+    // ---------------------------------------------------------------------
+    // Rates (9 procedures)
+    // ---------------------------------------------------------------------
+
+    /** List sell rates with optional filters. */
+    ratesListSell: adminProcedure
+      .input(
+        z.object({
+          capability: z.string().optional(),
+          isActive: z.boolean().optional(),
+          limit: z.number().int().positive().max(250).optional(),
+          offset: z.number().int().min(0).optional(),
+        }),
+      )
+      .query(({ input }) => {
+        const store = d.getRateStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+        }
+        return store.listSellRates(input);
+      }),
+
+    /** Create a sell rate. */
+    ratesCreateSell: adminProcedure
+      .input(
+        z.object({
+          capability: z.string().min(1),
+          displayName: z.string().min(1).max(200),
+          unit: z.string().min(1).max(100),
+          priceUsd: z.number().positive(),
+          model: z.string().max(200).optional(),
+          isActive: z.boolean().optional(),
+          sortOrder: z.number().int().min(0).optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getRateStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+        }
+        const adminUser = ctx.user?.id ?? "unknown";
+        try {
+          const result = store.createSellRate(input);
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.sell.create",
+            category: "config",
+            details: { ...input },
+            outcome: "success",
+          });
+          return result;
+        } catch (err) {
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.sell.create",
+            category: "config",
+            details: { ...input, error: String(err) },
+            outcome: "failure",
+          });
+          throw err;
+        }
+      }),
+
+    /** Update a sell rate. */
+    ratesUpdateSell: adminProcedure
+      .input(
+        z.object({
+          id: z.string().min(1),
+          capability: z.string().min(1).optional(),
+          displayName: z.string().min(1).max(200).optional(),
+          unit: z.string().min(1).max(100).optional(),
+          priceUsd: z.number().positive().optional(),
+          model: z.string().max(200).optional(),
+          isActive: z.boolean().optional(),
+          sortOrder: z.number().int().min(0).optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getRateStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+        }
+        const adminUser = ctx.user?.id ?? "unknown";
+        const { id, ...updates } = input;
+        try {
+          const result = store.updateSellRate(id, updates);
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.sell.update",
+            category: "config",
+            details: { id, ...updates },
+            outcome: "success",
+          });
+          return result;
+        } catch (err) {
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.sell.update",
+            category: "config",
+            details: { id, ...updates, error: String(err) },
+            outcome: "failure",
+          });
+          throw err;
+        }
+      }),
+
+    /** Delete a sell rate. */
+    ratesDeleteSell: adminProcedure.input(z.object({ id: z.string().min(1) })).mutation(({ input, ctx }) => {
+      const store = d.getRateStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+      }
+      const adminUser = ctx.user?.id ?? "unknown";
+      try {
+        const deleted = store.deleteSellRate(input.id);
+        if (!deleted) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Sell rate not found" });
+        }
+        d.getAuditLog().log({
+          adminUser,
+          action: "rates.sell.delete",
+          category: "config",
+          details: { id: input.id },
+          outcome: "success",
+        });
+        return { success: true };
+      } catch (err) {
+        d.getAuditLog().log({
+          adminUser,
+          action: "rates.sell.delete",
+          category: "config",
+          details: { id: input.id, error: String(err) },
+          outcome: "failure",
+        });
+        throw err;
+      }
+    }),
+
+    /** List provider costs with optional filters. */
+    ratesListProvider: adminProcedure
+      .input(
+        z.object({
+          capability: z.string().optional(),
+          adapter: z.string().optional(),
+          isActive: z.boolean().optional(),
+          limit: z.number().int().positive().max(250).optional(),
+          offset: z.number().int().min(0).optional(),
+        }),
+      )
+      .query(({ input }) => {
+        const store = d.getRateStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+        }
+        return store.listProviderCosts(input);
+      }),
+
+    /** Create a provider cost. */
+    ratesCreateProvider: adminProcedure
+      .input(
+        z.object({
+          capability: z.string().min(1),
+          adapter: z.string().min(1).max(100),
+          model: z.string().max(200).optional(),
+          unit: z.string().min(1).max(100),
+          costUsd: z.number().positive(),
+          priority: z.number().int().min(0).optional(),
+          latencyClass: z.enum(["fast", "standard", "batch"]).optional(),
+          isActive: z.boolean().optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getRateStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+        }
+        const adminUser = ctx.user?.id ?? "unknown";
+        try {
+          const result = store.createProviderCost(input);
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.provider.create",
+            category: "config",
+            details: { ...input },
+            outcome: "success",
+          });
+          return result;
+        } catch (err) {
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.provider.create",
+            category: "config",
+            details: { ...input, error: String(err) },
+            outcome: "failure",
+          });
+          throw err;
+        }
+      }),
+
+    /** Update a provider cost. */
+    ratesUpdateProvider: adminProcedure
+      .input(
+        z.object({
+          id: z.string().min(1),
+          capability: z.string().min(1).optional(),
+          adapter: z.string().min(1).max(100).optional(),
+          model: z.string().max(200).optional(),
+          unit: z.string().min(1).max(100).optional(),
+          costUsd: z.number().positive().optional(),
+          priority: z.number().int().min(0).optional(),
+          latencyClass: z.enum(["fast", "standard", "batch"]).optional(),
+          isActive: z.boolean().optional(),
+        }),
+      )
+      .mutation(({ input, ctx }) => {
+        const store = d.getRateStore?.();
+        if (!store) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+        }
+        const adminUser = ctx.user?.id ?? "unknown";
+        const { id, ...updates } = input;
+        try {
+          const result = store.updateProviderCost(id, updates);
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.provider.update",
+            category: "config",
+            details: { id, ...updates },
+            outcome: "success",
+          });
+          return result;
+        } catch (err) {
+          d.getAuditLog().log({
+            adminUser,
+            action: "rates.provider.update",
+            category: "config",
+            details: { id, ...updates, error: String(err) },
+            outcome: "failure",
+          });
+          throw err;
+        }
+      }),
+
+    /** Delete a provider cost. */
+    ratesDeleteProvider: adminProcedure.input(z.object({ id: z.string().min(1) })).mutation(({ input, ctx }) => {
+      const store = d.getRateStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+      }
+      const adminUser = ctx.user?.id ?? "unknown";
+      try {
+        const deleted = store.deleteProviderCost(input.id);
+        if (!deleted) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Provider cost not found" });
+        }
+        d.getAuditLog().log({
+          adminUser,
+          action: "rates.provider.delete",
+          category: "config",
+          details: { id: input.id },
+          outcome: "success",
+        });
+        return { success: true };
+      } catch (err) {
+        d.getAuditLog().log({
+          adminUser,
+          action: "rates.provider.delete",
+          category: "config",
+          details: { id: input.id, error: String(err) },
+          outcome: "failure",
+        });
+        throw err;
+      }
+    }),
+
+    /** Get margin report. */
+    ratesMargins: adminProcedure.input(z.object({ capability: z.string().optional() })).query(({ input }) => {
+      const store = d.getRateStore?.();
+      if (!store) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Rate store not initialized" });
+      }
+      return { margins: store.getMarginReport(input.capability) };
+    }),
   });
 }
