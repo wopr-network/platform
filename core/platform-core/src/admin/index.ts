@@ -10,8 +10,29 @@ export type {
   UndoableGrant,
 } from "./admin-repository-types.js";
 export { BAN_DELETE_DAYS, GRACE_PERIOD_DAYS } from "./admin-repository-types.js";
+export type { IAnalyticsRepository } from "./analytics/index.js";
+export {
+  AnalyticsStore,
+  type AutoTopupMetrics,
+  type DateRange,
+  DrizzleAnalyticsRepository,
+  type FloatMetrics,
+  type MarginByCapability,
+  type ProviderSpendRow,
+  type RevenueBreakdownRow,
+  type RevenueOverview,
+  type TenantHealthSummary,
+  type TimeSeriesPoint,
+} from "./analytics/index.js";
 export type { AdminAuditLogRow, AuditCategory, AuditEntry, AuditFilters } from "./audit-log.js";
 export { AdminAuditLog } from "./audit-log.js";
+export type { IBulkOperationsRepository } from "./bulk/bulk-operations-repository.js";
+export { DrizzleBulkOperationsRepository } from "./bulk/bulk-operations-repository.js";
+export type { IBulkOperationsStore } from "./bulk/bulk-operations-store.js";
+export { BulkOperationsStore } from "./bulk/bulk-operations-store.js";
+// Phase 2 stores: notes, analytics, bulk
+export type { IAdminNotesRepository } from "./notes/index.js";
+export { AdminNotesStore } from "./notes/index.js";
 export type {
   IAdminNotificationQueueRepository,
   NotificationEmailType,
