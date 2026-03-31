@@ -4,6 +4,10 @@ import type { Credit } from "../credits/credit.js";
 export interface MeterEvent {
   /** Tenant identifier (who). */
   tenant: string;
+  /** Instance that made this request (which bot/sidecar). */
+  instanceId?: string;
+  /** Product this request belongs to (determines margin, reporting). */
+  productSlug?: string;
   /** Upstream cost from the provider (as Credit value object). */
   cost: Credit;
   /** What we charge the tenant (cost x multiplier, as Credit value object). */
@@ -35,6 +39,8 @@ export interface MeterEvent {
 export interface MeterEventRow {
   id: string;
   tenant: string;
+  instance_id: string | null;
+  product_slug: string | null;
   cost: number;
   charge: number;
   capability: string;

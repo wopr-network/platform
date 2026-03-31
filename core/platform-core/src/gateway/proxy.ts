@@ -38,6 +38,16 @@ const TEST_ONLY_MARGIN = 1.3;
 /** Max call duration cap: 4 hours = 240 minutes. */
 const MAX_CALL_DURATION_MINUTES = 240;
 
+/** Resolve margin for a tenant: tenant.margin (from product config) → deps.defaultMargin (fallback). */
+function marginFor(tenant: import("./types.js").GatewayTenant, deps: ProxyDeps): number {
+  return tenant.margin ?? deps.defaultMargin;
+}
+
+/** Resolve default model for a tenant: tenant.defaultModel (from product config) → deps fallback. */
+function modelFor(tenant: import("./types.js").GatewayTenant, deps: ProxyDeps): string | null {
+  return tenant.defaultModel ?? deps.resolveDefaultModel?.() ?? deps.defaultModel ?? null;
+}
+
 const phoneInboundBodySchema = z.object({
   call_sid: z.string().optional(),
   // Twilio sends all fields as strings in form-encoded bodies; coerce to number.
@@ -145,11 +155,15 @@ function emitMeterEvent(
     usage?: { units: number; unitType: string };
     tier?: "wopr" | "branded" | "byok";
     metadata?: Record<string, unknown>;
+    instanceId?: string;
+    productSlug?: string;
   },
 ): void {
   const charge = withMargin(cost, margin ?? deps.defaultMargin);
   deps.meter.emit({
     tenant: tenantId,
+    instanceId: opts?.instanceId,
+    productSlug: opts?.productSlug,
     cost,
     charge,
     capability,
@@ -158,6 +172,27 @@ function emitMeterEvent(
     ...(opts?.usage ? { usage: opts.usage } : {}),
     ...(opts?.tier ? { tier: opts.tier } : {}),
     ...(opts?.metadata ? { metadata: opts.metadata } : {}),
+  });
+}
+
+/** Shorthand: emit meter event with tenant's instance/product context. */
+function emitMeterEventForTenant(
+  deps: ProxyDeps,
+  tenant: import("./types.js").GatewayTenant,
+  capability: string,
+  provider: string,
+  cost: Credit,
+  margin?: number,
+  opts?: {
+    usage?: { units: number; unitType: string };
+    tier?: "wopr" | "branded" | "byok";
+    metadata?: Record<string, unknown>;
+  },
+): void {
+  emitMeterEvent(deps, tenant.id, capability, provider, cost, margin, {
+    ...opts,
+    instanceId: tenant.instanceId,
+    productSlug: tenant.productSlug,
   });
 }
 
@@ -191,7 +226,7 @@ export function chatCompletions(deps: ProxyDeps) {
         }
       | undefined;
     // Resolve the enforced model once — dynamic DB resolver takes priority over static env var.
-    const enforcedModel = deps.resolveDefaultModel?.() ?? deps.defaultModel ?? null;
+    const enforcedModel = modelFor(tenant, deps);
     try {
       parsedBody = JSON.parse(rawBody) as typeof parsedBody;
       isStreaming = parsedBody?.stream === true;
@@ -246,12 +281,12 @@ export function chatCompletions(deps: ProxyDeps) {
           outputTokens: usage.outputTokens,
         });
 
-        emitMeterEvent(deps, tenant.id, "chat-completions", provider, cost, undefined, {
+        emitMeterEventForTenant(deps, tenant, "chat-completions", provider, cost, undefined, {
           usage: { units: totalTokens, unitType: "tokens" },
           tier: "branded",
           metadata: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, model: responseModel },
         });
-        debitCredits(deps, tenant.id, cost.toDollars(), deps.defaultMargin, "chat-completions", provider);
+        debitCredits(deps, tenant.id, cost.toDollars(), marginFor(tenant, deps), "chat-completions", provider);
 
         return c.json(
           {
@@ -361,12 +396,12 @@ export function chatCompletions(deps: ProxyDeps) {
         } catch {
           // If parsing fails, proceed without usage data
         }
-        emitMeterEvent(deps, tenant.id, "chat-completions", "openrouter", Credit.fromDollars(cost), undefined, {
+        emitMeterEventForTenant(deps, tenant, "chat-completions", "openrouter", Credit.fromDollars(cost), undefined, {
           usage,
           tier: "branded",
           metadata,
         });
-        debitCredits(deps, tenant.id, cost, deps.defaultMargin, "chat-completions", "openrouter");
+        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "chat-completions", "openrouter");
       }
 
       // Sanitize response: strip non-standard OpenRouter fields from usage
@@ -480,12 +515,12 @@ export function textCompletions(deps: ProxyDeps) {
         } catch {
           // If parsing fails, proceed without usage data
         }
-        emitMeterEvent(deps, tenant.id, "text-completions", "openrouter", Credit.fromDollars(cost), undefined, {
+        emitMeterEventForTenant(deps, tenant, "text-completions", "openrouter", Credit.fromDollars(cost), undefined, {
           usage,
           tier: "branded",
           metadata,
         });
-        debitCredits(deps, tenant.id, cost, deps.defaultMargin, "text-completions", "openrouter");
+        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "text-completions", "openrouter");
       }
 
       return new Response(responseBody, {
@@ -568,12 +603,12 @@ export function embeddings(deps: ProxyDeps) {
         } catch {
           // If parsing fails, proceed without usage data
         }
-        emitMeterEvent(deps, tenant.id, "embeddings", "openrouter", Credit.fromDollars(cost), undefined, {
+        emitMeterEventForTenant(deps, tenant, "embeddings", "openrouter", Credit.fromDollars(cost), undefined, {
           usage,
           tier: "branded",
           metadata,
         });
-        debitCredits(deps, tenant.id, cost, deps.defaultMargin, "embeddings", "openrouter");
+        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "embeddings", "openrouter");
       }
 
       return new Response(responseBody, {
@@ -665,12 +700,12 @@ export function audioTranscriptions(deps: ProxyDeps) {
       });
 
       if (res.ok) {
-        emitMeterEvent(deps, tenant.id, "transcription", "deepgram", Credit.fromDollars(cost), undefined, {
+        emitMeterEventForTenant(deps, tenant, "transcription", "deepgram", Credit.fromDollars(cost), undefined, {
           usage: durationSeconds > 0 ? { units: durationSeconds / 60, unitType: "minutes" } : undefined,
           tier: "branded",
           metadata: durationSeconds > 0 ? { model, durationSeconds } : undefined,
         });
-        debitCredits(deps, tenant.id, cost, deps.defaultMargin, "transcription", "deepgram");
+        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "transcription", "deepgram");
       }
 
       return new Response(responseBody, {
@@ -749,11 +784,11 @@ export function audioSpeech(deps: ProxyDeps) {
           cost,
           provider,
         });
-        emitMeterEvent(deps, tenant.id, "tts", provider, cost, undefined, {
+        emitMeterEventForTenant(deps, tenant, "tts", provider, cost, undefined, {
           usage: { units: characterCount, unitType: "characters" },
           tier: "branded",
         });
-        debitCredits(deps, tenant.id, cost.toDollars(), deps.defaultMargin, "tts", provider);
+        debitCredits(deps, tenant.id, cost.toDollars(), marginFor(tenant, deps), "tts", provider);
 
         const { audioUrl, format: audioFormat } = result.result;
         // audioUrl may be a data URL (data:<mime>;base64,<data>) or a remote URL.
@@ -847,12 +882,12 @@ export function audioSpeech(deps: ProxyDeps) {
         characters: characterCount,
         cost,
       });
-      emitMeterEvent(deps, tenant.id, "tts", "elevenlabs", Credit.fromDollars(cost), undefined, {
+      emitMeterEventForTenant(deps, tenant, "tts", "elevenlabs", Credit.fromDollars(cost), undefined, {
         usage: { units: characterCount, unitType: "characters" },
         tier: "branded",
         metadata: { voice, model: body.model ?? "eleven_multilingual_v2" },
       });
-      debitCredits(deps, tenant.id, cost, deps.defaultMargin, "tts", "elevenlabs");
+      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "tts", "elevenlabs");
 
       const audioBuffer = await res.arrayBuffer();
       const contentType = res.headers.get("content-type") ?? "audio/mpeg";
@@ -949,12 +984,12 @@ export function imageGenerations(deps: ProxyDeps) {
       const cost = predictTime * 0.0023; // SDXL wholesale rate
 
       logger.info("Gateway proxy: images/generations", { tenant: tenant.id, cost });
-      emitMeterEvent(deps, tenant.id, "image-generation", "replicate", Credit.fromDollars(cost), undefined, {
+      emitMeterEventForTenant(deps, tenant, "image-generation", "replicate", Credit.fromDollars(cost), undefined, {
         usage: { units: body.n ?? 1, unitType: "images" },
         tier: "branded",
         metadata: { width, height, predictTimeSeconds: predictTime },
       });
-      debitCredits(deps, tenant.id, cost, deps.defaultMargin, "image-generation", "replicate");
+      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "image-generation", "replicate");
 
       // Return in OpenAI-compatible format
       const images = Array.isArray(prediction.output) ? prediction.output : [];
@@ -1037,12 +1072,12 @@ export function videoGenerations(deps: ProxyDeps) {
       const cost = predictTime * 0.005; // video gen wholesale rate
 
       logger.info("Gateway proxy: video/generations", { tenant: tenant.id, cost });
-      emitMeterEvent(deps, tenant.id, "video-generation", "replicate", Credit.fromDollars(cost), undefined, {
+      emitMeterEventForTenant(deps, tenant, "video-generation", "replicate", Credit.fromDollars(cost), undefined, {
         usage: { units: body.duration ?? 4, unitType: "seconds" },
         tier: "branded",
         metadata: { predictTimeSeconds: predictTime },
       });
-      debitCredits(deps, tenant.id, cost, deps.defaultMargin, "video-generation", "replicate");
+      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "video-generation", "replicate");
 
       return c.json({
         created: Math.floor(Date.now() / 1000),
@@ -1180,11 +1215,19 @@ export function phoneOutbound(deps: ProxyDeps) {
       // Without webhookBaseUrl (e.g., local dev), bill 1 minute as a conservative estimate.
       if (!webhookBase) {
         const cost = 0.013; // 1 minute at wholesale rate
-        emitMeterEvent(deps, tenant.id, "phone-outbound", "twilio", Credit.fromDollars(cost), deps.defaultMargin, {
-          usage: { units: 1, unitType: "minutes" },
-          tier: "branded",
-        });
-        debitCredits(deps, tenant.id, cost, deps.defaultMargin, "phone-outbound", "twilio");
+        emitMeterEventForTenant(
+          deps,
+          tenant,
+          "phone-outbound",
+          "twilio",
+          Credit.fromDollars(cost),
+          deps.defaultMargin,
+          {
+            usage: { units: 1, unitType: "minutes" },
+            tier: "branded",
+          },
+        );
+        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "phone-outbound", "twilio");
       }
 
       return c.json({
@@ -1245,11 +1288,11 @@ export function phoneInbound(deps: ProxyDeps) {
         status: body.status,
       });
 
-      emitMeterEvent(deps, tenant.id, "phone-inbound", providerName, Credit.fromDollars(cost), undefined, {
+      emitMeterEventForTenant(deps, tenant, "phone-inbound", providerName, Credit.fromDollars(cost), undefined, {
         usage: { units: durationMinutes, unitType: "minutes" },
         tier: "branded",
       });
-      debitCredits(deps, tenant.id, cost, deps.defaultMargin, "phone-inbound", providerName);
+      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "phone-inbound", providerName);
 
       return c.json({ status: "metered", duration_minutes: durationMinutes });
     } catch (error) {
@@ -1329,11 +1372,19 @@ export function phoneOutboundStatus(deps: ProxyDeps) {
         status: body.CallStatus,
       });
 
-      emitMeterEvent(deps, tenant.id, "phone-outbound", providerName, Credit.fromDollars(cost), deps.defaultMargin, {
-        usage: { units: durationMinutes, unitType: "minutes" },
-        tier: "branded",
-      });
-      debitCredits(deps, tenant.id, cost, deps.defaultMargin, "phone-outbound", providerName);
+      emitMeterEventForTenant(
+        deps,
+        tenant,
+        "phone-outbound",
+        providerName,
+        Credit.fromDollars(cost),
+        deps.defaultMargin,
+        {
+          usage: { units: durationMinutes, unitType: "minutes" },
+          tier: "branded",
+        },
+      );
+      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "phone-outbound", providerName);
 
       return c.json({ status: "metered", duration_minutes: durationMinutes });
     } catch (error) {
@@ -1475,7 +1526,7 @@ export function smsOutbound(deps: ProxyDeps) {
         cost,
       });
 
-      emitMeterEvent(deps, tenant.id, capability, "twilio", Credit.fromDollars(cost), margin, {
+      emitMeterEventForTenant(deps, tenant, capability, "twilio", Credit.fromDollars(cost), margin, {
         usage: { units: 1, unitType: "messages" },
         tier: "branded",
       });
@@ -1543,7 +1594,7 @@ export function smsInbound(deps: ProxyDeps) {
         sid: body.message_sid,
       });
 
-      emitMeterEvent(deps, tenant.id, capability, "twilio", Credit.fromDollars(cost), margin, {
+      emitMeterEventForTenant(deps, tenant, capability, "twilio", Credit.fromDollars(cost), margin, {
         usage: { units: 1, unitType: "messages" },
         tier: "branded",
       });

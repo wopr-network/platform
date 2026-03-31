@@ -7,6 +7,8 @@ import type { MeterEventRow } from "./types.js";
 export interface MeterEventInsert {
   id: string;
   tenant: string;
+  instanceId: string | null;
+  productSlug: string | null;
   cost: number;
   charge: number;
   capability: string;
@@ -44,6 +46,8 @@ export class DrizzleMeterEventRepository implements IMeterEventRepository {
         await tx.insert(meterEvents).values({
           id: e.id,
           tenant: e.tenant,
+          instanceId: e.instanceId,
+          productSlug: e.productSlug,
           cost: e.cost,
           charge: e.charge,
           capability: e.capability,
@@ -71,6 +75,8 @@ export class DrizzleMeterEventRepository implements IMeterEventRepository {
     return rows.map((r) => ({
       id: r.id,
       tenant: r.tenant,
+      instance_id: r.instanceId ?? null,
+      product_slug: r.productSlug ?? null,
       cost: r.cost,
       charge: r.charge,
       capability: r.capability,

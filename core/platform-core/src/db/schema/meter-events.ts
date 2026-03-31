@@ -5,6 +5,10 @@ export const meterEvents = pgTable(
   {
     id: text("id").primaryKey(),
     tenant: text("tenant").notNull(),
+    /** Instance that made this request. */
+    instanceId: text("instance_id"),
+    /** Product this request belongs to. */
+    productSlug: text("product_slug"),
     cost: bigint("cost", { mode: "number" }).notNull(),
     charge: bigint("charge", { mode: "number" }).notNull(),
     capability: text("capability").notNull(),
@@ -24,6 +28,8 @@ export const meterEvents = pgTable(
     index("idx_meter_session").on(table.sessionId),
     index("idx_meter_tenant_timestamp").on(table.tenant, table.timestamp),
     index("idx_meter_tier").on(table.tier),
+    index("idx_meter_instance").on(table.instanceId),
+    index("idx_meter_product").on(table.productSlug),
   ],
 );
 

@@ -325,58 +325,9 @@ export async function mountRoutes(
 
   // 6. Metered inference gateway (when gateway is enabled)
   if (container.gateway) {
-    // Boot-time margin fallback — used when tenant has no product slug
-    const bootBillingConfig = container.productConfig.billing;
-    const bootMarginConfig = bootBillingConfig?.marginConfig as { default?: number } | null;
-    const fallbackMargin = bootMarginConfig?.default ?? 4.0;
-
-    // Per-tenant margin resolver: looks up the tenant's product billing config.
-    // Falls back to boot-time config if product slug is unknown.
-    const resolveMarginForProduct = async (productSlug: string | undefined): Promise<number> => {
-      if (productSlug) {
-        const pc = await container.productConfigService.getBySlug(productSlug);
-        const mc = pc?.billing?.marginConfig as { default?: number } | null;
-        if (mc?.default) return mc.default;
-      }
-      return fallbackMargin;
-    };
-
-    // Per-tenant model resolver: reads from product config's defaultModel.
-    // Falls back to tenant_model_selection DB table for platform-wide override.
-    let platformModel: string | null = null;
-    const loadPlatformModel = async () => {
-      try {
-        const result = await container.pool.query(
-          "SELECT default_model FROM tenant_model_selection WHERE tenant_id = '__platform__' LIMIT 1",
-        );
-        platformModel = (result.rows[0]?.default_model as string) ?? null;
-      } catch {
-        // Non-fatal
-      }
-    };
-    await loadPlatformModel();
-    const modelRefresh = setInterval(() => void loadPlatformModel(), 60_000);
-    void modelRefresh;
-
-    const resolveModelForProduct = async (productSlug: string | undefined): Promise<string | null> => {
-      if (productSlug) {
-        const pc = await container.productConfigService.getBySlug(productSlug);
-        if (pc?.product?.defaultImage) {
-          // Product presets store defaultModel on the product row
-          const preset = pc.product as unknown as { defaultModel?: string };
-          if (preset.defaultModel) return preset.defaultModel;
-        }
-      }
-      return platformModel;
-    };
-
-    // The gateway's resolveMargin/resolveDefaultModel are synchronous (called per-request).
-    // We cache the last-resolved product config so the sync call returns the right value.
-    // In practice, the service key resolution (async) runs before margin/model (sync),
-    // so we stash the resolved product slug on the tenant and read it in the sync resolvers.
-    let lastResolvedProductSlug: string | undefined;
-    let lastResolvedMargin = fallbackMargin;
-    let lastResolvedModel: string | null = platformModel;
+    // Fallback margin — only used when tenant has no product slug (shouldn't happen in production)
+    const fallbackMargin =
+      (container.productConfig.billing?.marginConfig as { default?: number } | null)?.default ?? 4.0;
 
     const gw = container.gateway;
     const { mountGateway } = await import("../gateway/index.js");
@@ -384,21 +335,29 @@ export async function mountRoutes(
       meter: gw.meter,
       budgetChecker: gw.budgetChecker,
       creditLedger: container.creditLedger,
-      resolveMargin: () => lastResolvedMargin,
-      resolveDefaultModel: () => lastResolvedModel,
+      // Margin and model are resolved per-tenant at key resolution time.
+      // The proxy reads tenant.margin and tenant.defaultModel directly.
+      // These fallbacks exist only for tests and edge cases.
+      defaultMargin: fallbackMargin,
       providers: {
-        openrouter: config.openrouterApiKey
-          ? { apiKey: config.openrouterApiKey, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
-          : undefined,
+        openrouter: config.openrouterApiKey ? { apiKey: config.openrouterApiKey } : undefined,
       },
       resolveServiceKey: async (key: string) => {
         const tenant = await gw.serviceKeyRepo.resolve(key);
         if (!tenant) return null;
 
-        // Pre-resolve product config for this tenant so margin/model are correct
-        lastResolvedProductSlug = tenant.productSlug;
-        lastResolvedMargin = await resolveMarginForProduct(tenant.productSlug);
-        lastResolvedModel = await resolveModelForProduct(tenant.productSlug);
+        // Resolve product config and attach margin + model to the tenant.
+        // Everything comes from the DB, nothing from boot state.
+        if (tenant.productSlug) {
+          const pc = await container.productConfigService.getBySlug(tenant.productSlug);
+          if (pc) {
+            const mc = pc.billing?.marginConfig as { default?: number } | null;
+            tenant.margin = mc?.default ?? fallbackMargin;
+            // defaultModel lives on product presets
+            const preset = pc.product as unknown as { defaultModel?: string };
+            tenant.defaultModel = preset?.defaultModel ?? null;
+          }
+        }
 
         return tenant;
       },
