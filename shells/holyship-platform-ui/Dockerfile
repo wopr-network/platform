@@ -41,6 +41,9 @@ ENV NEXT_PUBLIC_BRAND_HOME_PATH=${NEXT_PUBLIC_BRAND_HOME_PATH}
 # Copy entire shell directory (app/, components/, lib/, src/, public/, configs, etc.)
 COPY shells/holyship-platform-ui/ ./
 
+# Copy platform-ui-core source into node_modules (workspace dep)
+COPY core/platform-ui-core/ ./node_modules/@wopr-network/platform-ui-core/
+
 COPY shells/holyship-platform-ui/docker.env ./.env
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
