@@ -27,7 +27,7 @@ COPY --from=deps /app/ .
 RUN pnpm turbo run build --filter=@wopr-network/core-server...
 
 # Create a self-contained deploy directory with production deps only.
-RUN pnpm deploy --filter=@wopr-network/core-server --legacy --prod /app/deploy
+RUN pnpm deploy --filter=@wopr-network/core-server --legacy /app/deploy
 
 # --- Production image (no build tools, no source, no dev deps) ---
 FROM node:22-bookworm-slim AS production
