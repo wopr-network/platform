@@ -23,6 +23,9 @@ dist/
 !**/README.md
 **/CLAUDE.md
 
+# Claude Code worktrees (full repo copies)
+.claude/
+
 # IDE/editor
 **/.vscode/
 **/.idea/
