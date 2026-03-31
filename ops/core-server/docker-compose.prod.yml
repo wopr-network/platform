@@ -1,0 +1,280 @@
+## Consolidated core-server — production deployment.
+##
+## All 4 product brands on one box: WOPR, Paperclip, NemoPod, Holy Ship.
+## Uses pre-built GHCR images (built by .github/workflows/build-core.yml).
+##
+## Usage:
+##   cp .env.production .env
+##   docker compose -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "effective_cache_size=512MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - platform
+
+  core:
+    image: ghcr.io/wopr-network/core-server:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      HOST: "0.0.0.0"
+      DATABASE_URL: ${DATABASE_URL}
+      CORE_ALLOWED_SERVICE_TOKENS: ${CORE_ALLOWED_SERVICE_TOKENS}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: https://api.wopr.bot
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      CRYPTO_SERVICE_URL: ${CRYPTO_SERVICE_URL}
+      CRYPTO_SERVICE_KEY: ${CRYPTO_SERVICE_KEY}
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.16.0.0/12}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - core_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - platform
+
+  wopr-ui:
+    image: ghcr.io/wopr-network/wopr-ui:latest
+    depends_on:
+      core:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.wopr.bot
+      INTERNAL_API_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${WOPR_UI_SERVICE_TOKEN}
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+  paperclip-ui:
+    image: ghcr.io/wopr-network/paperclip-ui:latest
+    depends_on:
+      core:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.runpaperclip.com
+      INTERNAL_API_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${PAPERCLIP_UI_SERVICE_TOKEN}
+      PORT: "3002"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3002', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+  nemoclaw-ui:
+    image: ghcr.io/wopr-network/nemoclaw-ui:latest
+    depends_on:
+      core:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.nemopod.com
+      INTERNAL_API_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${NEMOCLAW_UI_SERVICE_TOKEN}
+      PORT: "3003"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3003', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+  holyship:
+    image: ghcr.io/wopr-network/holyship:latest
+    depends_on:
+      core:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "3005"
+      DATABASE_URL: ${DATABASE_URL}
+      CORE_URL: http://core:3001
+      CORE_SERVICE_TOKEN: ${HOLYSHIP_SERVICE_TOKEN}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+  holyship-ui:
+    image: ghcr.io/wopr-network/holyship-ui:latest
+    depends_on:
+      holyship:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: https://api.holyship.wtf
+      INTERNAL_API_URL: http://holyship:3005
+      CORE_SERVICE_TOKEN: ${HOLYSHIP_UI_SERVICE_TOKEN}
+      PORT: "3004"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3004', (r) => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      core:
+        condition: service_healthy
+      wopr-ui:
+        condition: service_healthy
+      paperclip-ui:
+        condition: service_healthy
+      nemoclaw-ui:
+        condition: service_healthy
+      holyship:
+        condition: service_healthy
+      holyship-ui:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - platform
+
+networks:
+  platform:
+    name: platform
+    driver: bridge
+
+volumes:
+  pgdata:
+  core_data:
+  caddy_data:
+  caddy_config:
