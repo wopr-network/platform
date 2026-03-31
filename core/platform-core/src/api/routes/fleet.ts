@@ -2,41 +2,24 @@ import Docker from "dockerode";
 import { Hono } from "hono";
 import { z } from "zod";
 import { buildTokenMetadataMap, scopedBearerAuthWithTenant, validateTenantOwnership } from "../../auth/index.js";
-import { config } from "../../config/index.js";
+import type { ITenantCustomerRepository } from "../../billing/index.js";
 import { logger } from "../../config/logger.js";
 import type { ILedger } from "../../credits/index.js";
 import { Credit } from "../../credits/index.js";
+import type { PlatformDiscoveryConfig } from "../../discovery/types.js";
 import { type IEmailVerifier, requireEmailVerified } from "../../email/index.js";
 import { CAPABILITY_ENV_MAP } from "../../fleet/capability-env-map.js";
 import { FleetEventEmitter } from "../../fleet/fleet-event-emitter.js";
 import { BotNotFoundError, FleetManager } from "../../fleet/fleet-manager.js";
-
-// TODO: wire via DI — fleet-remove.ts does not exist in platform-core
-// import { removeInstance } from "../../fleet/fleet-remove.js";
-const removeInstance = async (
-  _fleet: unknown,
-  _keyRepo: unknown,
-  _botId: string,
-  _removeVolumes: boolean,
-): Promise<void> => {
-  throw new Error("removeInstance not available in platform-core — wire via DI");
-};
-
 import { ImagePoller } from "../../fleet/image-poller.js";
 import { findPlacement } from "../../fleet/placement.js";
 import { defaultTemplatesDir, loadProfileTemplates } from "../../fleet/profile-loader.js";
 import type { ProfileTemplate } from "../../fleet/profile-schema.js";
 import { ProfileStore } from "../../fleet/profile-store.js";
-import {
-  getBotInstanceRepo,
-  getCommandBus,
-  getNodeRepo,
-  getRecoveryOrchestrator,
-  // TODO: wire via DI — getServiceKeyRepo does not exist in platform-core fleet/services
-  // getServiceKeyRepo,
-} from "../../fleet/services.js";
+import { getBotInstanceRepo, getCommandBus, getNodeRepo, getRecoveryOrchestrator } from "../../fleet/services.js";
 import { createBotSchema, updateBotSchema } from "../../fleet/types.js";
 import { ContainerUpdater } from "../../fleet/updater.js";
+import type { IServiceKeyRepository } from "../../gateway/service-key-repository.js";
 import type { IBotBilling } from "../../monetization/credits/bot-billing.js";
 import { checkInstanceQuota, DEFAULT_INSTANCE_LIMITS } from "../../monetization/quotas/quota-check.js";
 import { buildResourceLimits } from "../../monetization/quotas/resource-limits.js";
@@ -75,8 +58,7 @@ function getFleet(): FleetManager {
     _fleet = new FleetManager(
       docker,
       store,
-      // TODO: wire via DI — config.discovery does not exist in platform-core
-      (config as Record<string, unknown>).discovery as ConstructorParameters<typeof FleetManager>[2],
+      _deps?.discovery,
       networkPolicy,
       getProxyManager(),
       commandBus,
@@ -140,6 +122,16 @@ export interface FleetRouteDeps {
   creditLedger: ILedger;
   botBilling: IBotBilling;
   emailVerifier: IEmailVerifier;
+  serviceKeyRepo: IServiceKeyRepository | null;
+  tenantCustomerRepo: ITenantCustomerRepository | null;
+  secrets: { stripeSecretKey?: string };
+  discovery: PlatformDiscoveryConfig | undefined;
+  removeInstance: (
+    fleet: FleetManager,
+    keyRepo: IServiceKeyRepository | null,
+    botId: string,
+    removeVolumes: boolean,
+  ) => Promise<void>;
 }
 
 let _deps: FleetRouteDeps | null = null;
@@ -377,8 +369,10 @@ fleetRoutes.post(
       // Failures must not block instance creation — the key can be regenerated later.
       let gatewayKey: string | undefined;
       try {
-        // TODO: wire via DI — getServiceKeyRepo does not exist in platform-core
-        throw new Error("getServiceKeyRepo not available");
+        const keyRepo = getDeps().serviceKeyRepo;
+        if (keyRepo) {
+          gatewayKey = await keyRepo.generate(parsed.data.tenantId, profile.id);
+        }
       } catch (keyErr) {
         logger.warn("Gateway service key generation failed (non-fatal)", { botId: profile.id, err: keyErr });
       }
@@ -490,11 +484,10 @@ fleetRoutes.delete("/bots/:id", writeAuth, async (c) => {
     return ownershipError;
   }
 
-  // TODO: wire via DI — getServiceKeyRepo does not exist in platform-core
-  const keyRepo = null;
+  const { serviceKeyRepo, removeInstance: removeInstanceFn } = getDeps();
 
   try {
-    await removeInstance(fleet, keyRepo, botId, c.req.query("removeVolumes") === "true");
+    await removeInstanceFn(fleet, serviceKeyRepo, botId, c.req.query("removeVolumes") === "true");
 
     // Capacity freed -- check if any waiting recovery tenants can now be placed
     Promise.resolve()
@@ -1048,7 +1041,6 @@ fleetRoutes.post("/bots/:id/upgrade-to-vps", writeAuth, async (c) => {
     return c.json({ error: "VPS tier not configured" }, 503);
   }
 
-  // TODO: wire via DI — getTenantCustomerRepository does not exist in platform-core fleet/services
   const { getVpsRepo } = await import("../../fleet/services.js");
   const vpsRepo = getVpsRepo();
   const existing = await vpsRepo.getByBotId(botId);
@@ -1056,10 +1048,11 @@ fleetRoutes.post("/bots/:id/upgrade-to-vps", writeAuth, async (c) => {
     return c.json({ error: "Bot already on VPS tier" }, 409);
   }
 
-  // TODO: wire via DI — getTenantCustomerRepository was a wopr-platform singleton
-  type _ITenantCustomerRepo = import("../../billing/index.js").ITenantCustomerRepository;
-  const tenantRepo = null as unknown as _ITenantCustomerRepo;
-  const customer = await tenantRepo?.getByTenant(profile.tenantId);
+  const tenantRepo = getDeps().tenantCustomerRepo;
+  if (!tenantRepo) {
+    return c.json({ error: "Billing not configured" }, 503);
+  }
+  const customer = await tenantRepo.getByTenant(profile.tenantId);
   if (!customer) {
     return c.json(
       {
@@ -1100,8 +1093,7 @@ fleetRoutes.post("/bots/:id/upgrade-to-vps", writeAuth, async (c) => {
   const { createVpsCheckoutSession } = await import("../../billing/index.js");
   const { createStripeClient, loadStripeConfig } = await import("../../billing/index.js");
 
-  // TODO: wire via DI — getSecrets does not exist in platform-core fleet/services
-  const stripeConfig = loadStripeConfig({} as Record<string, string | undefined>);
+  const stripeConfig = loadStripeConfig({ stripeSecretKey: getDeps().secrets.stripeSecretKey });
   if (!stripeConfig) {
     return c.json({ error: "Stripe not configured" }, 503);
   }

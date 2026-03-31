@@ -16,8 +16,6 @@ import {
 } from "../../billing/index.js";
 import { logger } from "../../config/logger.js";
 import type { ILedger } from "../../credits/index.js";
-// TODO: wire via DI — getSecrets does not exist in platform-core fleet/services
-// import { getSecrets } from "../../fleet/services.js";
 import type { IMeterAggregator } from "../../metering/index.js";
 import type { IAffiliateRepository } from "../../monetization/affiliate/drizzle-affiliate-repository.js";
 import { assertSafeRedirectUrl } from "../../security/index.js";
@@ -116,7 +114,6 @@ export function setBillingDeps(
   _deps = d;
 
   // Crypto initialization (optional — only if crypto service configured in Vault)
-  // TODO: wire via DI — getSecrets was a wopr-platform singleton. Caller must pass secrets.
   const cryptoConfig = secrets
     ? loadCryptoConfig({ baseUrl: secrets.cryptoServiceUrl, serviceKey: secrets.cryptoServiceKey })
     : null;

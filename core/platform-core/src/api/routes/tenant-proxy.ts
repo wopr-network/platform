@@ -6,7 +6,6 @@ import { logger } from "../../config/logger.js";
 import { getBotProfileRepo } from "../../fleet/services.js";
 import type { IOrgMemberRepository } from "../../tenancy/index.js";
 
-// TODO: wire via DI — getOrgMemberRepo does not exist in platform-core fleet/services
 let _orgMemberRepo: IOrgMemberRepository | null = null;
 
 /** Inject the org member repository. Call before serving. */

@@ -4,8 +4,7 @@ import { z } from "zod";
 import type { AuthEnv } from "../../auth/index.js";
 import { logger } from "../../config/logger.js";
 
-// TODO: wire via DI — oauth-state-repository.ts does not exist in platform-core api/
-// Inline interface until the repository module is migrated.
+/** OAuth state repository for managing authorization flow state. */
 interface IOAuthStateRepository {
   create(data: {
     state: string;

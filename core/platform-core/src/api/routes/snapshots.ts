@@ -8,9 +8,6 @@ import type { ITenantCustomerRepository } from "../../billing/index.js";
 import { logger } from "../../config/logger.js";
 import { getSnapshotManager } from "../../fleet/services.js";
 
-// TODO: wire via DI — getTenantCustomerRepository does not exist in platform-core fleet/services
-// import { getTenantCustomerRepository } from "../../fleet/services.js";
-
 const WOPR_HOME_BASE = process.env.WOPR_HOME_BASE || "/data/instances";
 const FLEET_DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
 const tokenMetadataMap = buildTokenMetadataMap();
@@ -38,7 +35,6 @@ export function setTenantRepoForTest(store: ITenantCustomerRepository | undefine
 }
 
 function getTenantRepo(): ITenantCustomerRepository | null {
-  // TODO: wire via DI — getTenantCustomerRepository was a wopr-platform singleton
   return _tenantRepo;
 }
 

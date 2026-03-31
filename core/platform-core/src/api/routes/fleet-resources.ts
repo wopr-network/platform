@@ -1,35 +1,29 @@
 // src/api/routes/fleet-resources.ts
 
-import Docker from "dockerode";
 import { Hono } from "hono";
 import type { AuditEnv } from "../../audit/types.js";
-import { config } from "../../config/index.js";
-import { FleetManager } from "../../fleet/fleet-manager.js";
-import { ProfileStore } from "../../fleet/profile-store.js";
-import { NetworkPolicy } from "../../network/network-policy.js";
+import type { FleetManager } from "../../fleet/fleet-manager.js";
 
-const DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
+// ---------------------------------------------------------------------------
+// DI deps
+// ---------------------------------------------------------------------------
 
-let _fleet: FleetManager | null = null;
-function getFleet(): FleetManager {
-  if (!_fleet) {
-    const docker = new Docker();
-    const store = new ProfileStore(DATA_DIR);
-    const networkPolicy = new NetworkPolicy(docker);
-    // TODO: wire via DI — config.discovery does not exist in platform-core
-    _fleet = new FleetManager(
-      docker,
-      store,
-      (config as Record<string, unknown>).discovery as ConstructorParameters<typeof FleetManager>[2],
-      networkPolicy,
-    );
-  }
-  return _fleet;
+export interface FleetResourceRouteDeps {
+  fleet: FleetManager;
 }
 
-/** Inject a FleetManager for testing (pass null to reset). */
-export function setFleetManager(fm: FleetManager | null): void {
-  _fleet = fm;
+let _deps: FleetResourceRouteDeps | null = null;
+
+/** Inject dependencies (call before serving). */
+export function setFleetResourceDeps(deps: FleetResourceRouteDeps): void {
+  _deps = deps;
+}
+
+function getDeps(): FleetResourceRouteDeps {
+  if (!_deps) {
+    throw new Error("Fleet resource routes not initialized — call setFleetResourceDeps() first");
+  }
+  return _deps;
 }
 
 // BOUNDARY(WOP-805): This REST route is a tRPC migration candidate.
@@ -48,7 +42,7 @@ fleetResourceRoutes.get("/", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
-  const bots = await getFleet().listByTenant(user.id);
+  const bots = await getDeps().fleet.listByTenant(user.id);
 
   let totalCpuPercent = 0;
   let totalMemoryMb = 0;
