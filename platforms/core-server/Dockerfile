@@ -17,7 +17,7 @@ RUN turbo prune @wopr-network/core-server --docker \
 FROM base AS deps
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
-RUN pnpm install --frozen-lockfile
+RUN echo "node-linker=hoisted" > .npmrc && pnpm install --no-frozen-lockfile
 
 # --- Build all packages in dependency order ---
 FROM base AS build
