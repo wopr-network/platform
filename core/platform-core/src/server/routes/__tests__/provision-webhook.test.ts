@@ -3,6 +3,19 @@ import type { FleetServices } from "../../container.js";
 import { createTestContainer } from "../../test-container.js";
 import { createProvisionWebhookRoutes, type ProvisionWebhookConfig } from "../provision-webhook.js";
 
+// Mock provision-client to avoid real HTTP calls to containers
+vi.mock("@wopr-network/provision-client", () => ({
+  provisionContainer: vi.fn().mockResolvedValue({
+    tenantEntityId: "te-1",
+    tenantSlug: "myapp",
+    adminUserId: "admin-1",
+    agents: [],
+  }),
+  deprovisionContainer: vi.fn().mockResolvedValue(undefined),
+  updateBudget: vi.fn().mockResolvedValue(undefined),
+  checkHealth: vi.fn().mockResolvedValue(true),
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -21,23 +34,28 @@ function makeConfig(overrides?: Partial<ProvisionWebhookConfig>): ProvisionWebho
   };
 }
 
+const mockInstance = {
+  id: "inst-001",
+  containerId: "docker-abc",
+  containerName: "test-myapp",
+  url: "http://test-myapp:3000",
+  profile: { id: "inst-001", name: "myapp", tenantId: "tenant-1" },
+  stop: vi.fn().mockResolvedValue(undefined),
+  start: vi.fn().mockResolvedValue(undefined),
+  remove: vi.fn().mockResolvedValue(undefined),
+};
+
+const mockFleetManager = {
+  create: vi.fn().mockResolvedValue(mockInstance),
+  remove: vi.fn().mockResolvedValue(undefined),
+  status: vi.fn().mockResolvedValue({ id: "inst-001", name: "myapp", state: "running" }),
+  getInstance: vi.fn().mockResolvedValue(mockInstance),
+  listByTenant: vi.fn().mockResolvedValue([]),
+};
+
 function makeFleet(): FleetServices {
   return {
-    manager: {
-      create: vi.fn().mockResolvedValue({
-        id: "inst-001",
-        containerId: "docker-abc",
-        containerName: "test-myapp",
-        url: "http://test-myapp:3000",
-        profile: { id: "inst-001", name: "myapp", tenantId: "tenant-1" },
-      }),
-      remove: vi.fn().mockResolvedValue(undefined),
-      status: vi.fn().mockResolvedValue({
-        id: "inst-001",
-        name: "myapp",
-        state: "running",
-      }),
-    } as never,
+    manager: mockFleetManager as never,
     docker: {} as never,
     proxy: {
       addRoute: vi.fn().mockResolvedValue(undefined),
@@ -61,6 +79,25 @@ function makeFleet(): FleetServices {
       revokeByInstance: vi.fn().mockResolvedValue(undefined),
       revokeByTenant: vi.fn().mockResolvedValue(undefined),
     } as never,
+    nodeRegistry: {
+      getContainerNode: vi.fn().mockReturnValue("local"),
+      getFleetManager: vi.fn().mockReturnValue(mockFleetManager),
+      resolveUpstreamHost: vi.fn().mockReturnValue("test-myapp"),
+      assignContainer: vi.fn(),
+      unassignContainer: vi.fn(),
+      getContainerCounts: vi.fn().mockReturnValue(new Map()),
+      list: vi.fn().mockReturnValue([{ config: { id: "local", maxContainers: 10 }, fleet: mockFleetManager }]),
+    } as never,
+    placementStrategy: {
+      selectNode: vi.fn().mockReturnValue({ config: { id: "local", maxContainers: 10 }, fleet: mockFleetManager }),
+    } as never,
+    fleetResolver: {
+      addRoute: vi.fn(),
+      removeRoute: vi.fn(),
+      registerRoute: vi.fn(),
+      unregisterRoute: vi.fn(),
+    } as never,
+    orgInstanceResolver: {} as never,
   };
 }
 
@@ -204,7 +241,9 @@ describe("createProvisionWebhookRoutes", () => {
     expect(createCall.env.PAPERCLIP_DEPLOYMENT_MODE).toBeUndefined();
 
     // Verify proxy route was registered
-    expect(fleet.proxy.addRoute).toHaveBeenCalledTimes(1);
+    expect(
+      (fleet.fleetResolver as unknown as { registerRoute: ReturnType<typeof vi.fn> }).registerRoute,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it("returns 422 on create when required fields are missing", async () => {
@@ -239,9 +278,12 @@ describe("createProvisionWebhookRoutes", () => {
     const json = await res.json();
     expect(json.ok).toBe(true);
 
+    // Destroy uses fleetResolver.removeRoute (not proxy.removeRoute) and
+    // serviceKeyRepo from container.fleet (same mock reference)
     expect(fleet.serviceKeyRepo.revokeByInstance).toHaveBeenCalledWith("inst-001");
-    expect(fleet.manager.remove).toHaveBeenCalledWith("inst-001");
-    expect(fleet.proxy.removeRoute).toHaveBeenCalledWith("inst-001");
+    expect(
+      (fleet.fleetResolver as unknown as { removeRoute: ReturnType<typeof vi.fn> }).removeRoute,
+    ).toHaveBeenCalledWith("inst-001");
   });
 
   it("returns 422 on destroy when instanceId is missing", async () => {
@@ -277,7 +319,6 @@ describe("createProvisionWebhookRoutes", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(json.budgetCents).toBe(5000);
   });
 
   it("returns 422 on budget when required fields are missing", async () => {

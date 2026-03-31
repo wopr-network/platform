@@ -19,7 +19,11 @@ import type { ITenantCustomerRepository } from "../credits/tenant-customer-repos
 import type { IAuthUserRepository } from "../db/auth-user-repository.js";
 import type { DrizzleDb } from "../db/index.js";
 import type { INotificationPreferencesRepository } from "../email/index.js";
+import type { ContainerPlacementStrategy } from "../fleet/container-placement.js";
 import type { FleetManager } from "../fleet/fleet-manager.js";
+import type { FleetResolver } from "../fleet/fleet-resolver.js";
+import type { NodeRegistry } from "../fleet/node-registry.js";
+import type { OrgInstanceResolver } from "../fleet/org-instance-resolver.js";
 import type { IPageContextRepository } from "../fleet/page-context-repository.js";
 import type { IProfileStore } from "../fleet/profile-store.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
@@ -45,6 +49,10 @@ export interface FleetServices {
   proxy: ProxyManagerInterface;
   profileStore: IProfileStore;
   serviceKeyRepo: IServiceKeyRepository;
+  nodeRegistry: NodeRegistry;
+  placementStrategy: ContainerPlacementStrategy;
+  fleetResolver: FleetResolver;
+  orgInstanceResolver: OrgInstanceResolver;
 }
 
 export interface CryptoServices {
@@ -242,7 +250,28 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       botInstanceRepo,
     );
 
-    fleet = { manager, docker, proxy, profileStore, serviceKeyRepo };
+    const { NodeRegistry: NodeRegistryClass } = await import("../fleet/node-registry.js");
+    const { createContainerPlacementStrategy } = await import("../fleet/container-placement.js");
+    const { FleetResolver: FleetResolverClass } = await import("../fleet/fleet-resolver.js");
+    const { OrgInstanceResolver: OrgInstanceResolverClass } = await import("../fleet/org-instance-resolver.js");
+
+    const nodeRegistry = new NodeRegistryClass();
+    nodeRegistry.ensureDefaultNode(profileStore);
+    const placementStrategy = createContainerPlacementStrategy("least-loaded");
+    const fleetResolver = new FleetResolverClass(proxy);
+    const orgInstanceResolver = new OrgInstanceResolverClass({ profileStore, proxyManager: proxy });
+
+    fleet = {
+      manager,
+      docker,
+      proxy,
+      profileStore,
+      serviceKeyRepo,
+      nodeRegistry,
+      placementStrategy,
+      fleetResolver,
+      orgInstanceResolver,
+    };
   }
 
   // 9. Crypto services (when enabled)

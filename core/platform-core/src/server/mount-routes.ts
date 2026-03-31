@@ -59,19 +59,50 @@ export async function mountRoutes(
   container: PlatformContainer,
   config: MountConfig,
   plugins: RoutePlugin[] = [],
-  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "slug">,
+  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "chat" | "slug">,
 ): Promise<void> {
   // 1. CORS middleware
-  const origins = deriveCorsOrigins(container.productConfig.product, container.productConfig.domains);
+  // In standalone mode, allow origins from ALL products. In single-product mode, use boot-time config.
+  let corsOrigins: string[];
+  if (bootConfig?.standalone) {
+    const allProducts = await container.productConfigService.listAll();
+    corsOrigins = allProducts.flatMap((pc) => deriveCorsOrigins(pc.product, pc.domains));
+  } else {
+    corsOrigins = deriveCorsOrigins(container.productConfig.product, container.productConfig.domains);
+  }
   app.use(
     "*",
     cors({
-      origin: origins,
+      origin: corsOrigins,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization", "X-Request-ID", "X-Tenant-ID", "X-Session-ID"],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Request-ID",
+        "X-Tenant-ID",
+        "X-Session-ID",
+        "X-Product",
+        "X-User-Id",
+        "X-User-Roles",
+        "X-Auth-Method",
+      ],
       credentials: true,
     }),
   );
+
+  // 1b. Per-request product config resolution (standalone mode)
+  // Resolves X-Product header → ProductConfig via cached service lookup.
+  // Downstream handlers read c.get("productConfig") instead of container.productConfig.
+  if (bootConfig?.standalone) {
+    app.use("*", async (c, next) => {
+      const slug = c.req.header("x-product") ?? bootConfig.slug ?? "core";
+      const resolved = await container.productConfigService.getBySlug(slug);
+      if (resolved) {
+        (c as unknown as { set(k: string, v: unknown): void }).set("productConfig", resolved);
+      }
+      return next();
+    });
+  }
 
   // 2. Health endpoint (always available)
   app.get("/health", (c) => c.json({ ok: true }));
@@ -101,6 +132,10 @@ export async function mountRoutes(
       if (c.req.path.startsWith("/api/auth")) return next();
       // Health check endpoint must be public (used by docker healthcheck / LB)
       if (c.req.path === "/api/health" || c.req.path === "/health") return next();
+      // Product config endpoint — UIs call this on boot to get brand config
+      if (c.req.path.startsWith("/api/products")) return next();
+      // Chat SSE streams use browser session auth, not internal service auth
+      if (c.req.path.startsWith("/api/chat")) return next();
       return authMiddleware(c as never, next);
     });
 
@@ -256,6 +291,12 @@ export async function mountRoutes(
     app.route("/api/auth", createAuthRoutes(getAuth()));
   }
 
+  // 2e. Chat routes (when chat backend is provided)
+  if (bootConfig?.chat) {
+    const { createChatRoutes } = await import("../chat/routes.js");
+    app.route("/api/chat", createChatRoutes({ backend: bootConfig.chat.backend }));
+  }
+
   // 3. Crypto webhook (when crypto payments are enabled)
   if (container.crypto) {
     app.route(
@@ -288,42 +329,9 @@ export async function mountRoutes(
 
   // 6. Metered inference gateway (when gateway is enabled)
   if (container.gateway) {
-    // Validate billing config exists in DB — fail hard, no silent defaults
-    const billingConfig = container.productConfig.billing;
-    const marginConfig = billingConfig?.marginConfig as { default?: number } | null;
-    if (!marginConfig?.default) {
-      throw new Error(
-        "Gateway enabled but product_billing_config.margin_config.default is not set. " +
-          "Seed the DB: INSERT INTO product_billing_config (product_id, margin_config) VALUES ('<id>', '{\"default\": 4.0}')",
-      );
-    }
-
-    // Live margin — reads from productConfig per-request (DB-cached with TTL)
-    const initialMargin = marginConfig.default;
-    const resolveMargin = (): number => {
-      const cfg = container.productConfig.billing?.marginConfig as { default?: number } | null;
-      return cfg?.default ?? initialMargin;
-    };
-
-    // Resolve default model from tenant_model_selection DB
-    let cachedModel: string | null = null;
-    const loadModel = async () => {
-      try {
-        const result = await container.pool.query(
-          "SELECT default_model FROM tenant_model_selection WHERE tenant_id = '__platform__' LIMIT 1",
-        );
-        cachedModel = (result.rows[0]?.default_model as string) ?? null;
-      } catch {
-        // Non-fatal — model resolution will return null
-      }
-    };
-    await loadModel();
-    // Refresh every 60s for runtime changes
-    const modelRefresh = setInterval(() => void loadModel(), 60_000);
-    // Store for cleanup — not critical, process exit clears it
-    void modelRefresh;
-
-    const resolveDefaultModel = (): string | null => cachedModel;
+    // Fallback margin — only used when tenant has no product slug (shouldn't happen in production)
+    const fallbackMargin =
+      (container.productConfig.billing?.marginConfig as { default?: number } | null)?.default ?? 4.0;
 
     const gw = container.gateway;
     const { mountGateway } = await import("../gateway/index.js");
@@ -331,16 +339,31 @@ export async function mountRoutes(
       meter: gw.meter,
       budgetChecker: gw.budgetChecker,
       creditLedger: container.creditLedger,
-      resolveMargin,
-      resolveDefaultModel,
+      // Margin and model are resolved per-tenant at key resolution time.
+      // The proxy reads tenant.margin and tenant.defaultModel directly.
+      // These fallbacks exist only for tests and edge cases.
+      defaultMargin: fallbackMargin,
       providers: {
-        openrouter: config.openrouterApiKey
-          ? { apiKey: config.openrouterApiKey, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
-          : undefined,
+        openrouter: config.openrouterApiKey ? { apiKey: config.openrouterApiKey } : undefined,
       },
       resolveServiceKey: async (key: string) => {
         const tenant = await gw.serviceKeyRepo.resolve(key);
-        return tenant ?? null;
+        if (!tenant) return null;
+
+        // Resolve product config and attach margin + model to the tenant.
+        // Everything comes from the DB, nothing from boot state.
+        if (tenant.productSlug) {
+          const pc = await container.productConfigService.getBySlug(tenant.productSlug);
+          if (pc) {
+            const mc = pc.billing?.marginConfig as { default?: number } | null;
+            tenant.margin = mc?.default ?? fallbackMargin;
+            // defaultModel lives on product presets
+            const preset = pc.product as unknown as { defaultModel?: string };
+            tenant.defaultModel = preset?.defaultModel ?? null;
+          }
+        }
+
+        return tenant;
       },
     });
   }

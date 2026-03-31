@@ -111,9 +111,12 @@ export function proxySSEStream(
 
       // Stream ended — emit meter event with accumulated cost
       const cost = Credit.fromDollars(accumulatedCost);
-      const charge = withMargin(cost, deps.defaultMargin);
+      const margin = tenant.margin ?? deps.defaultMargin;
+      const charge = withMargin(cost, margin);
       deps.meter.emit({
         tenant: tenant.id,
+        instanceId: tenant.instanceId,
+        productSlug: tenant.productSlug,
         cost,
         charge,
         capability,
@@ -122,7 +125,7 @@ export function proxySSEStream(
       });
 
       // Debit credits (fire-and-forget, same as non-streaming path)
-      debitCredits(deps, tenant.id, accumulatedCost, deps.defaultMargin, capability, provider);
+      debitCredits(deps, tenant.id, accumulatedCost, margin, capability, provider);
 
       logger.info("Gateway proxy: SSE stream completed", {
         tenant: tenant.id,

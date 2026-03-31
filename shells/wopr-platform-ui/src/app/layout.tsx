@@ -1,6 +1,6 @@
 import { ThemeProvider } from "@core/components/theme-provider";
 import { SITE_URL } from "@core/lib/api-config";
-import { getBrandConfig } from "@core/lib/brand-config";
+import { getBrandConfig, initBrandConfig } from "@core/lib/brand-config";
 import { TRPCProvider } from "@core/lib/trpc";
 import { MotionConfig } from "framer-motion";
 import type { Metadata } from "next";
@@ -15,6 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "500", "600", "700"],
 });
 
+await initBrandConfig("wopr");
 const brand = getBrandConfig();
 
 export const metadata: Metadata = {

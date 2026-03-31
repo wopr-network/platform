@@ -1,5 +1,5 @@
 import { ThemeProvider } from "@core/components/theme-provider";
-import { getBrandConfig, setBrandConfig } from "@core/lib/brand-config";
+import { getBrandConfig, initBrandConfig } from "@core/lib/brand-config";
 import { TRPCProvider } from "@core/lib/trpc";
 import { MotionConfig } from "framer-motion";
 import type { Metadata } from "next";
@@ -20,26 +20,7 @@ const spaceGrotesk = Space_Grotesk({
   weight: ["400", "500", "600", "700"],
 });
 
-setBrandConfig({
-  homePath: "/",
-  productName: "NemoPod",
-  brandName: "NemoPod",
-  domain: "nemopod.com",
-  appDomain: "",
-  tagline: "NVIDIA NeMo, one click away",
-  price: "$5 free credits",
-  storagePrefix: "nemopod",
-  eventPrefix: "nemopod",
-  envVarPrefix: "NEMOPOD",
-  toolPrefix: "nemopod",
-  tenantCookieName: "nemopod_tenant",
-  companyLegalName: "NemoPod",
-  navItems: [
-    { label: "Agents", href: "/instances" },
-    { label: "Billing", href: "/billing/plans" },
-    { label: "Settings", href: "/settings/profile" },
-  ],
-});
+await initBrandConfig("nemoclaw");
 
 const brand = getBrandConfig();
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `https://${brand.domain}`;

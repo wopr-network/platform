@@ -411,6 +411,8 @@ describe("DrizzleUsageSummaryRepository", () => {
       const rows = await repo.querySummaries("t1");
       expect(rows[0]).toEqual({
         tenant: "t1",
+        instance_id: null,
+        product_slug: null,
         capability: "voice",
         provider: "deepgram",
         event_count: 5,

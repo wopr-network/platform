@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { IUsageSummaryRepository } from "./drizzle-usage-summary-repository.js";
+import type { InstanceUsageRow, IUsageSummaryRepository } from "./drizzle-usage-summary-repository.js";
 import type { UsageSummary } from "./types.js";
 
 export interface IMeterAggregator {
@@ -11,6 +11,8 @@ export interface IMeterAggregator {
     tenant: string,
     since: number,
   ): Promise<{ totalCost: number; totalCharge: number; eventCount: number }>;
+  /** Get per-instance usage breakdown for a tenant. */
+  queryInstanceUsage(tenant: string, opts?: { since?: number; until?: number }): Promise<InstanceUsageRow[]>;
 }
 
 /**
@@ -100,6 +102,8 @@ export class DrizzleMeterAggregator implements IMeterAggregator {
           rows.map((s) => ({
             id: crypto.randomUUID(),
             tenant: s.tenant,
+            instanceId: s.instanceId,
+            productSlug: s.productSlug,
             capability: s.capability,
             provider: s.provider,
             eventCount: s.eventCount,
@@ -153,6 +157,21 @@ export class DrizzleMeterAggregator implements IMeterAggregator {
     since: number,
   ): Promise<{ totalCost: number; totalCharge: number; eventCount: number }> {
     return this.repo.getTenantTotal(tenant, since);
+  }
+
+  /** Get per-instance usage breakdown for a tenant (queries raw meter events). */
+  async queryInstanceUsage(tenant: string, opts: { since?: number; until?: number } = {}): Promise<InstanceUsageRow[]> {
+    if ("queryByTenantGroupedByInstance" in this.repo) {
+      return (
+        this.repo as {
+          queryByTenantGroupedByInstance: (
+            t: string,
+            o: { since?: number; until?: number },
+          ) => Promise<InstanceUsageRow[]>;
+        }
+      ).queryByTenantGroupedByInstance(tenant, opts);
+    }
+    return [];
   }
 }
 

@@ -1,0 +1,239 @@
+import { Hono } from "hono";
+import { z } from "zod";
+import type { IChatBackend } from "../../chat/backend.js";
+import { ChatStreamRegistry, type SSEWriter } from "../../chat/stream-registry.js";
+import type { ChatEvent } from "../../chat/types.js";
+import { logger } from "../../config/logger.js";
+
+const chatRequestSchema = z.object({
+  sessionId: z.string().uuid(),
+  message: z.string(), // empty string = greeting trigger
+});
+
+export interface ChatRouteDeps {
+  backend: IChatBackend;
+}
+
+/**
+ * Create chat routes with injected dependencies.
+ * Enables testing without real WOPR instances.
+ */
+/** Internal header used to forward authenticated user identity through inner.fetch(). */
+const INTERNAL_USER_ID_HEADER = "x-internal-user-id";
+
+/** Extract authenticated user from context or internal forwarding header.
+ *  The internal header is only trusted when set server-side by the outer handler.
+ *  External requests must never reach getUser() with this header intact — the
+ *  outer lazy handler strips it before forwarding (see chatRoutes below).
+ */
+function getUser(c: {
+  get(key: string): unknown;
+  req?: { header?(name: string): string | undefined };
+}): { id: string } | null {
+  try {
+    const user = c.get("user") as { id: string } | undefined;
+    if (user) return user;
+    // Fall back to internal forwarding header set by the singleton wrapper.
+    const forwarded = c.req?.header?.(INTERNAL_USER_ID_HEADER);
+    if (forwarded) return { id: forwarded };
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function createChatRoutes(deps: ChatRouteDeps): Hono {
+  const routes = new Hono();
+  const registry = new ChatStreamRegistry();
+
+  /**
+   * GET /stream?sessionId=X
+   * Opens an SSE connection. Events are pushed when POST / is called.
+   */
+  routes.get("/stream", (c) => {
+    const user = getUser(c);
+    if (!user) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    const sessionId = c.req.query("sessionId");
+    if (!sessionId) {
+      return c.json({ error: "sessionId query parameter is required" }, 400);
+    }
+
+    // --- Atomically claim session for this user (first caller wins) and verify ownership ---
+    if (!registry.claimOrVerifyOwner(sessionId, user.id)) {
+      return c.json({ error: "Session access denied" }, 403);
+    }
+
+    const { readable, writable } = new TransformStream<string, string>();
+    const writer = writable.getWriter();
+
+    const sseWriter: SSEWriter = {
+      write(chunk: string) {
+        writer.write(chunk).catch((err) => {
+          logger.debug("SSE writer write error (client likely disconnected)", { err });
+        });
+      },
+      close() {
+        writer.close().catch((err) => {
+          logger.debug("SSE writer close error", { err });
+        });
+      },
+    };
+
+    const streamId = registry.register(sessionId, sseWriter);
+
+    // Clean up on client disconnect — remove stream and ownership record to prevent map growth
+    const signal = c.req.raw.signal;
+    if (signal) {
+      signal.addEventListener("abort", () => {
+        registry.remove(streamId);
+        // Only clear ownership if no more streams remain for this session
+        if (registry.listBySession(sessionId).length === 0) {
+          registry.clearOwner(sessionId);
+        }
+        writer.close().catch((err) => {
+          logger.debug("SSE writer close error (client disconnect)", { err });
+        });
+      });
+    }
+
+    const encoder = new TextEncoder();
+    const encodedStream = readable.pipeThrough(
+      new TransformStream<string, Uint8Array>({
+        transform(chunk, controller) {
+          controller.enqueue(encoder.encode(chunk));
+        },
+      }),
+    );
+
+    return new Response(encodedStream, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  });
+
+  /**
+   * POST /
+   * Send a message to the session. Returns streamId immediately.
+   * Events are pushed to all SSE connections for this sessionId.
+   */
+  routes.post("/", async (c) => {
+    const user = getUser(c);
+    if (!user) {
+      return c.json({ error: "Authentication required" }, 401);
+    }
+
+    let body: unknown;
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    const parsed = chatRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
+    }
+
+    const { sessionId, message } = parsed.data;
+
+    // --- Atomically claim session for this user (first caller wins) and verify ownership ---
+    if (!registry.claimOrVerifyOwner(sessionId, user.id)) {
+      return c.json({ error: "Session access denied" }, 403);
+    }
+
+    // Fire-and-forget: process in background so POST returns immediately
+    const emit = (event: ChatEvent) => {
+      // Look up live writers at emission time, not at POST receipt time.
+      // This ensures events reach SSE connections that opened after POST arrived.
+      const streamIds = registry.listBySession(sessionId);
+      const line = `data: ${JSON.stringify(event)}\n\n`;
+      for (const id of streamIds) {
+        const writer = registry.get(id);
+        if (writer) {
+          writer.write(line);
+          if (event.type === "done") {
+            writer.close();
+            registry.remove(id);
+          }
+        }
+      }
+    };
+
+    // Start processing (don't await — return streamId immediately)
+    deps.backend.process(sessionId, message, emit).catch((err) => {
+      logger.error("Chat backend processing failed", { sessionId, err });
+      emit({ type: "error", message: "Internal error" });
+      emit({ type: "done" });
+    });
+
+    // Return the first streamId (or "pending" if no SSE connection yet)
+    return c.json({ streamId: registry.listBySession(sessionId)[0] ?? "pending" });
+  });
+
+  return routes;
+}
+
+// ---------------------------------------------------------------------------
+// Default singleton (wired at startup via setChatDeps)
+// ---------------------------------------------------------------------------
+
+let _deps: ChatRouteDeps | null = null;
+
+export function setChatDeps(deps: ChatRouteDeps): void {
+  _deps = deps;
+}
+
+function getDeps(): ChatRouteDeps {
+  if (!_deps) {
+    throw new Error("Chat route deps not initialized — call setChatDeps() before serving requests");
+  }
+  return _deps;
+}
+
+/** Pre-built chat routes with lazy dep initialization. */
+// createChatRoutes is called once so the ChatStreamRegistry is shared across
+// all requests (GET /stream and POST / must use the same instance).
+let _chatRoutesInner: Hono | null = null;
+
+function getChatRoutesInner(): Hono {
+  if (!_chatRoutesInner) {
+    _chatRoutesInner = createChatRoutes(getDeps());
+  }
+  return _chatRoutesInner;
+}
+
+export const chatRoutes = new Hono();
+chatRoutes.route(
+  "/",
+  (() => {
+    const lazy = new Hono();
+    lazy.all("/*", async (c) => {
+      // Auth must be checked here, in the outer context where resolveSessionUser()
+      // has already populated c.get("user"). inner.fetch(c.req.raw) creates a
+      // fresh Hono context with no user set, so getUser() inside the inner
+      // handlers would always return null in production.
+      const user = getUser(c);
+      if (!user) {
+        return c.json({ error: "Authentication required" }, 401);
+      }
+      const inner = getChatRoutesInner();
+      // Forward authenticated identity into the inner request, since inner.fetch()
+      // creates a fresh Hono context where c.get("user") would be undefined.
+      // Strip any attacker-supplied x-internal-user-id from incoming headers first,
+      // then append the server-validated identity to prevent header spoofing.
+      const safeHeaders = new Headers(c.req.raw.headers);
+      safeHeaders.delete(INTERNAL_USER_ID_HEADER);
+      safeHeaders.set(INTERNAL_USER_ID_HEADER, user.id);
+      const forwarded = new Request(c.req.raw, { headers: safeHeaders });
+      return inner.fetch(forwarded);
+    });
+    return lazy;
+  })(),
+);
