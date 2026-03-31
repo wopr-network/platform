@@ -19,7 +19,7 @@ function hashKey(raw: string): string {
 
 export interface IServiceKeyRepository {
   /** Generate a new service key for an instance. Returns the raw key (caller must store it). */
-  generate(tenantId: string, instanceId: string): Promise<string>;
+  generate(tenantId: string, instanceId: string, productSlug?: string): Promise<string>;
 
   /** Resolve a raw bearer token to a GatewayTenant. Returns null if not found or revoked. */
   resolve(rawKey: string): Promise<GatewayTenant | null>;
@@ -34,7 +34,7 @@ export interface IServiceKeyRepository {
 export class DrizzleServiceKeyRepository implements IServiceKeyRepository {
   constructor(private readonly db: PlatformDb) {}
 
-  async generate(tenantId: string, instanceId: string): Promise<string> {
+  async generate(tenantId: string, instanceId: string, productSlug?: string): Promise<string> {
     const raw = randomBytes(32).toString("hex");
     const hash = hashKey(raw);
     const id = randomBytes(16).toString("hex");
@@ -44,6 +44,7 @@ export class DrizzleServiceKeyRepository implements IServiceKeyRepository {
       keyHash: hash,
       tenantId,
       instanceId,
+      productSlug: productSlug ?? null,
       createdAt: Date.now(),
     });
 
@@ -56,6 +57,7 @@ export class DrizzleServiceKeyRepository implements IServiceKeyRepository {
       .select({
         tenantId: gatewayServiceKeys.tenantId,
         instanceId: gatewayServiceKeys.instanceId,
+        productSlug: gatewayServiceKeys.productSlug,
       })
       .from(gatewayServiceKeys)
       .where(and(eq(gatewayServiceKeys.keyHash, hash), isNull(gatewayServiceKeys.revokedAt)))
@@ -67,6 +69,7 @@ export class DrizzleServiceKeyRepository implements IServiceKeyRepository {
     return {
       id: row.tenantId,
       instanceId: row.instanceId,
+      productSlug: row.productSlug ?? undefined,
       spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null },
     };
   }

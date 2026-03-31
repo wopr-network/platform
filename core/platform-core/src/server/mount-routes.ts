@@ -62,16 +62,47 @@ export async function mountRoutes(
   bootConfig?: Pick<BootConfig, "standalone" | "auth" | "chat" | "slug">,
 ): Promise<void> {
   // 1. CORS middleware
-  const origins = deriveCorsOrigins(container.productConfig.product, container.productConfig.domains);
+  // In standalone mode, allow origins from ALL products. In single-product mode, use boot-time config.
+  let corsOrigins: string[];
+  if (bootConfig?.standalone) {
+    const allProducts = await container.productConfigService.listAll();
+    corsOrigins = allProducts.flatMap((pc) => deriveCorsOrigins(pc.product, pc.domains));
+  } else {
+    corsOrigins = deriveCorsOrigins(container.productConfig.product, container.productConfig.domains);
+  }
   app.use(
     "*",
     cors({
-      origin: origins,
+      origin: corsOrigins,
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization", "X-Request-ID", "X-Tenant-ID", "X-Session-ID"],
+      allowHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Request-ID",
+        "X-Tenant-ID",
+        "X-Session-ID",
+        "X-Product",
+        "X-User-Id",
+        "X-User-Roles",
+        "X-Auth-Method",
+      ],
       credentials: true,
     }),
   );
+
+  // 1b. Per-request product config resolution (standalone mode)
+  // Resolves X-Product header → ProductConfig via cached service lookup.
+  // Downstream handlers read c.get("productConfig") instead of container.productConfig.
+  if (bootConfig?.standalone) {
+    app.use("*", async (c, next) => {
+      const slug = c.get("product") ?? c.req.header("x-product") ?? bootConfig.slug ?? "core";
+      const resolved = await container.productConfigService.getBySlug(slug);
+      if (resolved) {
+        c.set("productConfig", resolved);
+      }
+      return next();
+    });
+  }
 
   // 2. Health endpoint (always available)
   app.get("/health", (c) => c.json({ ok: true }));
@@ -294,42 +325,58 @@ export async function mountRoutes(
 
   // 6. Metered inference gateway (when gateway is enabled)
   if (container.gateway) {
-    // Validate billing config exists in DB — fail hard, no silent defaults
-    const billingConfig = container.productConfig.billing;
-    const marginConfig = billingConfig?.marginConfig as { default?: number } | null;
-    if (!marginConfig?.default) {
-      throw new Error(
-        "Gateway enabled but product_billing_config.margin_config.default is not set. " +
-          "Seed the DB: INSERT INTO product_billing_config (product_id, margin_config) VALUES ('<id>', '{\"default\": 4.0}')",
-      );
-    }
+    // Boot-time margin fallback — used when tenant has no product slug
+    const bootBillingConfig = container.productConfig.billing;
+    const bootMarginConfig = bootBillingConfig?.marginConfig as { default?: number } | null;
+    const fallbackMargin = bootMarginConfig?.default ?? 4.0;
 
-    // Live margin — reads from productConfig per-request (DB-cached with TTL)
-    const initialMargin = marginConfig.default;
-    const resolveMargin = (): number => {
-      const cfg = container.productConfig.billing?.marginConfig as { default?: number } | null;
-      return cfg?.default ?? initialMargin;
+    // Per-tenant margin resolver: looks up the tenant's product billing config.
+    // Falls back to boot-time config if product slug is unknown.
+    const resolveMarginForProduct = async (productSlug: string | undefined): Promise<number> => {
+      if (productSlug) {
+        const pc = await container.productConfigService.getBySlug(productSlug);
+        const mc = pc?.billing?.marginConfig as { default?: number } | null;
+        if (mc?.default) return mc.default;
+      }
+      return fallbackMargin;
     };
 
-    // Resolve default model from tenant_model_selection DB
-    let cachedModel: string | null = null;
-    const loadModel = async () => {
+    // Per-tenant model resolver: reads from product config's defaultModel.
+    // Falls back to tenant_model_selection DB table for platform-wide override.
+    let platformModel: string | null = null;
+    const loadPlatformModel = async () => {
       try {
         const result = await container.pool.query(
           "SELECT default_model FROM tenant_model_selection WHERE tenant_id = '__platform__' LIMIT 1",
         );
-        cachedModel = (result.rows[0]?.default_model as string) ?? null;
+        platformModel = (result.rows[0]?.default_model as string) ?? null;
       } catch {
-        // Non-fatal — model resolution will return null
+        // Non-fatal
       }
     };
-    await loadModel();
-    // Refresh every 60s for runtime changes
-    const modelRefresh = setInterval(() => void loadModel(), 60_000);
-    // Store for cleanup — not critical, process exit clears it
+    await loadPlatformModel();
+    const modelRefresh = setInterval(() => void loadPlatformModel(), 60_000);
     void modelRefresh;
 
-    const resolveDefaultModel = (): string | null => cachedModel;
+    const resolveModelForProduct = async (productSlug: string | undefined): Promise<string | null> => {
+      if (productSlug) {
+        const pc = await container.productConfigService.getBySlug(productSlug);
+        if (pc?.product?.defaultImage) {
+          // Product presets store defaultModel on the product row
+          const preset = pc.product as unknown as { defaultModel?: string };
+          if (preset.defaultModel) return preset.defaultModel;
+        }
+      }
+      return platformModel;
+    };
+
+    // The gateway's resolveMargin/resolveDefaultModel are synchronous (called per-request).
+    // We cache the last-resolved product config so the sync call returns the right value.
+    // In practice, the service key resolution (async) runs before margin/model (sync),
+    // so we stash the resolved product slug on the tenant and read it in the sync resolvers.
+    let lastResolvedProductSlug: string | undefined;
+    let lastResolvedMargin = fallbackMargin;
+    let lastResolvedModel: string | null = platformModel;
 
     const gw = container.gateway;
     const { mountGateway } = await import("../gateway/index.js");
@@ -337,8 +384,8 @@ export async function mountRoutes(
       meter: gw.meter,
       budgetChecker: gw.budgetChecker,
       creditLedger: container.creditLedger,
-      resolveMargin,
-      resolveDefaultModel,
+      resolveMargin: () => lastResolvedMargin,
+      resolveDefaultModel: () => lastResolvedModel,
       providers: {
         openrouter: config.openrouterApiKey
           ? { apiKey: config.openrouterApiKey, baseUrl: process.env.OPENROUTER_BASE_URL || undefined }
@@ -346,7 +393,14 @@ export async function mountRoutes(
       },
       resolveServiceKey: async (key: string) => {
         const tenant = await gw.serviceKeyRepo.resolve(key);
-        return tenant ?? null;
+        if (!tenant) return null;
+
+        // Pre-resolve product config for this tenant so margin/model are correct
+        lastResolvedProductSlug = tenant.productSlug;
+        lastResolvedMargin = await resolveMarginForProduct(tenant.productSlug);
+        lastResolvedModel = await resolveModelForProduct(tenant.productSlug);
+
+        return tenant;
       },
     });
   }

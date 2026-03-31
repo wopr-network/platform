@@ -190,13 +190,18 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
       return c.json({ error: "Container failed health check" }, 503);
     }
 
+    // Generate a gateway service key for this instance (product + tenant + instance)
+    const gatewayKey = serviceKeyRepo
+      ? await serviceKeyRepo.generate(tenantId, instance.id, productSlug ?? undefined)
+      : (apiKey ?? "");
+
     // Configure via provision-client (company, admin user, starter agents)
     const tenantName = body.tenantName ?? subdomain;
     const result = await provisionContainer(containerUrl, config.provisionSecret, {
       tenantId,
       tenantName,
       gatewayUrl: config.gatewayUrl ?? "",
-      apiKey: apiKey ?? "",
+      apiKey: gatewayKey,
       budgetCents: budgetCents ?? 0,
       adminUser: adminUser ?? {
         id: tenantId,

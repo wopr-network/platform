@@ -10,6 +10,8 @@ export const gatewayServiceKeys = pgTable(
     tenantId: text("tenant_id").notNull(),
     /** Instance ID this key was issued for (one key per instance). */
     instanceId: text("instance_id").notNull(),
+    /** Product this key belongs to (determines gateway margin, model, config). */
+    productSlug: text("product_slug"),
     /** Unix epoch ms. */
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
     /** Unix epoch ms. Null = not revoked. */

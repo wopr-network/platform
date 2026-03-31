@@ -55,6 +55,8 @@ export interface GatewayTenant {
   planTier?: string;
   /** Instance ID this token belongs to */
   instanceId?: string;
+  /** Product this tenant belongs to (determines margin, model, gateway config). */
+  productSlug?: string;
   /** User-configured spending caps (null fields = no cap). */
   spendingCaps?: SpendingCaps;
   /** Billing mode — "metered" tenants are invoiced via Stripe, not prepaid credits. */
