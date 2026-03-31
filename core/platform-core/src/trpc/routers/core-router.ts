@@ -6,13 +6,22 @@
  */
 
 import { router } from "../init.js";
+import { type AccountRouterDeps, createAccountRouter } from "./account.js";
+import { type AddonRouterDeps, createAddonRouter } from "./addons.js";
 import { type AdminCoreRouterDeps, createAdminCoreRouter } from "./admin.js";
 import { type BillingRouterDeps, createBillingRouter } from "./billing.js";
 import { createFleetCoreRouter, type FleetCoreRouterDeps } from "./fleet-core.js";
+import { createInferenceAdminRouter, type InferenceAdminRouterDeps } from "./inference-admin.js";
+import { createMarketplaceRouter, type MarketplaceRouterDeps } from "./marketplace.js";
+import { createModelSelectionRouter, type ModelSelectionRouterDeps } from "./model-selection.js";
+import { createNodesRouter, type NodesRouterDeps } from "./nodes.js";
 import { createOrgRouter, type OrgRouterDeps } from "./org.js";
+import { createOrgKeysRouter, type OrgKeysRouterDeps } from "./org-keys.js";
 import { createPageContextRouter, type PageContextRouterDeps } from "./page-context.js";
 import { createProfileRouter, type ProfileRouterDeps } from "./profile.js";
+import { createPromotionsRouter, type PromotionsRouterDeps } from "./promotions.js";
 import { createSettingsRouter, type SettingsRouterDeps } from "./settings.js";
+import { createTwoFactorRouter, type TwoFactorRouterDeps } from "./two-factor.js";
 
 // ---------------------------------------------------------------------------
 // Aggregate deps
@@ -26,6 +35,15 @@ export interface CoreRouterDeps {
   org: OrgRouterDeps;
   fleet?: FleetCoreRouterDeps;
   admin?: AdminCoreRouterDeps;
+  account?: AccountRouterDeps;
+  promotions?: PromotionsRouterDeps;
+  twoFactor?: TwoFactorRouterDeps;
+  orgKeys?: OrgKeysRouterDeps;
+  marketplace?: MarketplaceRouterDeps;
+  modelSelection?: ModelSelectionRouterDeps;
+  inferenceAdmin?: InferenceAdminRouterDeps;
+  addons?: AddonRouterDeps;
+  nodes?: NodesRouterDeps;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,5 +76,14 @@ export function createCoreRouter(deps: CoreRouterDeps) {
     org: createOrgRouter(deps.org),
     ...(deps.fleet ? { fleet: createFleetCoreRouter(deps.fleet) } : {}),
     ...(deps.admin ? { admin: createAdminCoreRouter(deps.admin) } : {}),
+    ...(deps.account ? { account: createAccountRouter(deps.account) } : {}),
+    ...(deps.promotions ? { promotions: createPromotionsRouter(deps.promotions) } : {}),
+    ...(deps.twoFactor ? { twoFactor: createTwoFactorRouter(deps.twoFactor) } : {}),
+    ...(deps.orgKeys ? { orgKeys: createOrgKeysRouter(deps.orgKeys) } : {}),
+    ...(deps.marketplace ? { marketplace: createMarketplaceRouter(deps.marketplace) } : {}),
+    ...(deps.modelSelection ? { modelSelection: createModelSelectionRouter(deps.modelSelection) } : {}),
+    ...(deps.inferenceAdmin ? { inferenceAdmin: createInferenceAdminRouter(deps.inferenceAdmin) } : {}),
+    ...(deps.addons ? { addons: createAddonRouter(deps.addons) } : {}),
+    ...(deps.nodes ? { nodes: createNodesRouter(deps.nodes) } : {}),
   });
 }
