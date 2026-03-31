@@ -1,6 +1,6 @@
-import { NodeAgent } from "@wopr-network/platform-core/node-agent";
-import { DockerManager } from "@wopr-network/platform-core/node-agent/docker";
-import { nodeAgentConfigSchema } from "@wopr-network/platform-core/node-agent/types";
+import { NodeAgent } from "./index.js";
+import { DockerManager } from "./docker.js";
+import { nodeAgentConfigSchema } from "./types.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // ---------------------------------------------------------------------------

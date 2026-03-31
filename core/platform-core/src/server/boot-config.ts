@@ -6,6 +6,7 @@
  */
 
 import type { Hono } from "hono";
+import type { IChatBackend } from "../chat/backend.js";
 import type { PlatformSecrets } from "../config/secrets.js";
 import type { PlatformContainer } from "./container.js";
 
@@ -81,6 +82,15 @@ export interface BootConfig {
   standalone?: {
     /** Comma-separated allowed service tokens for internal auth. */
     allowedServiceTokens: string;
+  };
+
+  /**
+   * Chat configuration. When provided, core mounts /api/chat routes
+   * (SSE streaming + message dispatch). Products provide their own
+   * IChatBackend implementation.
+   */
+  chat?: {
+    backend: IChatBackend;
   };
 
   /**

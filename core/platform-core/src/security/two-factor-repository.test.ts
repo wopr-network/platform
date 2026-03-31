@@ -1,32 +1,25 @@
 import type { PGlite } from "@electric-sql/pglite";
-import type { DrizzleDb } from "@wopr-network/platform-core/db/index";
-import type { ITwoFactorRepository } from "@wopr-network/platform-core/security/two-factor-repository";
-import { DrizzleTwoFactorRepository } from "@wopr-network/platform-core/security/two-factor-repository";
-import {
-  beginTestTransaction,
-  createTestDb,
-  endTestTransaction,
-  rollbackTestTransaction,
-} from "@wopr-network/platform-core/test/db";
+import type { PlatformDb } from "../db/index.js";
+import type { ITwoFactorRepository } from "./two-factor-repository.js";
+import { DrizzleTwoFactorRepository } from "./two-factor-repository.js";
+import { createTestDb, truncateAllTables } from "../test/db.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 describe("DrizzleTwoFactorRepository", () => {
-  let db: DrizzleDb;
+  let db: PlatformDb;
   let pool: PGlite;
   let repo: ITwoFactorRepository;
 
   beforeAll(async () => {
     ({ db, pool } = await createTestDb());
-    await beginTestTransaction(pool);
   });
 
   afterAll(async () => {
-    await endTestTransaction(pool);
     await pool.close();
   });
 
   beforeEach(async () => {
-    await rollbackTestTransaction(pool);
+    await truncateAllTables(pool);
     repo = new DrizzleTwoFactorRepository(db);
   });
 

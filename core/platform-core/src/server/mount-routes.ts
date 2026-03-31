@@ -59,7 +59,7 @@ export async function mountRoutes(
   container: PlatformContainer,
   config: MountConfig,
   plugins: RoutePlugin[] = [],
-  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "slug">,
+  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "chat" | "slug">,
 ): Promise<void> {
   // 1. CORS middleware
   const origins = deriveCorsOrigins(container.productConfig.product, container.productConfig.domains);
@@ -254,6 +254,12 @@ export async function mountRoutes(
 
     const { createAuthRoutes } = await import("../api/routes/auth.js");
     app.route("/api/auth", createAuthRoutes(getAuth()));
+  }
+
+  // 2e. Chat routes (when chat backend is provided)
+  if (bootConfig?.chat) {
+    const { createChatRoutes } = await import("../chat/routes.js");
+    app.route("/api/chat", createChatRoutes({ backend: bootConfig.chat.backend }));
   }
 
   // 3. Crypto webhook (when crypto payments are enabled)
