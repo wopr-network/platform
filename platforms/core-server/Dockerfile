@@ -26,15 +26,15 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=deps /app/ .
 RUN pnpm turbo run build --filter=@wopr-network/core-server...
 
-# Create a self-contained deploy directory with production deps only.
-RUN pnpm deploy --filter=@wopr-network/core-server --legacy /app/deploy
-
-# --- Production image (no build tools, no source, no dev deps) ---
+# --- Production image ---
 FROM node:22-bookworm-slim AS production
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-COPY --chown=node:node --from=build /app/deploy/ .
+# Copy the full workspace (node_modules + built dist) — pnpm deploy can't hoist workspace transitive deps
+COPY --chown=node:node --from=build /app/node_modules ./node_modules
+COPY --chown=node:node --from=build /app/platforms/core-server/dist ./dist
+COPY --chown=node:node --from=build /app/platforms/core-server/package.json ./
 
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001
 EXPOSE 3001

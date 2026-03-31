@@ -10,6 +10,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@wopr-network/platform-core": "workspace:*"
+    "@wopr-network/platform-core": "workspace:*",
+    "winston": "^3.17.0"
   }
 }
