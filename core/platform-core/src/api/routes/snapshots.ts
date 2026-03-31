@@ -29,8 +29,8 @@ function getManager(): SnapshotManager {
 
 let _tenantRepo: ITenantCustomerRepository | null = null;
 
-/** Initialize the tenant store for tier lookups. */
-export function setTenantRepoForTest(store: ITenantCustomerRepository | undefined): void {
+/** Initialize the tenant store for tier lookups (called by mount-routes at boot). */
+export function setSnapshotTenantRepo(store: ITenantCustomerRepository | undefined): void {
   _tenantRepo = store ?? null;
 }
 

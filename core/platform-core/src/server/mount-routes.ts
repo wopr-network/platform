@@ -132,6 +132,10 @@ export async function mountRoutes(
       if (c.req.path.startsWith("/api/auth")) return next();
       // Health check endpoint must be public (used by docker healthcheck / LB)
       if (c.req.path === "/api/health" || c.req.path === "/health") return next();
+      // Product config endpoint — UIs call this on boot to get brand config
+      if (c.req.path.startsWith("/api/products")) return next();
+      // Chat SSE streams use browser session auth, not internal service auth
+      if (c.req.path.startsWith("/api/chat")) return next();
       return authMiddleware(c as never, next);
     });
 
