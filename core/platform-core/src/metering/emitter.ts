@@ -147,6 +147,8 @@ export class DrizzleMeterEmitter implements IMeterEmitter {
         batch.map((e) => ({
           id: e.id,
           tenant: e.tenant,
+          instanceId: e.instanceId ?? null,
+          productSlug: e.productSlug ?? null,
           cost: e.cost.toRaw(),
           charge: e.charge.toRaw(),
           capability: e.capability,

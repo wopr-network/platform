@@ -95,10 +95,10 @@ export async function mountRoutes(
   // Downstream handlers read c.get("productConfig") instead of container.productConfig.
   if (bootConfig?.standalone) {
     app.use("*", async (c, next) => {
-      const slug = c.get("product") ?? c.req.header("x-product") ?? bootConfig.slug ?? "core";
+      const slug = c.req.header("x-product") ?? bootConfig.slug ?? "core";
       const resolved = await container.productConfigService.getBySlug(slug);
       if (resolved) {
-        c.set("productConfig", resolved);
+        (c as unknown as { set(k: string, v: unknown): void }).set("productConfig", resolved);
       }
       return next();
     });
