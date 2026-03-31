@@ -26,12 +26,19 @@ COPY --from=pruner /app/out/full/ .
 COPY --from=deps /app/ .
 RUN pnpm turbo run build --filter=@wopr-network/core-server...
 
+# Replace workspace symlinks with real copies so they survive Docker COPY
+RUN cd node_modules/@wopr-network && \
+    for link in $(find . -maxdepth 1 -type l); do \
+      target=$(readlink -f "$link") && \
+      rm "$link" && \
+      cp -r "$target" "$link"; \
+    done
+
 # --- Production image ---
 FROM node:22-bookworm-slim AS production
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-# Copy the full workspace (node_modules + built dist) — pnpm deploy can't hoist workspace transitive deps
 COPY --chown=node:node --from=build /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/platforms/core-server/dist ./dist
 COPY --chown=node:node --from=build /app/platforms/core-server/package.json ./
