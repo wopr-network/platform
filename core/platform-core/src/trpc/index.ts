@@ -37,6 +37,8 @@ export { createProductConfigRouter } from "./product-config-router.js";
 // Internal service context factory (standalone mode)
 export { createInternalTRPCContext } from "./internal-context.js";
 // New core routers (DI-only — no singleton)
+export { type AccountRouterDeps, createAccountRouter } from "./routers/account.js";
+export { type AddonRouterDeps, createAddonRouter } from "./routers/addons.js";
 export {
   type AdminCoreRouterDeps,
   createAdminCoreRouter,
@@ -47,7 +49,19 @@ export {
 export { type BillingRouterDeps, createBillingRouter } from "./routers/billing.js";
 export { type CoreRouterDeps, createCoreRouter } from "./routers/core-router.js";
 export { createFleetCoreRouter, type FleetCoreRouterDeps } from "./routers/fleet-core.js";
+export {
+  createInferenceAdminRouter,
+  type InferenceAdminRouterDeps,
+} from "./routers/inference-admin.js";
+export { createMarketplaceRouter, type MarketplaceRouterDeps } from "./routers/marketplace.js";
+export {
+  createModelSelectionRouter,
+  type ITenantModelSelectionRepository,
+  type ModelSelectionRouterDeps,
+} from "./routers/model-selection.js";
+export { createNodesRouter, type NodesRouterDeps } from "./routers/nodes.js";
 export { createOrgRouter, type OrgRouterDeps } from "./routers/org.js";
+export { createOrgKeysRouter, type OrgKeysRouterDeps } from "./routers/org-keys.js";
 export {
   createPageContextRouter,
   type PageContextRouterDeps,
@@ -60,9 +74,11 @@ export {
   profileRouter,
   setProfileRouterDeps,
 } from "./routers/profile.js";
+export { createPromotionsRouter, type PromotionsRouterDeps } from "./routers/promotions.js";
 export {
   createSettingsRouter,
   type SettingsRouterDeps,
   setSettingsRouterDeps,
   settingsRouter,
 } from "./routers/settings.js";
+export { createTwoFactorRouter, type TwoFactorRouterDeps } from "./routers/two-factor.js";
