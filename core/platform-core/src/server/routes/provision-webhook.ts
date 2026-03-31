@@ -26,15 +26,15 @@ import type { PlatformContainer } from "../container.js";
 
 export interface ProvisionWebhookConfig {
   provisionSecret: string;
-  /** Docker image to provision for new instances. */
+  /** Fallback Docker image (used when product config lookup fails). */
   instanceImage: string;
-  /** Port the provisioned container listens on. */
+  /** Fallback container port. */
   containerPort: number;
-  /** Maximum instances per tenant (0 = unlimited). */
+  /** Fallback max instances per tenant (0 = unlimited). */
   maxInstancesPerTenant: number;
   /** URL of the metered inference gateway (passed to provisioned containers). */
   gatewayUrl?: string;
-  /** Container prefix for naming (e.g. "wopr" → "wopr-<subdomain>"). */
+  /** Fallback container prefix for naming (e.g. "wopr" → "wopr-<subdomain>"). */
   containerPrefix?: string;
 }
 
@@ -90,10 +90,28 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     }
 
     const body = await c.req.json();
-    const { tenantId, subdomain, adminUser, agents, budgetCents, apiKey } = body;
+    const { tenantId, subdomain, adminUser, agents, budgetCents, apiKey, product: bodyProduct } = body;
 
     if (!tenantId || !subdomain) {
       return c.json({ error: "Missing required fields: tenantId, subdomain" }, 422);
+    }
+
+    // Resolve product fleet config per-request.
+    // Priority: request body "product" → X-Product header → boot-time fallback.
+    const productSlug = bodyProduct ?? c.req.header("x-product") ?? null;
+    let instanceImage = config.instanceImage;
+    let containerPort = config.containerPort;
+    let maxInstances = config.maxInstancesPerTenant;
+    let containerPrefix = config.containerPrefix ?? "wopr";
+
+    if (productSlug && container.productConfigService) {
+      const productConfig = await container.productConfigService.getBySlug(productSlug);
+      if (productConfig?.fleet) {
+        instanceImage = productConfig.fleet.containerImage || instanceImage;
+        containerPort = productConfig.fleet.containerPort || containerPort;
+        maxInstances = productConfig.fleet.maxInstances ?? maxInstances;
+        containerPrefix = productSlug;
+      }
     }
 
     // Billing gate — require positive credit balance before provisioning
@@ -108,11 +126,11 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     // Instance limit gate
     const { profileStore, nodeRegistry, placementStrategy, fleetResolver, serviceKeyRepo } = container.fleet;
 
-    if (config.maxInstancesPerTenant > 0) {
+    if (maxInstances > 0) {
       const profiles = await profileStore.list();
       const tenantInstances = profiles.filter((p) => p.tenantId === tenantId);
-      if (tenantInstances.length >= config.maxInstancesPerTenant) {
-        return c.json({ error: `Instance limit reached: maximum ${config.maxInstancesPerTenant} per tenant` }, 403);
+      if (tenantInstances.length >= maxInstances) {
+        return c.json({ error: `Instance limit reached: maximum ${maxInstances} per tenant` }, 403);
       }
     }
 
@@ -124,14 +142,14 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
 
     logger.info(`Placing container on node: ${targetNode.config.name} (${targetNode.config.id})`);
 
-    // Create the Docker container
+    // Create the Docker container — image comes from product config
     const instance = await fleet.create({
       tenantId,
       name: subdomain,
       description: `Managed instance for ${subdomain}`,
-      image: config.instanceImage,
+      image: instanceImage,
       env: {
-        PORT: String(config.containerPort),
+        PORT: String(containerPort),
         PROVISION_SECRET: config.provisionSecret,
         HOSTED_MODE: "true",
         DEPLOYMENT_MODE: "hosted_proxy",
@@ -151,13 +169,12 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     nodeRegistry.assignContainer(instance.id, targetNode.config.id);
 
     // Register proxy route — container name must match FleetManager naming convention
-    const prefix = config.containerPrefix ?? "wopr";
-    const containerName = `${prefix}-${subdomain}`;
+    const containerName = `${containerPrefix}-${subdomain}`;
     const upstreamHost = nodeRegistry.resolveUpstreamHost(instance.id, containerName);
-    await fleetResolver.registerRoute(instance.id, subdomain, upstreamHost, config.containerPort);
+    await fleetResolver.registerRoute(instance.id, subdomain, upstreamHost, containerPort);
 
     // Wait for container to become healthy
-    const containerUrl = `http://${upstreamHost}:${config.containerPort}`;
+    const containerUrl = `http://${upstreamHost}:${containerPort}`;
     const healthy = await waitForHealth(containerUrl);
     if (!healthy) {
       logger.warn(`Container not healthy after creation: ${subdomain}`);
