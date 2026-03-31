@@ -136,9 +136,8 @@ export async function mountRoutes(
       if (c.req.path.startsWith("/api/products")) return next();
       // Chat SSE streams use browser session auth, not internal service auth
       if (c.req.path.startsWith("/api/chat")) return next();
-      // Billing webhooks use their own signature verification (Stripe/crypto), not service tokens
-      if (c.req.path.startsWith("/api/billing/webhook")) return next();
-      if (c.req.path.startsWith("/api/billing/crypto/webhook")) return next();
+      // Webhooks use their own signature verification (Stripe/crypto), not service tokens
+      if (c.req.path.startsWith("/api/webhooks")) return next();
       return authMiddleware(c as never, next);
     });
 
@@ -197,10 +196,13 @@ export async function mountRoutes(
             fleet: {
               creditLedger: container.creditLedger,
               profileStore: container.fleet.profileStore,
-              productConfig: container.productConfig, // Fleet uses boot-time config for defaults; per-product image comes from ProductFleetConfig at provision time
+              productConfig: container.productConfig, // Fallback — createInstance resolves per-product via resolveProductConfig
               serviceKeyRepo: container.fleet.serviceKeyRepo,
               assertOrgAdminOrOwner,
-              getFleetForInstance: (_instanceId: string) => need(container.fleet, "fleet").manager,
+              getFleetForInstance: (_instanceId: string) => need(container.fleet, "fleet").manager as never,
+              provisionSecret: config.provisionSecret,
+              resolveProductConfig: (slug: string) => container.productConfigService.getBySlug(slug),
+              poolRepo: container.poolRepo ?? undefined,
             },
           }
         : {}),
@@ -323,7 +325,7 @@ export async function mountRoutes(
       "/api/provision",
       createProvisionWebhookRoutes(container, {
         provisionSecret: config.provisionSecret,
-        instanceImage: fleetConfig?.containerImage ?? "ghcr.io/default:latest",
+        instanceImage: fleetConfig?.containerImage ?? "registry.wopr.bot/wopr:managed",
         containerPort: fleetConfig?.containerPort ?? 3000,
         maxInstancesPerTenant: fleetConfig?.maxInstances ?? 5,
       }),

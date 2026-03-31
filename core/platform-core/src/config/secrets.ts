@@ -50,6 +50,11 @@ export interface PlatformSecrets {
 
   // Fleet
   provisionSecret: string;
+
+  // Registry (private Docker registry for sidecar images)
+  registryUsername: string | null;
+  registryPassword: string | null;
+  registryUrl: string | null;
 }
 
 /**
@@ -102,6 +107,11 @@ export function mapSecrets(raw: Record<string, string>): PlatformSecrets {
 
     // Fleet
     provisionSecret: required(raw, "provision_secret"),
+
+    // Registry
+    registryUsername: raw.registry_username ?? null,
+    registryPassword: raw.registry_password ?? null,
+    registryUrl: raw.registry_url ?? null,
   };
 }
 
@@ -118,6 +128,7 @@ export function mapSecretsFromPaths(paths: Record<string, Record<string, string>
   const github = paths.github ?? {};
   const ghcr = paths.ghcr ?? {};
   const cloudflare = paths.cloudflare ?? {};
+  const registry = paths.registry ?? {};
 
   return {
     betterAuthSecret: requireFrom(prod, "better_auth_secret"),
@@ -143,6 +154,9 @@ export function mapSecretsFromPaths(paths: Record<string, Record<string, string>
     googleClientId: prod.google_client_id ?? null,
     googleClientSecret: prod.google_client_secret ?? null,
     provisionSecret: requireFrom(prod, "provision_secret"),
+    registryUsername: registry.username ?? null,
+    registryPassword: registry.password ?? null,
+    registryUrl: registry.url ?? null,
   };
 }
 
@@ -188,6 +202,9 @@ export function secretsFromEnv(): PlatformSecrets {
     googleClientId: null,
     googleClientSecret: null,
     provisionSecret: "dev-provision-secret",
+    registryUsername: null,
+    registryPassword: null,
+    registryUrl: null,
   };
 }
 // vault oauth rebuild

@@ -125,6 +125,8 @@ export interface PlatformContainer {
   gateway: GatewayServices | null;
   /** Null when the product does not use a hot-pool of pre-provisioned instances. */
   hotPool: HotPoolServices | null;
+  /** Pool repository — exposed for fleet createInstance to try warm claim. Null when hotPool disabled. */
+  poolRepo: import("./services/pool-repository.js").IPoolRepository | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +370,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     stripe,
     gateway,
     hotPool: null,
+    poolRepo: null,
   };
 
   // Bind hot pool after container construction (closures need the full container)
@@ -376,8 +379,29 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { claimPoolInstance } = await import("./services/hot-pool-claim.js");
     const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
     const poolRepo = new DrizzlePoolRepository(pool);
+    result.poolRepo = poolRepo;
 
-    const hotPoolConfig = { provisionSecret: bootConfig.secrets?.provisionSecret ?? bootConfig.provisionSecret ?? "" };
+    // In standalone mode, pass all product slugs so the pool pre-warms each product's image
+    const productSlugs = bootConfig.standalone
+      ? ((await result.productConfigService.listAll())
+          .filter((pc) => pc.fleet)
+          .map((pc) => pc.product?.slug)
+          .filter(Boolean) as string[])
+      : undefined;
+
+    const secrets = bootConfig.secrets;
+    const hotPoolConfig = {
+      provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? "",
+      productSlugs,
+      registryAuth:
+        secrets?.registryUsername && secrets?.registryPassword
+          ? {
+              username: secrets.registryUsername,
+              password: secrets.registryPassword,
+              serveraddress: secrets.registryUrl ?? "https://registry.wopr.bot",
+            }
+          : undefined,
+    };
     result.hotPool = {
       start: () => startHotPool(result, poolRepo, hotPoolConfig),
       claim: (name, tenantId, adminUser) =>

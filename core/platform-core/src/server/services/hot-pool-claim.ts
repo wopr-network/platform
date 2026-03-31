@@ -48,7 +48,7 @@ export async function claimPoolInstance(
 
   const pc = container.productConfig;
   const containerPort = pc.fleet?.containerPort ?? 3100;
-  const containerImage = pc.fleet?.containerImage ?? "ghcr.io/wopr-network/platform:latest";
+  const containerImage = pc.fleet?.containerImage ?? "registry.wopr.bot/wopr:managed";
   const platformDomain = pc.product?.domain ?? "localhost";
   const prefix = config?.containerPrefix ?? "wopr";
 

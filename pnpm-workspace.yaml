@@ -1,12 +1,5 @@
 packages:
   - "core/*"
   - "platforms/*"
-  - "sidecars/*"
-  - "sidecars/holyshipper/packages/*"
-  - "sidecars/paperclip/*"
-  - "sidecars/paperclip/packages/*"
-  - "sidecars/paperclip/packages/adapters/*"
-  - "sidecars/paperclip/packages/plugins/*"
-  - "sidecars/paperclip/packages/plugins/examples/*"
   - "shells/*"
   - "services/*"

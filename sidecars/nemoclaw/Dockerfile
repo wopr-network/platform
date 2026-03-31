@@ -124,47 +124,21 @@ os.chmod(path, 0o600)"
 RUN openclaw doctor --fix > /dev/null 2>&1 || true \
     && openclaw plugins install /opt/nemoclaw > /dev/null 2>&1 || true
 
-<<<<<<< HEAD
-# Save build-time config as defaults — startup script copies to writable HOME
-USER root
-RUN cp -a /sandbox/.openclaw /opt/nemoclaw-defaults \
-    && cp -a /sandbox/.nemoclaw /opt/nemoclaw-defaults/.nemoclaw
-USER sandbox
-
-# At runtime, HOME=/data (writable volume mount from FleetManager).
-# ReadonlyRootfs makes /sandbox read-only, so all writes go to /data.
-ENV HOME=/data
-
-EXPOSE 3100
-
-ENTRYPOINT ["/usr/local/bin/nemoclaw-start"]
-=======
 # Lock openclaw.json via DAC: chown to root so the sandbox user cannot modify
-# it at runtime.  This works regardless of Landlock enforcement status.
-# The Landlock policy (/sandbox/.openclaw in read_only) provides defense-in-depth
-# once OpenShell enables enforcement.
-# Ref: https://github.com/NVIDIA/NemoClaw/issues/514
-# Lock the entire .openclaw directory tree.
-# SECURITY: chmod 755 (not 1777) — the sandbox user can READ but not WRITE
-# to this directory. This prevents the agent from replacing symlinks
-# (e.g., pointing /sandbox/.openclaw/hooks to an attacker-controlled path).
-# The writable state lives in .openclaw-data, reached via the symlinks.
-# hadolint ignore=DL3002
+# it at runtime. Defense-in-depth with Landlock policy.
 USER root
 RUN chown root:root /sandbox/.openclaw \
     && find /sandbox/.openclaw -mindepth 1 -maxdepth 1 -exec chown -h root:root {} + \
     && chmod 755 /sandbox/.openclaw \
     && chmod 444 /sandbox/.openclaw/openclaw.json
 
-# Pin config hash at build time so the entrypoint can verify integrity.
-# Prevents the agent from creating a copy with a tampered config and
-# restarting the gateway pointing at it.
+# Pin config hash at build time for integrity verification.
 RUN sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash \
     && chmod 444 /sandbox/.openclaw/.config-hash \
     && chown root:root /sandbox/.openclaw/.config-hash
 
-# Entrypoint runs as root to start the gateway as the gateway user,
-# then drops to sandbox for agent commands. See nemoclaw-start.sh.
+ENV HOME=/data
+EXPOSE 3100
+
 ENTRYPOINT ["/usr/local/bin/nemoclaw-start"]
 CMD ["/bin/bash"]
->>>>>>> upstream/main

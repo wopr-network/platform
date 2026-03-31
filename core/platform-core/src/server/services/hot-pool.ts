@@ -17,6 +17,10 @@ export interface HotPoolConfig {
   provisionSecret: string;
   /** Replenish interval in ms. Default: 60_000. */
   replenishIntervalMs?: number;
+  /** Product slugs to pre-warm. Each gets its own pool partition. */
+  productSlugs?: string[];
+  /** Registry auth for pulling sidecar images (dockerode needs explicit auth). */
+  registryAuth?: { username: string; password: string; serveraddress: string };
 }
 
 export interface HotPoolHandles {
@@ -40,24 +44,52 @@ export async function setPoolSize(repo: IPoolRepository, size: number): Promise<
 // Warm container management
 // ---------------------------------------------------------------------------
 
+interface WarmContainerOpts {
+  containerImage: string;
+  containerPort: number;
+  dockerNetwork: string;
+  productSlug: string;
+}
+
 async function createWarmContainer(
   container: PlatformContainer,
   repo: IPoolRepository,
   config: HotPoolConfig,
+  opts: WarmContainerOpts,
 ): Promise<void> {
   if (!container.fleet) throw new Error("Fleet services required for hot pool");
 
-  const pc = container.productConfig;
-  const containerImage = pc.fleet?.containerImage ?? "ghcr.io/wopr-network/platform:latest";
-  const containerPort = pc.fleet?.containerPort ?? 3100;
+  const { containerImage, containerPort, dockerNetwork, productSlug } = opts;
   const provisionSecret = config.provisionSecret;
-  const dockerNetwork = pc.fleet?.dockerNetwork ?? "";
   const docker = container.fleet.docker;
   const id = crypto.randomUUID();
   const containerName = `pool-${id.slice(0, 8)}`;
   const volumeName = `pool-${id.slice(0, 8)}`;
 
   try {
+    // Pull image if not already available locally
+    try {
+      const auth = config.registryAuth;
+      const [fromImage, tag] = containerImage.includes(":") ? containerImage.split(":") : [containerImage, "latest"];
+      logger.info(
+        `Hot pool: pulling ${containerImage} (auth: ${auth ? auth.username + "@" + auth.serveraddress : "none"})`,
+      );
+      // biome-ignore lint/complexity/noBannedTypes: dockerode createImage requires untyped call with auth as first arg
+      const authArg = auth
+        ? { username: auth.username, password: auth.password, serveraddress: auth.serveraddress }
+        : {};
+      const stream: NodeJS.ReadableStream = await docker.createImage(authArg, { fromImage, tag });
+      await new Promise<void>((resolve, reject) => {
+        docker.modem.followProgress(stream, (err: Error | null) => (err ? reject(err) : resolve()));
+      });
+    } catch (pullErr) {
+      // Image may already be cached locally — continue and let createContainer fail if not
+      logger.warn(`Hot pool: image pull failed for ${containerImage}`, {
+        productSlug,
+        error: (pullErr as Error).message,
+      });
+    }
+
     // Init volume permissions
     const init = await docker.createContainer({
       Image: containerImage,
@@ -87,11 +119,12 @@ async function createWarmContainer(
       await network.connect({ Container: warmContainer.id });
     }
 
-    await repo.insertWarm(id, warmContainer.id);
+    await repo.insertWarm(id, warmContainer.id, productSlug, containerImage);
 
-    logger.info(`Hot pool: created warm container ${containerName} (${id})`);
+    logger.info(`Hot pool: created warm container ${containerName} (${id}) for ${productSlug}`);
   } catch (err) {
     logger.error("Hot pool: failed to create warm container", {
+      productSlug,
       error: (err as Error).message,
     });
   }
@@ -102,16 +135,52 @@ export async function replenishPool(
   repo: IPoolRepository,
   config: HotPoolConfig,
 ): Promise<void> {
-  const desired = await repo.getPoolSize();
-  const current = await repo.warmCount();
+  const slugs = config.productSlugs ?? [];
+
+  if (slugs.length === 0) {
+    // Legacy single-product mode — use boot-time product config
+    const pc = container.productConfig;
+    const slug = pc.product?.slug ?? "default";
+    await replenishForProduct(container, repo, config, {
+      containerImage: pc.fleet?.containerImage ?? "registry.wopr.bot/wopr:managed",
+      containerPort: pc.fleet?.containerPort ?? 3100,
+      dockerNetwork: pc.fleet?.dockerNetwork ?? "",
+      productSlug: slug,
+    });
+    return;
+  }
+
+  // Multi-product mode — replenish each product's pool
+  for (const slug of slugs) {
+    const pc = await container.productConfigService.getBySlug(slug);
+    if (!pc?.fleet) continue;
+    await replenishForProduct(container, repo, config, {
+      containerImage: pc.fleet.containerImage,
+      containerPort: pc.fleet.containerPort,
+      dockerNetwork: pc.fleet.dockerNetwork,
+      productSlug: slug,
+    });
+  }
+}
+
+async function replenishForProduct(
+  container: PlatformContainer,
+  repo: IPoolRepository,
+  config: HotPoolConfig,
+  opts: WarmContainerOpts,
+): Promise<void> {
+  const desired = await repo.getPoolSize(opts.productSlug);
+  const current = await repo.warmCount(opts.productSlug);
   const deficit = desired - current;
 
   if (deficit <= 0) return;
 
-  logger.info(`Hot pool: replenishing ${deficit} container(s) (have ${current}, want ${desired})`);
+  logger.info(
+    `Hot pool [${opts.productSlug}]: replenishing ${deficit} container(s) (have ${current}, want ${desired})`,
+  );
 
   for (let i = 0; i < deficit; i++) {
-    await createWarmContainer(container, repo, config);
+    await createWarmContainer(container, repo, config, opts);
   }
 }
 

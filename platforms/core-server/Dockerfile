@@ -42,7 +42,7 @@ COPY --chown=node:node --from=build /app/services/provision-client ./node_module
 COPY --chown=node:node --from=build /app/platforms/core-server/dist ./dist
 COPY --chown=node:node --from=build /app/platforms/core-server/package.json ./
 
-RUN mkdir -p /app/data && chown node:node /app/data
+RUN mkdir -p /app/data /data/fleet && chown -R node:node /app/data /data
 
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3001
 EXPOSE 3001

@@ -83,6 +83,7 @@ export function vaultPaths(slug: string): string[] {
     "shared/github",
     "shared/ghcr",
     "shared/cloudflare",
+    "shared/registry",
   ];
 }
 

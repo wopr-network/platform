@@ -43,7 +43,7 @@ const platform = await bootPlatformServer({
     crypto: !!secrets.cryptoServiceKey,
     stripe: !!secrets.stripeSecretKey,
     gateway: true,
-    hotPool: false,
+    hotPool: true,
   },
   standalone: {
     allowedServiceTokens: process.env.CORE_ALLOWED_SERVICE_TOKENS ?? "",

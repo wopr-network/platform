@@ -13,6 +13,7 @@ import type { ILedger } from "../../credits/ledger.js";
 import type { IProfileStore } from "../../fleet/profile-store.js";
 import type { IServiceKeyRepository } from "../../gateway/service-key-repository.js";
 import type { ProductConfig } from "../../product-config/repository-types.js";
+import type { IPoolRepository } from "../../server/services/pool-repository.js";
 import { protectedProcedure, router, type TRPCContext } from "../init.js";
 
 // Narrowed context after protectedProcedure middleware (user is non-optional)
@@ -24,6 +25,35 @@ import { z } from "zod";
 // Deps
 // ---------------------------------------------------------------------------
 
+/** Fleet manager interface (subset used by the router). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FleetManagerLike = {
+  status: (id: string) => Promise<{
+    id: string;
+    name: string;
+    description: string;
+    image: string;
+    containerId: string | null;
+    state: string;
+    health: unknown;
+    uptime: unknown;
+    startedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+    stats: unknown;
+    applicationMetrics: unknown;
+  }>;
+  logs: (id: string, tail: number) => Promise<string>;
+  remove: (id: string) => Promise<void>;
+  getInstance: (
+    id: string,
+  ) => Promise<{ start: () => Promise<void>; stop: () => Promise<void>; startBilling: () => Promise<void> }>;
+  create: (
+    params: Record<string, unknown>,
+    resourceLimits?: unknown,
+  ) => Promise<{ id: string; profile: { name: string; tenantId: string } }>;
+};
+
 export interface FleetCoreRouterDeps {
   creditLedger: ILedger;
   profileStore: IProfileStore;
@@ -32,30 +62,17 @@ export interface FleetCoreRouterDeps {
   /** Assert caller is admin/owner of the tenant. Skips check for personal tenants (tenantId === userId). */
   assertOrgAdminOrOwner: (tenantId: string, userId: string) => Promise<void>;
   /** Get the FleetManager for a given instance. Product-specific resolution. */
-  getFleetForInstance: (instanceId: string) => {
-    status: (id: string) => Promise<{
-      id: string;
-      name: string;
-      description: string;
-      image: string;
-      containerId: string | null;
-      state: string;
-      health: unknown;
-      uptime: unknown;
-      startedAt: string | null;
-      createdAt: string;
-      updatedAt: string;
-      stats: unknown;
-      applicationMetrics: unknown;
-    }>;
-    logs: (id: string, tail: number) => Promise<string>;
-    remove: (id: string) => Promise<void>;
-    getInstance: (id: string) => Promise<{ start: () => Promise<void>; stop: () => Promise<void> }>;
-  };
+  getFleetForInstance: (instanceId: string) => FleetManagerLike;
   /** Unassign container from node tracking. */
   unassignContainer?: (instanceId: string) => void;
   /** Remove route for an instance. */
   removeRoute?: (instanceId: string) => Promise<void>;
+  /** Provision secret for calling container /internal/provision. */
+  provisionSecret?: string;
+  /** Resolve product config by slug. */
+  resolveProductConfig?: (slug: string) => Promise<ProductConfig | null>;
+  /** Hot pool repository — try claiming a pre-warmed container before cold create. */
+  poolRepo?: IPoolRepository;
 }
 
 /** Derive tenantId from context — personal org uses userId as tenantId. */
@@ -233,6 +250,135 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         const fleet = d.getFleetForInstance(input.id);
         const status = await fleet.status(input.id);
         return { id: status.id, stats: status.stats };
+      }),
+
+    /**
+     * Create a new instance: create container → provision identity → start billing.
+     *
+     * This is the primary entry point for UIs to spin up product sidecars.
+     * The product slug (from X-Product header) determines which container image,
+     * gateway URL, and product config to use.
+     */
+    createInstance: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(1).max(63),
+          description: z.string().optional().default(""),
+          productSlug: z.string().min(1).optional(),
+          orgId: z.string().min(1).optional(),
+          env: z.record(z.string(), z.string()).optional(),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
+        const userId = (ctx as ProtectedCtx).user.id;
+        await d.assertOrgAdminOrOwner(tenant, userId);
+
+        // Resolve product config for the image + gateway URL
+        const slug = input.productSlug ?? "wopr";
+        let pc = d.productConfig;
+        if (d.resolveProductConfig && slug !== d.productConfig.product?.slug) {
+          const resolved = await d.resolveProductConfig(slug);
+          if (resolved) pc = resolved;
+        }
+
+        const fleetConfig = pc.fleet;
+        const image = fleetConfig?.containerImage ?? "registry.wopr.bot/wopr:managed";
+
+        // Credit check — minimum 17 cents (1 day of runtime).
+        // Ephemeral instances skip this — they bill per-token at the gateway.
+        const isEphemeral = fleetConfig?.lifecycle === "ephemeral";
+        const { Credit } = await import("../../credits/index.js");
+        const balance = await d.creditLedger.balance(tenant);
+        if (!isEphemeral && balance.lessThan(Credit.fromCents(17))) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: `Insufficient credits: ${balance.toCentsRounded()}¢ (need 17¢ minimum)`,
+          });
+        }
+
+        // 1. Create — try claiming a pre-warmed container first, cold create as fallback
+        const fleet = d.getFleetForInstance("__new__");
+        let instance: { id: string; profile: { name: string; tenantId: string } } | null = null;
+
+        // Try claiming a pre-warmed container from the hot pool
+        if (d.poolRepo) {
+          const claimed = await d.poolRepo.claimWarm(tenant, input.name, slug);
+          if (claimed) {
+            instance = { id: claimed.id, profile: { name: input.name, tenantId: tenant } };
+            logger.info(`Fleet: claimed warm container from pool`, { instanceId: claimed.id, productSlug: slug });
+          }
+        }
+
+        // Cold create as fallback
+        if (!instance) {
+          instance = await fleet.create({
+            tenantId: tenant,
+            name: input.name,
+            description: input.description ?? "",
+            image,
+            env: (input.env ?? {}) as Record<string, string>,
+            restartPolicy: "unless-stopped",
+            releaseChannel: "stable",
+            updatePolicy: "manual",
+          });
+          logger.info(`Fleet: cold-created container`, { instanceId: instance.id, productSlug: slug });
+        }
+
+        // Generate gateway service key for metered inference
+        let gatewayKey: string | undefined;
+        if (d.serviceKeyRepo) {
+          try {
+            gatewayKey = await d.serviceKeyRepo.generate(tenant, instance.id, slug);
+          } catch (err) {
+            logger.warn("Gateway key generation failed (non-fatal)", { instanceId: instance.id, err });
+          }
+        }
+
+        // 2. Provision — give the container its identity
+        const containerPort = fleetConfig?.containerPort ?? 3000;
+        const gatewayUrl = pc.product?.domain ? `https://api.${pc.product.domain}` : "https://api.wopr.bot";
+        if (d.provisionSecret && gatewayKey) {
+          try {
+            const { provisionContainer } = await import("@wopr-network/provision-client");
+            const containerUrl = `http://localhost:${containerPort}`;
+            await provisionContainer(containerUrl, d.provisionSecret, {
+              tenantId: tenant,
+              tenantName: input.name,
+              gatewayUrl,
+              apiKey: gatewayKey,
+              budgetCents: balance.toCentsRounded(),
+              adminUser: {
+                id: userId,
+                email: "",
+                name: input.name,
+              },
+            });
+          } catch (err) {
+            logger.warn("Provisioning failed (non-fatal, container still created)", {
+              instanceId: instance.id,
+              err,
+            });
+          }
+        }
+
+        // 3. Start billing — activate the $0.17/day clock.
+        // Ephemeral instances (e.g., holyship) skip this — they bill per-token at the gateway.
+        if (!isEphemeral) {
+          try {
+            const inst = await fleet.getInstance(instance.id);
+            await inst.startBilling();
+          } catch (err) {
+            logger.warn("startBilling failed (non-fatal)", { instanceId: instance.id, err });
+          }
+        }
+
+        return {
+          id: instance.id,
+          name: instance.profile.name,
+          tenantId: instance.profile.tenantId,
+          gatewayKey,
+        };
       }),
 
     /** List available templates for instance creation. */

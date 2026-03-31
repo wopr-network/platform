@@ -72,8 +72,10 @@ export async function startBackgroundServices(container: PlatformContainer): Pro
     try {
       const poolHandles = await container.hotPool.start();
       handles.unsubscribes.push(poolHandles.stop);
-    } catch {
+    } catch (err) {
       // Non-fatal — pool will be empty but claiming falls back to cold create
+      const { logger } = await import("../config/logger.js");
+      logger.warn("Hot pool start failed (non-fatal)", { error: (err as Error)?.message ?? err });
     }
   }
 
