@@ -2,7 +2,7 @@ import { resolveSecrets } from "@wopr-network/platform-core/config";
 import { logger } from "@wopr-network/platform-core/config/logger";
 import { bootPlatformServer } from "@wopr-network/platform-core/server";
 
-const slug = process.env.PRODUCT_SLUG ?? "core";
+const slug = process.env.PRODUCT_SLUG ?? "wopr";
 const secrets = await resolveSecrets(slug);
 
 const dbHost = process.env.DB_HOST ?? "postgres";
