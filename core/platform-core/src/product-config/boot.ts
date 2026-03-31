@@ -81,6 +81,28 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     seeded = true;
   }
 
+  // Seed all other presets that don't exist yet (standalone mode serves all products)
+  for (const [presetSlug, preset] of Object.entries(PRODUCT_PRESETS)) {
+    if (presetSlug === slug) continue; // already seeded above
+    const existing = await service.getBySlug(presetSlug);
+    if (existing) continue; // already in DB
+    const { navItems, fleet, marginDefault, defaultModel, ...productData } = preset;
+    const product = await repo.upsertProduct(presetSlug, productData);
+    await repo.replaceNavItems(
+      product.id,
+      navItems.map((item) => ({
+        label: item.label,
+        href: item.href,
+        sortOrder: item.sortOrder,
+        requiresRole: item.requiresRole,
+        enabled: true,
+      })),
+    );
+    await repo.upsertFleetConfig(product.id, fleet);
+    await repo.upsertFeatures(product.id, {});
+    await repo.upsertBillingConfig(product.id, { marginConfig: { default: marginDefault } });
+  }
+
   const corsOrigins = [...deriveCorsOrigins(config.product, config.domains), ...devOrigins];
 
   return { service, config, corsOrigins, seeded };

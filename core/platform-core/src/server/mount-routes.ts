@@ -136,6 +136,9 @@ export async function mountRoutes(
       if (c.req.path.startsWith("/api/products")) return next();
       // Chat SSE streams use browser session auth, not internal service auth
       if (c.req.path.startsWith("/api/chat")) return next();
+      // Billing webhooks use their own signature verification (Stripe/crypto), not service tokens
+      if (c.req.path.startsWith("/api/billing/webhook")) return next();
+      if (c.req.path.startsWith("/api/billing/crypto/webhook")) return next();
       return authMiddleware(c as never, next);
     });
 
