@@ -58,6 +58,8 @@ export interface MeterEventRow {
 /** Per-tenant usage summary for a given time window. */
 export interface UsageSummary {
   tenant: string;
+  instance_id?: string | null;
+  product_slug?: string | null;
   capability: string;
   provider: string;
   /** Number of events aggregated. */

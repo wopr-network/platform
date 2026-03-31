@@ -162,6 +162,34 @@
       "when": 1743523200000,
       "tag": "0022_rpc_headers_column",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1743609600000,
+      "tag": "0023_key_rings_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1743696000000,
+      "tag": "0024_backfill_key_rings",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1743782400000,
+      "tag": "0025_hot_pool_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1743868800000,
+      "tag": "0026_instance_product_billing",
+      "breakpoints": true
     }
   ]
 }

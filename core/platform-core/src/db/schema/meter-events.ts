@@ -38,6 +38,8 @@ export const usageSummaries = pgTable(
   {
     id: text("id").primaryKey(),
     tenant: text("tenant").notNull(),
+    instanceId: text("instance_id"),
+    productSlug: text("product_slug"),
     capability: text("capability").notNull(),
     provider: text("provider").notNull(),
     eventCount: integer("event_count").notNull(),

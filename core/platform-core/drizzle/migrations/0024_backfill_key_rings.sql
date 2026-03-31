@@ -62,6 +62,7 @@ ON CONFLICT DO NOTHING;
 --> statement-breakpoint
 
 -- Backfill payment_methods with key_ring_id, encoding, plugin_id
+-- Only run when key_rings actually exist (skips on fresh/empty DBs)
 UPDATE payment_methods SET
   key_ring_id = CASE
     WHEN chain IN ('arbitrum','avalanche','base','base-sepolia','bsc','optimism','polygon','sepolia') THEN 'evm-main'
@@ -72,4 +73,5 @@ UPDATE payment_methods SET
   END,
   encoding = address_type,
   plugin_id = watcher_type
-WHERE key_ring_id IS NULL;
+WHERE key_ring_id IS NULL
+  AND EXISTS (SELECT 1 FROM key_rings LIMIT 1);

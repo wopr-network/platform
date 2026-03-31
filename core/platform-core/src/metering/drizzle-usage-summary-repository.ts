@@ -5,6 +5,8 @@ import type { UsageSummary } from "./types.js";
 
 export interface AggregatedWindowRow {
   tenant: string;
+  instanceId: string | null;
+  productSlug: string | null;
   capability: string;
   provider: string;
   eventCount: number;
@@ -16,6 +18,8 @@ export interface AggregatedWindowRow {
 export interface UsageSummaryInsert {
   id: string;
   tenant: string;
+  instanceId?: string | null;
+  productSlug?: string | null;
   capability: string;
   provider: string;
   eventCount: number;
@@ -52,6 +56,16 @@ export interface IUsageSummaryRepository {
   ): Promise<{ totalCost: number; totalCharge: number; eventCount: number }>;
 }
 
+/** Per-instance usage breakdown for display. */
+export interface InstanceUsageRow {
+  instanceId: string;
+  productSlug: string | null;
+  capability: string;
+  eventCount: number;
+  totalCost: number;
+  totalCharge: number;
+}
+
 export class DrizzleUsageSummaryRepository implements IUsageSummaryRepository {
   constructor(private readonly db: PlatformDb) {}
 
@@ -74,6 +88,8 @@ export class DrizzleUsageSummaryRepository implements IUsageSummaryRepository {
     const rows = await this.db
       .select({
         tenant: meterEvents.tenant,
+        instanceId: meterEvents.instanceId,
+        productSlug: meterEvents.productSlug,
         capability: meterEvents.capability,
         provider: meterEvents.provider,
         eventCount: count(),
@@ -83,10 +99,18 @@ export class DrizzleUsageSummaryRepository implements IUsageSummaryRepository {
       })
       .from(meterEvents)
       .where(and(gte(meterEvents.timestamp, windowStart), lt(meterEvents.timestamp, windowEnd)))
-      .groupBy(meterEvents.tenant, meterEvents.capability, meterEvents.provider);
+      .groupBy(
+        meterEvents.tenant,
+        meterEvents.instanceId,
+        meterEvents.productSlug,
+        meterEvents.capability,
+        meterEvents.provider,
+      );
 
     return rows.map((r) => ({
       tenant: r.tenant,
+      instanceId: r.instanceId ?? null,
+      productSlug: r.productSlug ?? null,
       capability: r.capability,
       provider: r.provider,
       eventCount: r.eventCount,
@@ -126,6 +150,8 @@ export class DrizzleUsageSummaryRepository implements IUsageSummaryRepository {
     return this.db
       .select({
         tenant: usageSummaries.tenant,
+        instance_id: usageSummaries.instanceId,
+        product_slug: usageSummaries.productSlug,
         capability: usageSummaries.capability,
         provider: usageSummaries.provider,
         event_count: usageSummaries.eventCount,
@@ -161,6 +187,42 @@ export class DrizzleUsageSummaryRepository implements IUsageSummaryRepository {
       totalCharge: Number(row?.totalCharge ?? 0),
       eventCount: Number(row?.eventCount ?? 0),
     };
+  }
+
+  /**
+   * Query raw meter events grouped by instance for a tenant.
+   * Returns per-instance, per-capability spend totals.
+   * Used by the billing UI to show which instance is spending what.
+   */
+  async queryByTenantGroupedByInstance(
+    tenant: string,
+    opts: { since?: number; until?: number } = {},
+  ): Promise<InstanceUsageRow[]> {
+    const conditions = [eq(meterEvents.tenant, tenant)];
+    if (opts.since != null) conditions.push(gte(meterEvents.timestamp, opts.since));
+    if (opts.until != null) conditions.push(lt(meterEvents.timestamp, opts.until));
+
+    const rows = await this.db
+      .select({
+        instanceId: meterEvents.instanceId,
+        productSlug: meterEvents.productSlug,
+        capability: meterEvents.capability,
+        eventCount: count(),
+        totalCost: sum(meterEvents.cost),
+        totalCharge: sum(meterEvents.charge),
+      })
+      .from(meterEvents)
+      .where(and(...conditions))
+      .groupBy(meterEvents.instanceId, meterEvents.productSlug, meterEvents.capability);
+
+    return rows.map((r) => ({
+      instanceId: r.instanceId ?? "unknown",
+      productSlug: r.productSlug ?? null,
+      capability: r.capability,
+      eventCount: r.eventCount,
+      totalCost: Number(r.totalCost),
+      totalCharge: Number(r.totalCharge),
+    }));
   }
 }
 
