@@ -241,7 +241,9 @@ describe("createProvisionWebhookRoutes", () => {
     expect(createCall.env.PAPERCLIP_DEPLOYMENT_MODE).toBeUndefined();
 
     // Verify proxy route was registered
-    expect((fleet.fleetResolver as unknown as { registerRoute: ReturnType<typeof vi.fn> }).registerRoute).toHaveBeenCalledTimes(1);
+    expect(
+      (fleet.fleetResolver as unknown as { registerRoute: ReturnType<typeof vi.fn> }).registerRoute,
+    ).toHaveBeenCalledTimes(1);
   });
 
   it("returns 422 on create when required fields are missing", async () => {
@@ -279,7 +281,9 @@ describe("createProvisionWebhookRoutes", () => {
     // Destroy uses fleetResolver.removeRoute (not proxy.removeRoute) and
     // serviceKeyRepo from container.fleet (same mock reference)
     expect(fleet.serviceKeyRepo.revokeByInstance).toHaveBeenCalledWith("inst-001");
-    expect((fleet.fleetResolver as unknown as { removeRoute: ReturnType<typeof vi.fn> }).removeRoute).toHaveBeenCalledWith("inst-001");
+    expect(
+      (fleet.fleetResolver as unknown as { removeRoute: ReturnType<typeof vi.fn> }).removeRoute,
+    ).toHaveBeenCalledWith("inst-001");
   });
 
   it("returns 422 on destroy when instanceId is missing", async () => {
