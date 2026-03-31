@@ -1,6 +1,7 @@
 name: Build Core Server Images
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -8,6 +9,8 @@ on:
       - "platforms/core-server/**"
       - "platforms/holyship/**"
       - "shells/**"
+      - "ops/core-server/**"
+      - ".github/workflows/build-core.yml"
 
 concurrency:
   group: build-core-${{ github.ref }}

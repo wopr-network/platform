@@ -422,240 +422,6 @@ importers:
         specifier: ^4.0.18
         version: 4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
 
-  platforms/nemoclaw-platform:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^1.19.10
-        version: 1.19.11(hono@4.12.9)
-      '@sentry/node':
-        specifier: ^10.43.0
-        version: 10.46.0
-      '@trpc/server':
-        specifier: ^11.12.0
-        version: 11.15.1(typescript@5.9.3)
-      '@wopr-network/platform-core':
-        specifier: workspace:*
-        version: link:../../core/platform-core
-      '@wopr-network/provision-client':
-        specifier: workspace:*
-        version: link:../../services/provision-client
-      better-auth:
-        specifier: ^1.5.4
-        version: 1.5.6(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(next@16.1.6(@opentelemetry/api@1.9.1)(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.20.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)))
-      dockerode:
-        specifier: ^4.0.6
-        version: 4.0.10
-      drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.2(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8)
-      hono:
-        specifier: ^4.12.7
-        version: 4.12.9
-      lru-cache:
-        specifier: ^11.2.6
-        version: 11.2.7
-      pg:
-        specifier: ^8.20.0
-        version: 8.20.0
-      stripe:
-        specifier: ^20.4.1
-        version: 20.4.1(@types/node@25.5.0)
-      winston:
-        specifier: ^3.19.0
-        version: 3.19.0
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@biomejs/biome':
-        specifier: ^2.4.6
-        version: 2.4.9
-      '@types/dockerode':
-        specifier: ^4.0.1
-        version: 4.0.1
-      '@types/node':
-        specifier: ^25.4.0
-        version: 25.5.0
-      '@types/pg':
-        specifier: ^8.18.0
-        version: 8.20.0
-      drizzle-kit:
-        specifier: ^0.31.9
-        version: 0.31.10
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
-
-  platforms/paperclip-platform:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^1.19.10
-        version: 1.19.11(hono@4.12.9)
-      '@sentry/node':
-        specifier: ^10.43.0
-        version: 10.46.0
-      '@trpc/server':
-        specifier: ^11.12.0
-        version: 11.15.1(typescript@5.9.3)
-      '@wopr-network/platform-core':
-        specifier: workspace:*
-        version: link:../../core/platform-core
-      '@wopr-network/provision-client':
-        specifier: workspace:*
-        version: link:../../services/provision-client
-      better-auth:
-        specifier: ^1.5.4
-        version: 1.5.6(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(next@16.1.6(@opentelemetry/api@1.9.1)(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.20.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)))
-      dockerode:
-        specifier: ^4.0.6
-        version: 4.0.10
-      drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.2(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8)
-      hono:
-        specifier: ^4.12.7
-        version: 4.12.9
-      lru-cache:
-        specifier: ^11.2.6
-        version: 11.2.7
-      pg:
-        specifier: ^8.20.0
-        version: 8.20.0
-      stripe:
-        specifier: ^20.4.1
-        version: 20.4.1(@types/node@25.5.0)
-      winston:
-        specifier: ^3.19.0
-        version: 3.19.0
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@biomejs/biome':
-        specifier: ^2.4.6
-        version: 2.4.9
-      '@types/dockerode':
-        specifier: ^4.0.1
-        version: 4.0.1
-      '@types/node':
-        specifier: ^25.4.0
-        version: 25.5.0
-      '@types/pg':
-        specifier: ^8.18.0
-        version: 8.20.0
-      drizzle-kit:
-        specifier: ^0.31.9
-        version: 0.31.10
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
-
-  platforms/wopr-platform:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^1.19.11
-        version: 1.19.11(hono@4.12.9)
-      '@sentry/node':
-        specifier: ^10.46.0
-        version: 10.46.0
-      '@trpc/server':
-        specifier: ^11.15.1
-        version: 11.15.1(typescript@5.9.3)
-      '@wopr-network/platform-core':
-        specifier: workspace:*
-        version: link:../../core/platform-core
-      '@wopr-network/wopr':
-        specifier: workspace:*
-        version: link:../../sidecars/wopr
-      better-auth:
-        specifier: ^1.5.6
-        version: 1.5.6(@opentelemetry/api@1.9.1)(better-sqlite3@12.8.0)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8))(next@16.1.6(@opentelemetry/api@1.9.1)(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(pg@8.20.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(vitest@4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)))
-      dockerode:
-        specifier: ^4.0.10
-        version: 4.0.10
-      drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.2(@electric-sql/pglite@0.3.16)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.20.0)(better-sqlite3@12.8.0)(kysely@0.28.14)(pg@8.20.0)(postgres@3.4.8)
-      hono:
-        specifier: ^4.12.7
-        version: 4.12.9
-      js-yaml:
-        specifier: ^4.1.1
-        version: 4.1.1
-      lru-cache:
-        specifier: ^11.2.7
-        version: 11.2.7
-      payram:
-        specifier: ^1.0.1
-        version: 1.0.1
-      pg:
-        specifier: ^8.20.0
-        version: 8.20.0
-      stripe:
-        specifier: ^21.0.1
-        version: 21.0.1(@types/node@25.5.0)
-      winston:
-        specifier: ^3.19.0
-        version: 3.19.0
-      ws:
-        specifier: ^8.20.0
-        version: 8.20.0
-      yaml:
-        specifier: ^2.8.3
-        version: 2.8.3
-      zod:
-        specifier: ^4.3.6
-        version: 4.3.6
-    devDependencies:
-      '@biomejs/biome':
-        specifier: ^2.4.9
-        version: 2.4.9
-      '@electric-sql/pglite':
-        specifier: ^0.3.16
-        version: 0.3.16
-      '@types/dockerode':
-        specifier: ^4.0.1
-        version: 4.0.1
-      '@types/js-yaml':
-        specifier: ^4.0.9
-        version: 4.0.9
-      '@types/node':
-        specifier: ^25.5.0
-        version: 25.5.0
-      '@types/pg':
-        specifier: ^8.18.0
-        version: 8.20.0
-      '@types/ws':
-        specifier: ^8.18.1
-        version: 8.18.1
-      '@vitest/coverage-v8':
-        specifier: ^4.0.18
-        version: 4.1.2(vitest@4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)))
-      drizzle-kit:
-        specifier: ^0.31.10
-        version: 0.31.10
-      tsx:
-        specifier: ^4.21.0
-        version: 4.21.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.0.18
-        version: 4.1.2(@opentelemetry/api@1.9.1)(@types/node@25.5.0)(jsdom@29.0.1(@noble/hashes@2.0.1))(msw@2.12.14(@types/node@25.5.0)(typescript@5.9.3))(vite@8.0.3(@types/node@25.5.0)(esbuild@0.27.4)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
-
   services/platform-crypto-server:
     dependencies:
       '@hono/node-server':
@@ -897,7 +663,7 @@ importers:
         version: 1.7.0(react@19.2.3)
       next:
         specifier: 16.1.6
-        version: 16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 16.1.6(@opentelemetry/api@1.9.1)(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       postcss:
         specifier: ^8.5.8
         version: 8.5.8
@@ -979,7 +745,7 @@ importers:
         version: 1.7.0(react@19.2.3)
       next:
         specifier: 16.1.6
-        version: 16.1.6(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 16.1.6(@opentelemetry/api@1.9.1)(@playwright/test@1.58.2)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       postcss:
         specifier: ^8.5.8
         version: 8.5.8
@@ -10158,9 +9924,6 @@ packages:
     resolution: {integrity: sha512-//nshmD55c46FuFw26xV/xFAaB5HF9Xdap7HJBBnrKdAd6/GxDBaNA1870O79+9ueg61cZLSVc+OaFlfmObYVQ==}
     engines: {node: '>= 14.16'}
 
-  payram@1.0.1:
-    resolution: {integrity: sha512-CynLVEAwApIQtFiJQJKE/TSMlvuXKH2bZ8ner2aUSt9sFlVlCnC6Pa42EAiWhigb02aCuCbN6pcyzeDl8g9xrQ==}
-
   pdfjs-dist@5.5.207:
     resolution: {integrity: sha512-WMqqw06w1vUt9ZfT0gOFhMf3wHsWhaCrxGrckGs5Cci6ybDW87IvPaOd2pnBwT6BJuP/CzXDZxjFgmSULLdsdw==}
     engines: {node: '>=20.19.0 || >=22.13.0 || >=24'}
@@ -11116,15 +10879,6 @@ packages:
     engines: {node: '>=16'}
     peerDependencies:
       '@types/node': '>=16'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
-  stripe@21.0.1:
-    resolution: {integrity: sha512-ocv0j7dWttswDWV2XL/kb6+yiLpDXNXL3RQAOB5OB2kr49z0cEatdQc12+zP/j5nrXk6rAsT4N3y/NUvBbK7Pw==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      '@types/node': '>=18'
     peerDependenciesMeta:
       '@types/node':
         optional: true
@@ -22829,8 +22583,6 @@ snapshots:
 
   pathval@2.0.1: {}
 
-  payram@1.0.1: {}
-
   pdfjs-dist@5.5.207:
     optionalDependencies:
       '@napi-rs/canvas': 0.1.97
@@ -24286,10 +24038,6 @@ snapshots:
       js-tokens: 9.0.1
 
   stripe@20.4.1(@types/node@25.5.0):
-    optionalDependencies:
-      '@types/node': 25.5.0
-
-  stripe@21.0.1(@types/node@25.5.0):
     optionalDependencies:
       '@types/node': 25.5.0
 
