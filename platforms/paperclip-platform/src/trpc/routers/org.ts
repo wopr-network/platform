@@ -16,8 +16,8 @@ import { assertSafeRedirectUrl } from "@wopr-network/platform-core/security";
 import type { OrgService } from "@wopr-network/platform-core/tenancy";
 import { orgMemberProcedure, protectedProcedure, router } from "@wopr-network/platform-core/trpc";
 import { z } from "zod";
-import { MemberProvisionClient } from "../../fleet/member-provision-client.js";
-import { resolveOrgInstances } from "../../fleet/org-instance-resolver.js";
+import { MemberProvisionClient } from "@wopr-network/platform-core/fleet/member-provision-client";
+import type { OrgInstanceResolver } from "@wopr-network/platform-core/fleet/org-instance-resolver";
 
 // ---------------------------------------------------------------------------
 // Deps
@@ -31,6 +31,7 @@ export type OrgRouterDeps = {
   processor?: IPaymentProcessor;
   priceMap?: CreditPriceMap;
   provisionSecret?: string;
+  orgInstanceResolver?: OrgInstanceResolver;
   /** Called after an invite is created — sends the invite email (best-effort). */
   onInviteCreated?: (orgId: string, inviteId: string, email: string) => void;
 };
@@ -80,7 +81,7 @@ export const orgRouter = router({
 
     // Sync new member to ALL running Paperclip instances for this org (best-effort)
     if (provisionSecret) {
-      resolveOrgInstances(orgId)
+      deps().orgInstanceResolver?.resolveAll(orgId)
         .then((instances) => {
           if (instances.length === 0) return;
           const name = ("name" in ctx.user ? (ctx.user.name as string | undefined) : undefined) ?? "";
@@ -196,7 +197,7 @@ export const orgRouter = router({
 
       // Sync role change to ALL running Paperclip instances (best-effort)
       if (provisionSecret) {
-        resolveOrgInstances(input.orgId)
+        deps().orgInstanceResolver?.resolveAll(input.orgId)
           .then((instances) => {
             if (instances.length === 0) return;
             const client = new MemberProvisionClient(provisionSecret);
@@ -219,7 +220,7 @@ export const orgRouter = router({
 
       // Sync removal to ALL running Paperclip instances (best-effort)
       if (provisionSecret) {
-        resolveOrgInstances(input.orgId)
+        deps().orgInstanceResolver?.resolveAll(input.orgId)
           .then((instances) => {
             if (instances.length === 0) return;
             const client = new MemberProvisionClient(provisionSecret);

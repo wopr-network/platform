@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { pgTable, text } from "drizzle-orm/pg-core";
 import type { Pool } from "pg";
 import { z } from "zod";
-import type { NodeRegistry } from "../../fleet/node-registry.js";
+import type { NodeRegistry } from "@wopr-network/platform-core/fleet/node-registry";
 
 // ---------------------------------------------------------------------------
 // Deps

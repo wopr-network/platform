@@ -4,10 +4,8 @@ import { logger } from "@wopr-network/platform-core/config/logger";
 import { bootPlatformServer } from "@wopr-network/platform-core/server";
 import { createTRPCContext, setTrpcOrgMemberRepo } from "@wopr-network/platform-core/trpc";
 
-import { LOCAL_NODE_ID, type NodeConfig, NodeRegistry } from "./fleet/node-registry.js";
-import { setOrgInstanceResolverDeps } from "./fleet/org-instance-resolver.js";
-import { createPlacementStrategy } from "./fleet/placement.js";
-import { setFleetResolverProxy } from "./proxy/fleet-resolver.js";
+import { LOCAL_NODE_ID, type NodeConfig } from "@wopr-network/platform-core/fleet/node-registry";
+import { createContainerPlacementStrategy } from "@wopr-network/platform-core/fleet/container-placement";
 import { setAuthHelpersDeps } from "./trpc/auth-helpers.js";
 import {
   appRouter,
@@ -113,6 +111,7 @@ setAuthHelpersDeps(container.orgMemberRepo);
       meterAggregator,
       processor: container.stripe.processor as never,
       priceMap,
+      orgInstanceResolver: container.fleet?.orgInstanceResolver,
     });
 
     logger.info("Billing + org tRPC routers wired (Stripe + all repositories)");
@@ -124,6 +123,7 @@ setAuthHelpersDeps(container.orgMemberRepo);
       orgService: container.orgService,
       authUserRepo,
       creditLedger: container.creditLedger,
+      orgInstanceResolver: container.fleet?.orgInstanceResolver,
     });
     logger.warn("Stripe secret key not available — billing tRPC procedures will fail until configured");
   }
@@ -153,10 +153,9 @@ setAuthHelpersDeps(container.orgMemberRepo);
 }
 
 if (container.fleet) {
-  const { docker, profileStore, proxy, serviceKeyRepo } = container.fleet;
+  const { docker, profileStore, proxy, serviceKeyRepo, nodeRegistry } = container.fleet;
 
-  // NodeRegistry — multi-node Docker host management
-  const nodeRegistry = new NodeRegistry();
+  // Configure multi-node Docker host management from env
   const fleetNodesEnv = process.env.FLEET_NODES ?? "";
   let nodeConfigs: NodeConfig[] = [];
   if (fleetNodesEnv) {
@@ -171,16 +170,15 @@ if (container.fleet) {
       nodeRegistry.register(nodeConfig, profileStore);
     }
   } else {
-    nodeRegistry.register(
-      { id: LOCAL_NODE_ID, name: "local", host: "localhost", useContainerNames: true },
-      profileStore,
-    );
+    nodeRegistry.ensureDefaultNode(profileStore);
   }
 
-  const placementStrategy = createPlacementStrategy(process.env.FLEET_PLACEMENT_STRATEGY ?? "least-loaded");
+  // Override placement strategy from env if specified
+  const strategyName = process.env.FLEET_PLACEMENT_STRATEGY;
+  if (strategyName) {
+    container.fleet.placementStrategy = createContainerPlacementStrategy(strategyName);
+  }
 
-  setFleetResolverProxy(proxy);
-  setOrgInstanceResolverDeps(profileStore, proxy);
   setAdminRouterDeps({
     db: container.db,
     pool: container.pool,
@@ -196,8 +194,9 @@ if (container.fleet) {
     profileStore,
     productConfig: container.productConfig,
     nodeRegistry,
-    placementStrategy,
+    placementStrategy: container.fleet.placementStrategy,
     serviceKeyRepo,
+    fleetResolver: container.fleet.fleetResolver,
   });
 }
 

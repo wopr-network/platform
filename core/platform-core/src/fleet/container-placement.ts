@@ -3,11 +3,15 @@
  *
  * Strategies are stateless functions that pick from available nodes based
  * on current load and capacity constraints.
+ *
+ * This is distinct from the memory-based bin-packing in `placement.ts` —
+ * this module operates on container counts per node, used by fleet routers
+ * and provision lifecycle routes.
  */
 
 import type { NodeEntry } from "./node-registry.js";
 
-export interface PlacementStrategy {
+export interface ContainerPlacementStrategy {
   /** Select a node for a new container. Throws if no node is available. */
   selectNode(nodes: NodeEntry[], containerCounts: Map<string, number>): NodeEntry;
 }
@@ -16,7 +20,7 @@ export interface PlacementStrategy {
  * Least-loaded placement: pick the node with the fewest containers.
  * Respects maxContainers limits. Ties broken by registration order.
  */
-export class LeastLoadedStrategy implements PlacementStrategy {
+export class LeastLoadedStrategy implements ContainerPlacementStrategy {
   selectNode(nodes: NodeEntry[], containerCounts: Map<string, number>): NodeEntry {
     let best: NodeEntry | null = null;
     let bestCount = Number.POSITIVE_INFINITY;
@@ -46,7 +50,7 @@ export class LeastLoadedStrategy implements PlacementStrategy {
  * Round-robin placement: distribute containers evenly across nodes.
  * Respects maxContainers limits. Stateful — tracks last-used index.
  */
-export class RoundRobinStrategy implements PlacementStrategy {
+export class RoundRobinStrategy implements ContainerPlacementStrategy {
   private lastIndex = -1;
 
   selectNode(nodes: NodeEntry[], containerCounts: Map<string, number>): NodeEntry {
@@ -65,8 +69,8 @@ export class RoundRobinStrategy implements PlacementStrategy {
   }
 }
 
-/** Create a placement strategy by name. */
-export function createPlacementStrategy(name: string): PlacementStrategy {
+/** Create a container placement strategy by name. */
+export function createContainerPlacementStrategy(name: string): ContainerPlacementStrategy {
   switch (name) {
     case "round-robin":
       return new RoundRobinStrategy();

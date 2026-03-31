@@ -19,9 +19,9 @@ import { checkHealth, provisionContainer } from "@wopr-network/provision-client"
 import type Dockerode from "dockerode";
 import type { Pool } from "pg";
 import { z } from "zod";
-import type { NodeRegistry } from "../../fleet/node-registry.js";
-import type { PlacementStrategy } from "../../fleet/placement.js";
-import { registerRoute, removeRoute } from "../../proxy/fleet-resolver.js";
+import type { ContainerPlacementStrategy } from "@wopr-network/platform-core/fleet/container-placement";
+import type { NodeRegistry } from "@wopr-network/platform-core/fleet/node-registry";
+import type { FleetResolver } from "@wopr-network/platform-core/fleet/fleet-resolver";
 import { assertOrgAdminOrOwner } from "../auth-helpers.js";
 
 // ---------------------------------------------------------------------------
@@ -35,8 +35,9 @@ export interface FleetRouterDeps {
   profileStore: IProfileStore;
   productConfig: ProductConfig;
   nodeRegistry: NodeRegistry;
-  placementStrategy: PlacementStrategy;
+  placementStrategy: ContainerPlacementStrategy;
   serviceKeyRepo: IServiceKeyRepository | null;
+  fleetResolver: FleetResolver;
 }
 
 let _deps: FleetRouterDeps | null = null;
@@ -333,7 +334,7 @@ export const fleetRouter = router({
       // Track container → node assignment
       registry.assignContainer(profile.id, targetNode.config.id);
       const upstreamHost = registry.resolveUpstreamHost(profile.id, containerName);
-      await registerRoute(profile.id, input.name, upstreamHost, containerPort);
+      await deps().fleetResolver.registerRoute(profile.id, input.name, upstreamHost, containerPort);
 
       // Wait for the container to become healthy, then provision it
       const containerUrl = `http://${upstreamHost}:${containerPort}`;
@@ -439,7 +440,7 @@ export const fleetRouter = router({
             logger.warn(`Fleet remove failed for ${input.id}`, { err });
           }
           registry.unassignContainer(input.id);
-          await removeRoute(input.id);
+          await deps().fleetResolver.removeRoute(input.id);
           break;
         }
       }

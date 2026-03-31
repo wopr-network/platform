@@ -1,12 +1,12 @@
 /**
- * Client for calling Paperclip instance /internal/members/* endpoints.
+ * Client for calling managed instance /internal/members/* endpoints.
  *
- * These endpoints are authenticated with the PROVISION_SECRET bearer token
+ * These endpoints are authenticated with the provision secret bearer token
  * and allow the platform to sync org membership changes into running
- * Paperclip containers.
+ * managed containers.
  */
 
-import { logger } from "@wopr-network/platform-core/config/logger";
+import { logger } from "../config/logger.js";
 
 export interface MemberProvisionResult {
   success: boolean;

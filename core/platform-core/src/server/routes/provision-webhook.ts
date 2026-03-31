@@ -9,12 +9,15 @@
  * every product gets the same timing-safe auth and DI-based fleet access
  * without copy-pasting.
  *
+ * Uses NodeRegistry + ContainerPlacementStrategy for multi-node placement.
  * All env var names are generic (no product-specific prefixes).
  */
 
 import { timingSafeEqual } from "node:crypto";
+import { checkHealth, deprovisionContainer, provisionContainer, updateBudget } from "@wopr-network/provision-client";
 import { Hono } from "hono";
 
+import { logger } from "../../config/logger.js";
 import type { PlatformContainer } from "../container.js";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +50,18 @@ function assertSecret(authHeader: string | undefined, secret: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Health check wait loop
+// ---------------------------------------------------------------------------
+
+async function waitForHealth(containerUrl: string, retries = 10, intervalMs = 2000): Promise<boolean> {
+  for (let i = 0; i < retries; i++) {
+    if (await checkHealth(containerUrl)) return true;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Route factory
 // ---------------------------------------------------------------------------
 
@@ -75,7 +90,7 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     }
 
     const body = await c.req.json();
-    const { tenantId, subdomain } = body;
+    const { tenantId, subdomain, adminUser, agents, budgetCents, apiKey } = body;
 
     if (!tenantId || !subdomain) {
       return c.json({ error: "Missing required fields: tenantId, subdomain" }, 422);
@@ -91,7 +106,7 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     }
 
     // Instance limit gate
-    const { profileStore, manager: fleet, proxy } = container.fleet;
+    const { profileStore, nodeRegistry, placementStrategy, fleetResolver, serviceKeyRepo } = container.fleet;
 
     if (config.maxInstancesPerTenant > 0) {
       const profiles = await profileStore.list();
@@ -100,6 +115,14 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
         return c.json({ error: `Instance limit reached: maximum ${config.maxInstancesPerTenant} per tenant` }, 403);
       }
     }
+
+    // Select target node via placement strategy
+    const nodes = nodeRegistry.list();
+    const containerCounts = nodeRegistry.getContainerCounts();
+    const targetNode = placementStrategy.selectNode(nodes, containerCounts);
+    const fleet = targetNode.fleet;
+
+    logger.info(`Placing container on node: ${targetNode.config.name} (${targetNode.config.id})`);
 
     // Create the Docker container
     const instance = await fleet.create({
@@ -120,23 +143,62 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
       updatePolicy: "manual",
     });
 
+    // Start the container
+    const inst = await fleet.getInstance(instance.id);
+    await inst.start();
+
+    // Track container → node assignment
+    nodeRegistry.assignContainer(instance.id, targetNode.config.id);
+
     // Register proxy route — container name must match FleetManager naming convention
     const prefix = config.containerPrefix ?? "wopr";
     const containerName = `${prefix}-${subdomain}`;
-    await proxy.addRoute({
-      instanceId: instance.id,
-      subdomain,
-      upstreamHost: containerName,
-      upstreamPort: config.containerPort,
-      healthy: true,
+    const upstreamHost = nodeRegistry.resolveUpstreamHost(instance.id, containerName);
+    await fleetResolver.registerRoute(instance.id, subdomain, upstreamHost, config.containerPort);
+
+    // Wait for container to become healthy
+    const containerUrl = `http://${upstreamHost}:${config.containerPort}`;
+    const healthy = await waitForHealth(containerUrl);
+    if (!healthy) {
+      logger.warn(`Container not healthy after creation: ${subdomain}`);
+      // Clean up — remove container, route, and gateway key
+      await serviceKeyRepo.revokeByInstance(instance.id);
+      try {
+        await fleet.remove(instance.id);
+      } catch (err) {
+        logger.warn("Cleanup after unhealthy container failed", { err });
+      }
+      nodeRegistry.unassignContainer(instance.id);
+      await fleetResolver.removeRoute(instance.id);
+      return c.json({ error: "Container failed health check" }, 503);
+    }
+
+    // Configure via provision-client (company, admin user, starter agents)
+    const tenantName = body.tenantName ?? subdomain;
+    const result = await provisionContainer(containerUrl, config.provisionSecret, {
+      tenantId,
+      tenantName,
+      gatewayUrl: config.gatewayUrl ?? "",
+      apiKey: apiKey ?? "",
+      budgetCents: budgetCents ?? 0,
+      adminUser: adminUser ?? {
+        id: tenantId,
+        email: `${subdomain}@platform.local`,
+        name: subdomain,
+      },
+      agents,
     });
+
+    logger.info(`Created instance: ${subdomain} (${instance.id}) on node ${targetNode.config.name}`);
 
     return c.json(
       {
         ok: true,
         instanceId: instance.id,
         subdomain,
-        containerUrl: `http://${containerName}:${config.containerPort}`,
+        containerUrl,
+        nodeId: targetNode.config.id,
+        ...result,
       },
       201,
     );
@@ -155,13 +217,33 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     }
 
     const body = await c.req.json();
-    const { instanceId } = body;
+    const { instanceId, tenantEntityId } = body;
 
     if (!instanceId) {
       return c.json({ error: "Missing required field: instanceId" }, 422);
     }
 
-    const { manager: fleet, proxy, serviceKeyRepo } = container.fleet;
+    const { nodeRegistry, fleetResolver, serviceKeyRepo } = container.fleet;
+
+    // Resolve which node this container is on
+    const nodeId = nodeRegistry.getContainerNode(instanceId);
+    const fleet = nodeId ? nodeRegistry.getFleetManager(nodeId) : nodeRegistry.list()[0].fleet;
+
+    // Deprovision the instance first (graceful teardown)
+    if (tenantEntityId) {
+      try {
+        const status = await fleet.status(instanceId);
+        if (status.state === "running") {
+          const containerName = `wopr-${status.name}`;
+          const upstreamHost = nodeRegistry.resolveUpstreamHost(instanceId, containerName);
+          const containerUrl = `http://${upstreamHost}:${config.containerPort}`;
+          await deprovisionContainer(containerUrl, config.provisionSecret, tenantEntityId);
+        }
+      } catch (err) {
+        logger.warn(`Deprovision call failed for ${instanceId}`, { err });
+        // Continue — container may already be gone
+      }
+    }
 
     // Revoke gateway service key
     await serviceKeyRepo.revokeByInstance(instanceId);
@@ -173,9 +255,11 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
       // Container may already be gone — continue cleanup
     }
 
-    // Remove proxy route
-    proxy.removeRoute(instanceId);
+    // Remove from tracking and proxy route table
+    nodeRegistry.unassignContainer(instanceId);
+    await fleetResolver.removeRoute(instanceId);
 
+    logger.info(`Destroyed instance: ${instanceId}`);
     return c.json({ ok: true });
   });
 
@@ -192,20 +276,30 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     }
 
     const body = await c.req.json();
-    const { instanceId, tenantEntityId, budgetCents } = body;
+    const { instanceId, tenantEntityId, budgetCents, perAgentCents } = body;
 
     if (!instanceId || !tenantEntityId || budgetCents === undefined) {
       return c.json({ error: "Missing required fields: instanceId, tenantEntityId, budgetCents" }, 422);
     }
 
-    const { manager: fleet } = container.fleet;
+    const { nodeRegistry } = container.fleet;
+
+    // Resolve which node this container is on
+    const nodeId = nodeRegistry.getContainerNode(instanceId);
+    const fleet = nodeId ? nodeRegistry.getFleetManager(nodeId) : nodeRegistry.list()[0].fleet;
 
     const status = await fleet.status(instanceId);
     if (status.state !== "running") {
       return c.json({ error: "Instance not running" }, 503);
     }
 
-    return c.json({ ok: true, instanceId, budgetCents });
+    const containerName = `wopr-${status.name}`;
+    const upstreamHost = nodeRegistry.resolveUpstreamHost(instanceId, containerName);
+    const containerUrl = `http://${upstreamHost}:${config.containerPort}`;
+
+    await updateBudget(containerUrl, config.provisionSecret, tenantEntityId, budgetCents, perAgentCents);
+
+    return c.json({ ok: true });
   });
 
   return app;
