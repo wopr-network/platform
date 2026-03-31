@@ -202,7 +202,6 @@ export class NodeRegistry {
         host: "localhost",
         status: "active",
         capacityMb: 0,
-        dockerUrl: "/var/run/docker.sock",
         registeredAt: now,
         updatedAt: now,
       });
@@ -210,7 +209,7 @@ export class NodeRegistry {
         id: LOCAL_NODE_ID,
         host: "localhost",
         status: "active",
-        dockerUrl: "/var/run/docker.sock",
+        dockerUrl: null,
       });
       logger.info("Seeded default local fleet node in DB");
     }
