@@ -5,6 +5,7 @@
  * Each product calls createCoreRouter(deps) at boot time.
  */
 
+import { authSocialRouter } from "../auth-social-router.js";
 import { router } from "../init.js";
 import { type AccountRouterDeps, createAccountRouter } from "./account.js";
 import { type AddonRouterDeps, createAddonRouter } from "./addons.js";
@@ -85,5 +86,6 @@ export function createCoreRouter(deps: CoreRouterDeps) {
     ...(deps.inferenceAdmin ? { inferenceAdmin: createInferenceAdminRouter(deps.inferenceAdmin) } : {}),
     ...(deps.addons ? { addons: createAddonRouter(deps.addons) } : {}),
     ...(deps.nodes ? { nodes: createNodesRouter(deps.nodes) } : {}),
+    authSocial: authSocialRouter,
   });
 }
