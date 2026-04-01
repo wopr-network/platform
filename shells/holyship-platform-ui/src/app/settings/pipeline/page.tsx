@@ -15,49 +15,42 @@ const DEFAULT_STAGES: Stage[] = [
   {
     name: "spec",
     label: "Spec",
-    description: "Architect writes a detailed specification",
+    description: "Architect reads the codebase, writes an implementation spec, posts it as an issue comment",
     enabled: true,
     approvalRequired: false,
   },
   {
-    name: "coding",
+    name: "code",
     label: "Code",
-    description: "Coder implements the spec",
+    description: "Engineer implements the spec, creates a PR, runs CI locally",
     enabled: true,
     approvalRequired: false,
   },
   {
-    name: "reviewing",
+    name: "review",
     label: "Review",
-    description: "Reviewer checks code quality and correctness",
+    description: "Reviewer checks PR diff, automated bot comments, CI status. Gate-driven — no signal needed",
     enabled: true,
     approvalRequired: false,
   },
   {
-    name: "fixing",
+    name: "fix",
     label: "Fix",
-    description: "Fix issues found during review (loops back to review)",
+    description: "Fix review findings and push. Gate detects new commits and re-reviews",
     enabled: true,
     approvalRequired: false,
   },
   {
-    name: "documentation",
+    name: "docs",
     label: "Docs",
-    description: "Write or update documentation",
+    description: "Update documentation — README, docs/, JSDoc. Gate checks for doc file changes",
     enabled: true,
     approvalRequired: false,
   },
   {
-    name: "learning",
-    label: "Learn",
-    description: "Extract patterns and learnings for future work",
-    enabled: true,
-    approvalRequired: false,
-  },
-  {
-    name: "merging",
+    name: "merge",
     label: "Merge",
-    description: "Merge the PR into the target branch",
+    description: "Queue or merge the PR. Gate checks PR merge status",
     enabled: true,
     approvalRequired: false,
   },
@@ -242,14 +235,14 @@ export default function PipelineSettingsPage() {
         <div className="flex gap-2 flex-wrap">
           {[
             { label: "Spec only", enable: ["spec"] },
-            { label: "Spec + Code", enable: ["spec", "coding"] },
+            { label: "Spec + Code", enable: ["spec", "code"] },
             {
               label: "Full (no docs)",
-              enable: ["spec", "coding", "reviewing", "fixing", "merging"],
+              enable: ["spec", "code", "review", "fix", "merge"],
             },
             {
               label: "Full pipeline",
-              enable: ["spec", "coding", "reviewing", "fixing", "documentation", "learning", "merging"],
+              enable: ["spec", "code", "review", "fix", "docs", "merge"],
             },
           ].map((preset) => (
             <button

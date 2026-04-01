@@ -29,6 +29,8 @@ export interface CreateInstanceParams {
   productSlug: string;
   productConfig: ProductConfig;
   env?: Record<string, string>;
+  /** Product-specific data passed through to sidecar provisioning via `extra`. */
+  extra?: Record<string, unknown>;
 }
 
 export interface CreatedInstance {
@@ -149,7 +151,7 @@ export class InstanceService {
     if (!productConfig.product?.domain) {
       throw new Error(`Product ${productSlug} has no domain configured`);
     }
-    const gatewayUrl = `https://api.${productConfig.product.domain}`;
+    const gatewayUrl = `https://api.${productConfig.product.domain}/v1`;
     if (d.provisionSecret && gatewayKey) {
       const containerUrl = `http://${containerNameFor(profile)}:${containerPort}`;
       try {
@@ -161,12 +163,14 @@ export class InstanceService {
           apiKey: gatewayKey,
           budgetCents: balance.toCentsRounded(),
           adminUser: { id: userId, email: userEmail, name },
+          agents: [{ name: "CEO", role: "ceo", title: "Chief Executive Officer" }],
           extra: {
             instanceConfig: {
               deploymentMode: "hosted_proxy",
               hostedMode: true,
               deploymentExposure: "private",
             },
+            ...params.extra,
           },
         });
         provisioned = true;

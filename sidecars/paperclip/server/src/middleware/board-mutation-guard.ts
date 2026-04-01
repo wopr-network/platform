@@ -1,4 +1,5 @@
 import type { Request, RequestHandler } from "express";
+import { logger } from "./logger.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const DEFAULT_DEV_ORIGINS = [
@@ -53,7 +54,8 @@ export function boardMutationGuard(): RequestHandler {
     // Local-trusted mode and board bearer keys are not browser-session requests.
     // In these modes, origin/referer headers can be absent; do not block those mutations.
     // In hosted_proxy mode the platform proxies requests — origin headers may not match.
-    if (process.env.PAPERCLIP_HOSTED_MODE === "true") {
+    // Check the x-platform-user-id header (injected by tenant proxy) as the hosted indicator.
+    if (req.header("x-platform-user-id") || req.header("x-paperclip-user-id")) {
       next();
       return;
     }
@@ -64,6 +66,14 @@ export function boardMutationGuard(): RequestHandler {
     }
 
     if (!isTrustedBoardMutationRequest(req)) {
+      logger.warn({
+        method: req.method,
+        url: req.originalUrl,
+        origin: req.header("origin") ?? "(none)",
+        referer: req.header("referer") ?? "(none)",
+        host: req.header("host") ?? "(none)",
+        actorSource: req.actor.source,
+      }, "Board mutation blocked — untrusted origin");
       res.status(403).json({ error: "Board mutation requires trusted browser origin" });
       return;
     }

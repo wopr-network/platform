@@ -16,7 +16,15 @@ import {
   type CreatedAgent,
 } from "@wopr-network/provision-server";
 import { ROLE_PERMISSIONS } from "@paperclipai/shared";
-import { companyService, agentService, accessService, logActivity } from "../services/index.js";
+import {
+  companyService,
+  agentService,
+  accessService,
+  goalService,
+  projectService,
+  issueService,
+  logActivity,
+} from "../services/index.js";
 
 /**
  * Logical model name for the gateway. The actual upstream model is controlled
@@ -229,17 +237,63 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
       await fs.mkdir(path.dirname(configPath), { recursive: true });
       await fs.writeFile(configPath, JSON.stringify(instanceConfig, null, 2) + "\n");
 
+      // Onboarding: create goal, project, and first issue if provided
+      const onboarding = req.extra?.onboarding as
+        | { goal?: string; taskTitle?: string; taskDescription?: string }
+        | undefined;
+      const companyId = _result.tenantEntityId;
+      const ceoAgent = _result.agents?.[0];
+
+      if (onboarding || ceoAgent) {
+        const goals = goalService(db);
+        const projects = projectService(db);
+        const issues = issueService(db);
+
+        // Create company goal
+        let goalId: string | null = null;
+        if (onboarding?.goal) {
+          const goal = await goals.create(companyId, {
+            title: onboarding.goal,
+            level: "company",
+            status: "active",
+          });
+          goalId = goal.id;
+        }
+
+        // Create starter project
+        const project = await projects.create(companyId, {
+          name: "Onboarding",
+          description: goalId ? `Working toward: ${onboarding?.goal}` : "Getting started with Paperclip",
+          ...(goalId ? { goalId } : {}),
+        });
+
+        // Create first issue assigned to CEO
+        const taskTitle = onboarding?.taskTitle || "Get started";
+        const taskDescription =
+          onboarding?.taskDescription ||
+          `You are the CEO. You set the direction for the company.\n\n- hire a founding engineer\n- write a hiring plan\n- break the roadmap into concrete tasks and start delegating work`;
+        await issues.create(companyId, {
+          title: taskTitle,
+          description: taskDescription,
+          status: "todo",
+          projectId: project.id,
+          ...(goalId ? { goalId } : {}),
+          ...(ceoAgent ? { assigneeAgentId: ceoAgent.id } : {}),
+        });
+      }
+
       await logActivity(db, {
-        companyId: _result.tenantEntityId,
+        companyId,
         actorType: "user",
         actorId: "wopr-platform",
         action: "company.provisioned",
         entityType: "company",
-        entityId: _result.tenantEntityId,
+        entityId: companyId,
         details: {
           tenantId: req.tenantId,
           adminUserId: req.adminUser.id,
           adminEmail: req.adminUser.email,
+          onboarding: Boolean(onboarding),
         },
       });
     },

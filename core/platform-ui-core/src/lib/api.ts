@@ -341,10 +341,14 @@ export async function createInstance(data: {
   provider: string;
   channels: string[];
   plugins: string[];
+  /** Product-specific data passed through to provisioning. */
+  extra?: Record<string, unknown>;
 }): Promise<Instance> {
+  const { extra, ...rest } = data;
   const result = await trpcVanilla.fleet.createInstance.mutate({
-    ...data,
+    ...rest,
     image: data.image ?? "ghcr.io/wopr-network/wopr:latest",
+    extra,
   });
   const profile = result as Record<string, unknown>;
   return {

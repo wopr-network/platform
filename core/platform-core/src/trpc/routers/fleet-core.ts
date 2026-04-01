@@ -270,6 +270,8 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           description: z.string().optional().default(""),
           orgId: z.string().min(1).optional(),
           env: z.record(z.string(), z.string()).optional(),
+          /** Product-specific data passed through to provisioning. */
+          extra: z.record(z.string(), z.unknown()).optional(),
         }),
       )
       .mutation(async ({ input, ctx }) => {
@@ -296,6 +298,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
             productSlug: ctx.productSlug,
             productConfig: pc,
             env: input.env,
+            extra: input.extra,
           });
         } catch (err) {
           if (err instanceof Error && err.message.startsWith("Insufficient credits")) {
