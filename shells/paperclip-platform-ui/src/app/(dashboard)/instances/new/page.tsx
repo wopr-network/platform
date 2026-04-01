@@ -1,20 +1,181 @@
 "use client";
 
+import { Button } from "@core/components/ui/button";
+import { Input } from "@core/components/ui/input";
+import { createInstance } from "@core/lib/api";
+import { cn } from "@core/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Loader2, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { createInstance } from "@/lib/api";
 import {
   type ChatMessage,
   type OnboardingPlan,
   parseOnboardingStream,
   sendOnboardingChat,
 } from "@/lib/onboarding-chat";
-import { cn } from "@/lib/utils";
 
 const CEO_INTRO = "I'm your CEO. Tell me what you want to build and I'll put together a plan to make it happen.";
+
+const THINKING_FIRST = [
+  "Brewing coffee and drafting your founding brief...",
+  "Putting on my CEO hat...",
+  "Running the numbers on this one...",
+  "This is a great idea. Let me think...",
+  "Assembling the boardroom...",
+  "Crunching market data...",
+  "My AI neurons are firing...",
+  "Consulting the oracle...",
+];
+
+const THINKING_UPDATE = [
+  "Revising the master plan...",
+  "Red-lining the brief...",
+  "Updating the roadmap...",
+  "Sharpening the strategy...",
+  "Recalculating the trajectory...",
+  "Factoring in your feedback...",
+  "Pivoting gracefully...",
+  "Back to the whiteboard...",
+];
+
+function _randomFrom(arr: string[]) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+/** Typewriter that cycles through messages: type → pause → backspace → pause → next */
+function TypewriterThinking({ messages }: { messages: string[] }) {
+  const [display, setDisplay] = useState("");
+  const shuffled = useRef<string[]>([]);
+  const state = useRef({ idx: 0, charIdx: 0, phase: "typing" as "typing" | "pause" | "erasing" | "gap" });
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Shuffle on mount
+  useEffect(() => {
+    shuffled.current = [...messages].sort(() => Math.random() - 0.5);
+  }, [messages]);
+
+  useEffect(() => {
+    const tick = () => {
+      const s = state.current;
+      const pool = shuffled.current.length > 0 ? shuffled.current : messages;
+      const msg = pool[s.idx % pool.length];
+
+      if (s.phase === "typing") {
+        if (s.charIdx < msg.length) {
+          s.charIdx++;
+          setDisplay(msg.slice(0, s.charIdx));
+        } else {
+          s.phase = "pause";
+          timer.current = setTimeout(tick, 1500);
+          return;
+        }
+      } else if (s.phase === "pause") {
+        s.phase = "erasing";
+      } else if (s.phase === "erasing") {
+        if (s.charIdx > 0) {
+          s.charIdx--;
+          setDisplay(msg.slice(0, s.charIdx));
+        } else {
+          s.phase = "gap";
+          timer.current = setTimeout(tick, 300);
+          return;
+        }
+      } else if (s.phase === "gap") {
+        s.idx++;
+        s.charIdx = 0;
+        s.phase = "typing";
+      }
+      const speed = s.phase === "typing" ? 30 + Math.random() * 20 : s.phase === "erasing" ? 15 : 50;
+      timer.current = setTimeout(tick, speed);
+    };
+    timer.current = setTimeout(tick, 50);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [messages]);
+
+  return (
+    <span className="inline-flex items-center gap-2 text-sm text-indigo-400/80">
+      {display}
+      <span className="inline-block h-4 w-0.5 animate-pulse bg-indigo-400" />
+    </span>
+  );
+}
+
+/** Progress bar: monotonically increases at random intervals, token-aware, hits 100% then fades */
+function ThinkingProgress({ tokenCount, done }: { tokenCount: number; done: boolean }) {
+  const [progress, setProgress] = useState(0);
+  const [fading, setFading] = useState(false);
+  const _startTime = useRef(Date.now());
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Time-based: never stops crawling, asymptotically approaches 90%
+  // Feels like real progress the whole time — no stalls, no plateaus
+  useEffect(() => {
+    const tick = () => {
+      setProgress((prev) => {
+        if (prev >= 90) return prev;
+        // Always moving: bigger bumps early, tiny bumps late
+        const remaining = 90 - prev;
+        const bump = Math.max(0.2, remaining * 0.03 * (0.4 + Math.random() * 0.8));
+        return prev + bump;
+      });
+      // Random intervals: snappy early (300-600ms), leisurely late (800-2000ms)
+      timer.current = setTimeout(tick, 300 + Math.random() * 1200);
+    };
+    // Instant feedback: jump to 8-15% immediately
+    setTimeout(() => setProgress(8 + Math.random() * 7), 200);
+    timer.current = setTimeout(tick, 800);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  // Token-based: first token jumps to 55%, then zooms toward 80% by 250 tokens,
+  // 90% by 500 tokens, decaying toward 99% after that
+  useEffect(() => {
+    if (tokenCount > 0) {
+      // Map tokens to 55→99%: fast climb then asymptotic decay
+      // 1 token = 55%, 250 tokens = 80%, 500 = 90%, 1000+ → 99%
+      const tokenPct = 55 + 44 * (1 - Math.exp(-tokenCount / 300));
+      setProgress((prev) => Math.max(prev, Math.min(99, tokenPct)));
+    }
+  }, [tokenCount]);
+
+  // Done: snap to 100% then fade
+  useEffect(() => {
+    if (done) {
+      setProgress(100);
+      const fadeTimer = setTimeout(() => setFading(true), 400);
+      return () => clearTimeout(fadeTimer);
+    }
+  }, [done]);
+
+  return (
+    <div
+      className={cn(
+        "mt-2 h-1 w-48 overflow-hidden rounded-full bg-zinc-800 transition-opacity duration-500",
+        fading && "opacity-0",
+      )}
+    >
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300 ease-out"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}
+
+/** Combined thinking indicator: typewriter messages + progress bar */
+function ThinkingIndicator({ messages, tokenCount, done }: { messages: string[]; tokenCount: number; done: boolean }) {
+  return (
+    <div className="space-y-1">
+      <TypewriterThinking messages={messages} />
+      <ThinkingProgress tokenCount={tokenCount} done={done} />
+    </div>
+  );
+}
+
 const NAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
 interface DisplayMessage {
@@ -31,6 +192,10 @@ export default function NewPaperclipInstancePage() {
   const [messages, setMessages] = useState<DisplayMessage[]>([{ id: "intro", role: "assistant", content: CEO_INTRO }]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [_thinking, setThinking] = useState(false);
+  const [thinkingDone, setThinkingDone] = useState(false);
+  const [showIndicator, setShowIndicator] = useState(false);
+  const [jsonTokenCount, setJsonTokenCount] = useState(0);
   const [plan, setPlan] = useState<OnboardingPlan | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
@@ -69,6 +234,10 @@ export default function NewPaperclipInstancePage() {
 
     setMessages((prev) => [...prev, { id: `${msgId}-reply`, role: "assistant", content: "" }]);
     setStreaming(true);
+    setThinking(true);
+    setThinkingDone(false);
+    setShowIndicator(true);
+    setJsonTokenCount(0);
 
     try {
       const { response } = sendOnboardingChat(history);
@@ -85,10 +254,23 @@ export default function NewPaperclipInstancePage() {
             return updated;
           });
         },
+        onThinking: (isThinking) => {
+          setThinking(isThinking);
+          if (!isThinking) {
+            // Thinking ended — let progress bar hit 100% and fade before hiding
+            setThinkingDone(true);
+            setTimeout(() => setShowIndicator(false), 900);
+          }
+        },
+        onJsonToken: () => setJsonTokenCount((c) => c + 1),
       });
 
       if (result.plan) {
         setPlan(result.plan);
+        // Auto-fill suggested company name if user hasn't typed one yet
+        if (result.plan.suggestedName) {
+          setCompanyName(result.plan.suggestedName);
+        }
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
@@ -168,9 +350,18 @@ export default function NewPaperclipInstancePage() {
                 <p className="text-xs text-muted-foreground">{msg.role === "assistant" ? "CEO Agent" : "You"}</p>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
                   {msg.content}
-                  {streaming && i === messages.length - 1 && msg.role === "assistant" && (
-                    <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
-                  )}
+                  {streaming &&
+                    i === messages.length - 1 &&
+                    msg.role === "assistant" &&
+                    (showIndicator ? (
+                      <ThinkingIndicator
+                        messages={plan ? THINKING_UPDATE : THINKING_FIRST}
+                        tokenCount={jsonTokenCount}
+                        done={thinkingDone}
+                      />
+                    ) : (
+                      <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
+                    ))}
                 </div>
 
                 {msg.plan && (
@@ -204,16 +395,40 @@ export default function NewPaperclipInstancePage() {
         )}
       </div>
 
-      {/* Bottom bar */}
-      <div className="space-y-3 border-t border-zinc-800 py-4">
-        <AnimatePresence>
-          {plan && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex items-start gap-2"
-            >
+      {/* Chat input */}
+      <div className="border-t border-zinc-800 py-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className="flex gap-2"
+        >
+          <Input
+            ref={inputRef}
+            placeholder={plan ? "Refine the plan..." : "Describe what you want to build..."}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={streaming}
+            autoFocus
+          />
+          <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </div>
+
+      {/* Found Company — visually distinct, below chat */}
+      <AnimatePresence>
+        {plan && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="rounded-lg border border-indigo-500/30 bg-gradient-to-b from-indigo-500/5 to-purple-500/5 p-4"
+          >
+            <p className="mb-3 text-[10px] uppercase tracking-widest text-indigo-400/60">Ready to launch</p>
+            <div className="flex items-start gap-3">
               <div className="flex-1 space-y-1">
                 <Input
                   placeholder="company-name"
@@ -229,11 +444,12 @@ export default function NewPaperclipInstancePage() {
                     }
                   }}
                   aria-invalid={nameError !== null}
+                  className="border-indigo-500/20 bg-zinc-900/50"
                 />
                 {nameError ? (
                   <p className="text-xs text-red-500">{nameError}</p>
                 ) : companyName.trim() ? (
-                  <p className="text-xs font-mono text-indigo-400/70">
+                  <p className="text-sm font-mono text-indigo-400">
                     {companyName
                       .toLowerCase()
                       .replace(/[^a-z0-9-]/g, "-")
@@ -241,12 +457,14 @@ export default function NewPaperclipInstancePage() {
                       .replace(/^-|-$/g, "")}
                     .runpaperclip.com
                   </p>
-                ) : null}
+                ) : (
+                  <p className="text-xs text-zinc-500">This becomes your company&apos;s URL</p>
+                )}
               </div>
               <Button
                 onClick={handleFoundCompany}
                 disabled={!companyName.trim() || !!nameError || launching}
-                className="shrink-0 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                className="shrink-0 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
               >
                 {launching ? (
                   <>
@@ -260,30 +478,10 @@ export default function NewPaperclipInstancePage() {
                   </>
                 )}
               </Button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="flex gap-2"
-        >
-          <Input
-            ref={inputRef}
-            placeholder={plan ? "Refine the plan, or name your company above..." : "Describe what you want to build..."}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={streaming}
-            autoFocus
-          />
-          <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

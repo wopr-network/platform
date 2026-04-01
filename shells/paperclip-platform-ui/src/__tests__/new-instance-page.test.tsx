@@ -43,7 +43,10 @@ import { parseOnboardingStream, sendOnboardingChat } from "@/lib/onboarding-chat
 
 type MockFn = ReturnType<typeof vi.fn>;
 
-function mockStreamResponse(content: string, plan: { taskTitle: string; taskDescription: string } | null = null) {
+function mockStreamResponse(
+  content: string,
+  plan: { suggestedName?: string; taskTitle: string; taskDescription: string } | null = null,
+) {
   const mockStream = new ReadableStream();
   (sendOnboardingChat as MockFn).mockReturnValue({
     abort: new AbortController(),

@@ -12,7 +12,7 @@ describe("parseOnboardingStream", () => {
       start(controller) {
         const encoder = new TextEncoder();
         for (const line of lines) {
-          controller.enqueue(encoder.encode(line + "\n\n"));
+          controller.enqueue(encoder.encode(`${line}\n\n`));
         }
         controller.close();
       },
@@ -35,7 +35,7 @@ describe("parseOnboardingStream", () => {
       start(controller) {
         const encoder = new TextEncoder();
         for (const line of lines) {
-          controller.enqueue(encoder.encode(line + "\n\n"));
+          controller.enqueue(encoder.encode(`${line}\n\n`));
         }
         controller.close();
       },
@@ -56,7 +56,7 @@ describe("parseOnboardingStream", () => {
       start(controller) {
         const encoder = new TextEncoder();
         for (const line of lines) {
-          controller.enqueue(encoder.encode(line + "\n\n"));
+          controller.enqueue(encoder.encode(`${line}\n\n`));
         }
         controller.close();
       },

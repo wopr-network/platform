@@ -40,12 +40,14 @@ Paperclip instances are autonomous AI companies. Each company has agents (CEO, e
 When you have enough context, include a JSON block in your response with this exact format on its own line:
 
 \`\`\`json
-{"taskTitle": "< imperative action phrase, under 60 chars >", "taskDescription": "< 3-5 paragraphs: mission, first milestone, concrete steps, specialist hires, deliverable >"}
+{"suggestedName": "< lowercase-hyphenated subdomain name, like 'mule-reborn' or 'dotfile-sync' >", "taskTitle": "< imperative action phrase, under 60 chars >", "taskDescription": "< 3-5 paragraphs: mission, first milestone, concrete steps, specialist hires, deliverable >"}
 \`\`\`
 
-ALWAYS include this JSON block in your FIRST response — even if the goal is vague, produce a reasonable plan that can be refined. The user can keep chatting to refine it, and you'll produce an updated block.
+ALWAYS include this JSON block in EVERY response — even if the goal is vague, produce your best plan. When the user refines their idea, produce an updated block reflecting the changes. Never skip the JSON block.
 
-Continue the conversation naturally after the JSON block — ask if they want to adjust anything or suggest naming the company.
+The suggestedName becomes the subdomain (name.runpaperclip.com) — keep it short, memorable, lowercase with hyphens only.
+
+Continue the conversation naturally after the JSON block — ask if they want to adjust anything.
 
 ## What makes a great founding brief
 
@@ -76,6 +78,7 @@ const InputSchema = z.object({
 // ---------------------------------------------------------------------------
 
 interface OnboardingPlan {
+  suggestedName: string;
   taskTitle: string;
   taskDescription: string;
 }
@@ -84,18 +87,17 @@ function extractPlan(content: string): OnboardingPlan | null {
   const match = content.match(/```json\s*(\{[\s\S]*?\})\s*```/);
   if (!match) return null;
   try {
-    const parsed = JSON.parse(match[1]) as unknown;
+    const parsed = JSON.parse(match[1]) as Record<string, unknown>;
     if (
       typeof parsed === "object" &&
       parsed !== null &&
-      "taskTitle" in parsed &&
-      "taskDescription" in parsed &&
-      typeof (parsed as Record<string, unknown>).taskTitle === "string" &&
-      typeof (parsed as Record<string, unknown>).taskDescription === "string"
+      typeof parsed.taskTitle === "string" &&
+      typeof parsed.taskDescription === "string"
     ) {
       return {
-        taskTitle: (parsed as Record<string, string>).taskTitle,
-        taskDescription: (parsed as Record<string, string>).taskDescription,
+        suggestedName: typeof parsed.suggestedName === "string" ? parsed.suggestedName : "",
+        taskTitle: parsed.taskTitle as string,
+        taskDescription: parsed.taskDescription as string,
       };
     }
   } catch {
@@ -147,8 +149,15 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
       return c.json({ error: "Failed to generate platform service key" }, 500);
     }
 
-    // Build messages array: system + conversation
-    const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...input.messages];
+    // Build messages array: system + conversation + format reminder before last user message
+    const REMINDER =
+      'Remember: your response MUST include a ```json block with {"suggestedName", "taskTitle", "taskDescription"} — never skip it. Put the JSON block FIRST, then your conversational response after it.';
+    const chatMessages = [...input.messages];
+    // Inject reminder as a system message right before the final user message
+    if (chatMessages.length > 0) {
+      chatMessages.splice(chatMessages.length - 1, 0, { role: "user" as const, content: `[system: ${REMINDER}]` });
+    }
+    const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...chatMessages];
 
     // Call the billing gateway with streaming
     let upstreamResponse: Response;

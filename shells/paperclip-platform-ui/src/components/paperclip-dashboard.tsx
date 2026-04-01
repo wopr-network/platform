@@ -4,16 +4,13 @@ import { Input } from "@core/components/ui/input";
 import type { BotStatusResponse } from "@core/lib/api";
 import { mapBotState } from "@core/lib/api";
 import { getBrandConfig } from "@core/lib/brand-config";
-import { toUserMessage } from "@core/lib/errors";
 import { trpc } from "@core/lib/trpc";
-import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Plus } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AddPaperclipCard, toSubdomainLabel } from "./add-paperclip-card";
+import { toSubdomainLabel } from "./add-paperclip-card";
 import { PaperclipCard, type PaperclipInstance } from "./paperclip-card";
-
-/** Paperclip uses a single default provider — no user-facing selection. */
-const PAPERCLIP_PROVIDER = "default";
 
 /** Poll interval: fast while provisioning, slow otherwise. */
 const POLL_FAST = 3_000;
@@ -92,63 +89,6 @@ export function PaperclipDashboard() {
     return merged;
   }, [serverInstances, provisioning]);
 
-  const createMutation = trpc.fleet.createInstance.useMutation({
-    onSuccess: () => {
-      // Server responded — container spawned. Fast-polling will pick up
-      // the health transition. Update toast to provisioning phase.
-      if (toastIdRef.current) {
-        toast.loading("Booting up — running migrations...", {
-          id: toastIdRef.current,
-        });
-      }
-      refetch();
-    },
-    onError: (err: unknown) => {
-      // Remove from provisioning map
-      setProvisioning((prev) => {
-        const next = new Map(prev);
-        // Remove the last added entry
-        const keys = Array.from(next.keys());
-        if (keys.length > 0) next.delete(keys[keys.length - 1]);
-        return next;
-      });
-      if (toastIdRef.current) {
-        toast.error(toUserMessage(err, "Failed to create Paperclip"), {
-          id: toastIdRef.current,
-          duration: 8000,
-        });
-        toastIdRef.current = undefined;
-      }
-    },
-  });
-
-  const handleAdd = useCallback(
-    (name: string) => {
-      // name arrives pre-sanitized from AddPaperclipCard (subdomain label)
-      const label = name;
-
-      // Optimistic: add provisioning card immediately
-      const optimistic: PaperclipInstance = {
-        id: `provisioning-${label}`,
-        name: label,
-        status: "provisioning",
-        subdomain: `${label}.${brand.domain}`,
-      };
-      setProvisioning((prev) => new Map(prev).set(label, optimistic));
-
-      // Persistent loading toast
-      toastIdRef.current = toast.loading(`Creating ${label}...`);
-
-      createMutation.mutate({
-        name: label,
-        provider: PAPERCLIP_PROVIDER,
-        channels: [],
-        plugins: [],
-      });
-    },
-    [brand.domain, createMutation],
-  );
-
   const showSearch = instances.length >= 5;
 
   const filtered = useMemo(() => {
@@ -194,10 +134,6 @@ export function PaperclipDashboard() {
     return `${instances.length} ORGANIZATIONS`;
   }
 
-  // AddPaperclipCard only shows "Creating..." during the HTTP request.
-  // Once the server responds, the provisioning card takes over.
-  const isAdding = createMutation.isPending;
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -220,7 +156,12 @@ export function PaperclipDashboard() {
       {isHero && (
         <div className="flex flex-col items-center gap-8 py-10">
           <PaperclipCard instance={instances[0]} variant="hero" />
-          <AddPaperclipCard onAdd={handleAdd} adding={isAdding} variant="link" />
+          <Link
+            href="/instances/new"
+            className="font-mono text-xs text-muted-foreground/50 hover:text-indigo-400 tracking-wide transition-colors duration-200"
+          >
+            Add another Paperclip
+          </Link>
         </div>
       )}
 
@@ -230,7 +171,13 @@ export function PaperclipDashboard() {
           {filtered.map((inst) => (
             <PaperclipCard key={inst.id} instance={inst} variant="grid" />
           ))}
-          <AddPaperclipCard onAdd={handleAdd} adding={isAdding} variant="card" />
+          <Link
+            href="/instances/new"
+            className="group/add flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/30 p-6 text-muted-foreground/40 hover:border-indigo-500/30 hover:text-indigo-400 hover:bg-indigo-500/[0.02] transition-all duration-300 cursor-pointer min-h-[120px]"
+          >
+            <Plus className="size-6 transition-transform duration-300 group-hover/add:rotate-90" />
+            <span className="font-mono text-xs tracking-wide">Add another Paperclip</span>
+          </Link>
         </div>
       )}
 
@@ -244,7 +191,13 @@ export function PaperclipDashboard() {
             </p>
           </div>
           <div className="w-full max-w-md">
-            <AddPaperclipCard onAdd={handleAdd} adding={isAdding} variant="card" />
+            <Link
+              href="/instances/new"
+              className="group/add flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/30 p-6 text-muted-foreground/40 hover:border-indigo-500/30 hover:text-indigo-400 hover:bg-indigo-500/[0.02] transition-all duration-300 cursor-pointer min-h-[120px]"
+            >
+              <Plus className="size-6 transition-transform duration-300 group-hover/add:rotate-90" />
+              <span className="font-mono text-xs tracking-wide">Add another Paperclip</span>
+            </Link>
           </div>
         </div>
       )}
