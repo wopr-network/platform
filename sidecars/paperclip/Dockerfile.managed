@@ -37,6 +37,7 @@ COPY --from=deps /app/ .
 # turbo prune doesn't include non-package config files — copy them from source
 COPY sidecars/paperclip/tsconfig.base.json sidecars/paperclip/tsconfig.base.json
 COPY sidecars/paperclip/tsconfig.json sidecars/paperclip/tsconfig.json
+COPY sidecars/paperclip/scripts/ sidecars/paperclip/scripts/
 RUN pnpm --filter @wopr-network/provision-server build \
     && pnpm --filter @paperclipai/shared build \
     && pnpm --filter @paperclipai/plugin-sdk build \
