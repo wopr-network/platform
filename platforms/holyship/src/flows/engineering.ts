@@ -63,17 +63,15 @@ export const STATES: CreateStateInput[] = [
 1. Read the codebase thoroughly. Understand existing patterns, conventions, and architecture.
 2. Identify which files to create, modify, or delete.
 3. Specify function signatures, data structures, and test cases.
-4. Post the spec as a comment on the issue starting with "## Implementation Spec".
-5. When done, output the following signal on a line by itself with no other text:
-
-spec_ready`,
+4. Post the spec as a comment on the issue. The comment MUST start with the exact heading "## Implementation Spec".
+5. When you've posted the spec, you're done. The pipeline will verify it was posted.`,
   },
   {
     name: "code",
     agentRole: "coder",
     modelTier: "sonnet",
     mode: "active",
-    promptTemplate: `You are a software engineer. Implement the architect's spec, create a PR, and signal when ready for review.
+    promptTemplate: `You are a software engineer. Implement the architect's spec and create a PR.
 
 ## Issue
 #{{entity.artifacts.issueNumber}}: {{entity.artifacts.issueTitle}}
@@ -91,13 +89,9 @@ spec_ready`,
 ## Instructions
 1. Follow the architect's spec closely.
 2. Write clean, tested code.
-3. Create a pull request with a clear description.
-4. Run the project's CI gate locally before pushing (lint, build, test).
-5. When done, output the following signal on a line by itself with no other text:
-
-pr_created
-
-Include the PR URL in your response.`,
+3. Run the project's CI gate locally before pushing (lint, build, test).
+4. Create a pull request with a clear description.
+5. When the PR is created, you're done. The pipeline will detect the PR and verify CI.`,
   },
   {
     name: "review",
@@ -120,24 +114,16 @@ Include the PR URL in your response.`,
 2. Check every automated review bot comment (CodeRabbit, Sourcery, etc.).
 3. Verify CI is green.
 4. Check for: bugs, security issues, missing tests, spec violations, dead code.
-5. When done, output ONE of the following signals on a line by itself with no other text:
-
-clean
-
-If there are issues, list every finding with file, line, and description, then output:
-
-issues
-
-If CI failed, output:
-
-ci_failed`,
+5. If you find issues, post them as a review comment on the PR requesting changes.
+6. If everything looks good, approve the PR.
+7. When you're done reviewing, you're done. The pipeline will check the PR review status.`,
   },
   {
     name: "fix",
     agentRole: "fixer",
     modelTier: "sonnet",
     mode: "active",
-    promptTemplate: `You are a software engineer. Fix every issue found during review, push the fixes, and signal ready for re-review.
+    promptTemplate: `You are a software engineer. Fix every issue found during review and push the fixes.
 
 ## PR
 {{entity.artifacts.prUrl}} (#{{entity.artifacts.prNumber}})
@@ -158,13 +144,9 @@ ci_failed`,
 1. Fix every finding. Do not skip any.
 2. Run the CI gate locally (lint, build, test) before pushing.
 3. Push to the same branch.
-4. When done, output the following signal on a line by itself with no other text:
+4. When you've pushed, you're done. The pipeline will detect the new commits and re-review.
 
-fixes_pushed
-
-If a finding contradicts the architect's spec, output instead:
-
-cant_resolve`,
+If a finding fundamentally contradicts the architect's spec and cannot be resolved, explain why — the pipeline will detect this.`,
   },
   {
     name: "docs",
@@ -183,13 +165,7 @@ cant_resolve`,
 1. Read the PR diff and spec.
 2. Update or create documentation (README, docs/, JSDoc, comments).
 3. Push doc updates to the same branch. Do NOT create a new PR.
-4. When done, output the following signal on a line by itself with no other text:
-
-docs_ready
-
-If you can't complete documentation, output instead:
-
-cant_document`,
+4. When you've pushed, you're done. The pipeline will detect the doc changes.`,
   },
   {
     name: "merge",
@@ -204,17 +180,7 @@ cant_document`,
 ## Instructions
 1. Verify the PR is mergeable (no conflicts, CI green, reviews approved).
 2. Add the PR to the merge queue or merge directly.
-3. When done, output ONE of the following signals on a line by itself with no other text:
-
-merged
-
-If blocked (merge queue rejected, conflicts), output:
-
-blocked
-
-If PR was closed without merge, output:
-
-closed`,
+3. When you've queued or merged, you're done. The pipeline will check the PR status.`,
   },
   // Terminal states — no prompt templates, no agents
   {
