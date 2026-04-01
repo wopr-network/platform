@@ -127,6 +127,8 @@ export interface PlatformContainer {
   hotPool: HotPoolServices | null;
   /** Pool repository — exposed for fleet createInstance to try warm claim. Null when hotPool disabled. */
   poolRepo: import("./services/pool-repository.js").IPoolRepository | null;
+  /** Per-product OAuth provider config. Null when auth is not configured. */
+  productAuthManager: import("../auth/product-auth-manager.js").ProductAuthManager | null;
   /** Leader election — gates singleton background services. Always present. */
   leaderElection: import("../leader/leader-election.js").LeaderElection;
 }
@@ -373,6 +375,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     gateway,
     hotPool: null,
     poolRepo: null,
+    productAuthManager: null,
     leaderElection,
   };
 
@@ -412,6 +415,42 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       getPoolSize: () => getSize(poolRepo),
       setPoolSize: (size) => setSize(poolRepo, size),
     };
+  }
+
+  // Bind per-product OAuth manager (standalone mode)
+  if (bootConfig.standalone && bootConfig.auth) {
+    const { ProductAuthManager } = await import("../auth/product-auth-manager.js");
+    const { setProductAuthManager } = await import("../trpc/auth-social-router.js");
+
+    // Resolve per-product OAuth secrets from Vault.
+    // Each product's secrets are at {slug}/prod → github_client_secret, google_client_secret.
+    // For the boot slug, secrets are already resolved. For others, read from Vault.
+    const providerSecrets: Record<string, string> = {};
+    const bootSecrets = bootConfig.secrets;
+    if (bootSecrets?.githubClientSecret) providerSecrets.github = bootSecrets.githubClientSecret;
+    if (bootSecrets?.googleClientSecret) providerSecrets.google = bootSecrets.googleClientSecret;
+
+    const authManager = new ProductAuthManager(db, result.productConfigService, providerSecrets);
+    result.productAuthManager = authManager;
+    setProductAuthManager(authManager);
+
+    // Seed auth config for all products from Vault
+    const allProducts = await result.productConfigService.listAll();
+    for (const pc of allProducts) {
+      if (!pc.product?.id || !pc.product?.slug) continue;
+      try {
+        // Read per-product Vault data
+        const { resolveVaultConfig, VaultConfigProvider } = await import("../config/vault-provider.js");
+        const vaultConfig = resolveVaultConfig();
+        if (vaultConfig) {
+          const vault = new VaultConfigProvider(vaultConfig);
+          const prodData = await vault.read(`${pc.product.slug}/prod`).catch(() => ({}) as Record<string, string>);
+          await authManager.seedFromVault(Number(pc.product.id), pc.product.slug, prodData);
+        }
+      } catch {
+        // Non-fatal — product may not have Vault secrets yet
+      }
+    }
   }
 
   return result;
