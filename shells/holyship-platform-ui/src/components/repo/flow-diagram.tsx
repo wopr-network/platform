@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 
-import type { DesignedFlow, DesignedFlowTransition } from "@/lib/types";
+import type { DesignedFlow, DesignedFlowGate, DesignedFlowTransition } from "@/lib/types";
 
 interface FlowDiagramProps {
   flow: DesignedFlow;
@@ -55,6 +55,10 @@ function gateForTransition(from: string, trigger: string, gateWiring: DesignedFl
   return null;
 }
 
+function findGate(name: string, gates: DesignedFlowGate[]): DesignedFlowGate | undefined {
+  return gates.find((g) => g.name === name);
+}
+
 function StatePill({ name, diff = "unchanged" }: { name: string; diff?: DiffStatus }) {
   const base = `inline-block rounded-full px-4 py-1.5 text-sm font-semibold ${stateStyle(name)} ${diffStyles[diff]}`;
 
@@ -77,8 +81,30 @@ function Arrow() {
   return <span className="text-muted-foreground text-lg leading-none">&darr;</span>;
 }
 
-function GateLabel({ name }: { name: string }) {
-  return <span className="text-muted-foreground text-xs">&#128274; {name}</span>;
+function GateLabel({ name, gate }: { name: string; gate?: DesignedFlowGate }) {
+  const outcomes = gate?.outcomes;
+  const redirects = outcomes
+    ? Object.entries(outcomes)
+        .filter(([, v]) => v.toState)
+        .map(([k, v]) => ({ outcome: k, toState: v.toState ?? "" }))
+    : [];
+  const artifactKey = gate?.primitiveParams?.artifactKey as string | undefined;
+
+  return (
+    <span className="flex flex-col items-center gap-0.5">
+      <span className="text-muted-foreground text-xs">&#128274; {name}</span>
+      {redirects.length > 0 && (
+        <span className="flex gap-2">
+          {redirects.map((r) => (
+            <span key={r.outcome} className="text-amber-400/70 text-[10px]">
+              {r.outcome} &rarr; {r.toState}
+            </span>
+          ))}
+        </span>
+      )}
+      {artifactKey && <span className="text-emerald-400/50 text-[10px]">extracts: {artifactKey}</span>}
+    </span>
+  );
 }
 
 function SignalLabel({ signal }: { signal: string }) {
@@ -144,7 +170,13 @@ function ReviewFixLoop({
       </div>
       <StatePill name="fix" diff={diffState("fix", flow, pendingFlow)} />
       {reviewToFix && gateForTransition(reviewToFix.fromState, reviewToFix.trigger, gateWiring) && (
-        <GateLabel name={gateForTransition(reviewToFix.fromState, reviewToFix.trigger, gateWiring) ?? ""} />
+        <GateLabel
+          name={gateForTransition(reviewToFix.fromState, reviewToFix.trigger, gateWiring) ?? ""}
+          gate={findGate(
+            gateForTransition(reviewToFix.fromState, reviewToFix.trigger, gateWiring) ?? "",
+            (pendingFlow ?? flow).gates,
+          )}
+        />
       )}
     </div>
   );
@@ -185,7 +217,7 @@ export function FlowDiagram({ flow, pendingFlow }: FlowDiagramProps) {
 
               {idx < path.length - 1 && (
                 <div className="flex flex-col items-center gap-0.5">
-                  {gate && <GateLabel name={gate} />}
+                  {gate && <GateLabel name={gate} gate={findGate(gate, displayFlow.gates)} />}
                   {transition && <SignalLabel signal={transition.trigger} />}
                   <Arrow />
                 </div>

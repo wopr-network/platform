@@ -84,11 +84,18 @@ export interface DesignedFlowState {
   mode?: string;
 }
 
+export interface DesignedFlowGateOutcome {
+  proceed?: boolean;
+  toState?: string;
+}
+
 export interface DesignedFlowGate {
   name: string;
   type: string;
   primitiveOp?: string;
+  primitiveParams?: Record<string, unknown>;
   timeoutMs?: number;
+  outcomes?: Record<string, DesignedFlowGateOutcome>;
 }
 
 export interface DesignedFlowTransition {
