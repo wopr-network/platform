@@ -23,8 +23,10 @@ import {
   goalService,
   projectService,
   issueService,
+  heartbeatService,
   logActivity,
 } from "../services/index.js";
+import { queueIssueAssignmentWakeup } from "../services/issue-assignment-wakeup.js";
 
 /**
  * Logical model name for the gateway. The actual upstream model is controlled
@@ -175,9 +177,36 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
           adapterType: "opencode_local",
           adapterConfig: {
             model: `paperclip-gateway/${GATEWAY_MODEL_ALIAS}`,
+            promptTemplate: [
+              "You are {{agent.name}}, the {{agent.role}} of a Paperclip AI company.",
+              "Your agent ID is {{agent.id}}. Your company ID is {{agent.companyId}}.",
+              "",
+              "You have access to the Paperclip API at $PAPERCLIP_API_URL.",
+              "When you wake up, check the PAPERCLIP_TASK_ID environment variable — it contains the issue you need to work on.",
+              "",
+              "Use the Paperclip API to:",
+              "- GET /api/companies/$PAPERCLIP_COMPANY_ID/issues/$PAPERCLIP_TASK_ID — read your assigned task",
+              "- GET /api/companies/$PAPERCLIP_COMPANY_ID/agents — list your team",
+              "- POST /api/companies/$PAPERCLIP_COMPANY_ID/agent-hires — hire new agents",
+              "- POST /api/companies/$PAPERCLIP_COMPANY_ID/issues — create and delegate tasks",
+              "- PATCH /api/issues/$ISSUE_ID — update issue status (in_progress, done)",
+              "",
+              "All API calls require header: Authorization: Bearer $PAPERCLIP_GATEWAY_KEY",
+              "",
+              "Start by reading your assigned task, then execute it.",
+            ].join("\n"),
             env: {
               PAPERCLIP_GATEWAY_KEY: gateway.apiKey,
               OPENCODE_CONFIG_DIR: GATEWAY_CONFIG_DIR,
+            },
+          },
+          runtimeConfig: {
+            heartbeat: {
+              enabled: true,
+              intervalSec: 3600,
+              wakeOnDemand: true,
+              cooldownSec: 10,
+              maxConcurrentRuns: 1,
             },
           },
           budgetMonthlyCents: spec.budgetMonthlyCents ?? 0,
@@ -272,7 +301,7 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
         const taskDescription =
           onboarding?.taskDescription ||
           `You are the CEO. You set the direction for the company.\n\n- hire a founding engineer\n- write a hiring plan\n- break the roadmap into concrete tasks and start delegating work`;
-        await issues.create(companyId, {
+        const issue = await issues.create(companyId, {
           title: taskTitle,
           description: taskDescription,
           status: "todo",
@@ -280,6 +309,20 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
           ...(goalId ? { goalId } : {}),
           ...(ceoAgent ? { assigneeAgentId: ceoAgent.id } : {}),
         });
+
+        // Wake the CEO with the issue context — same as the normal issue route does
+        if (ceoAgent && issue.assigneeAgentId) {
+          const heartbeat = heartbeatService(db);
+          void queueIssueAssignmentWakeup({
+            heartbeat,
+            issue: { id: issue.id, assigneeAgentId: issue.assigneeAgentId, status: issue.status },
+            reason: "issue_assigned",
+            mutation: "create",
+            contextSource: "provision.onboarding",
+            requestedByActorType: "system",
+            requestedByActorId: "paperclip-platform",
+          });
+        }
       }
 
       await logActivity(db, {
