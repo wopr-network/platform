@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { API_BASE_URL } from "@/lib/api-config";
 import { signIn } from "@/lib/auth-client";
-import { trpc } from "@/lib/trpc";
 
 const providerLabels: Record<string, string> = {
   github: "GitHub",
@@ -14,13 +14,22 @@ const providerLabels: Record<string, string> = {
 
 interface OAuthButtonsProps {
   callbackUrl?: string;
+  productSlug?: string;
 }
 
-export function OAuthButtons({ callbackUrl = "/" }: OAuthButtonsProps) {
+export function OAuthButtons({ callbackUrl = "/", productSlug }: OAuthButtonsProps) {
   const [loading, setLoading] = useState<string | null>(null);
-  const { data: enabledProviders, isLoading } = trpc.authSocial.enabledSocialProviders.useQuery(undefined, {
-    staleTime: Number.POSITIVE_INFINITY,
-  });
+  const [enabledProviders, setEnabledProviders] = useState<string[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const slug = productSlug ?? window.location.hostname.split(".")[0];
+    fetch(`${API_BASE_URL}/auth/providers?slug=${encodeURIComponent(slug)}`)
+      .then((r) => r.json())
+      .then((data) => setEnabledProviders(Array.isArray(data) ? data : []))
+      .catch(() => setEnabledProviders([]))
+      .finally(() => setIsLoading(false));
+  }, [productSlug]);
 
   async function handleOAuth(provider: string) {
     setLoading(provider);
