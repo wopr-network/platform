@@ -3,7 +3,7 @@
  *
  * Subscribes to engine events as an IEventBusAdapter. When invocation.created
  * fires, a worker claims it and runs the full lifecycle:
- *   provision container → dispatch prompt → collect signal → processSignal → teardown
+ *   provision container → dispatch prompt → evaluate gates → transition → teardown
  *
  * Concurrency is bounded by pool size. If all workers are busy, events queue.
  * No polling. No sleep loops. Purely reactive.
@@ -351,38 +351,34 @@ export class WorkerPool implements IEventBusAdapter {
         return;
       }
 
-      const signal = (resultEvent.signal as string) ?? "";
+      const agentSignal = (resultEvent.signal as string) ?? "";
       const resultArtifacts = (resultEvent.artifacts as Record<string, unknown>) ?? {};
 
       logger.info(`${tag} dispatch complete`, {
         entityId,
-        signal: signal || "(empty)",
+        agentSignal: agentSignal || "(empty)",
         artifactKeys: Object.keys(resultArtifacts),
         costUsd: resultEvent.costUsd,
         isError: resultEvent.isError,
         stopReason: resultEvent.stopReason,
       });
 
-      // 5. Feed signal to engine — gate evaluation hits the still-running container
-      if (signal) {
-        logger.info(`${tag} processing signal`, { entityId, signal });
-        try {
-          const signalResult = await this.engine.processSignal(entityId, signal, resultArtifacts);
-          logger.info(`${tag} signal processed`, {
-            entityId,
-            signal,
-            result: JSON.stringify(signalResult).slice(0, 500),
-          });
-        } catch (err) {
-          logger.error(`${tag} processSignal FAILED`, {
-            entityId,
-            signal,
-            error: err instanceof Error ? err.message : String(err),
-            stack: err instanceof Error ? err.stack : undefined,
-          });
-        }
-      } else {
-        logger.warn(`${tag} no signal in result — nothing to process`, { entityId });
+      // 5. Gate-driven transition: engine evaluates all outgoing gates to
+      // determine what happened, then falls back to fuzzy signal matching.
+      // Agent output format is irrelevant — gates check external systems.
+      logger.info(`${tag} evaluating gates for transition`, { entityId });
+      try {
+        const transitionResult = await this.engine.evaluateAndTransition(entityId, body, resultArtifacts);
+        logger.info(`${tag} transition evaluated`, {
+          entityId,
+          result: JSON.stringify(transitionResult).slice(0, 500),
+        });
+      } catch (err) {
+        logger.error(`${tag} evaluateAndTransition FAILED`, {
+          entityId,
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
       }
     } catch (err) {
       logger.error(`${tag} dispatch FAILED`, {

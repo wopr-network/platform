@@ -28,6 +28,22 @@ const MERGE_BLOCKED_THRESHOLD = 3;
 const MERGE_BLOCKED_STUCK_MESSAGE =
   "PR blocked in merge queue 3+ times — likely branch protection or queue contention issue";
 
+/**
+ * Fuzzy signal classifier for agent-judgment signals that can't be
+ * determined by gates (e.g., "I can't resolve this"). Matches common
+ * natural-language patterns agents use when they give up.
+ */
+function classifyAgentOutput(text: string): string | null {
+  const lower = text.toLowerCase();
+  if (/can'?t\s+resolve|cannot\s+resolve|unable\s+to\s+(fix|resolve)|contradicts?\s+(the\s+)?spec/i.test(lower)) {
+    return "cant_resolve";
+  }
+  if (/can'?t\s+document|cannot\s+document|unable\s+to\s+(write|create)\s+doc/i.test(lower)) {
+    return "cant_document";
+  }
+  return null;
+}
+
 export interface ProcessSignalResult {
   newState?: string;
   /** Names (not IDs) of gates that evaluated and passed during this transition. */
@@ -601,6 +617,88 @@ export class Engine {
       timeoutPrompt,
       gatesPassed: [],
     };
+  }
+
+  /**
+   * Gate-driven transition: evaluate all outgoing gates from the entity's
+   * current state and transition based on which gate passes. Falls back to
+   * fuzzy signal classification on the agent's raw output text.
+   *
+   * This replaces the pattern of extracting exact signal strings from agent
+   * output. The agent just does work and exits — the engine determines
+   * what happened by checking external systems via gates.
+   */
+  async evaluateAndTransition(
+    entityId: string,
+    agentOutput?: string,
+    agentArtifacts?: Record<string, unknown>,
+  ): Promise<ProcessSignalResult> {
+    const entityRepo = this.entityRepo;
+    let entity = await entityRepo.get(entityId);
+    if (!entity) throw new NotFoundError(`Entity "${entityId}" not found`);
+
+    const flow = await this.flowRepo.getAtVersion(entity.flowId, entity.flowVersion);
+    if (!flow) throw new NotFoundError(`Flow "${entity.flowId}" version ${entity.flowVersion} not found`);
+
+    // Persist any agent-provided artifacts before gate evaluation
+    if (agentArtifacts && Object.keys(agentArtifacts).length > 0) {
+      await entityRepo.updateArtifacts(entityId, agentArtifacts);
+      const refreshed = await entityRepo.get(entityId);
+      if (refreshed) entity = refreshed;
+    }
+
+    // Get all outgoing transitions from current state, sorted by priority
+    const outgoing = flow.transitions
+      .filter((t) => t.fromState === entity.state)
+      .sort((a, b) => b.priority - a.priority);
+
+    // Evaluate gated transitions first
+    for (const transition of outgoing) {
+      if (!transition.gateId) continue;
+
+      const routing = await this.resolveGate(transition.gateId, entity, flow);
+
+      if (routing.kind === "proceed") {
+        this.logger.info(`[engine] evaluateAndTransition: gate passed → ${transition.toState}`, {
+          entityId,
+          gate: routing.gatesPassed[0],
+          trigger: transition.trigger,
+        });
+        return this.processSignal(entityId, transition.trigger, routing.artifacts);
+      }
+
+      if (routing.kind === "redirect") {
+        this.logger.info(`[engine] evaluateAndTransition: gate redirected → ${routing.toState}`, {
+          entityId,
+          gate: routing.gatesPassed[0],
+          trigger: routing.trigger,
+        });
+        return this.processSignal(entityId, routing.trigger, routing.artifacts);
+      }
+
+      // Gate blocked — try next transition
+      this.logger.debug(`[engine] evaluateAndTransition: gate blocked, trying next`, {
+        entityId,
+        gate: routing.gateName,
+      });
+    }
+
+    // No gate passed — try fuzzy signal classification on agent output
+    if (agentOutput) {
+      const fuzzySignal = classifyAgentOutput(agentOutput);
+      if (fuzzySignal) {
+        this.logger.info(`[engine] evaluateAndTransition: fuzzy signal matched → ${fuzzySignal}`, { entityId });
+        return this.processSignal(entityId, fuzzySignal, agentArtifacts);
+      }
+    }
+
+    // Nothing matched — entity stays in current state
+    this.logger.warn(`[engine] evaluateAndTransition: no gate passed and no fuzzy signal matched`, {
+      entityId,
+      state: entity.state,
+      outgoingTransitions: outgoing.length,
+    });
+    return { gated: true, gatesPassed: [], terminal: false };
   }
 
   async createEntity(
