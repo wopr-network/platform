@@ -1,62 +1,57 @@
 # ---------------------------------------------------------------------------
-# Stage 1: Base — Node 22 + pnpm
+# Paperclip UI — built from monorepo workspace
 # ---------------------------------------------------------------------------
-FROM node:22-bookworm-slim AS base
-RUN corepack enable && corepack prepare pnpm@10 --activate
 
-# ---------------------------------------------------------------------------
-# Stage 2: Dependencies — resolve workspace:* and install
-# ---------------------------------------------------------------------------
+FROM node:22-bookworm-slim AS base
+ENV CI=true
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN npm install -g pnpm@10 turbo@2.8.20
+
+# --- Prune monorepo to only packages needed by this shell ---
+FROM base AS pruner
+WORKDIR /app
+COPY . .
+RUN turbo prune @wopr-network/paperclip-platform-ui --docker \
+    && cd out/json \
+    && printf "packages:\n" > pnpm-workspace.yaml \
+    && find . -mindepth 2 -name "package.json" -exec dirname {} \; | sed 's|^./||' | sort | awk '{print "  - "$0}' >> pnpm-workspace.yaml \
+    && cp pnpm-workspace.yaml ../full/pnpm-workspace.yaml
+
+# --- Install dependencies from pruned lockfile ---
 FROM base AS deps
 WORKDIR /app
-COPY shells/paperclip-platform-ui/docker.package.json ./package.json
-COPY shells/paperclip-platform-ui/docker.pnpm-lock.yaml ./pnpm-lock.yaml
-RUN pnpm install --frozen-lockfile
+COPY --from=pruner /app/out/json/ .
+RUN echo "node-linker=hoisted" > .npmrc && pnpm install --no-frozen-lockfile
 
-# ---------------------------------------------------------------------------
-# Stage 3: Build — copy source and run next build
-# ---------------------------------------------------------------------------
+# --- Build ---
 FROM base AS build
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./
+COPY --from=pruner /app/out/full/ .
+COPY --from=deps /app/ .
 
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 
-# Copy entire shell directory (app/, components/, lib/, src/, public/, configs, etc.)
-COPY shells/paperclip-platform-ui/ ./
-
-# Override npm-published platform-ui-core with workspace source (monorepo truth)
-COPY core/platform-ui-core/src/ ./node_modules/@wopr-network/platform-ui-core/src/
-# Remove pre-compiled dist so Next.js resolves from src/ via tsconfig paths
-RUN rm -rf ./node_modules/@wopr-network/platform-ui-core/dist/
-
-COPY shells/paperclip-platform-ui/docker.env ./.env
+# Brand config + API URL for build-time inlining
+COPY shells/paperclip-platform-ui/docker.env ./shells/paperclip-platform-ui/.env
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-RUN pnpm run build
+RUN pnpm turbo run build --filter=@wopr-network/paperclip-platform-ui
 
-# ---------------------------------------------------------------------------
-# Stage 4: Production — standalone server
-# ---------------------------------------------------------------------------
+# --- Production ---
 FROM node:22-bookworm-slim AS production
-
 RUN groupadd paperclip && useradd -g paperclip -m paperclip
-
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
-# Standalone output is FLAT (server.js at root) — single-package build
-COPY --from=build /app/.next/standalone/ ./
-COPY --from=build /app/.next/static ./.next/static
-COPY --from=build /app/public ./public
+COPY --from=build /app/shells/paperclip-platform-ui/.next/standalone/ ./
+COPY --from=build /app/shells/paperclip-platform-ui/.next/static ./.next/static
+COPY --from=build /app/shells/paperclip-platform-ui/public ./public
 
 USER paperclip
-
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
