@@ -443,6 +443,7 @@ async function main() {
       engine,
       entities: repos.entities,
       flows: repos.flows,
+      invocations: repos.invocations,
       workerToken: config.HOLYSHIP_WORKER_TOKEN,
     }),
   );

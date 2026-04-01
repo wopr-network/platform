@@ -151,3 +151,24 @@ export async function getEntity(entityId: string) {
 export async function getEngineStatus() {
   return request<EngineStatus>(`/engine/status`);
 }
+
+export interface EntityInvocation {
+  id: string;
+  stage: string;
+  agentRole: string | null;
+  signal: string | null;
+  error: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  failedAt: string | null;
+  artifactKeys: string[];
+}
+
+export interface EntityDetail {
+  entity: PipelineEntity;
+  invocations: EntityInvocation[];
+}
+
+export async function getEntityDetail(entityId: string) {
+  return request<EntityDetail>(`/engine/entities/${entityId}/detail`);
+}

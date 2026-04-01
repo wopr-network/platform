@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { type EngineStatus, getEngineStatus, listEntities, type PipelineEntity } from "@/lib/holyship-client";
 
@@ -44,7 +45,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hr / 24)}d`;
 }
 
-function EntityCard({ entity }: { entity: PipelineEntity }) {
+function EntityCard({ entity, owner, repo }: { entity: PipelineEntity; owner: string; repo: string }) {
   const a = entity.artifacts ?? {};
   const issueTitle = (a.issueTitle as string) ?? "Untitled";
   const issueNumber = a.issueNumber as number | undefined;
@@ -55,7 +56,10 @@ function EntityCard({ entity }: { entity: PipelineEntity }) {
   const hasFindings = !!a.reviewFindings;
 
   return (
-    <div className={`rounded-lg border p-3 ${STATE_COLORS[entity.state] ?? "border-border"}`}>
+    <Link
+      href={`/dashboard/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pipeline/${entity.id}`}
+      className={`block rounded-lg border p-3 hover:ring-1 hover:ring-foreground/20 transition-all ${STATE_COLORS[entity.state] ?? "border-border"}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
@@ -73,14 +77,9 @@ function EntityCard({ entity }: { entity: PipelineEntity }) {
           <span className="rounded-full bg-sky-500/10 text-sky-400 px-2 py-0.5 text-[10px] font-medium">spec</span>
         )}
         {prUrl && prNumber && (
-          <a
-            href={prUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full bg-violet-500/10 text-violet-400 px-2 py-0.5 text-[10px] font-medium hover:bg-violet-500/20"
-          >
+          <span className="rounded-full bg-violet-500/10 text-violet-400 px-2 py-0.5 text-[10px] font-medium">
             PR #{prNumber}
-          </a>
+          </span>
         )}
         {hasFindings && (
           <span className="rounded-full bg-amber-500/10 text-amber-400 px-2 py-0.5 text-[10px] font-medium">
@@ -88,11 +87,21 @@ function EntityCard({ entity }: { entity: PipelineEntity }) {
           </span>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
 
-function StateLane({ state, entities }: { state: string; entities: PipelineEntity[] }) {
+function StateLane({
+  state,
+  entities,
+  owner,
+  repo,
+}: {
+  state: string;
+  entities: PipelineEntity[];
+  owner: string;
+  repo: string;
+}) {
   return (
     <div className="flex-1 min-w-[180px]">
       <div className="flex items-center gap-2 mb-3">
@@ -107,7 +116,7 @@ function StateLane({ state, entities }: { state: string; entities: PipelineEntit
           </div>
         )}
         {entities.map((e) => (
-          <EntityCard key={e.id} entity={e} />
+          <EntityCard key={e.id} entity={e} owner={owner} repo={repo} />
         ))}
       </div>
     </div>
@@ -115,6 +124,7 @@ function StateLane({ state, entities }: { state: string; entities: PipelineEntit
 }
 
 export default function PipelineLivePage() {
+  const { owner, repo } = useParams<{ owner: string; repo: string }>();
   const [entities, setEntities] = useState<PipelineEntity[]>([]);
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,7 +217,7 @@ export default function PipelineLivePage() {
       {!isEmpty && (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {STATE_ORDER.map((state) => (
-            <StateLane key={state} state={state} entities={byState[state] ?? []} />
+            <StateLane key={state} state={state} entities={byState[state] ?? []} owner={owner} repo={repo} />
           ))}
         </div>
       )}
@@ -221,7 +231,7 @@ export default function PipelineLivePage() {
           </summary>
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
             {terminalEntities.map((e) => (
-              <EntityCard key={e.id} entity={e} />
+              <EntityCard key={e.id} entity={e} owner={owner} repo={repo} />
             ))}
           </div>
         </details>

@@ -12,12 +12,13 @@
 import { timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import type { Engine } from "../engine/engine.js";
-import type { IEntityRepository, IFlowRepository } from "../repositories/interfaces.js";
+import type { IEntityRepository, IFlowRepository, IInvocationRepository } from "../repositories/interfaces.js";
 
 export interface EngineRouteDeps {
   engine: Engine;
   entities: IEntityRepository;
   flows: IFlowRepository;
+  invocations: IInvocationRepository;
   workerToken?: string;
 }
 
@@ -89,6 +90,28 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
     const reason = (body.reason as string) ?? "unknown";
     const result = await deps.engine.processSignal(entityId, "fail", { failureReason: reason });
     return c.json(result, 200);
+  });
+
+  // GET /entities/:id/detail — enriched entity with invocations and timeline
+  app.get("/entities/:id/detail", async (c) => {
+    const entity = await deps.entities.get(c.req.param("id"));
+    if (!entity) return c.json({ error: "Not found" }, 404);
+    const invocations = await deps.invocations.findByEntity(entity.id);
+    const timeline = invocations
+      .filter((inv) => inv.startedAt)
+      .sort((a, b) => new Date(a.startedAt!).getTime() - new Date(b.startedAt!).getTime())
+      .map((inv) => ({
+        id: inv.id,
+        stage: inv.stage,
+        agentRole: inv.agentRole,
+        signal: inv.signal,
+        error: inv.error,
+        startedAt: inv.startedAt,
+        completedAt: inv.completedAt,
+        failedAt: inv.failedAt,
+        artifactKeys: Object.keys(inv.artifacts ?? {}),
+      }));
+    return c.json({ entity, invocations: timeline }, 200);
   });
 
   // GET /entities/:id — get entity
