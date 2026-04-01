@@ -27,6 +27,9 @@ ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
 # Copy entire shell directory (app/, components/, lib/, src/, public/, configs, etc.)
 COPY shells/paperclip-platform-ui/ ./
 
+# Override npm-published platform-ui-core with workspace source (monorepo truth)
+COPY core/platform-ui-core/src/ ./node_modules/@wopr-network/platform-ui-core/src/
+
 COPY shells/paperclip-platform-ui/docker.env ./.env
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
