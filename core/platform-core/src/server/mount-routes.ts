@@ -229,6 +229,14 @@ export async function mountRoutes(
       if (!productConfig) return c.json({ error: "Product not found" }, 404);
       return c.json(toBrandConfig(productConfig));
     });
+
+    // Enabled social providers per product — public endpoint for login page OAuth buttons
+    app.get("/api/auth/providers", async (c) => {
+      const slug = c.req.header("x-product") ?? c.req.query("slug") ?? bootConfig.slug ?? "wopr";
+      if (!container.productAuthManager) return c.json([]);
+      const providers = await container.productAuthManager.getEnabledProviders(slug);
+      return c.json(providers);
+    });
   }
 
   // 2d. BetterAuth routes (when auth config provided)
