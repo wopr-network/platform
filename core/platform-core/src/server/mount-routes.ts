@@ -151,10 +151,30 @@ export async function mountRoutes(
   // Downstream handlers read c.get("productConfig") instead of container.productConfig.
   if (bootConfig?.standalone) {
     app.use("*", async (c, next) => {
+      const { logger } = await import("../config/logger.js");
       // Health check is internal (localhost, no Origin) — skip product resolution
       if (c.req.path === "/health" || c.req.path === "/api/health") return next();
-      const slug = await resolveProductSlug(c.req, container.productConfigService);
+      let slug: string;
+      try {
+        slug = await resolveProductSlug(c.req, container.productConfigService);
+      } catch (err) {
+        logger.warn("Product resolution failed", {
+          host: c.req.header("host"),
+          origin: c.req.header("origin"),
+          path: c.req.path,
+          method: c.req.method,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
       const resolved = await container.productConfigService.getBySlug(slug);
+      logger.info("Product resolved", {
+        slug,
+        resolved: Boolean(resolved),
+        host: c.req.header("host"),
+        path: c.req.path,
+        method: c.req.method,
+      });
       if (resolved) {
         const ctx = c as unknown as { set(k: string, v: unknown): void };
         ctx.set("productConfig", resolved);
@@ -265,6 +285,34 @@ export async function mountRoutes(
       if (c.req.path.startsWith("/api/chat")) return next();
       // Webhooks use their own signature verification (Stripe/crypto), not service tokens
       if (c.req.path.startsWith("/api/webhooks")) return next();
+      // Tenant subdomain requests are authenticated by the tenant proxy middleware — skip internal auth
+      if (container.fleet) {
+        const host = c.req.header("host")?.split(":")[0]?.toLowerCase() ?? "";
+        const allProducts = await container.productConfigService.listAll();
+        const isTenantSubdomain = allProducts.some((pc) => {
+          const domain = pc.product?.domain;
+          if (!domain) return false;
+          const suffix = `.${domain}`;
+          if (!host.endsWith(suffix)) return false;
+          const sub = host.slice(0, -suffix.length);
+          return sub && !sub.includes(".") && sub !== "api" && sub !== "app" && sub !== "www";
+        });
+        if (isTenantSubdomain) {
+          const { logger } = await import("../config/logger.js");
+          logger.info("Skipping internal auth for tenant subdomain", {
+            host,
+            path: c.req.path,
+            method: c.req.method,
+          });
+          return next();
+        }
+      }
+      const { logger: authLogger } = await import("../config/logger.js");
+      authLogger.info("Applying internal auth middleware", {
+        host: c.req.header("host"),
+        path: c.req.path,
+        method: c.req.method,
+      });
       return authMiddleware(c as never, next);
     });
 

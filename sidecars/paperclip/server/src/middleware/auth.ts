@@ -32,9 +32,21 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
     if (opts.deploymentMode === "hosted_proxy") {
       const proxyUserId = req.header("x-paperclip-user-id") ?? req.header("x-platform-user-id");
       if (proxyUserId) {
+        // Look up company memberships so APIs that filter by companyIds work
+        const memberships = await db
+          .select({ companyId: companyMemberships.companyId })
+          .from(companyMemberships)
+          .where(
+            and(
+              eq(companyMemberships.principalType, "user"),
+              eq(companyMemberships.principalId, proxyUserId),
+              eq(companyMemberships.status, "active"),
+            ),
+          );
         req.actor = {
           type: "board",
           userId: proxyUserId,
+          companyIds: memberships.map((row) => row.companyId),
           isInstanceAdmin: true,
           runId: runIdHeader ?? undefined,
           source: "local_implicit",

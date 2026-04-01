@@ -188,19 +188,22 @@ export function createTenantProxyMiddleware(
     // Resolve fleet container URL (route table or profile fallback)
     const upstream = resolveContainerUrl(container, subdomain, profile);
     const { logger } = await import("../../config/logger.js");
+    const url = new URL(c.req.url);
     logger.info("Tenant proxy", {
       subdomain,
       upstream,
       userId: user.id,
       profileName: profile.name,
       productSlug: profile.productSlug,
+      method: c.req.method,
+      path: url.pathname,
+      targetUrl: `${upstream}${url.pathname}${url.search}`,
     });
     if (!upstream) {
       logger.warn("Tenant proxy: no upstream", { subdomain, productSlug: profile.productSlug });
       return c.json({ error: "Container unavailable" }, 503);
     }
 
-    const url = new URL(c.req.url);
     const targetUrl = `${upstream}${url.pathname}${url.search}`;
     const upstreamHeaders = buildUpstreamHeaders(c.req.raw.headers, user, subdomain);
 
@@ -217,6 +220,11 @@ export function createTenantProxyMiddleware(
       return c.json({ error: "Bad Gateway: upstream container unavailable" }, 502);
     }
 
+    logger.info("Tenant proxy response", {
+      subdomain,
+      path: url.pathname,
+      upstreamStatus: response.status,
+    });
     return new Response(response.body, {
       status: response.status,
       headers: response.headers,

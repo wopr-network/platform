@@ -131,7 +131,7 @@ export async function createApp(
 
   // Mount provision endpoint (internal, outside board mutation guard)
   if (opts.hostedMode) {
-    app.use("/api/provision", provisionRoutes(db));
+    app.use("/internal", provisionRoutes(db));
   }
 
   // Mount API routes

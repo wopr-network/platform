@@ -13,11 +13,11 @@ RUN apt-get update \
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 RUN npm install -g pnpm@10 turbo@2.8.20
 
-# --- Prune monorepo to only packages needed by @paperclipai/server ---
+# --- Prune monorepo to packages needed by server + UI ---
 FROM base AS pruner
 WORKDIR /app
 COPY . .
-RUN turbo prune @paperclipai/server --docker \
+RUN turbo prune @paperclipai/server @paperclipai/ui --docker \
     && cd out/json \
     && printf "packages:\n" > pnpm-workspace.yaml \
     && find . -mindepth 2 -name "package.json" -exec dirname {} \; | sed 's|^./||' | sort | awk '{print "  - "$0}' >> pnpm-workspace.yaml \
@@ -27,7 +27,7 @@ RUN turbo prune @paperclipai/server --docker \
 FROM base AS deps
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
-RUN echo "node-linker=hoisted" > .npmrc && pnpm install --no-frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # --- Build ---
 FROM base AS build
@@ -46,6 +46,10 @@ RUN pnpm --filter @wopr-network/provision-server build \
     && pnpm tsc \
     && mkdir -p dist/onboarding-assets \
     && cp -R src/onboarding-assets/. dist/onboarding-assets/
+# Copy UI dist into the server's expected location
+RUN if [ -d sidecars/paperclip/ui/dist ]; then \
+      cp -R sidecars/paperclip/ui/dist sidecars/paperclip/server/ui-dist; \
+    else echo "WARN: UI dist not found — API-only image"; fi
 RUN test -f sidecars/paperclip/server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
 # --- Production ---
@@ -63,13 +67,19 @@ WORKDIR /app
 COPY --chown=paperclip:paperclip --from=build /app/ .
 RUN mkdir -p /paperclip /data && chown -R paperclip:paperclip /paperclip /data
 
-# embedded-postgres bundles its own libs — create soname symlinks and set LD_LIBRARY_PATH
-RUN cd /app/node_modules/@embedded-postgres/linux-x64/native/lib && \
-    for f in *.so.*.*; do \
-      soname="${f%.*}"; [ ! -e "$soname" ] && ln -s "$f" "$soname" || true; \
-      base="${soname%.*}"; [ ! -e "$base" ] && ln -s "$f" "$base" || true; \
-    done
-ENV LD_LIBRARY_PATH=/app/node_modules/@embedded-postgres/linux-x64/native/lib
+# embedded-postgres bundles its own libs — find wherever pnpm put them, create soname
+# symlinks, and link to a stable path for LD_LIBRARY_PATH
+RUN EPLIB=$(find /app -path '*/@embedded-postgres/linux-x64/native/lib' -type d | head -1) && \
+    mkdir -p /app/epg-lib && \
+    if [ -n "$EPLIB" ]; then \
+      cd "$EPLIB" && \
+      for f in *.so.*.*; do \
+        soname="${f%.*}"; [ ! -e "$soname" ] && ln -s "$f" "$soname" || true; \
+        base="${soname%.*}"; [ ! -e "$base" ] && ln -s "$f" "$base" || true; \
+      done && \
+      ln -sfn "$EPLIB" /app/epg-lib/native; \
+    fi
+ENV LD_LIBRARY_PATH=/app/epg-lib/native
 ENV NODE_ENV=production \
   HOME=/paperclip \
   HOST=0.0.0.0 \
