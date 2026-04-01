@@ -19,9 +19,11 @@ import { applyDataDirOverride, type DataDirOptionLike } from "./config/data-dir.
 import { loadPaperclipEnvFile } from "./config/env.js";
 import { registerWorktreeCommands } from "./commands/worktree.js";
 import { registerPluginCommands } from "./commands/client/plugin.js";
+import { registerClientAuthCommands } from "./commands/client/auth.js";
 
 const program = new Command();
-const DATA_DIR_OPTION_HELP = "Paperclip data directory root (isolates state from ~/.paperclip)";
+const DATA_DIR_OPTION_HELP =
+  "Paperclip data directory root (isolates state from ~/.paperclip)";
 
 program
   .name("paperclipai")
@@ -117,7 +119,11 @@ heartbeat
   .option("--profile <name>", "CLI context profile name")
   .option("--api-base <url>", "Base URL for the Paperclip server API")
   .option("--api-key <token>", "Bearer token for agent-authenticated calls")
-  .option("--source <source>", "Invocation source (timer | assignment | on_demand | automation)", "on_demand")
+  .option(
+    "--source <source>",
+    "Invocation source (timer | assignment | on_demand | automation)",
+    "on_demand",
+  )
   .option("--trigger <trigger>", "Trigger detail (manual | ping | callback | system)", "manual")
   .option("--timeout-ms <ms>", "Max time to wait before giving up", "0")
   .option("--json", "Output raw JSON where applicable")
@@ -145,6 +151,8 @@ auth
   .option("--expires-hours <hours>", "Invite expiration window in hours", (value) => Number(value))
   .option("--base-url <url>", "Public base URL used to print invite link")
   .action(bootstrapCeoInvite);
+
+registerClientAuthCommands(auth);
 
 program.parseAsync().catch((err) => {
   console.error(err instanceof Error ? err.message : String(err));

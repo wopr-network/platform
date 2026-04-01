@@ -14,12 +14,20 @@ async function createPaperclipRepoSkill(root: string, skillName: string) {
   await fs.mkdir(path.join(root, "skills", skillName), { recursive: true });
   await fs.writeFile(path.join(root, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n", "utf8");
   await fs.writeFile(path.join(root, "package.json"), '{"name":"paperclip"}\n', "utf8");
-  await fs.writeFile(path.join(root, "skills", skillName, "SKILL.md"), `---\nname: ${skillName}\n---\n`, "utf8");
+  await fs.writeFile(
+    path.join(root, "skills", skillName, "SKILL.md"),
+    `---\nname: ${skillName}\n---\n`,
+    "utf8",
+  );
 }
 
 async function createCustomSkill(root: string, skillName: string) {
   await fs.mkdir(path.join(root, "custom", skillName), { recursive: true });
-  await fs.writeFile(path.join(root, "custom", skillName, "SKILL.md"), `---\nname: ${skillName}\n---\n`, "utf8");
+  await fs.writeFile(
+    path.join(root, "custom", skillName, "SKILL.md"),
+    `---\nname: ${skillName}\n---\n`,
+    "utf8",
+  );
 }
 
 describe("codex local adapter skill injection", () => {
@@ -50,13 +58,11 @@ describe("codex local adapter skill injection", () => {
       },
       {
         skillsHome,
-        skillsEntries: [
-          {
-            key: paperclipKey,
-            runtimeName: "paperclip",
-            source: path.join(currentRepo, "skills", "paperclip"),
-          },
-        ],
+        skillsEntries: [{
+          key: paperclipKey,
+          runtimeName: "paperclip",
+          source: path.join(currentRepo, "skills", "paperclip"),
+        }],
       },
     );
 
@@ -85,13 +91,11 @@ describe("codex local adapter skill injection", () => {
 
     await ensureCodexSkillsInjected(async () => {}, {
       skillsHome,
-      skillsEntries: [
-        {
-          key: paperclipKey,
-          runtimeName: "paperclip",
-          source: path.join(currentRepo, "skills", "paperclip"),
-        },
-      ],
+      skillsEntries: [{
+        key: paperclipKey,
+        runtimeName: "paperclip",
+        source: path.join(currentRepo, "skills", "paperclip"),
+      }],
     });
 
     expect(await fs.realpath(path.join(skillsHome, "paperclip"))).toBe(
@@ -120,13 +124,11 @@ describe("codex local adapter skill injection", () => {
       },
       {
         skillsHome,
-        skillsEntries: [
-          {
-            key: paperclipKey,
-            runtimeName: "paperclip",
-            source: path.join(currentRepo, "skills", "paperclip"),
-          },
-        ],
+        skillsEntries: [{
+          key: paperclipKey,
+          runtimeName: "paperclip",
+          source: path.join(currentRepo, "skills", "paperclip"),
+        }],
       },
     );
 
@@ -149,17 +151,18 @@ describe("codex local adapter skill injection", () => {
 
     await createPaperclipRepoSkill(currentRepo, "paperclip");
     await createPaperclipRepoSkill(currentRepo, "agent-browser");
-    await fs.symlink(path.join(currentRepo, "skills", "agent-browser"), path.join(skillsHome, "agent-browser"));
+    await fs.symlink(
+      path.join(currentRepo, "skills", "agent-browser"),
+      path.join(skillsHome, "agent-browser"),
+    );
 
     await ensureCodexSkillsInjected(async () => {}, {
       skillsHome,
-      skillsEntries: [
-        {
-          key: paperclipKey,
-          runtimeName: "paperclip",
-          source: path.join(currentRepo, "skills", "paperclip"),
-        },
-      ],
+      skillsEntries: [{
+        key: paperclipKey,
+        runtimeName: "paperclip",
+        source: path.join(currentRepo, "skills", "paperclip"),
+      }],
     });
 
     expect((await fs.lstat(path.join(skillsHome, "paperclip"))).isSymbolicLink()).toBe(true);

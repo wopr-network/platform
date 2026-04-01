@@ -23,7 +23,10 @@
  */
 
 import type { Db } from "@paperclipai/db";
-import type { PaperclipPluginManifestV1, PluginRecord } from "@paperclipai/shared";
+import type {
+  PaperclipPluginManifestV1,
+  PluginRecord,
+} from "@paperclipai/shared";
 import type { ToolRunContext, ToolResult } from "@paperclipai/plugin-sdk";
 import type { PluginWorkerManager } from "./plugin-worker-manager.js";
 import type { PluginLifecycleManager } from "./plugin-lifecycle.js";
@@ -135,7 +138,11 @@ export interface PluginToolDispatcher {
    * @throws {Error} if the tool is not found, the worker is not running,
    *   or the tool execution fails
    */
-  executeTool(namespacedName: string, parameters: unknown, runContext: ToolRunContext): Promise<ToolExecutionResult>;
+  executeTool(
+    namespacedName: string,
+    parameters: unknown,
+    runContext: ToolRunContext,
+  ): Promise<ToolExecutionResult>;
 
   /**
    * Register all tools from a plugin manifest.
@@ -146,7 +153,10 @@ export interface PluginToolDispatcher {
    * @param pluginId - The plugin's unique identifier
    * @param manifest - The plugin manifest containing tool declarations
    */
-  registerPluginTools(pluginId: string, manifest: PaperclipPluginManifestV1): void;
+  registerPluginTools(
+    pluginId: string,
+    manifest: PaperclipPluginManifestV1,
+  ): void;
 
   /**
    * Unregister all tools for a plugin.
@@ -209,7 +219,9 @@ export interface PluginToolDispatcher {
  * );
  * ```
  */
-export function createPluginToolDispatcher(options: PluginToolDispatcherOptions = {}): PluginToolDispatcher {
+export function createPluginToolDispatcher(
+  options: PluginToolDispatcherOptions = {},
+): PluginToolDispatcher {
   const { workerManager, lifecycleManager, db } = options;
   const log = logger.child({ service: "plugin-tool-dispatcher" });
 
@@ -233,12 +245,15 @@ export function createPluginToolDispatcher(options: PluginToolDispatcherOptions 
    */
   async function registerFromDb(pluginId: string): Promise<void> {
     if (!db) {
-      log.warn({ pluginId }, "cannot register tools from DB — no database connection configured");
+      log.warn(
+        { pluginId },
+        "cannot register tools from DB — no database connection configured",
+      );
       return;
     }
 
     const pluginRegistry = pluginRegistryService(db);
-    const plugin = (await pluginRegistry.getById(pluginId)) as PluginRecord | null;
+    const plugin = await pluginRegistry.getById(pluginId) as PluginRecord | null;
 
     if (!plugin) {
       log.warn({ pluginId }, "plugin not found in registry, cannot register tools");
@@ -309,7 +324,7 @@ export function createPluginToolDispatcher(options: PluginToolDispatcherOptions 
       // Step 1: Load tools from all currently-ready plugins
       if (db) {
         const pluginRegistry = pluginRegistryService(db);
-        const readyPlugins = (await pluginRegistry.listByStatus("ready")) as PluginRecord[];
+        const readyPlugins = await pluginRegistry.listByStatus("ready") as PluginRecord[];
 
         let totalTools = 0;
         for (const plugin of readyPlugins) {
@@ -320,7 +335,10 @@ export function createPluginToolDispatcher(options: PluginToolDispatcherOptions 
           }
         }
 
-        log.info({ readyPlugins: readyPlugins.length, registeredTools: totalTools }, "loaded tools from ready plugins");
+        log.info(
+          { readyPlugins: readyPlugins.length, registeredTools: totalTools },
+          "loaded tools from ready plugins",
+        );
       }
 
       // Step 2: Subscribe to lifecycle events for dynamic updates
@@ -339,7 +357,10 @@ export function createPluginToolDispatcher(options: PluginToolDispatcherOptions 
       }
 
       initialized = true;
-      log.info({ totalTools: registry.toolCount() }, "plugin tool dispatcher initialized");
+      log.info(
+        { totalTools: registry.toolCount() },
+        "plugin tool dispatcher initialized",
+      );
     },
 
     teardown(): void {
@@ -386,7 +407,11 @@ export function createPluginToolDispatcher(options: PluginToolDispatcherOptions 
         "dispatching tool execution",
       );
 
-      const result = await registry.executeTool(namespacedName, parameters, runContext);
+      const result = await registry.executeTool(
+        namespacedName,
+        parameters,
+        runContext,
+      );
 
       log.debug(
         {
@@ -401,7 +426,10 @@ export function createPluginToolDispatcher(options: PluginToolDispatcherOptions 
       return result;
     },
 
-    registerPluginTools(pluginId: string, manifest: PaperclipPluginManifestV1): void {
+    registerPluginTools(
+      pluginId: string,
+      manifest: PaperclipPluginManifestV1,
+    ): void {
       registry.registerPlugin(pluginId, manifest);
     },
 

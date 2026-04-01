@@ -11,7 +11,12 @@ export interface ErrorContext {
   reqQuery?: unknown;
 }
 
-function attachErrorContext(req: Request, res: Response, payload: ErrorContext["error"], rawError?: Error) {
+function attachErrorContext(
+  req: Request,
+  res: Response,
+  payload: ErrorContext["error"],
+  rawError?: Error,
+) {
   (res as any).__errorContext = {
     error: payload,
     method: req.method,
@@ -25,7 +30,12 @@ function attachErrorContext(req: Request, res: Response, payload: ErrorContext["
   }
 }
 
-export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(
+  err: unknown,
+  req: Request,
+  res: Response,
+  _next: NextFunction,
+) {
   if (err instanceof HttpError) {
     if (err.status >= 500) {
       attachErrorContext(

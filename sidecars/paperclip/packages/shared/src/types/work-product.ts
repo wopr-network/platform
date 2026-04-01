@@ -7,7 +7,12 @@ export type IssueWorkProductType =
   | "artifact"
   | "document";
 
-export type IssueWorkProductProvider = "paperclip" | "github" | "vercel" | "s3" | "custom";
+export type IssueWorkProductProvider =
+  | "paperclip"
+  | "github"
+  | "vercel"
+  | "s3"
+  | "custom";
 
 export type IssueWorkProductStatus =
   | "active"
@@ -20,7 +25,11 @@ export type IssueWorkProductStatus =
   | "archived"
   | "draft";
 
-export type IssueWorkProductReviewState = "none" | "needs_board_review" | "approved" | "changes_requested";
+export type IssueWorkProductReviewState =
+  | "none"
+  | "needs_board_review"
+  | "approved"
+  | "changes_requested";
 
 export interface IssueWorkProduct {
   id: string;

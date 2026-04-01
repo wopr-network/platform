@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 export type ToastTone = "info" | "success" | "warn" | "error";
 
@@ -134,15 +143,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [clearTimer, dismissToast],
   );
 
-  useEffect(
-    () => () => {
-      for (const handle of timersRef.current.values()) {
-        window.clearTimeout(handle);
-      }
-      timersRef.current.clear();
-    },
-    [],
-  );
+  useEffect(() => () => {
+    for (const handle of timersRef.current.values()) {
+      window.clearTimeout(handle);
+    }
+    timersRef.current.clear();
+  }, []);
 
   const value = useMemo<ToastContextValue>(
     () => ({

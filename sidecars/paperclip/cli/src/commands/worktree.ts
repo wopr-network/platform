@@ -41,15 +41,11 @@ import {
   projects,
   runDatabaseBackup,
   runDatabaseRestore,
+  createEmbeddedPostgresLogBuffer,
+  formatEmbeddedPostgresError,
 } from "@paperclipai/db";
 import type { Command } from "commander";
-import {
-  ensureAgentJwtSecret,
-  loadPaperclipEnvFile,
-  mergePaperclipEnvEntries,
-  readPaperclipEnvEntries,
-  resolvePaperclipEnvFile,
-} from "../config/env.js";
+import { ensureAgentJwtSecret, loadPaperclipEnvFile, mergePaperclipEnvEntries, readPaperclipEnvEntries, resolvePaperclipEnvFile } from "../config/env.js";
 import { expandHomePrefix } from "../config/home.js";
 import type { PaperclipConfig } from "../config/schema.js";
 import { readConfig, resolveConfigPath, writeConfig } from "../config/store.js";
@@ -185,7 +181,9 @@ function resolveWorktreeMakeName(name: string): string {
     throw new Error("Worktree name is required.");
   }
   if (!/^[A-Za-z0-9._-]+$/.test(value)) {
-    throw new Error("Worktree name must contain only letters, numbers, dots, underscores, or dashes.");
+    throw new Error(
+      "Worktree name must contain only letters, numbers, dots, underscores, or dashes.",
+    );
   }
   return value.startsWith(WORKTREE_NAME_PREFIX) ? value : `${WORKTREE_NAME_PREFIX}${value}`;
 }
@@ -357,13 +355,11 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
 export function isMissingStorageObjectError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const candidate = error as { code?: unknown; status?: unknown; name?: unknown; message?: unknown };
-  return (
-    candidate.code === "ENOENT" ||
-    candidate.status === 404 ||
-    candidate.name === "NoSuchKey" ||
-    candidate.name === "NotFound" ||
-    candidate.message === "Object not found."
-  );
+  return candidate.code === "ENOENT"
+    || candidate.status === 404
+    || candidate.name === "NoSuchKey"
+    || candidate.name === "NotFound"
+    || candidate.message === "Object not found.";
 }
 
 export async function readSourceAttachmentBody(
@@ -469,6 +465,62 @@ async function findAvailablePort(preferredPort: number, reserved = new Set<numbe
     port += 1;
   }
   return port;
+}
+
+function resolveRepoManagedWorktreesRoot(cwd: string): string | null {
+  const normalized = path.resolve(cwd);
+  const marker = `${path.sep}.paperclip${path.sep}worktrees${path.sep}`;
+  const index = normalized.indexOf(marker);
+  if (index === -1) return null;
+  const repoRoot = normalized.slice(0, index);
+  return path.resolve(repoRoot, ".paperclip", "worktrees");
+}
+
+function collectClaimedWorktreePorts(homeDir: string, currentInstanceId: string, cwd: string): {
+  serverPorts: Set<number>;
+  databasePorts: Set<number>;
+} {
+  const serverPorts = new Set<number>();
+  const databasePorts = new Set<number>();
+  const configPaths = new Set<string>();
+  const instancesDir = path.resolve(homeDir, "instances");
+  if (existsSync(instancesDir)) {
+    for (const entry of readdirSync(instancesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name === currentInstanceId) continue;
+
+      const configPath = path.resolve(instancesDir, entry.name, "config.json");
+      if (existsSync(configPath)) {
+        configPaths.add(configPath);
+      }
+    }
+  }
+
+  const repoManagedWorktreesRoot = resolveRepoManagedWorktreesRoot(cwd);
+  if (repoManagedWorktreesRoot && existsSync(repoManagedWorktreesRoot)) {
+    for (const entry of readdirSync(repoManagedWorktreesRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const configPath = path.resolve(repoManagedWorktreesRoot, entry.name, ".paperclip", "config.json");
+      if (existsSync(configPath)) {
+        configPaths.add(configPath);
+      }
+    }
+  }
+
+  for (const configPath of configPaths) {
+    try {
+      const config = readConfig(configPath);
+      if (config?.server.port) {
+        serverPorts.add(config.server.port);
+      }
+      if (config?.database.mode === "embedded-postgres") {
+        databasePorts.add(config.database.embeddedPostgresPort);
+      }
+    } catch {
+      // Ignore malformed sibling configs.
+    }
+  }
+
+  return { serverPorts, databasePorts };
 }
 
 function detectGitBranchName(cwd: string): string | null {
@@ -669,15 +721,13 @@ export function resolveSourceConfigPath(opts: WorktreeInitOptions): string {
   return path.resolve(sourceHome, "instances", sourceInstanceId, "config.json");
 }
 
-function resolveSourceConnectionString(
-  config: PaperclipConfig,
-  envEntries: Record<string, string>,
-  portOverride?: number,
-): string {
+function resolveSourceConnectionString(config: PaperclipConfig, envEntries: Record<string, string>, portOverride?: number): string {
   if (config.database.mode === "postgres") {
     const connectionString = nonEmpty(envEntries.DATABASE_URL) ?? nonEmpty(config.database.connectionString);
     if (!connectionString) {
-      throw new Error("Source instance uses postgres mode but has no connection string in config or adjacent .env.");
+      throw new Error(
+        "Source instance uses postgres mode but has no connection string in config or adjacent .env.",
+      );
     }
     return connectionString;
   }
@@ -758,24 +808,39 @@ async function ensureEmbeddedPostgres(dataDir: string, preferredPort: number): P
   }
 
   const port = await findAvailablePort(preferredPort);
+  const logBuffer = createEmbeddedPostgresLogBuffer();
   const instance = new EmbeddedPostgres({
     databaseDir: dataDir,
     user: "paperclip",
     password: "paperclip",
     port,
     persistent: true,
-    initdbFlags: ["--encoding=UTF8", "--locale=C"],
-    onLog: () => {},
-    onError: () => {},
+    initdbFlags: ["--encoding=UTF8", "--locale=C", "--lc-messages=C"],
+    onLog: logBuffer.append,
+    onError: logBuffer.append,
   });
 
   if (!existsSync(path.resolve(dataDir, "PG_VERSION"))) {
-    await instance.initialise();
+    try {
+      await instance.initialise();
+    } catch (error) {
+      throw formatEmbeddedPostgresError(error, {
+        fallbackMessage: `Failed to initialize embedded PostgreSQL cluster in ${dataDir} on port ${port}`,
+        recentLogs: logBuffer.getRecentLogs(),
+      });
+    }
   }
   if (existsSync(postmasterPidFile)) {
     rmSync(postmasterPidFile, { force: true });
   }
-  await instance.start();
+  try {
+    await instance.start();
+  } catch (error) {
+    throw formatEmbeddedPostgresError(error, {
+      fallbackMessage: `Failed to start embedded PostgreSQL on port ${port}`,
+      recentLogs: logBuffer.getRecentLogs(),
+    });
+  }
 
   return {
     port,
@@ -862,7 +927,10 @@ async function seedWorktreeDatabase(input: {
 
 async function runWorktreeInit(opts: WorktreeInitOptions): Promise<void> {
   const cwd = process.cwd();
-  const worktreeName = resolveSuggestedWorktreeName(cwd, opts.name ?? detectGitBranchName(cwd) ?? undefined);
+  const worktreeName = resolveSuggestedWorktreeName(
+    cwd,
+    opts.name ?? detectGitBranchName(cwd) ?? undefined,
+  );
   const seedMode = opts.seedMode ?? "minimal";
   if (!isWorktreeSeedMode(seedMode)) {
     throw new Error(`Unsupported seed mode "${seedMode}". Expected one of: minimal, full.`);
@@ -891,10 +959,14 @@ async function runWorktreeInit(opts: WorktreeInitOptions): Promise<void> {
     rmSync(paths.instanceRoot, { recursive: true, force: true });
   }
 
-  const preferredServerPort = opts.serverPort ?? (sourceConfig?.server.port ?? 3100) + 1;
-  const serverPort = await findAvailablePort(preferredServerPort);
-  const preferredDbPort = opts.dbPort ?? (sourceConfig?.database.embeddedPostgresPort ?? 54329) + 1;
-  const databasePort = await findAvailablePort(preferredDbPort, new Set([serverPort]));
+  const claimedPorts = collectClaimedWorktreePorts(paths.homeDir, paths.instanceId, paths.cwd);
+  const preferredServerPort = opts.serverPort ?? ((sourceConfig?.server.port ?? 3100) + 1);
+  const serverPort = await findAvailablePort(preferredServerPort, claimedPorts.serverPorts);
+  const preferredDbPort = opts.dbPort ?? ((sourceConfig?.database.embeddedPostgresPort ?? 54329) + 1);
+  const databasePort = await findAvailablePort(
+    preferredDbPort,
+    new Set([...claimedPorts.databasePorts, serverPort]),
+  );
   const targetConfig = buildWorktreeConfig({
     sourceConfig,
     paths,
@@ -905,7 +977,8 @@ async function runWorktreeInit(opts: WorktreeInitOptions): Promise<void> {
   writeConfig(targetConfig, paths.configPath);
   const sourceEnvEntries = readPaperclipEnvEntries(resolvePaperclipEnvFile(sourceConfigPath));
   const existingAgentJwtSecret =
-    nonEmpty(sourceEnvEntries.PAPERCLIP_AGENT_JWT_SECRET) ?? nonEmpty(process.env.PAPERCLIP_AGENT_JWT_SECRET);
+    nonEmpty(sourceEnvEntries.PAPERCLIP_AGENT_JWT_SECRET) ??
+    nonEmpty(process.env.PAPERCLIP_AGENT_JWT_SECRET);
   mergePaperclipEnvEntries(
     {
       ...buildWorktreeEnvEntries(paths, branding),
@@ -952,13 +1025,17 @@ async function runWorktreeInit(opts: WorktreeInitOptions): Promise<void> {
   p.log.message(pc.dim(`Worktree badge: ${branding.name} (${branding.color})`));
   p.log.message(pc.dim(`Server port: ${serverPort} | DB port: ${databasePort}`));
   if (copiedGitHooks?.copied) {
-    p.log.message(pc.dim(`Mirrored git hooks: ${copiedGitHooks.sourceHooksPath} -> ${copiedGitHooks.targetHooksPath}`));
+    p.log.message(
+      pc.dim(`Mirrored git hooks: ${copiedGitHooks.sourceHooksPath} -> ${copiedGitHooks.targetHooksPath}`),
+    );
   }
   if (seedSummary) {
     p.log.message(pc.dim(`Seed mode: ${seedMode}`));
     p.log.message(pc.dim(`Seed snapshot: ${seedSummary}`));
     for (const rebound of reboundWorkspaceSummary) {
-      p.log.message(pc.dim(`Rebound workspace ${rebound.name}: ${rebound.fromCwd} -> ${rebound.toCwd}`));
+      p.log.message(
+        pc.dim(`Rebound workspace ${rebound.name}: ${rebound.fromCwd} -> ${rebound.toCwd}`),
+      );
     }
   }
   p.outro(
@@ -1146,11 +1223,11 @@ function branchHasUniqueCommits(cwd: string, branchName: string): boolean {
 
 function branchExistsOnAnyRemote(cwd: string, branchName: string): boolean {
   try {
-    const output = execFileSync("git", ["branch", "-r", "--list", `*/${branchName}`], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim();
+    const output = execFileSync(
+      "git",
+      ["branch", "-r", "--list", `*/${branchName}`],
+      { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
     return output.length > 0;
   } catch {
     return false;
@@ -1159,11 +1236,11 @@ function branchExistsOnAnyRemote(cwd: string, branchName: string): boolean {
 
 function worktreePathHasUncommittedChanges(worktreePath: string): boolean {
   try {
-    const output = execFileSync("git", ["status", "--porcelain"], {
-      cwd: worktreePath,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim();
+    const output = execFileSync(
+      "git",
+      ["status", "--porcelain"],
+      { cwd: worktreePath, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    ).trim();
     return output.length > 0;
   } catch {
     return false;
@@ -1217,7 +1294,9 @@ export async function worktreeCleanupCommand(nameArg: string, opts: WorktreeClea
   }
 
   if (hasTargetDir && worktreePathHasUncommittedChanges(targetPath)) {
-    problems.push(`Worktree directory ${targetPath} has uncommitted changes. Commit or stash first, or use --force.`);
+    problems.push(
+      `Worktree directory ${targetPath} has uncommitted changes. Commit or stash first, or use --force.`,
+    );
   }
 
   if (problems.length > 0 && !opts.force) {
@@ -1459,23 +1538,20 @@ async function resolveMergeCompany(input: {
   }
 
   if (shared.length === 0) {
-    throw new Error(
-      "Source and target databases do not share a company id. Pass --company explicitly once both sides match.",
-    );
+    throw new Error("Source and target databases do not share a company id. Pass --company explicitly once both sides match.");
   }
 
-  const options = shared.map((company) => `${company.issuePrefix} (${company.name})`).join(", ");
+  const options = shared
+    .map((company) => `${company.issuePrefix} (${company.name})`)
+    .join(", ");
   throw new Error(`Multiple shared companies found. Re-run with --company <id-or-prefix>. Options: ${options}`);
 }
 
-function renderMergePlan(
-  plan: Awaited<ReturnType<typeof collectMergePlan>>["plan"],
-  extras: {
-    sourcePath: string;
-    targetPath: string;
-    unsupportedRunCount: number;
-  },
-): string {
+function renderMergePlan(plan: Awaited<ReturnType<typeof collectMergePlan>>["plan"], extras: {
+  sourcePath: string;
+  targetPath: string;
+  unsupportedRunCount: number;
+}): string {
   const terminalWidth = Math.max(60, process.stdout.columns ?? 100);
   const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
   const truncateToWidth = (value: string, maxWidth: number) => {
@@ -1489,11 +1565,24 @@ function renderMergePlan(
     `Target: ${extras.targetPath}`,
     `Company: ${plan.companyName} (${plan.issuePrefix})`,
     "",
+    "Projects",
+    `- import: ${plan.counts.projectsToImport}`,
+    "",
     "Issues",
     `- insert: ${plan.counts.issuesToInsert}`,
     `- already present: ${plan.counts.issuesExisting}`,
     `- shared/imported issues with drift: ${plan.counts.issueDrift}`,
   ];
+
+  if (plan.projectImports.length > 0) {
+    lines.push("");
+    lines.push("Planned project imports");
+    for (const project of plan.projectImports) {
+      lines.push(
+        `- ${project.source.name} (${project.workspaces.length} workspace${project.workspaces.length === 1 ? "" : "s"})`,
+      );
+    }
+  }
 
   const issueInserts = plan.issuePlans.filter((item): item is PlannedIssueInsert => item.action === "insert");
   if (issueInserts.length > 0) {
@@ -1501,12 +1590,17 @@ function renderMergePlan(
     lines.push("Planned issue imports");
     for (const issue of issueInserts) {
       const projectNote =
-        issue.projectResolution === "mapped" && issue.mappedProjectName ? ` project->${issue.mappedProjectName}` : "";
+        (issue.projectResolution === "mapped" || issue.projectResolution === "imported")
+        && issue.mappedProjectName
+          ? ` project->${issue.projectResolution === "imported" ? "import:" : ""}${issue.mappedProjectName}`
+          : "";
       const adjustments = issue.adjustments.length > 0 ? ` [${issue.adjustments.join(", ")}]` : "";
       const prefix = `- ${issue.source.identifier ?? issue.source.id} -> ${issue.previewIdentifier} (${issue.targetStatus}${projectNote})`;
       const title = oneLine(issue.source.title);
       const suffix = `${adjustments}${title ? ` ${title}` : ""}`;
-      lines.push(`${prefix}${truncateToWidth(suffix, Math.max(8, terminalWidth - prefix.length))}`);
+      lines.push(
+        `${prefix}${truncateToWidth(suffix, Math.max(8, terminalWidth - prefix.length))}`,
+      );
     }
   }
 
@@ -1549,9 +1643,7 @@ function renderMergePlan(
   lines.push("Not imported in this phase");
   lines.push(`- heartbeat runs: ${extras.unsupportedRunCount}`);
   lines.push("");
-  lines.push(
-    "Identifiers shown above are provisional preview values. `--apply` reserves fresh issue numbers at write time.",
-  );
+  lines.push("Identifiers shown above are provisional preview values. `--apply` reserves fresh issue numbers at write time.");
 
   return lines.join("\n");
 }
@@ -1561,6 +1653,7 @@ async function collectMergePlan(input: {
   targetDb: ClosableDb;
   company: ResolvedMergeCompany;
   scopes: ReturnType<typeof parseWorktreeMergeScopes>;
+  importProjectIds?: Iterable<string>;
   projectIdOverrides?: Record<string, string | null | undefined>;
 }) {
   const companyId = input.company.id;
@@ -1577,6 +1670,7 @@ async function collectMergePlan(input: {
     sourceAttachmentRows,
     targetAttachmentRows,
     sourceProjectsRows,
+    sourceProjectWorkspaceRows,
     targetProjectsRows,
     targetAgentsRows,
     targetProjectWorkspaceRows,
@@ -1590,12 +1684,24 @@ async function collectMergePlan(input: {
       .from(companies)
       .where(eq(companies.id, companyId))
       .then((rows) => rows[0] ?? null),
-    input.sourceDb.select().from(issues).where(eq(issues.companyId, companyId)),
-    input.targetDb.select().from(issues).where(eq(issues.companyId, companyId)),
+    input.sourceDb
+      .select()
+      .from(issues)
+      .where(eq(issues.companyId, companyId)),
+    input.targetDb
+      .select()
+      .from(issues)
+      .where(eq(issues.companyId, companyId)),
     input.scopes.includes("comments")
-      ? input.sourceDb.select().from(issueComments).where(eq(issueComments.companyId, companyId))
+      ? input.sourceDb
+        .select()
+        .from(issueComments)
+        .where(eq(issueComments.companyId, companyId))
       : Promise.resolve([]),
-    input.targetDb.select().from(issueComments).where(eq(issueComments.companyId, companyId)),
+    input.targetDb
+      .select()
+      .from(issueComments)
+      .where(eq(issueComments.companyId, companyId)),
     input.sourceDb
       .select({
         id: issueDocuments.id,
@@ -1726,11 +1832,30 @@ async function collectMergePlan(input: {
       .innerJoin(assets, eq(issueAttachments.assetId, assets.id))
       .innerJoin(issues, eq(issueAttachments.issueId, issues.id))
       .where(eq(issues.companyId, companyId)),
-    input.sourceDb.select().from(projects).where(eq(projects.companyId, companyId)),
-    input.targetDb.select().from(projects).where(eq(projects.companyId, companyId)),
-    input.targetDb.select().from(agents).where(eq(agents.companyId, companyId)),
-    input.targetDb.select().from(projectWorkspaces).where(eq(projectWorkspaces.companyId, companyId)),
-    input.targetDb.select().from(goals).where(eq(goals.companyId, companyId)),
+    input.sourceDb
+      .select()
+      .from(projects)
+      .where(eq(projects.companyId, companyId)),
+    input.sourceDb
+      .select()
+      .from(projectWorkspaces)
+      .where(eq(projectWorkspaces.companyId, companyId)),
+    input.targetDb
+      .select()
+      .from(projects)
+      .where(eq(projects.companyId, companyId)),
+    input.targetDb
+      .select()
+      .from(agents)
+      .where(eq(agents.companyId, companyId)),
+    input.targetDb
+      .select()
+      .from(projectWorkspaces)
+      .where(eq(projectWorkspaces.companyId, companyId)),
+    input.targetDb
+      .select()
+      .from(goals)
+      .where(eq(goals.companyId, companyId)),
     input.sourceDb
       .select({ count: sql<number>`count(*)::int` })
       .from(heartbeatRuns)
@@ -1751,6 +1876,8 @@ async function collectMergePlan(input: {
     targetIssues: targetIssuesRows,
     sourceComments: sourceCommentsRows,
     targetComments: targetCommentsRows,
+    sourceProjects: sourceProjectsRows,
+    sourceProjectWorkspaces: sourceProjectWorkspaceRows,
     sourceDocuments: sourceIssueDocumentsRows as IssueDocumentRow[],
     targetDocuments: targetIssueDocumentsRows as IssueDocumentRow[],
     sourceDocumentRevisions: sourceDocumentRevisionRows as DocumentRevisionRow[],
@@ -1761,6 +1888,7 @@ async function collectMergePlan(input: {
     targetProjects: targetProjectsRows,
     targetProjectWorkspaces: targetProjectWorkspaceRows,
     targetGoals: targetGoalsRows,
+    importProjectIds: input.importProjectIds,
     projectIdOverrides: input.projectIdOverrides,
   });
 
@@ -1772,11 +1900,16 @@ async function collectMergePlan(input: {
   };
 }
 
+type ProjectMappingSelections = {
+  importProjectIds: string[];
+  projectIdOverrides: Record<string, string | null>;
+};
+
 async function promptForProjectMappings(input: {
   plan: Awaited<ReturnType<typeof collectMergePlan>>["plan"];
   sourceProjects: Awaited<ReturnType<typeof collectMergePlan>>["sourceProjects"];
   targetProjects: Awaited<ReturnType<typeof collectMergePlan>>["targetProjects"];
-}): Promise<Record<string, string | null>> {
+}): Promise<ProjectMappingSelections> {
   const missingProjectIds = [
     ...new Set(
       input.plan.issuePlans
@@ -1785,8 +1918,11 @@ async function promptForProjectMappings(input: {
         .map((plan) => plan.source.projectId as string),
     ),
   ];
-  if (missingProjectIds.length === 0 || input.targetProjects.length === 0) {
-    return {};
+  if (missingProjectIds.length === 0) {
+    return {
+      importProjectIds: [],
+      projectIdOverrides: {},
+    };
   }
 
   const sourceProjectsById = new Map(input.sourceProjects.map((project) => [project.id, project]));
@@ -1799,23 +1935,28 @@ async function promptForProjectMappings(input: {
     }));
 
   const mappings: Record<string, string | null> = {};
+  const importProjectIds = new Set<string>();
   for (const sourceProjectId of missingProjectIds) {
     const sourceProject = sourceProjectsById.get(sourceProjectId);
     if (!sourceProject) continue;
     const nameMatch = input.targetProjects.find(
       (project) => project.name.trim().toLowerCase() === sourceProject.name.trim().toLowerCase(),
     );
+    const importSelectionValue = `__import__:${sourceProjectId}`;
     const selection = await p.select<string | null>({
       message: `Project "${sourceProject.name}" is missing in target. How should ${input.plan.issuePrefix} imports handle it?`,
       options: [
+        {
+          value: importSelectionValue,
+          label: `Import ${sourceProject.name}`,
+          hint: "Create the project and copy its workspace settings",
+        },
         ...(nameMatch
-          ? [
-              {
-                value: nameMatch.id,
-                label: `Map to ${nameMatch.name}`,
-                hint: "Recommended: exact name match",
-              },
-            ]
+          ? [{
+              value: nameMatch.id,
+              label: `Map to ${nameMatch.name}`,
+              hint: "Recommended: exact name match",
+            }]
           : []),
         {
           value: null,
@@ -1829,10 +1970,17 @@ async function promptForProjectMappings(input: {
     if (p.isCancel(selection)) {
       throw new Error("Project mapping cancelled.");
     }
+    if (selection === importSelectionValue) {
+      importProjectIds.add(sourceProjectId);
+      continue;
+    }
     mappings[sourceProjectId] = selection;
   }
 
-  return mappings;
+  return {
+    importProjectIds: [...importProjectIds],
+    projectIdOverrides: mappings,
+  };
 }
 
 export async function worktreeListCommand(opts: WorktreeListOptions): Promise<void> {
@@ -1896,10 +2044,11 @@ function resolveWorktreeEndpointFromSelector(
     };
   }
 
-  const matched = choices.find(
-    (choice) =>
-      (allowCurrent || !choice.isCurrent) &&
-      (choice.worktree === directPath || path.basename(choice.worktree) === trimmed || choice.branchLabel === trimmed),
+  const matched = choices.find((choice) =>
+    (allowCurrent || !choice.isCurrent)
+    && (choice.worktree === directPath
+      || path.basename(choice.worktree) === trimmed
+      || choice.branchLabel === trimmed),
   );
   if (!matched) {
     throw new Error(
@@ -1924,9 +2073,7 @@ async function promptForSourceEndpoint(excludeWorktreePath?: string): Promise<Re
       hint: `${choice.worktree}${choice.isCurrent ? " (current)" : ""}`,
     }));
   if (choices.length === 0) {
-    throw new Error(
-      "No Paperclip worktrees were found. Run `paperclipai worktree:list` to inspect the repo worktrees.",
-    );
+    throw new Error("No Paperclip worktrees were found. Run `paperclipai worktree:list` to inspect the repo worktrees.");
   }
   const selection = await p.select<string>({
     message: "Choose the source worktree to import from",
@@ -1951,18 +2098,90 @@ async function applyMergePlan(input: {
   const companyId = input.company.id;
 
   return await input.targetDb.transaction(async (tx) => {
+    const importedProjectIds = input.plan.projectImports.map((project) => project.source.id);
+    const existingImportedProjectIds = importedProjectIds.length > 0
+      ? new Set(
+        (await tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(inArray(projects.id, importedProjectIds)))
+          .map((row) => row.id),
+      )
+      : new Set<string>();
+    const projectImports = input.plan.projectImports.filter((project) => !existingImportedProjectIds.has(project.source.id));
+    const importedWorkspaceIds = projectImports.flatMap((project) => project.workspaces.map((workspace) => workspace.id));
+    const existingImportedWorkspaceIds = importedWorkspaceIds.length > 0
+      ? new Set(
+        (await tx
+          .select({ id: projectWorkspaces.id })
+          .from(projectWorkspaces)
+          .where(inArray(projectWorkspaces.id, importedWorkspaceIds)))
+          .map((row) => row.id),
+      )
+      : new Set<string>();
+
+    let insertedProjects = 0;
+    let insertedProjectWorkspaces = 0;
+    for (const project of projectImports) {
+      await tx.insert(projects).values({
+        id: project.source.id,
+        companyId,
+        goalId: project.targetGoalId,
+        name: project.source.name,
+        description: project.source.description,
+        status: project.source.status,
+        leadAgentId: project.targetLeadAgentId,
+        targetDate: project.source.targetDate,
+        color: project.source.color,
+        pauseReason: project.source.pauseReason,
+        pausedAt: project.source.pausedAt,
+        executionWorkspacePolicy: project.source.executionWorkspacePolicy,
+        archivedAt: project.source.archivedAt,
+        createdAt: project.source.createdAt,
+        updatedAt: project.source.updatedAt,
+      });
+      insertedProjects += 1;
+
+      for (const workspace of project.workspaces) {
+        if (existingImportedWorkspaceIds.has(workspace.id)) continue;
+        await tx.insert(projectWorkspaces).values({
+          id: workspace.id,
+          companyId,
+          projectId: project.source.id,
+          name: workspace.name,
+          sourceType: workspace.sourceType,
+          cwd: workspace.cwd,
+          repoUrl: workspace.repoUrl,
+          repoRef: workspace.repoRef,
+          defaultRef: workspace.defaultRef,
+          visibility: workspace.visibility,
+          setupCommand: workspace.setupCommand,
+          cleanupCommand: workspace.cleanupCommand,
+          remoteProvider: workspace.remoteProvider,
+          remoteWorkspaceRef: workspace.remoteWorkspaceRef,
+          sharedWorkspaceKey: workspace.sharedWorkspaceKey,
+          metadata: workspace.metadata,
+          isPrimary: workspace.isPrimary,
+          createdAt: workspace.createdAt,
+          updatedAt: workspace.updatedAt,
+        });
+        insertedProjectWorkspaces += 1;
+      }
+    }
+
     const issueCandidates = input.plan.issuePlans.filter(
       (plan): plan is PlannedIssueInsert => plan.action === "insert",
     );
     const issueCandidateIds = issueCandidates.map((issue) => issue.source.id);
-    const existingIssueIds =
-      issueCandidateIds.length > 0
-        ? new Set(
-            (await tx.select({ id: issues.id }).from(issues).where(inArray(issues.id, issueCandidateIds))).map(
-              (row) => row.id,
-            ),
-          )
-        : new Set<string>();
+    const existingIssueIds = issueCandidateIds.length > 0
+      ? new Set(
+        (await tx
+          .select({ id: issues.id })
+          .from(issues)
+          .where(inArray(issues.id, issueCandidateIds)))
+          .map((row) => row.id),
+      )
+      : new Set<string>();
     const issueInserts = issueCandidates.filter((issue) => !existingIssueIds.has(issue.source.id));
 
     let nextIssueNumber = 0;
@@ -2023,17 +2242,15 @@ async function applyMergePlan(input: {
       (plan): plan is PlannedCommentInsert => plan.action === "insert",
     );
     const commentCandidateIds = commentCandidates.map((comment) => comment.source.id);
-    const existingCommentIds =
-      commentCandidateIds.length > 0
-        ? new Set(
-            (
-              await tx
-                .select({ id: issueComments.id })
-                .from(issueComments)
-                .where(inArray(issueComments.id, commentCandidateIds))
-            ).map((row) => row.id),
-          )
-        : new Set<string>();
+    const existingCommentIds = commentCandidateIds.length > 0
+      ? new Set(
+        (await tx
+          .select({ id: issueComments.id })
+          .from(issueComments)
+          .where(inArray(issueComments.id, commentCandidateIds)))
+          .map((row) => row.id),
+      )
+      : new Set<string>();
 
     let insertedComments = 0;
     for (const comment of commentCandidates) {
@@ -2075,11 +2292,12 @@ async function applyMergePlan(input: {
       const conflictingKeyDocument = await tx
         .select({ documentId: issueDocuments.documentId })
         .from(issueDocuments)
-        .where(
-          and(eq(issueDocuments.issueId, documentPlan.source.issueId), eq(issueDocuments.key, documentPlan.source.key)),
-        )
+        .where(and(eq(issueDocuments.issueId, documentPlan.source.issueId), eq(issueDocuments.key, documentPlan.source.key)))
         .then((rows) => rows[0] ?? null);
-      if (conflictingKeyDocument && conflictingKeyDocument.documentId !== documentPlan.source.documentId) {
+      if (
+        conflictingKeyDocument
+        && conflictingKeyDocument.documentId !== documentPlan.source.documentId
+      ) {
         continue;
       }
 
@@ -2205,12 +2423,21 @@ async function applyMergePlan(input: {
         .then((rows) => rows[0] ?? null);
       if (!parentExists) continue;
 
-      const body = await readSourceAttachmentBody(input.sourceStorages, companyId, attachment.source.objectKey);
+      const body = await readSourceAttachmentBody(
+        input.sourceStorages,
+        companyId,
+        attachment.source.objectKey,
+      );
       if (!body) {
         skippedMissingAttachmentObjects += 1;
         continue;
       }
-      await input.targetStorage.putObject(companyId, attachment.source.objectKey, body, attachment.source.contentType);
+      await input.targetStorage.putObject(
+        companyId,
+        attachment.source.objectKey,
+        body,
+        attachment.source.contentType,
+      );
 
       await tx.insert(assets).values({
         id: attachment.source.assetId,
@@ -2240,6 +2467,8 @@ async function applyMergePlan(input: {
     }
 
     return {
+      insertedProjects,
+      insertedProjectWorkspaces,
       insertedIssues,
       insertedComments,
       insertedDocuments,
@@ -2252,10 +2481,7 @@ async function applyMergePlan(input: {
   });
 }
 
-export async function worktreeMergeHistoryCommand(
-  sourceArg: string | undefined,
-  opts: WorktreeMergeHistoryOptions,
-): Promise<void> {
+export async function worktreeMergeHistoryCommand(sourceArg: string | undefined, opts: WorktreeMergeHistoryOptions): Promise<void> {
   if (opts.apply && opts.dry) {
     throw new Error("Use either --apply or --dry, not both.");
   }
@@ -2299,29 +2525,31 @@ export async function worktreeMergeHistoryCommand(
       scopes,
     });
     if (!opts.yes) {
-      const projectIdOverrides = await promptForProjectMappings({
+      const projectSelections = await promptForProjectMappings({
         plan: collected.plan,
         sourceProjects: collected.sourceProjects,
         targetProjects: collected.targetProjects,
       });
-      if (Object.keys(projectIdOverrides).length > 0) {
+      if (
+        projectSelections.importProjectIds.length > 0
+        || Object.keys(projectSelections.projectIdOverrides).length > 0
+      ) {
         collected = await collectMergePlan({
           sourceDb: sourceHandle.db,
           targetDb: targetHandle.db,
           company,
           scopes,
-          projectIdOverrides,
+          importProjectIds: projectSelections.importProjectIds,
+          projectIdOverrides: projectSelections.projectIdOverrides,
         });
       }
     }
 
-    console.log(
-      renderMergePlan(collected.plan, {
-        sourcePath: `${sourceEndpoint.label} (${sourceEndpoint.rootPath})`,
-        targetPath: `${targetEndpoint.label} (${targetEndpoint.rootPath})`,
-        unsupportedRunCount: collected.unsupportedRunCount,
-      }),
-    );
+    console.log(renderMergePlan(collected.plan, {
+      sourcePath: `${sourceEndpoint.label} (${sourceEndpoint.rootPath})`,
+      targetPath: `${targetEndpoint.label} (${targetEndpoint.rootPath})`,
+      unsupportedRunCount: collected.unsupportedRunCount,
+    }));
 
     if (!opts.apply) {
       return;
@@ -2330,9 +2558,9 @@ export async function worktreeMergeHistoryCommand(
     const confirmed = opts.yes
       ? true
       : await p.confirm({
-          message: `Import ${collected.plan.counts.issuesToInsert} issues and ${collected.plan.counts.commentsToInsert} comments from ${sourceEndpoint.label} into ${targetEndpoint.label}?`,
-          initialValue: false,
-        });
+        message: `Import ${collected.plan.counts.issuesToInsert} issues and ${collected.plan.counts.commentsToInsert} comments from ${sourceEndpoint.label} into ${targetEndpoint.label}?`,
+        initialValue: false,
+      });
     if (p.isCancel(confirmed) || !confirmed) {
       p.log.warn("Import cancelled.");
       return;
@@ -2352,7 +2580,7 @@ export async function worktreeMergeHistoryCommand(
     }
     p.outro(
       pc.green(
-        `Imported ${applied.insertedIssues} issues, ${applied.insertedComments} comments, ${applied.insertedDocuments} documents (${applied.insertedDocumentRevisions} revisions, ${applied.mergedDocuments} merged), and ${applied.insertedAttachments} attachments into ${company.issuePrefix}.`,
+        `Imported ${applied.insertedProjects} projects (${applied.insertedProjectWorkspaces} workspaces), ${applied.insertedIssues} issues, ${applied.insertedComments} comments, ${applied.insertedDocuments} documents (${applied.insertedDocumentRevisions} revisions, ${applied.mergedDocuments} merged), and ${applied.insertedAttachments} attachments into ${company.issuePrefix}.`,
       ),
     );
   } finally {
@@ -2370,10 +2598,7 @@ export function registerWorktreeCommands(program: Command): void {
     .argument("<name>", "Worktree name — auto-prefixed with paperclip- if needed (created at ~/paperclip-NAME)")
     .option("--start-point <ref>", "Remote ref to base the new branch on (env: PAPERCLIP_WORKTREE_START_POINT)")
     .option("--instance <id>", "Explicit isolated instance id")
-    .option(
-      "--home <path>",
-      `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`,
-    )
+    .option("--home <path>", `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`)
     .option("--from-config <path>", "Source config.json to seed from")
     .option("--from-data-dir <path>", "Source PAPERCLIP_HOME used when deriving the source config")
     .option("--from-instance <id>", "Source instance id when deriving the source config", "default")
@@ -2389,10 +2614,7 @@ export function registerWorktreeCommands(program: Command): void {
     .description("Create repo-local config/env and an isolated instance for this worktree")
     .option("--name <name>", "Display name used to derive the instance id")
     .option("--instance <id>", "Explicit isolated instance id")
-    .option(
-      "--home <path>",
-      `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`,
-    )
+    .option("--home <path>", `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`)
     .option("--from-config <path>", "Source config.json to seed from")
     .option("--from-data-dir <path>", "Source PAPERCLIP_HOME used when deriving the source config")
     .option("--from-instance <id>", "Source instance id when deriving the source config", "default")
@@ -2419,10 +2641,7 @@ export function registerWorktreeCommands(program: Command): void {
   program
     .command("worktree:merge-history")
     .description("Preview or import issue/comment history from another worktree into the current instance")
-    .argument(
-      "[source]",
-      "Optional source worktree path, directory name, or branch name (back-compat alias for --from)",
-    )
+    .argument("[source]", "Optional source worktree path, directory name, or branch name (back-compat alias for --from)")
     .option("--from <worktree>", "Source worktree path, directory name, branch name, or current")
     .option("--to <worktree>", "Target worktree path, directory name, branch name, or current (defaults to current)")
     .option("--company <id-or-prefix>", "Shared company id or issue prefix inside the chosen source/target instances")
@@ -2437,10 +2656,7 @@ export function registerWorktreeCommands(program: Command): void {
     .description("Safely remove a worktree, its branch, and its isolated instance data")
     .argument("<name>", "Worktree name — auto-prefixed with paperclip- if needed")
     .option("--instance <id>", "Explicit instance id (if different from the worktree name)")
-    .option(
-      "--home <path>",
-      `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`,
-    )
+    .option("--home <path>", `Home root for worktree instances (env: PAPERCLIP_WORKTREES_DIR, default: ${DEFAULT_WORKTREE_HOME})`)
     .option("--force", "Bypass safety checks (uncommitted changes, unique commits)", false)
     .action(worktreeCleanupCommand);
 }

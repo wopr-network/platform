@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { hasLegacyWorkingDirectory, shouldShowLegacyWorkingDirectoryField } from "./legacy-agent-config";
+import {
+  hasLegacyWorkingDirectory,
+  shouldShowLegacyWorkingDirectoryField,
+} from "./legacy-agent-config";
 
 describe("legacy agent config helpers", () => {
   it("treats non-empty cwd values as legacy working directories", () => {

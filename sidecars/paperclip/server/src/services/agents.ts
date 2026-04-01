@@ -70,7 +70,9 @@ function jsonEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function buildConfigSnapshot(row: Pick<typeof agents.$inferSelect, ConfigRevisionField>): AgentConfigSnapshot {
+function buildConfigSnapshot(
+  row: Pick<typeof agents.$inferSelect, ConfigRevisionField>,
+): AgentConfigSnapshot {
   const adapterConfig =
     typeof row.adapterConfig === "object" && row.adapterConfig !== null && !Array.isArray(row.adapterConfig)
       ? sanitizeRecord(row.adapterConfig as Record<string, unknown>)
@@ -82,7 +84,7 @@ function buildConfigSnapshot(row: Pick<typeof agents.$inferSelect, ConfigRevisio
   const metadata =
     typeof row.metadata === "object" && row.metadata !== null && !Array.isArray(row.metadata)
       ? sanitizeRecord(row.metadata as Record<string, unknown>)
-      : (row.metadata ?? null);
+      : row.metadata ?? null;
   return {
     name: row.name,
     role: row.role,
@@ -108,7 +110,10 @@ function hasConfigPatchFields(data: Partial<typeof agents.$inferInsert>) {
   return CONFIG_REVISION_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(data, field));
 }
 
-function diffConfigSnapshot(before: AgentConfigSnapshot, after: AgentConfigSnapshot): string[] {
+function diffConfigSnapshot(
+  before: AgentConfigSnapshot,
+  after: AgentConfigSnapshot,
+): string[] {
   return CONFIG_REVISION_FIELDS.filter((field) => !jsonEqual(before[field], after[field]));
 }
 
@@ -132,9 +137,12 @@ function configPatchFromSnapshot(snapshot: unknown): Partial<typeof agents.$infe
     name: snapshot.name,
     role: snapshot.role,
     title: typeof snapshot.title === "string" || snapshot.title === null ? snapshot.title : null,
-    reportsTo: typeof snapshot.reportsTo === "string" || snapshot.reportsTo === null ? snapshot.reportsTo : null,
+    reportsTo:
+      typeof snapshot.reportsTo === "string" || snapshot.reportsTo === null ? snapshot.reportsTo : null,
     capabilities:
-      typeof snapshot.capabilities === "string" || snapshot.capabilities === null ? snapshot.capabilities : null,
+      typeof snapshot.capabilities === "string" || snapshot.capabilities === null
+        ? snapshot.capabilities
+        : null,
     adapterType: snapshot.adapterType,
     adapterConfig: isPlainRecord(snapshot.adapterConfig) ? snapshot.adapterConfig : {},
     runtimeConfig: isPlainRecord(snapshot.runtimeConfig) ? snapshot.runtimeConfig : {},
@@ -158,7 +166,10 @@ export function hasAgentShortnameCollision(
   });
 }
 
-export function deduplicateAgentName(candidateName: string, existingAgents: AgentShortnameRow[]): string {
+export function deduplicateAgentName(
+  candidateName: string,
+  existingAgents: AgentShortnameRow[],
+): string {
   if (!hasAgentShortnameCollision(candidateName, existingAgents)) {
     return candidateName;
   }
@@ -278,11 +289,17 @@ export function agentService(db: Db) {
 
     const hasCollision = hasAgentShortnameCollision(candidateName, existingAgents, options);
     if (hasCollision) {
-      throw conflict(`Agent shortname '${candidateShortname}' is already in use in this company`);
+      throw conflict(
+        `Agent shortname '${candidateShortname}' is already in use in this company`,
+      );
     }
   }
 
-  async function updateAgent(id: string, data: Partial<typeof agents.$inferInsert>, options?: UpdateAgentOptions) {
+  async function updateAgent(
+    id: string,
+    data: Partial<typeof agents.$inferInsert>,
+    options?: UpdateAgentOptions,
+  ) {
     const existing = await getById(id);
     if (!existing) return null;
 
@@ -357,10 +374,7 @@ export function agentService(db: Db) {
       if (!options?.includeTerminated) {
         conditions.push(ne(agents.status, "terminated"));
       }
-      const rows = await db
-        .select()
-        .from(agents)
-        .where(and(...conditions));
+      const rows = await db.select().from(agents).where(and(...conditions));
       const hydrated = await hydrateAgentSpend(rows);
       return hydrated.map(normalizeAgentRow);
     },
@@ -446,7 +460,10 @@ export function agentService(db: Db) {
         })
         .where(eq(agents.id, id));
 
-      await db.update(agentApiKeys).set({ revokedAt: new Date() }).where(eq(agentApiKeys.agentId, id));
+      await db
+        .update(agentApiKeys)
+        .set({ revokedAt: new Date() })
+        .where(eq(agentApiKeys.agentId, id));
 
       return getById(id);
     },

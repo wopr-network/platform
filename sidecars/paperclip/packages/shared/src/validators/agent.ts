@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { AGENT_ADAPTER_TYPES, AGENT_ICON_NAMES, AGENT_ROLES, AGENT_STATUSES } from "../constants.js";
+import {
+  AGENT_ADAPTER_TYPES,
+  AGENT_ICON_NAMES,
+  AGENT_ROLES,
+  AGENT_STATUSES,
+  INBOX_MINE_ISSUE_STATUS_FILTER,
+} from "../constants.js";
 import { envConfigSchema } from "./secret.js";
 
 export const agentPermissionsSchema = z.object({
@@ -68,6 +74,7 @@ export const updateAgentSchema = createAgentSchema
   .partial()
   .extend({
     permissions: z.never().optional(),
+    replaceAdapterConfig: z.boolean().optional(),
     status: z.enum(AGENT_STATUSES).optional(),
     spentMonthlyCents: z.number().int().nonnegative().optional(),
   });
@@ -86,6 +93,13 @@ export const createAgentKeySchema = z.object({
 });
 
 export type CreateAgentKey = z.infer<typeof createAgentKeySchema>;
+
+export const agentMineInboxQuerySchema = z.object({
+  userId: z.string().trim().min(1),
+  status: z.string().trim().min(1).optional().default(INBOX_MINE_ISSUE_STATUS_FILTER),
+});
+
+export type AgentMineInboxQuery = z.infer<typeof agentMineInboxQuerySchema>;
 
 export const wakeAgentSchema = z.object({
   source: z.enum(["timer", "assignment", "on_demand", "automation"]).optional().default("on_demand"),

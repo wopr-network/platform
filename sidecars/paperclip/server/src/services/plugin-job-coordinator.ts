@@ -92,7 +92,9 @@ export interface PluginJobCoordinator {
  * coordinator.stop();
  * ```
  */
-export function createPluginJobCoordinator(options: PluginJobCoordinatorOptions): PluginJobCoordinator {
+export function createPluginJobCoordinator(
+  options: PluginJobCoordinatorOptions,
+): PluginJobCoordinator {
   const { db, lifecycle, scheduler, jobStore } = options;
   const log = logger.child({ service: "plugin-job-coordinator" });
   const registry = pluginRegistryService(db);
@@ -124,7 +126,10 @@ export function createPluginJobCoordinator(options: PluginJobCoordinatorOptions)
       const jobDeclarations = manifest.jobs ?? [];
 
       if (jobDeclarations.length > 0) {
-        log.info({ pluginId, pluginKey, jobCount: jobDeclarations.length }, "syncing job declarations from manifest");
+        log.info(
+          { pluginId, pluginKey, jobCount: jobDeclarations.length },
+          "syncing job declarations from manifest",
+        );
         await jobStore.syncJobDeclarations(pluginId, jobDeclarations);
       }
 
@@ -146,9 +151,16 @@ export function createPluginJobCoordinator(options: PluginJobCoordinatorOptions)
    * When a plugin is disabled (transitions to `error` with "disabled by
    * operator" or genuine error): unregister from the scheduler.
    */
-  async function onPluginDisabled(payload: { pluginId: string; pluginKey: string; reason?: string }): Promise<void> {
+  async function onPluginDisabled(payload: {
+    pluginId: string;
+    pluginKey: string;
+    reason?: string;
+  }): Promise<void> {
     const { pluginId, pluginKey, reason } = payload;
-    log.info({ pluginId, pluginKey, reason }, "plugin disabled — unregistering from scheduler");
+    log.info(
+      { pluginId, pluginKey, reason },
+      "plugin disabled — unregistering from scheduler",
+    );
 
     try {
       await scheduler.unregisterPlugin(pluginId);
@@ -173,7 +185,10 @@ export function createPluginJobCoordinator(options: PluginJobCoordinatorOptions)
     removeData: boolean;
   }): Promise<void> {
     const { pluginId, pluginKey, removeData } = payload;
-    log.info({ pluginId, pluginKey, removeData }, "plugin unloaded — unregistering from scheduler");
+    log.info(
+      { pluginId, pluginKey, removeData },
+      "plugin unloaded — unregistering from scheduler",
+    );
 
     try {
       await scheduler.unregisterPlugin(pluginId);

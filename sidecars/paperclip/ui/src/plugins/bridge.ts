@@ -89,11 +89,19 @@ export interface PluginModalBoundsRequest {
 }
 
 export interface PluginRenderCloseEvent {
-  reason: "escapeKey" | "backdrop" | "hostNavigation" | "programmatic" | "submit" | "unknown";
+  reason:
+    | "escapeKey"
+    | "backdrop"
+    | "hostNavigation"
+    | "programmatic"
+    | "submit"
+    | "unknown";
   nativeEvent?: unknown;
 }
 
-export type PluginRenderCloseHandler = (event: PluginRenderCloseEvent) => void | Promise<void>;
+export type PluginRenderCloseHandler = (
+  event: PluginRenderCloseEvent,
+) => void | Promise<void>;
 
 export interface PluginRenderCloseLifecycle {
   onBeforeClose?(handler: PluginRenderCloseHandler): () => void;
@@ -128,7 +136,8 @@ export type PluginBridgeContextValue = {
  * registry on `globalThis.__paperclipPluginBridge__`), context propagation
  * works correctly across the host/plugin boundary.
  */
-export const PluginBridgeContext = createContext<PluginBridgeContextValue | null>(null);
+export const PluginBridgeContext =
+  createContext<PluginBridgeContextValue | null>(null);
 
 function usePluginBridgeContext(): PluginBridgeContextValue {
   const ctx = useContext(PluginBridgeContext);
@@ -205,7 +214,9 @@ function serializeRenderEnvironment(
   };
 }
 
-function serializeRenderEnvironmentSnapshot(snapshot: PluginLauncherRenderContextSnapshot | null): string {
+function serializeRenderEnvironmentSnapshot(
+  snapshot: PluginLauncherRenderContextSnapshot | null,
+): string {
   return snapshot ? JSON.stringify(snapshot) : "";
 }
 
@@ -218,7 +229,10 @@ function serializeRenderEnvironmentSnapshot(snapshot: PluginLauncherRenderContex
  * Re-fetches automatically when `key` or `params` change. Provides a
  * `refresh()` function for manual re-fetch.
  */
-export function usePluginData<T = unknown>(key: string, params?: Record<string, unknown>): PluginDataResult<T> {
+export function usePluginData<T = unknown>(
+  key: string,
+  params?: Record<string, unknown>,
+): PluginDataResult<T> {
   const { pluginId, hostContext } = usePluginBridgeContext();
   const companyId = hostContext.companyId;
   const renderEnvironmentSnapshot = serializeRenderEnvironment(hostContext.renderEnvironment);
@@ -241,7 +255,13 @@ export function usePluginData<T = unknown>(key: string, params?: Record<string, 
     setLoading(true);
     const request = () => {
       pluginsApi
-        .bridgeGetData(pluginId, key, params, companyId, renderEnvironmentSnapshot)
+        .bridgeGetData(
+          pluginId,
+          key,
+          params,
+          companyId,
+          renderEnvironmentSnapshot,
+        )
         .then((response) => {
           if (!cancelled) {
             setData(response.data as T);
@@ -313,7 +333,13 @@ export function usePluginAction(key: string): PluginActionFn {
       const renderEnvironment = serializeRenderEnvironment(hostContext.renderEnvironment);
 
       try {
-        const response = await pluginsApi.bridgePerformAction(pluginId, key, params, companyId, renderEnvironment);
+        const response = await pluginsApi.bridgePerformAction(
+          pluginId,
+          key,
+          params,
+          companyId,
+          renderEnvironment,
+        );
         return response.data;
       } catch (err) {
         throw extractBridgeError(err);
@@ -344,7 +370,10 @@ export function useHostContext(): PluginHostContext {
 
 export function usePluginToast(): PluginToastFn {
   const { pushToast } = useToast();
-  return useCallback((input: PluginToastInput) => pushToast(input), [pushToast]);
+  return useCallback(
+    (input: PluginToastInput) => pushToast(input),
+    [pushToast],
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -360,7 +389,10 @@ export interface PluginStreamResult<T = unknown> {
   close(): void;
 }
 
-export function usePluginStream<T = unknown>(channel: string, options?: { companyId?: string }): PluginStreamResult<T> {
+export function usePluginStream<T = unknown>(
+  channel: string,
+  options?: { companyId?: string },
+): PluginStreamResult<T> {
   const { pluginId, hostContext } = usePluginBridgeContext();
   const effectiveCompanyId = options?.companyId ?? hostContext.companyId ?? undefined;
   const [events, setEvents] = useState<T[]>([]);

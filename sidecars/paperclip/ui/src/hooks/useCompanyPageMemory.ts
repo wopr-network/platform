@@ -61,7 +61,10 @@ export function useCompanyPageMemory() {
   useEffect(() => {
     if (!selectedCompanyId) return;
 
-    if (prevCompanyId.current !== null && selectedCompanyId !== prevCompanyId.current) {
+    if (
+      prevCompanyId.current !== null &&
+      selectedCompanyId !== prevCompanyId.current
+    ) {
       if (selectionSource !== "route_sync" && selectedCompany) {
         const paths = getCompanyPaths();
         const targetPath = sanitizeRememberedPathForCompany({

@@ -69,7 +69,7 @@ async function ensureGatewayProviderConfig(gatewayUrl: string): Promise<void> {
 /** Convert the shared ROLE_PERMISSIONS (flat string[]) to the grant shape access service expects. */
 function grantsForRole(role: string): Array<{ permissionKey: string }> {
   const keys = ROLE_PERMISSIONS[role] ?? ROLE_PERMISSIONS.member ?? [];
-  return keys.map((permissionKey) => ({ permissionKey }));
+  return keys.map((permissionKey: string) => ({ permissionKey }));
 }
 
 /**
@@ -359,7 +359,7 @@ function createMemberRouter(db: Db): Router {
     try {
       const { companyId, userId } = req.body as { companyId: string; userId: string };
 
-      await access.removeMembership(companyId, "user", userId);
+      await access.ensureMembership(companyId, "user", userId, "member", "suspended");
 
       // Demote from instance_admin if user has no remaining company memberships
       const remaining = await access.listUserCompanyAccess(userId);

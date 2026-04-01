@@ -15,7 +15,12 @@ export function sidebarBadgeService(db: Db) {
       const actionableApprovals = await db
         .select({ count: sql<number>`count(*)` })
         .from(approvals)
-        .where(and(eq(approvals.companyId, companyId), inArray(approvals.status, ACTIONABLE_APPROVAL_STATUSES)))
+        .where(
+          and(
+            eq(approvals.companyId, companyId),
+            inArray(approvals.status, ACTIONABLE_APPROVAL_STATUSES),
+          ),
+        )
         .then((rows) => Number(rows[0]?.count ?? 0));
 
       const latestRunByAgent = await db
@@ -33,7 +38,9 @@ export function sidebarBadgeService(db: Db) {
         )
         .orderBy(heartbeatRuns.agentId, desc(heartbeatRuns.createdAt));
 
-      const failedRuns = latestRunByAgent.filter((row) => FAILED_HEARTBEAT_STATUSES.includes(row.runStatus)).length;
+      const failedRuns = latestRunByAgent.filter((row) =>
+        FAILED_HEARTBEAT_STATUSES.includes(row.runStatus),
+      ).length;
 
       const joinRequests = extra?.joinRequests ?? 0;
       const unreadTouchedIssues = extra?.unreadTouchedIssues ?? 0;

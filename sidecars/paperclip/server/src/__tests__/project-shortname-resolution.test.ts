@@ -3,12 +3,16 @@ import { resolveProjectNameForUniqueShortname } from "../services/projects.ts";
 
 describe("resolveProjectNameForUniqueShortname", () => {
   it("keeps name when shortname is not used", () => {
-    const resolved = resolveProjectNameForUniqueShortname("Platform", [{ id: "p1", name: "Growth" }]);
+    const resolved = resolveProjectNameForUniqueShortname("Platform", [
+      { id: "p1", name: "Growth" },
+    ]);
     expect(resolved).toBe("Platform");
   });
 
   it("appends numeric suffix when shortname collides", () => {
-    const resolved = resolveProjectNameForUniqueShortname("Growth Team", [{ id: "p1", name: "growth-team" }]);
+    const resolved = resolveProjectNameForUniqueShortname("Growth Team", [
+      { id: "p1", name: "growth-team" },
+    ]);
     expect(resolved).toBe("Growth Team 2");
   });
 
@@ -33,7 +37,9 @@ describe("resolveProjectNameForUniqueShortname", () => {
   });
 
   it("keeps non-normalizable names unchanged", () => {
-    const resolved = resolveProjectNameForUniqueShortname("!!!", [{ id: "p1", name: "growth" }]);
+    const resolved = resolveProjectNameForUniqueShortname("!!!", [
+      { id: "p1", name: "growth" },
+    ]);
     expect(resolved).toBe("!!!");
   });
 });

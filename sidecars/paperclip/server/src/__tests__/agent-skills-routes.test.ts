@@ -148,7 +148,11 @@ describe("agent skill routes", () => {
     ]);
     mockCompanySkillService.resolveRequestedSkillKeys.mockImplementation(
       async (_companyId: string, requested: string[]) =>
-        requested.map((value) => (value === "paperclip" ? "paperclipai/paperclip/paperclip" : value)),
+        requested.map((value) =>
+          value === "paperclip"
+            ? "paperclipai/paperclip/paperclip"
+            : value,
+        ),
     );
     mockAdapter.listSkills.mockResolvedValue({
       adapterType: "claude_local",
@@ -210,9 +214,8 @@ describe("agent skill routes", () => {
   it("skips runtime materialization when listing Claude skills", async () => {
     mockAgentService.getById.mockResolvedValue(makeAgent("claude_local"));
 
-    const res = await request(createApp()).get(
-      "/api/agents/11111111-1111-4111-8111-111111111111/skills?companyId=company-1",
-    );
+    const res = await request(createApp())
+      .get("/api/agents/11111111-1111-4111-8111-111111111111/skills?companyId=company-1");
 
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(mockCompanySkillService.listRuntimeSkillEntries).toHaveBeenCalledWith("company-1", {
@@ -239,9 +242,8 @@ describe("agent skill routes", () => {
       warnings: [],
     });
 
-    const res = await request(createApp()).get(
-      "/api/agents/11111111-1111-4111-8111-111111111111/skills?companyId=company-1",
-    );
+    const res = await request(createApp())
+      .get("/api/agents/11111111-1111-4111-8111-111111111111/skills?companyId=company-1");
 
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(mockCompanySkillService.listRuntimeSkillEntries).toHaveBeenCalledWith("company-1", {
@@ -349,12 +351,14 @@ describe("agent skill routes", () => {
   });
 
   it("materializes the bundled CEO instruction set for default CEO agents", async () => {
-    const res = await request(createApp()).post("/api/companies/company-1/agents").send({
-      name: "CEO",
-      role: "ceo",
-      adapterType: "claude_local",
-      adapterConfig: {},
-    });
+    const res = await request(createApp())
+      .post("/api/companies/company-1/agents")
+      .send({
+        name: "CEO",
+        role: "ceo",
+        adapterType: "claude_local",
+        adapterConfig: {},
+      });
 
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     expect(mockAgentInstructionsService.materializeManagedBundle).toHaveBeenCalledWith(
@@ -374,12 +378,14 @@ describe("agent skill routes", () => {
   });
 
   it("materializes the bundled default instruction set for non-CEO agents with no prompt template", async () => {
-    const res = await request(createApp()).post("/api/companies/company-1/agents").send({
-      name: "Engineer",
-      role: "engineer",
-      adapterType: "claude_local",
-      adapterConfig: {},
-    });
+    const res = await request(createApp())
+      .post("/api/companies/company-1/agents")
+      .send({
+        name: "Engineer",
+        role: "engineer",
+        adapterType: "claude_local",
+        adapterConfig: {},
+      });
 
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     expect(mockAgentInstructionsService.materializeManagedBundle).toHaveBeenCalledWith(

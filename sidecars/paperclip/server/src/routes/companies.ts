@@ -70,8 +70,9 @@ export function companyRoutes(db: Db, storage?: StorageService) {
 
   router.get("/stats", async (req, res) => {
     assertBoard(req);
-    const allowed =
-      req.actor.source === "local_implicit" || req.actor.isInstanceAdmin ? null : new Set(req.actor.companyIds ?? []);
+    const allowed = req.actor.source === "local_implicit" || req.actor.isInstanceAdmin
+      ? null
+      : new Set(req.actor.companyIds ?? []);
     const stats = await svc.stats();
     if (!allowed) {
       res.json(stats);

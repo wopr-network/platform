@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Navigate, useParams, useSearchParams } from "@/lib/router";
+import { Link, useParams, useSearchParams } from "@/lib/router";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
@@ -21,7 +21,7 @@ export function BoardClaimPage() {
   const healthQuery = useQuery({
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
-    retry: false,
+    staleTime: 60_000,
   });
   const isHosted = healthQuery.data?.hostedMode === true;
 
@@ -48,7 +48,21 @@ export function BoardClaimPage() {
     },
   });
 
-  if (isHosted) return <Navigate to="/" replace />;
+  if (isHosted) {
+    return (
+      <div className="mx-auto max-w-xl py-10">
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h1 className="text-lg font-semibold">Managed Instance</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Board ownership is managed by the platform. No claiming is needed.
+          </p>
+          <Button asChild className="mt-4">
+            <Link to="/">Go to board</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!token || !code) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-destructive">Invalid board claim URL.</div>;
@@ -81,7 +95,9 @@ export function BoardClaimPage() {
       <div className="mx-auto max-w-xl py-10">
         <div className="rounded-lg border border-border bg-card p-6">
           <h1 className="text-lg font-semibold">Board ownership claimed</h1>
-          <p className="mt-2 text-sm text-muted-foreground">This instance is now linked to your authenticated user.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This instance is now linked to your authenticated user.
+          </p>
           <Button asChild className="mt-4">
             <Link to="/">Open board</Link>
           </Button>
@@ -120,7 +136,11 @@ export function BoardClaimPage() {
           </p>
         )}
 
-        <Button className="mt-5" onClick={() => claimMutation.mutate()} disabled={claimMutation.isPending}>
+        <Button
+          className="mt-5"
+          onClick={() => claimMutation.mutate()}
+          disabled={claimMutation.isPending}
+        >
           {claimMutation.isPending ? "Claiming…" : "Claim ownership"}
         </Button>
       </div>

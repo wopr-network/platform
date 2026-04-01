@@ -11,7 +11,15 @@ import { PageSkeleton } from "../components/PageSkeleton";
 import { ChevronRight, GitBranch } from "lucide-react";
 import { cn } from "../lib/utils";
 
-function OrgTree({ nodes, depth = 0, hrefFn }: { nodes: OrgNode[]; depth?: number; hrefFn: (id: string) => string }) {
+function OrgTree({
+  nodes,
+  depth = 0,
+  hrefFn,
+}: {
+  nodes: OrgNode[];
+  depth?: number;
+  hrefFn: (id: string) => string;
+}) {
   return (
     <div>
       {nodes.map((node) => (
@@ -21,7 +29,15 @@ function OrgTree({ nodes, depth = 0, hrefFn }: { nodes: OrgNode[]; depth?: numbe
   );
 }
 
-function OrgTreeNode({ node, depth, hrefFn }: { node: OrgNode; depth: number; hrefFn: (id: string) => string }) {
+function OrgTreeNode({
+  node,
+  depth,
+  hrefFn,
+}: {
+  node: OrgNode;
+  depth: number;
+  hrefFn: (id: string) => string;
+}) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.reports.length > 0;
 
@@ -41,7 +57,9 @@ function OrgTreeNode({ node, depth, hrefFn }: { node: OrgNode; depth: number; hr
               setExpanded(!expanded);
             }}
           >
-            <ChevronRight className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")} />
+            <ChevronRight
+              className={cn("h-3 w-3 transition-transform", expanded && "rotate-90")}
+            />
           </button>
         ) : (
           <span className="w-4" />
@@ -55,16 +73,18 @@ function OrgTreeNode({ node, depth, hrefFn }: { node: OrgNode; depth: number; hr
                 ? "bg-yellow-400"
                 : node.status === "pending_approval"
                   ? "bg-amber-400"
-                  : node.status === "error"
-                    ? "bg-red-400"
-                    : "bg-neutral-400",
+                : node.status === "error"
+                  ? "bg-red-400"
+                  : "bg-neutral-400"
           )}
         />
         <span className="font-medium flex-1">{node.name}</span>
         <span className="text-xs text-muted-foreground">{node.role}</span>
         <StatusBadge status={node.status} />
       </Link>
-      {hasChildren && expanded && <OrgTree nodes={node.reports} depth={depth + 1} hrefFn={hrefFn} />}
+      {hasChildren && expanded && (
+        <OrgTree nodes={node.reports} depth={depth + 1} hrefFn={hrefFn} />
+      )}
     </div>
   );
 }
@@ -96,7 +116,10 @@ export function Org() {
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
       {data && data.length === 0 && (
-        <EmptyState icon={GitBranch} message="No agents in the organization. Create agents to build your org chart." />
+        <EmptyState
+          icon={GitBranch}
+          message="No agents in the organization. Create agents to build your org chart."
+        />
       )}
 
       {data && data.length > 0 && (

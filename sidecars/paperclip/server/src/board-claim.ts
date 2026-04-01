@@ -40,7 +40,10 @@ function getChallengeStatus(token: string, code: string | undefined): ChallengeS
   return "available";
 }
 
-export async function initializeBoardClaimChallenge(db: Db, opts: { deploymentMode: DeploymentMode }): Promise<void> {
+export async function initializeBoardClaimChallenge(
+  db: Db,
+  opts: { deploymentMode: DeploymentMode },
+): Promise<void> {
   if (opts.deploymentMode !== "authenticated") {
     activeChallenge = null;
     return;

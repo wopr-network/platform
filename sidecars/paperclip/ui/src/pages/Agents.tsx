@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
-import { healthApi } from "../api/health";
 import { heartbeatsApi } from "../api/heartbeats";
+import { healthApi } from "../api/health";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -27,6 +27,7 @@ const adapterLabels: Record<string, string> = {
   gemini_local: "Gemini",
   opencode_local: "OpenCode",
   cursor: "Cursor",
+  hermes_local: "Hermes",
   openclaw_gateway: "OpenClaw Gateway",
   process: "Process",
   http: "HTTP",
@@ -46,17 +47,21 @@ function matchesFilter(status: string, tab: FilterTab, showTerminated: boolean):
 }
 
 function filterAgents(agents: Agent[], tab: FilterTab, showTerminated: boolean): Agent[] {
-  return agents.filter((a) => matchesFilter(a.status, tab, showTerminated));
+  return agents
+    .filter((a) => matchesFilter(a.status, tab, showTerminated))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function filterOrgTree(nodes: OrgNode[], tab: FilterTab, showTerminated: boolean): OrgNode[] {
-  return nodes.reduce<OrgNode[]>((acc, node) => {
-    const filteredReports = filterOrgTree(node.reports, tab, showTerminated);
-    if (matchesFilter(node.status, tab, showTerminated) || filteredReports.length > 0) {
-      acc.push({ ...node, reports: filteredReports });
-    }
-    return acc;
-  }, []);
+  return nodes
+    .reduce<OrgNode[]>((acc, node) => {
+      const filteredReports = filterOrgTree(node.reports, tab, showTerminated);
+      if (matchesFilter(node.status, tab, showTerminated) || filteredReports.length > 0) {
+        acc.push({ ...node, reports: filteredReports });
+      }
+      return acc;
+    }, [])
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function Agents() {
@@ -66,29 +71,21 @@ export function Agents() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile } = useSidebar();
+  const healthQuery = useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => healthApi.get(),
+    staleTime: 60_000,
+  });
+  const isHosted = healthQuery.data?.hostedMode === true;
   const pathSegment = location.pathname.split("/").pop() ?? "all";
-  const tab: FilterTab =
-    pathSegment === "all" || pathSegment === "active" || pathSegment === "paused" || pathSegment === "error"
-      ? pathSegment
-      : "all";
+  const tab: FilterTab = (pathSegment === "all" || pathSegment === "active" || pathSegment === "paused" || pathSegment === "error") ? pathSegment : "all";
   const [view, setView] = useState<"list" | "org">("org");
   const forceListView = isMobile;
   const effectiveView: "list" | "org" = forceListView ? "list" : view;
   const [showTerminated, setShowTerminated] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    retry: false,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
-
-  const {
-    data: agents,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data: agents, isLoading, error } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
     queryFn: () => agentsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
@@ -164,9 +161,7 @@ export function Agents() {
             <button
               className={cn(
                 "flex items-center gap-1.5 px-2 py-1.5 text-xs transition-colors border border-border",
-                filtersOpen || showTerminated
-                  ? "text-foreground bg-accent"
-                  : "text-muted-foreground hover:bg-accent/50",
+                filtersOpen || showTerminated ? "text-foreground bg-accent" : "text-muted-foreground hover:bg-accent/50"
               )}
               onClick={() => setFiltersOpen(!filtersOpen)}
             >
@@ -180,12 +175,10 @@ export function Agents() {
                   className="flex items-center gap-2 w-full px-2 py-1.5 text-xs text-left hover:bg-accent/50 transition-colors"
                   onClick={() => setShowTerminated(!showTerminated)}
                 >
-                  <span
-                    className={cn(
-                      "flex items-center justify-center h-3.5 w-3.5 border border-border rounded-sm",
-                      showTerminated && "bg-foreground",
-                    )}
-                  >
+                  <span className={cn(
+                    "flex items-center justify-center h-3.5 w-3.5 border border-border rounded-sm",
+                    showTerminated && "bg-foreground"
+                  )}>
                     {showTerminated && <span className="text-background text-[10px] leading-none">&#10003;</span>}
                   </span>
                   Show terminated
@@ -199,7 +192,7 @@ export function Agents() {
               <button
                 className={cn(
                   "p-1.5 transition-colors",
-                  effectiveView === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50",
+                  effectiveView === "list" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
                 )}
                 onClick={() => setView("list")}
               >
@@ -208,7 +201,7 @@ export function Agents() {
               <button
                 className={cn(
                   "p-1.5 transition-colors",
-                  effectiveView === "org" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50",
+                  effectiveView === "org" ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50"
                 )}
                 onClick={() => setView("org")}
               >
@@ -216,19 +209,15 @@ export function Agents() {
               </button>
             </div>
           )}
-          {!isHosted && (
-            <Button size="sm" variant="outline" onClick={openNewAgent}>
-              <Plus className="h-3.5 w-3.5 mr-1.5" />
-              New Agent
-            </Button>
-          )}
+          <Button size="sm" variant="outline" onClick={openNewAgent}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            New Agent
+          </Button>
         </div>
       </div>
 
       {filtered.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {filtered.length} agent{filtered.length !== 1 ? "s" : ""}
-        </p>
+        <p className="text-xs text-muted-foreground">{filtered.length} agent{filtered.length !== 1 ? "s" : ""}</p>
       )}
 
       {error && <p className="text-sm text-destructive">{error.message}</p>}
@@ -236,9 +225,9 @@ export function Agents() {
       {agents && agents.length === 0 && (
         <EmptyState
           icon={Bot}
-          message={isHosted ? "No agents configured yet." : "Create your first agent to get started."}
-          action={isHosted ? undefined : "New Agent"}
-          onAction={isHosted ? undefined : openNewAgent}
+          message="Create your first agent to get started."
+          action="New Agent"
+          onAction={openNewAgent}
         />
       )}
 
@@ -301,31 +290,30 @@ export function Agents() {
       )}
 
       {effectiveView === "list" && agents && agents.length > 0 && filtered.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">No agents match the selected filter.</p>
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No agents match the selected filter.
+        </p>
       )}
 
       {/* Org chart view */}
       {effectiveView === "org" && filteredOrg.length > 0 && (
         <div className="border border-border py-1">
           {filteredOrg.map((node) => (
-            <OrgTreeNode
-              key={node.id}
-              node={node}
-              depth={0}
-              agentMap={agentMap}
-              liveRunByAgent={liveRunByAgent}
-              isHosted={isHosted}
-            />
+            <OrgTreeNode key={node.id} node={node} depth={0} agentMap={agentMap} liveRunByAgent={liveRunByAgent} hostedMode={isHosted} />
           ))}
         </div>
       )}
 
       {effectiveView === "org" && orgTree && orgTree.length > 0 && filteredOrg.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">No agents match the selected filter.</p>
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No agents match the selected filter.
+        </p>
       )}
 
       {effectiveView === "org" && orgTree && orgTree.length === 0 && (
-        <p className="text-sm text-muted-foreground text-center py-8">No organizational hierarchy defined.</p>
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No organizational hierarchy defined.
+        </p>
       )}
     </div>
   );
@@ -336,13 +324,13 @@ function OrgTreeNode({
   depth,
   agentMap,
   liveRunByAgent,
-  isHosted,
+  hostedMode,
 }: {
   node: OrgNode;
   depth: number;
   agentMap: Map<string, Agent>;
   liveRunByAgent: Map<string, { runId: string; liveCount: number }>;
-  isHosted: boolean;
+  hostedMode?: boolean;
 }) {
   const agent = agentMap.get(node.id);
 
@@ -386,7 +374,7 @@ function OrgTreeNode({
             )}
             {agent && (
               <>
-                {!isHosted && (
+                {!hostedMode && (
                   <span className="text-xs text-muted-foreground font-mono w-14 text-right">
                     {adapterLabels[agent.adapterType] ?? agent.adapterType}
                   </span>
@@ -405,14 +393,7 @@ function OrgTreeNode({
       {node.reports && node.reports.length > 0 && (
         <div className="border-l border-border/50 ml-4">
           {node.reports.map((child) => (
-            <OrgTreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              agentMap={agentMap}
-              liveRunByAgent={liveRunByAgent}
-              isHosted={isHosted}
-            />
+            <OrgTreeNode key={child.id} node={child} depth={depth + 1} agentMap={agentMap} liveRunByAgent={liveRunByAgent} hostedMode={hostedMode} />
           ))}
         </div>
       )}
@@ -420,7 +401,15 @@ function OrgTreeNode({
   );
 }
 
-function LiveRunIndicator({ agentRef, runId, liveCount }: { agentRef: string; runId: string; liveCount: number }) {
+function LiveRunIndicator({
+  agentRef,
+  runId,
+  liveCount,
+}: {
+  agentRef: string;
+  runId: string;
+  liveCount: number;
+}) {
   return (
     <Link
       to={`/agents/${agentRef}/runs/${runId}`}

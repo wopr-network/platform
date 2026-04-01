@@ -61,18 +61,16 @@ function parseCommandExecutionItem(
   const output = asString(item.aggregated_output).replace(/\s+$/, "");
 
   if (phase === "started") {
-    return [
-      {
-        kind: "tool_call",
-        ts,
-        name: "command_execution",
-        toolUseId: id || command || "command_execution",
-        input: {
-          id,
-          command: safeCommand,
-        },
+    return [{
+      kind: "tool_call",
+      ts,
+      name: "command_execution",
+      toolUseId: id || command || "command_execution",
+      input: {
+        id,
+        command: safeCommand,
       },
-    ];
+    }];
   }
 
   const lines: string[] = [];
@@ -91,15 +89,13 @@ function parseCommandExecutionItem(
     status === "error" ||
     status === "cancelled";
 
-  return [
-    {
-      kind: "tool_result",
-      ts,
-      toolUseId: id || command || "command_execution",
-      content: lines.join("\n").trim() || "command completed",
-      isError,
-    },
-  ];
+  return [{
+    kind: "tool_result",
+    ts,
+    toolUseId: id || command || "command_execution",
+    content: lines.join("\n").trim() || "command completed",
+    isError,
+  }];
 }
 
 function parseFileChangeItem(item: Record<string, unknown>, ts: string): TranscriptEntry[] {
@@ -122,7 +118,11 @@ function parseFileChangeItem(item: Record<string, unknown>, ts: string): Transcr
   return [{ kind: "system", ts, text: `file changes: ${preview}${more}` }];
 }
 
-function parseCodexItem(item: Record<string, unknown>, ts: string, phase: "started" | "completed"): TranscriptEntry[] {
+function parseCodexItem(
+  item: Record<string, unknown>,
+  ts: string,
+  phase: "started" | "completed",
+): TranscriptEntry[] {
   const itemType = asString(item.type);
 
   if (itemType === "agent_message") {
@@ -146,15 +146,13 @@ function parseCodexItem(item: Record<string, unknown>, ts: string, phase: "start
   }
 
   if (itemType === "tool_use") {
-    return [
-      {
-        kind: "tool_call",
-        ts,
-        name: asString(item.name, "unknown"),
-        toolUseId: asString(item.id),
-        input: item.input ?? {},
-      },
-    ];
+    return [{
+      kind: "tool_call",
+      ts,
+      name: asString(item.name, "unknown"),
+      toolUseId: asString(item.id),
+      input: item.input ?? {},
+    }];
   }
 
   if (itemType === "tool_result" && phase === "completed") {
@@ -176,13 +174,11 @@ function parseCodexItem(item: Record<string, unknown>, ts: string, phase: "start
   const id = asString(item.id);
   const status = asString(item.status);
   const meta = [id ? `id=${id}` : "", status ? `status=${status}` : ""].filter(Boolean).join(" ");
-  return [
-    {
-      kind: "system",
-      ts,
-      text: `item ${phase}: ${itemType || "unknown"}${meta ? ` (${meta})` : ""}`,
-    },
-  ];
+  return [{
+    kind: "system",
+    ts,
+    text: `item ${phase}: ${itemType || "unknown"}${meta ? ` (${meta})` : ""}`,
+  }];
 }
 
 export function parseCodexStdoutLine(line: string, ts: string): TranscriptEntry[] {
@@ -195,14 +191,12 @@ export function parseCodexStdoutLine(line: string, ts: string): TranscriptEntry[
 
   if (type === "thread.started") {
     const threadId = asString(parsed.thread_id);
-    return [
-      {
-        kind: "init",
-        ts,
-        model: asString(parsed.model, "codex"),
-        sessionId: threadId,
-      },
-    ];
+    return [{
+      kind: "init",
+      ts,
+      model: asString(parsed.model, "codex"),
+      sessionId: threadId,
+    }];
   }
 
   if (type === "turn.started") {
@@ -220,20 +214,20 @@ export function parseCodexStdoutLine(line: string, ts: string): TranscriptEntry[
     const inputTokens = asNumber(usage?.input_tokens);
     const outputTokens = asNumber(usage?.output_tokens);
     const cachedTokens = asNumber(usage?.cached_input_tokens, asNumber(usage?.cache_read_input_tokens));
-    return [
-      {
-        kind: "result",
-        ts,
-        text: asString(parsed.result),
-        inputTokens,
-        outputTokens,
-        cachedTokens,
-        costUsd: asNumber(parsed.total_cost_usd),
-        subtype: asString(parsed.subtype),
-        isError: parsed.is_error === true,
-        errors: Array.isArray(parsed.errors) ? parsed.errors.map(errorText).filter(Boolean) : [],
-      },
-    ];
+    return [{
+      kind: "result",
+      ts,
+      text: asString(parsed.result),
+      inputTokens,
+      outputTokens,
+      cachedTokens,
+      costUsd: asNumber(parsed.total_cost_usd),
+      subtype: asString(parsed.subtype),
+      isError: parsed.is_error === true,
+      errors: Array.isArray(parsed.errors)
+        ? parsed.errors.map(errorText).filter(Boolean)
+        : [],
+    }];
   }
 
   if (type === "turn.failed") {
@@ -242,20 +236,18 @@ export function parseCodexStdoutLine(line: string, ts: string): TranscriptEntry[
     const outputTokens = asNumber(usage?.output_tokens);
     const cachedTokens = asNumber(usage?.cached_input_tokens, asNumber(usage?.cache_read_input_tokens));
     const message = errorText(parsed.error ?? parsed.message);
-    return [
-      {
-        kind: "result",
-        ts,
-        text: asString(parsed.result),
-        inputTokens,
-        outputTokens,
-        cachedTokens,
-        costUsd: asNumber(parsed.total_cost_usd),
-        subtype: asString(parsed.subtype, "turn.failed"),
-        isError: true,
-        errors: message ? [message] : [],
-      },
-    ];
+    return [{
+      kind: "result",
+      ts,
+      text: asString(parsed.result),
+      inputTokens,
+      outputTokens,
+      cachedTokens,
+      costUsd: asNumber(parsed.total_cost_usd),
+      subtype: asString(parsed.subtype, "turn.failed"),
+      isError: true,
+      errors: message ? [message] : [],
+    }];
   }
 
   if (type === "error") {

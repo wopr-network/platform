@@ -157,14 +157,12 @@ function parseTopLevelToolEvent(parsed: Record<string, unknown>, ts: string): Tr
   const payload = asRecord(toolCall[toolName]) ?? {};
 
   if (subtype === "started" || subtype === "start") {
-    return [
-      {
-        kind: "tool_call",
-        ts,
-        name: toolName,
-        input: payload.args ?? payload.input ?? payload.arguments ?? payload,
-      },
-    ];
+    return [{
+      kind: "tool_call",
+      ts,
+      name: toolName,
+      input: payload.args ?? payload.input ?? payload.arguments ?? payload,
+    }];
   }
 
   if (subtype === "completed" || subtype === "complete" || subtype === "finished") {
@@ -174,15 +172,13 @@ function parseTopLevelToolEvent(parsed: Record<string, unknown>, ts: string): Tr
       payload.is_error === true ||
       payload.error !== undefined ||
       asString(payload.status).toLowerCase() === "error";
-    return [
-      {
-        kind: "tool_result",
-        ts,
-        toolUseId: callId,
-        content: result !== undefined ? stringifyUnknown(result) : `${toolName} completed`,
-        isError,
-      },
-    ];
+    return [{
+      kind: "tool_result",
+      ts,
+      toolUseId: callId,
+      content: result !== undefined ? stringifyUnknown(result) : `${toolName} completed`,
+      isError,
+    }];
   }
 
   return [{ kind: "system", ts, text: `tool_call${subtype ? ` (${subtype})` : ""}: ${toolName}` }];
@@ -252,22 +248,21 @@ export function parseGeminiStdoutLine(line: string, ts: string): TranscriptEntry
 
   if (type === "result") {
     const usage = readUsage(parsed);
-    const errors =
-      parsed.is_error === true ? [errorText(parsed.error ?? parsed.message ?? parsed.result)].filter(Boolean) : [];
-    return [
-      {
-        kind: "result",
-        ts,
-        text: asString(parsed.result) || asString(parsed.text) || asString(parsed.response),
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        cachedTokens: usage.cachedTokens,
-        costUsd: asNumber(parsed.total_cost_usd, asNumber(parsed.cost_usd, asNumber(parsed.cost))),
-        subtype: asString(parsed.subtype, "result"),
-        isError: parsed.is_error === true,
-        errors,
-      },
-    ];
+    const errors = parsed.is_error === true
+      ? [errorText(parsed.error ?? parsed.message ?? parsed.result)].filter(Boolean)
+      : [];
+    return [{
+      kind: "result",
+      ts,
+      text: asString(parsed.result) || asString(parsed.text) || asString(parsed.response),
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cachedTokens: usage.cachedTokens,
+      costUsd: asNumber(parsed.total_cost_usd, asNumber(parsed.cost_usd, asNumber(parsed.cost))),
+      subtype: asString(parsed.subtype, "result"),
+      isError: parsed.is_error === true,
+      errors,
+    }];
   }
 
   if (type === "error") {

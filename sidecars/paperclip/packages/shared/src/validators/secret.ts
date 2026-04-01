@@ -13,7 +13,11 @@ export const envBindingSecretRefSchema = z.object({
 });
 
 // Backward-compatible union that accepts legacy inline values.
-export const envBindingSchema = z.union([z.string(), envBindingPlainSchema, envBindingSecretRefSchema]);
+export const envBindingSchema = z.union([
+  z.string(),
+  envBindingPlainSchema,
+  envBindingSecretRefSchema,
+]);
 
 export const envConfigSchema = z.record(envBindingSchema);
 

@@ -49,7 +49,9 @@ function summarizeProbeDetail(stdout: string, stderr: string): string | null {
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promise<AdapterEnvironmentTestResult> {
+export async function testEnvironment(
+  ctx: AdapterEnvironmentTestContext,
+): Promise<AdapterEnvironmentTestResult> {
   const checks: AdapterEnvironmentCheck[] = [];
   const config = parseObject(ctx.config);
   const command = asString(config.command, "claude");
@@ -100,7 +102,8 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
     checks.push({
       code: "claude_anthropic_api_key_overrides_subscription",
       level: "warn",
-      message: "ANTHROPIC_API_KEY is set. Claude will use API-key auth instead of subscription credentials.",
+      message:
+        "ANTHROPIC_API_KEY is set. Claude will use API-key auth instead of subscription credentials.",
       detail: `Detected in ${source}.`,
       hint: "Unset ANTHROPIC_API_KEY if you want subscription-based Claude login behavior.",
     });
@@ -112,9 +115,8 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
     });
   }
 
-  const canRunProbe = checks.every(
-    (check) => check.code !== "claude_cwd_invalid" && check.code !== "claude_command_unresolvable",
-  );
+  const canRunProbe =
+    checks.every((check) => check.code !== "claude_cwd_invalid" && check.code !== "claude_command_unresolvable");
   if (canRunProbe) {
     if (!commandLooksLike(command, "claude")) {
       checks.push({

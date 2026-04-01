@@ -134,7 +134,9 @@ export function pluginManifestValidator(): PluginManifestValidator {
       }));
 
       const errors = details
-        .map(({ path, message }) => (path.length > 0 ? `${path.join(".")}: ${message}` : message))
+        .map(({ path, message }) =>
+          path.length > 0 ? `${path.join(".")}: ${message}` : message,
+        )
         .join("; ");
 
       return {

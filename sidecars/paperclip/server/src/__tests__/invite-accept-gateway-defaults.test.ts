@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildJoinDefaultsPayloadForAccept, normalizeAgentDefaultsForJoin } from "../routes/access.js";
+import {
+  buildJoinDefaultsPayloadForAccept,
+  normalizeAgentDefaultsForJoin,
+} from "../routes/access.js";
 
 describe("buildJoinDefaultsPayloadForAccept (openclaw_gateway)", () => {
   it("leaves non-gateway payloads unchanged", () => {

@@ -68,7 +68,10 @@ function defaultConfig(): PaperclipConfig {
   };
 }
 
-export async function configure(opts: { config?: string; section?: string }): Promise<void> {
+export async function configure(opts: {
+  config?: string;
+  section?: string;
+}): Promise<void> {
   printPaperclipCliBanner();
   p.intro(pc.bgCyan(pc.black(" paperclip configure ")));
   const configPath = resolveConfigPath(opts.config);

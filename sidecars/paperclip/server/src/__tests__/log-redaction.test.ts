@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { maskUserNameForLogs, redactCurrentUserText, redactCurrentUserValue } from "../log-redaction.js";
+import {
+  maskUserNameForLogs,
+  redactCurrentUserText,
+  redactCurrentUserValue,
+} from "../log-redaction.js";
 
 describe("log redaction", () => {
   it("redacts the active username inside home-directory paths", () => {
@@ -41,20 +45,17 @@ describe("log redaction", () => {
   it("recursively redacts nested event payloads", () => {
     const userName = "paperclipuser";
     const maskedUserName = maskUserNameForLogs(userName);
-    const result = redactCurrentUserValue(
-      {
-        cwd: `/Users/${userName}/paperclip`,
-        prompt: `open /Users/${userName}/paperclip/ui`,
-        nested: {
-          author: userName,
-        },
-        values: [userName, `/home/${userName}/project`],
+    const result = redactCurrentUserValue({
+      cwd: `/Users/${userName}/paperclip`,
+      prompt: `open /Users/${userName}/paperclip/ui`,
+      nested: {
+        author: userName,
       },
-      {
-        userNames: [userName],
-        homeDirs: [`/Users/${userName}`, `/home/${userName}`],
-      },
-    );
+      values: [userName, `/home/${userName}/project`],
+    }, {
+      userNames: [userName],
+      homeDirs: [`/Users/${userName}`, `/home/${userName}`],
+    });
 
     expect(result).toEqual({
       cwd: `/Users/${maskedUserName}/paperclip`,

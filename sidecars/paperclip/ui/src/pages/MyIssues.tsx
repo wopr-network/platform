@@ -5,7 +5,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusIcon } from "../components/StatusIcon";
-import { PriorityIcon } from "../components/PriorityIcon";
+
 import { EntityRow } from "../components/EntityRow";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
@@ -20,11 +20,7 @@ export function MyIssues() {
     setBreadcrumbs([{ label: "My Issues" }]);
   }, [setBreadcrumbs]);
 
-  const {
-    data: issues,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data: issues, isLoading, error } = useQuery({
     queryKey: queryKeys.issues.list(selectedCompanyId!),
     queryFn: () => issuesApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
@@ -39,13 +35,17 @@ export function MyIssues() {
   }
 
   // Show issues that are not assigned (user-created or unassigned)
-  const myIssues = (issues ?? []).filter((i) => !i.assigneeAgentId && !["done", "cancelled"].includes(i.status));
+  const myIssues = (issues ?? []).filter(
+    (i) => !i.assigneeAgentId && !["done", "cancelled"].includes(i.status)
+  );
 
   return (
     <div className="space-y-4">
       {error && <p className="text-sm text-destructive">{error.message}</p>}
 
-      {myIssues.length === 0 && <EmptyState icon={ListTodo} message="No issues assigned to you." />}
+      {myIssues.length === 0 && (
+        <EmptyState icon={ListTodo} message="No issues assigned to you." />
+      )}
 
       {myIssues.length > 0 && (
         <div className="border border-border">
@@ -56,12 +56,13 @@ export function MyIssues() {
               title={issue.title}
               to={`/issues/${issue.identifier ?? issue.id}`}
               leading={
-                <>
-                  <PriorityIcon priority={issue.priority} />
-                  <StatusIcon status={issue.status} />
-                </>
+                <StatusIcon status={issue.status} />
               }
-              trailing={<span className="text-xs text-muted-foreground">{formatDate(issue.createdAt)}</span>}
+              trailing={
+                <span className="text-xs text-muted-foreground">
+                  {formatDate(issue.createdAt)}
+                </span>
+              }
             />
           ))}
         </div>

@@ -126,11 +126,13 @@ describe("routine routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app).post(`/api/companies/${companyId}/routines`).send({
-      projectId,
-      title: "Daily routine",
-      assigneeAgentId: agentId,
-    });
+    const res = await request(app)
+      .post(`/api/companies/${companyId}/routines`)
+      .send({
+        projectId,
+        title: "Daily routine",
+        assigneeAgentId: agentId,
+      });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("tasks:assign");
@@ -146,9 +148,11 @@ describe("routine routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app).patch(`/api/routines/${routineId}`).send({
-      assigneeAgentId: otherAgentId,
-    });
+    const res = await request(app)
+      .patch(`/api/routines/${routineId}`)
+      .send({
+        assigneeAgentId: otherAgentId,
+      });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("tasks:assign");
@@ -165,9 +169,11 @@ describe("routine routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app).patch(`/api/routines/${routineId}`).send({
-      status: "active",
-    });
+    const res = await request(app)
+      .patch(`/api/routines/${routineId}`)
+      .send({
+        status: "active",
+      });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("tasks:assign");
@@ -183,11 +189,13 @@ describe("routine routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app).post(`/api/routines/${routineId}/triggers`).send({
-      kind: "schedule",
-      cronExpression: "0 10 * * *",
-      timezone: "UTC",
-    });
+    const res = await request(app)
+      .post(`/api/routines/${routineId}/triggers`)
+      .send({
+        kind: "schedule",
+        cronExpression: "0 10 * * *",
+        timezone: "UTC",
+      });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("tasks:assign");
@@ -203,9 +211,11 @@ describe("routine routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app).patch(`/api/routine-triggers/${trigger.id}`).send({
-      enabled: true,
-    });
+    const res = await request(app)
+      .patch(`/api/routine-triggers/${trigger.id}`)
+      .send({
+        enabled: true,
+      });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("tasks:assign");
@@ -221,7 +231,9 @@ describe("routine routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app).post(`/api/routines/${routineId}/run`).send({});
+    const res = await request(app)
+      .post(`/api/routines/${routineId}/run`)
+      .send({});
 
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("tasks:assign");
@@ -238,24 +250,22 @@ describe("routine routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app).post(`/api/companies/${companyId}/routines`).send({
-      projectId,
-      title: "Daily routine",
-      assigneeAgentId: agentId,
-    });
-
-    expect(res.status).toBe(201);
-    expect(mockRoutineService.create).toHaveBeenCalledWith(
-      companyId,
-      expect.objectContaining({
+    const res = await request(app)
+      .post(`/api/companies/${companyId}/routines`)
+      .send({
         projectId,
         title: "Daily routine",
         assigneeAgentId: agentId,
-      }),
-      {
-        agentId: null,
-        userId: "board-user",
-      },
-    );
+      });
+
+    expect(res.status).toBe(201);
+    expect(mockRoutineService.create).toHaveBeenCalledWith(companyId, expect.objectContaining({
+      projectId,
+      title: "Daily routine",
+      assigneeAgentId: agentId,
+    }), {
+      agentId: null,
+      userId: "board-user",
+    });
   });
 });

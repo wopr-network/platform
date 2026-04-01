@@ -32,8 +32,18 @@ import type {
 } from "@paperclipai/shared";
 export type { PluginLauncherRenderContextSnapshot } from "@paperclipai/shared";
 
-import type { PluginEvent, PluginJobContext, PluginWorkspace, ToolRunContext, ToolResult } from "./types.js";
-import type { PluginHealthDiagnostics, PluginConfigValidationResult, PluginWebhookInput } from "./define-plugin.js";
+import type {
+  PluginEvent,
+  PluginJobContext,
+  PluginWorkspace,
+  ToolRunContext,
+  ToolResult,
+} from "./types.js";
+import type {
+  PluginHealthDiagnostics,
+  PluginConfigValidationResult,
+  PluginWebhookInput,
+} from "./define-plugin.js";
 
 // ---------------------------------------------------------------------------
 // JSON-RPC 2.0 — Core Protocol Types
@@ -54,7 +64,10 @@ export type JsonRpcId = string | number;
  * The host sends requests to the worker (or vice versa) and expects a
  * matching response with the same `id`.
  */
-export interface JsonRpcRequest<TMethod extends string = string, TParams = unknown> {
+export interface JsonRpcRequest<
+  TMethod extends string = string,
+  TParams = unknown,
+> {
   readonly jsonrpc: typeof JSONRPC_VERSION;
   /** Unique request identifier. Must be echoed in the response. */
   readonly id: JsonRpcId;
@@ -112,7 +125,10 @@ export type JsonRpcResponse<TResult = unknown, TData = unknown> =
  *
  * Notifications are fire-and-forget — no response is expected.
  */
-export interface JsonRpcNotification<TMethod extends string = string, TParams = unknown> {
+export interface JsonRpcNotification<
+  TMethod extends string = string,
+  TParams = unknown,
+> {
   readonly jsonrpc: typeof JSONRPC_VERSION;
   readonly id?: never;
   /** The notification method name. */
@@ -124,7 +140,10 @@ export interface JsonRpcNotification<TMethod extends string = string, TParams = 
 /**
  * Any well-formed JSON-RPC 2.0 message (request, response, or notification).
  */
-export type JsonRpcMessage = JsonRpcRequest | JsonRpcResponse | JsonRpcNotification;
+export type JsonRpcMessage =
+  | JsonRpcRequest
+  | JsonRpcResponse
+  | JsonRpcNotification;
 
 // ---------------------------------------------------------------------------
 // Error Codes
@@ -148,7 +167,8 @@ export const JSONRPC_ERROR_CODES = {
   INTERNAL_ERROR: -32603,
 } as const;
 
-export type JsonRpcErrorCode = (typeof JSONRPC_ERROR_CODES)[keyof typeof JSONRPC_ERROR_CODES];
+export type JsonRpcErrorCode =
+  (typeof JSONRPC_ERROR_CODES)[keyof typeof JSONRPC_ERROR_CODES];
 
 /**
  * Paperclip plugin-specific error codes.
@@ -173,7 +193,8 @@ export const PLUGIN_RPC_ERROR_CODES = {
   UNKNOWN: -32099,
 } as const;
 
-export type PluginRpcErrorCode = (typeof PLUGIN_RPC_ERROR_CODES)[keyof typeof PLUGIN_RPC_ERROR_CODES];
+export type PluginRpcErrorCode =
+  (typeof PLUGIN_RPC_ERROR_CODES)[keyof typeof PLUGIN_RPC_ERROR_CODES];
 
 // ---------------------------------------------------------------------------
 // Host → Worker Method Signatures (§13 Host-Worker Protocol)
@@ -319,7 +340,13 @@ export interface PluginModalBoundsRequest {
  * Reason metadata supplied by host-managed close lifecycle callbacks.
  */
 export interface PluginRenderCloseEvent {
-  reason: "escapeKey" | "backdrop" | "hostNavigation" | "programmatic" | "submit" | "unknown";
+  reason:
+    | "escapeKey"
+    | "backdrop"
+    | "hostNavigation"
+    | "programmatic"
+    | "submit"
+    | "unknown";
   nativeEvent?: unknown;
 }
 
@@ -392,12 +419,18 @@ export interface WorkerToHostMethods {
   "config.get": [params: Record<string, never>, result: Record<string, unknown>];
 
   // State
-  "state.get": [params: { scopeKind: string; scopeId?: string; namespace?: string; stateKey: string }, result: unknown];
+  "state.get": [
+    params: { scopeKind: string; scopeId?: string; namespace?: string; stateKey: string },
+    result: unknown,
+  ];
   "state.set": [
     params: { scopeKind: string; scopeId?: string; namespace?: string; stateKey: string; value: unknown },
     result: void,
   ];
-  "state.delete": [params: { scopeKind: string; scopeId?: string; namespace?: string; stateKey: string }, result: void];
+  "state.delete": [
+    params: { scopeKind: string; scopeId?: string; namespace?: string; stateKey: string },
+    result: void,
+  ];
 
   // Entities
   "entities.upsert": [
@@ -447,8 +480,14 @@ export interface WorkerToHostMethods {
   ];
 
   // Events
-  "events.emit": [params: { name: string; companyId: string; payload: unknown }, result: void];
-  "events.subscribe": [params: { eventPattern: string; filter?: Record<string, unknown> | null }, result: void];
+  "events.emit": [
+    params: { name: string; companyId: string; payload: unknown },
+    result: void,
+  ];
+  "events.subscribe": [
+    params: { eventPattern: string; filter?: Record<string, unknown> | null },
+    result: void,
+  ];
 
   // HTTP
   "http.fetch": [
@@ -457,7 +496,10 @@ export interface WorkerToHostMethods {
   ];
 
   // Secrets
-  "secrets.resolve": [params: { secretRef: string }, result: string];
+  "secrets.resolve": [
+    params: { secretRef: string },
+    result: string,
+  ];
 
   // Activity
   "activity.log": [
@@ -472,24 +514,48 @@ export interface WorkerToHostMethods {
   ];
 
   // Metrics
-  "metrics.write": [params: { name: string; value: number; tags?: Record<string, string> }, result: void];
+  "metrics.write": [
+    params: { name: string; value: number; tags?: Record<string, string> },
+    result: void,
+  ];
 
   // Logger
-  log: [
+  "log": [
     params: { level: "info" | "warn" | "error" | "debug"; message: string; meta?: Record<string, unknown> },
     result: void,
   ];
 
   // Companies (read)
-  "companies.list": [params: { limit?: number; offset?: number }, result: Company[]];
-  "companies.get": [params: { companyId: string }, result: Company | null];
+  "companies.list": [
+    params: { limit?: number; offset?: number },
+    result: Company[],
+  ];
+  "companies.get": [
+    params: { companyId: string },
+    result: Company | null,
+  ];
 
   // Projects (read)
-  "projects.list": [params: { companyId: string; limit?: number; offset?: number }, result: Project[]];
-  "projects.get": [params: { projectId: string; companyId: string }, result: Project | null];
-  "projects.listWorkspaces": [params: { projectId: string; companyId: string }, result: PluginWorkspace[]];
-  "projects.getPrimaryWorkspace": [params: { projectId: string; companyId: string }, result: PluginWorkspace | null];
-  "projects.getWorkspaceForIssue": [params: { issueId: string; companyId: string }, result: PluginWorkspace | null];
+  "projects.list": [
+    params: { companyId: string; limit?: number; offset?: number },
+    result: Project[],
+  ];
+  "projects.get": [
+    params: { projectId: string; companyId: string },
+    result: Project | null,
+  ];
+  "projects.listWorkspaces": [
+    params: { projectId: string; companyId: string },
+    result: PluginWorkspace[],
+  ];
+  "projects.getPrimaryWorkspace": [
+    params: { projectId: string; companyId: string },
+    result: PluginWorkspace | null,
+  ];
+  "projects.getWorkspaceForIssue": [
+    params: { issueId: string; companyId: string },
+    result: PluginWorkspace | null,
+  ];
 
   // Issues
   "issues.list": [
@@ -503,13 +569,17 @@ export interface WorkerToHostMethods {
     },
     result: Issue[],
   ];
-  "issues.get": [params: { issueId: string; companyId: string }, result: Issue | null];
+  "issues.get": [
+    params: { issueId: string; companyId: string },
+    result: Issue | null,
+  ];
   "issues.create": [
     params: {
       companyId: string;
       projectId?: string;
       goalId?: string;
       parentId?: string;
+      inheritExecutionWorkspaceFromIssueId?: string;
       title: string;
       description?: string;
       priority?: string;
@@ -525,12 +595,24 @@ export interface WorkerToHostMethods {
     },
     result: Issue,
   ];
-  "issues.listComments": [params: { issueId: string; companyId: string }, result: IssueComment[]];
-  "issues.createComment": [params: { issueId: string; body: string; companyId: string }, result: IssueComment];
+  "issues.listComments": [
+    params: { issueId: string; companyId: string },
+    result: IssueComment[],
+  ];
+  "issues.createComment": [
+    params: { issueId: string; body: string; companyId: string },
+    result: IssueComment,
+  ];
 
   // Issue Documents
-  "issues.documents.list": [params: { issueId: string; companyId: string }, result: IssueDocumentSummary[]];
-  "issues.documents.get": [params: { issueId: string; key: string; companyId: string }, result: IssueDocument | null];
+  "issues.documents.list": [
+    params: { issueId: string; companyId: string },
+    result: IssueDocumentSummary[],
+  ];
+  "issues.documents.get": [
+    params: { issueId: string; key: string; companyId: string },
+    result: IssueDocument | null,
+  ];
   "issues.documents.upsert": [
     params: {
       issueId: string;
@@ -543,15 +625,30 @@ export interface WorkerToHostMethods {
     },
     result: IssueDocument,
   ];
-  "issues.documents.delete": [params: { issueId: string; key: string; companyId: string }, result: void];
+  "issues.documents.delete": [
+    params: { issueId: string; key: string; companyId: string },
+    result: void,
+  ];
 
   // Agents (read)
-  "agents.list": [params: { companyId: string; status?: string; limit?: number; offset?: number }, result: Agent[]];
-  "agents.get": [params: { agentId: string; companyId: string }, result: Agent | null];
+  "agents.list": [
+    params: { companyId: string; status?: string; limit?: number; offset?: number },
+    result: Agent[],
+  ];
+  "agents.get": [
+    params: { agentId: string; companyId: string },
+    result: Agent | null,
+  ];
 
   // Agents (write)
-  "agents.pause": [params: { agentId: string; companyId: string }, result: Agent];
-  "agents.resume": [params: { agentId: string; companyId: string }, result: Agent];
+  "agents.pause": [
+    params: { agentId: string; companyId: string },
+    result: Agent,
+  ];
+  "agents.resume": [
+    params: { agentId: string; companyId: string },
+    result: Agent,
+  ];
   "agents.invoke": [
     params: { agentId: string; companyId: string; prompt: string; reason?: string },
     result: { runId: string },
@@ -564,26 +661,26 @@ export interface WorkerToHostMethods {
   ];
   "agents.sessions.list": [
     params: { agentId: string; companyId: string },
-    result: Array<{
-      sessionId: string;
-      agentId: string;
-      companyId: string;
-      status: "active" | "closed";
-      createdAt: string;
-    }>,
+    result: Array<{ sessionId: string; agentId: string; companyId: string; status: "active" | "closed"; createdAt: string }>,
   ];
   "agents.sessions.sendMessage": [
     params: { sessionId: string; companyId: string; prompt: string; reason?: string },
     result: { runId: string },
   ];
-  "agents.sessions.close": [params: { sessionId: string; companyId: string }, result: void];
+  "agents.sessions.close": [
+    params: { sessionId: string; companyId: string },
+    result: void,
+  ];
 
   // Goals
   "goals.list": [
     params: { companyId: string; level?: string; status?: string; limit?: number; offset?: number },
     result: Goal[],
   ];
-  "goals.get": [params: { goalId: string; companyId: string }, result: Goal | null];
+  "goals.get": [
+    params: { goalId: string; companyId: string },
+    result: Goal | null,
+  ];
   "goals.create": [
     params: {
       companyId: string;
@@ -673,22 +770,26 @@ export type WorkerToHostNotificationName = keyof WorkerToHostNotifications;
 /**
  * A typed JSON-RPC request for a specific host→worker method.
  */
-export type HostToWorkerRequest<M extends HostToWorkerMethodName> = JsonRpcRequest<M, HostToWorkerMethods[M][0]>;
+export type HostToWorkerRequest<M extends HostToWorkerMethodName> =
+  JsonRpcRequest<M, HostToWorkerMethods[M][0]>;
 
 /**
  * A typed JSON-RPC success response for a specific host→worker method.
  */
-export type HostToWorkerResponse<M extends HostToWorkerMethodName> = JsonRpcSuccessResponse<HostToWorkerMethods[M][1]>;
+export type HostToWorkerResponse<M extends HostToWorkerMethodName> =
+  JsonRpcSuccessResponse<HostToWorkerMethods[M][1]>;
 
 /**
  * A typed JSON-RPC request for a specific worker→host method.
  */
-export type WorkerToHostRequest<M extends WorkerToHostMethodName> = JsonRpcRequest<M, WorkerToHostMethods[M][0]>;
+export type WorkerToHostRequest<M extends WorkerToHostMethodName> =
+  JsonRpcRequest<M, WorkerToHostMethods[M][0]>;
 
 /**
  * A typed JSON-RPC success response for a specific worker→host method.
  */
-export type WorkerToHostResponse<M extends WorkerToHostMethodName> = JsonRpcSuccessResponse<WorkerToHostMethods[M][1]>;
+export type WorkerToHostResponse<M extends WorkerToHostMethodName> =
+  JsonRpcSuccessResponse<WorkerToHostMethods[M][1]>;
 
 // ---------------------------------------------------------------------------
 // Message Factory Functions
@@ -729,7 +830,10 @@ export function createRequest<TMethod extends string>(
  * @param id - The request ID being responded to
  * @param result - The result value
  */
-export function createSuccessResponse<TResult>(id: JsonRpcId, result: TResult): JsonRpcSuccessResponse<TResult> {
+export function createSuccessResponse<TResult>(
+  id: JsonRpcId,
+  result: TResult,
+): JsonRpcSuccessResponse<TResult> {
   return {
     jsonrpc: JSONRPC_VERSION,
     id,
@@ -754,7 +858,9 @@ export function createErrorResponse<TData = unknown>(
   const response: JsonRpcErrorResponse<TData> = {
     jsonrpc: JSONRPC_VERSION,
     id,
-    error: data !== undefined ? { code, message, data } : ({ code, message } as JsonRpcError<TData>),
+    error: data !== undefined
+      ? { code, message, data }
+      : { code, message } as JsonRpcError<TData>,
   };
   return response;
 }
@@ -802,10 +908,16 @@ export function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
  *
  * A notification has `jsonrpc: "2.0"`, a string `method`, but no `id`.
  */
-export function isJsonRpcNotification(value: unknown): value is JsonRpcNotification {
+export function isJsonRpcNotification(
+  value: unknown,
+): value is JsonRpcNotification {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
-  return obj.jsonrpc === JSONRPC_VERSION && typeof obj.method === "string" && !("id" in obj);
+  return (
+    obj.jsonrpc === JSONRPC_VERSION &&
+    typeof obj.method === "string" &&
+    !("id" in obj)
+  );
 }
 
 /**
@@ -814,20 +926,28 @@ export function isJsonRpcNotification(value: unknown): value is JsonRpcNotificat
 export function isJsonRpcResponse(value: unknown): value is JsonRpcResponse {
   if (typeof value !== "object" || value === null) return false;
   const obj = value as Record<string, unknown>;
-  return obj.jsonrpc === JSONRPC_VERSION && "id" in obj && ("result" in obj || "error" in obj);
+  return (
+    obj.jsonrpc === JSONRPC_VERSION &&
+    "id" in obj &&
+    ("result" in obj || "error" in obj)
+  );
 }
 
 /**
  * Check whether a JSON-RPC response is a success response.
  */
-export function isJsonRpcSuccessResponse(response: JsonRpcResponse): response is JsonRpcSuccessResponse {
+export function isJsonRpcSuccessResponse(
+  response: JsonRpcResponse,
+): response is JsonRpcSuccessResponse {
   return "result" in response && !("error" in response && response.error !== undefined);
 }
 
 /**
  * Check whether a JSON-RPC response is an error response.
  */
-export function isJsonRpcErrorResponse(response: JsonRpcResponse): response is JsonRpcErrorResponse {
+export function isJsonRpcErrorResponse(
+  response: JsonRpcResponse,
+): response is JsonRpcErrorResponse {
   return "error" in response && response.error !== undefined;
 }
 

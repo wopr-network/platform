@@ -82,10 +82,13 @@ export async function heartbeatRun(opts: HeartbeatRunOptions): Promise<void> {
     return;
   }
 
-  const invokeRes = await api.post<InvokedHeartbeat>(`/api/agents/${opts.agentId}/wakeup`, {
-    source: source,
-    triggerDetail: triggerDetail,
-  });
+  const invokeRes = await api.post<InvokedHeartbeat>(
+    `/api/agents/${opts.agentId}/wakeup`,
+    {
+      source: source,
+      triggerDetail: triggerDetail,
+    },
+  );
   if (!invokeRes) {
     console.error(pc.red("Failed to invoke heartbeat"));
     return;
@@ -115,7 +118,8 @@ export async function heartbeatRun(opts: HeartbeatRunOptions): Promise<void> {
     const command = typeof payload.command === "string" ? payload.command : "";
     const cwd = typeof payload.cwd === "string" ? payload.cwd : "";
     const args =
-      Array.isArray(payload.commandArgs) && (payload.commandArgs as unknown[]).every((v) => typeof v === "string")
+      Array.isArray(payload.commandArgs) &&
+      (payload.commandArgs as unknown[]).every((v) => typeof v === "string")
         ? (payload.commandArgs as string[])
         : [];
     const env =
@@ -173,8 +177,11 @@ export async function heartbeatRun(opts: HeartbeatRunOptions): Promise<void> {
   const handleEvent = (event: HeartbeatRunEventRecord) => {
     const payload = normalizePayload(event.payload);
     if (event.runId !== runId) return;
-    const eventType =
-      typeof event.eventType === "string" ? event.eventType : typeof event.type === "string" ? event.type : "";
+    const eventType = typeof event.eventType === "string"
+      ? event.eventType
+      : typeof event.type === "string"
+      ? event.type
+      : "";
 
     if (eventType === "heartbeat.run.status") {
       const status = typeof payload.status === "string" ? payload.status : null;
@@ -209,18 +216,17 @@ export async function heartbeatRun(opts: HeartbeatRunOptions): Promise<void> {
   }
 
   while (true) {
-    const events = await api.get<HeartbeatRunEvent[]>(
-      `/api/heartbeat-runs/${activeRunId}/events?afterSeq=${lastEventSeq}&limit=100`,
-    );
+      const events = await api.get<HeartbeatRunEvent[]>(
+        `/api/heartbeat-runs/${activeRunId}/events?afterSeq=${lastEventSeq}&limit=100`,
+      );
     for (const event of Array.isArray(events) ? (events as HeartbeatRunEventRecord[]) : []) {
       handleEvent(event);
     }
 
-    const runList =
-      (await api.get<(HeartbeatRun | null)[]>(
+      const runList = (await api.get<(HeartbeatRun | null)[]>(
         `/api/companies/${agent.companyId}/heartbeat-runs?agentId=${agent.id}`,
       )) || [];
-    const currentRun = runList.find((r) => r && r.id === activeRunId) ?? null;
+      const currentRun = runList.find((r) => r && r.id === activeRunId) ?? null;
 
     if (!currentRun) {
       console.error(pc.red("Heartbeat run disappeared"));
@@ -325,7 +331,9 @@ function safeParseLogLine(line: string): { stream: "stdout" | "stderr" | "system
   try {
     const parsed = JSON.parse(line) as { stream?: unknown; chunk?: unknown };
     const stream =
-      parsed.stream === "stdout" || parsed.stream === "stderr" || parsed.stream === "system" ? parsed.stream : "system";
+      parsed.stream === "stdout" || parsed.stream === "stderr" || parsed.stream === "system"
+        ? parsed.stream
+        : "system";
     const chunk = typeof parsed.chunk === "string" ? parsed.chunk : "";
 
     if (!chunk) return null;

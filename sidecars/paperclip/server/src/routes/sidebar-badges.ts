@@ -28,10 +28,10 @@ export function sidebarBadgeRoutes(db: Db) {
 
     const joinRequestCount = canApproveJoins
       ? await db
-          .select({ count: sql<number>`count(*)` })
-          .from(joinRequests)
-          .where(and(eq(joinRequests.companyId, companyId), eq(joinRequests.status, "pending_approval")))
-          .then((rows) => Number(rows[0]?.count ?? 0))
+        .select({ count: sql<number>`count(*)` })
+        .from(joinRequests)
+        .where(and(eq(joinRequests.companyId, companyId), eq(joinRequests.status, "pending_approval")))
+        .then((rows) => Number(rows[0]?.count ?? 0))
       : 0;
 
     const badges = await svc.get(companyId, {

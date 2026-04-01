@@ -7,6 +7,7 @@ import { verifyLocalAgentJwt } from "../agent-auth-jwt.js";
 import type { DeploymentMode } from "@paperclipai/shared";
 import type { BetterAuthSessionResult } from "../auth/better-auth.js";
 import { logger } from "./logger.js";
+import { boardAuthService } from "../services/board-auth.js";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
@@ -18,44 +19,30 @@ interface ActorMiddlewareOptions {
 }
 
 export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHandler {
+  const boardAuth = boardAuthService(db);
   return async (req, _res, next) => {
-    if (opts.deploymentMode === "local_trusted") {
-      req.actor = { type: "board", userId: "local-board", isInstanceAdmin: true, source: "local_implicit" };
-    } else if (opts.deploymentMode === "hosted_proxy") {
-      const proxiedUserId = req.header("x-paperclip-user-id");
-      if (proxiedUserId) {
-        const [roleRow, memberships] = await Promise.all([
-          db
-            .select({ id: instanceUserRoles.id })
-            .from(instanceUserRoles)
-            .where(and(eq(instanceUserRoles.userId, proxiedUserId), eq(instanceUserRoles.role, "instance_admin")))
-            .then((rows) => rows[0] ?? null),
-          db
-            .select({ companyId: companyMemberships.companyId })
-            .from(companyMemberships)
-            .where(
-              and(
-                eq(companyMemberships.principalType, "user"),
-                eq(companyMemberships.principalId, proxiedUserId),
-                eq(companyMemberships.status, "active"),
-              ),
-            ),
-        ]);
-        req.actor = {
-          type: "board",
-          userId: proxiedUserId,
-          companyIds: memberships.map((row) => row.companyId),
-          isInstanceAdmin: Boolean(roleRow),
-          source: "hosted_proxy",
-        };
-      } else {
-        req.actor = { type: "none", source: "none" };
-      }
-    } else {
-      req.actor = { type: "none", source: "none" };
-    }
+    req.actor =
+      opts.deploymentMode === "local_trusted"
+        ? { type: "board", userId: "local-board", isInstanceAdmin: true, source: "local_implicit" }
+        : { type: "none", source: "none" };
 
     const runIdHeader = req.header("x-paperclip-run-id");
+
+    // In hosted_proxy mode, trust the platform proxy's user header
+    if (opts.deploymentMode === "hosted_proxy") {
+      const proxyUserId = req.header("x-paperclip-user-id") ?? req.header("x-platform-user-id");
+      if (proxyUserId) {
+        req.actor = {
+          type: "board",
+          userId: proxyUserId,
+          isInstanceAdmin: true,
+          runId: runIdHeader ?? undefined,
+          source: "local_implicit",
+        };
+        next();
+        return;
+      }
+    }
 
     const authHeader = req.header("authorization");
     if (!authHeader?.toLowerCase().startsWith("bearer ")) {
@@ -111,6 +98,25 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
       return;
     }
 
+    const boardKey = await boardAuth.findBoardApiKeyByToken(token);
+    if (boardKey) {
+      const access = await boardAuth.resolveBoardAccess(boardKey.userId);
+      if (access.user) {
+        await boardAuth.touchBoardApiKey(boardKey.id);
+        req.actor = {
+          type: "board",
+          userId: boardKey.userId,
+          companyIds: access.companyIds,
+          isInstanceAdmin: access.isInstanceAdmin,
+          keyId: boardKey.id,
+          runId: runIdHeader || undefined,
+          source: "board_key",
+        };
+        next();
+        return;
+      }
+    }
+
     const tokenHash = hashToken(token);
     const key = await db
       .select()
@@ -153,7 +159,10 @@ export function actorMiddleware(db: Db, opts: ActorMiddlewareOptions): RequestHa
       return;
     }
 
-    await db.update(agentApiKeys).set({ lastUsedAt: new Date() }).where(eq(agentApiKeys.id, key.id));
+    await db
+      .update(agentApiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(agentApiKeys.id, key.id));
 
     const agentRecord = await db
       .select()

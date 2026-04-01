@@ -1,11 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  inferOpenAiCompatibleBiller,
-  type AdapterExecutionContext,
-  type AdapterExecutionResult,
-} from "@paperclipai/adapter-utils";
+import { inferOpenAiCompatibleBiller, type AdapterExecutionContext, type AdapterExecutionResult } from "@paperclipai/adapter-utils";
 import {
   asString,
   asNumber,
@@ -13,19 +9,20 @@ import {
   asStringArray,
   parseObject,
   buildPaperclipEnv,
-  redactEnvForLogs,
+  buildInvocationEnvForLogs,
   ensureAbsoluteDirectory,
   ensureCommandResolvable,
   ensurePaperclipSkillSymlink,
   ensurePathInEnv,
   readPaperclipRuntimeSkillEntries,
+  resolveCommandForLogs,
   resolvePaperclipDesiredSkillNames,
   renderTemplate,
   joinPromptSections,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
 import { parseCodexJsonl, isCodexUnknownSessionError } from "./parse.js";
-import { pathExists, prepareManagedCodexHome, resolveManagedCodexHomeDir } from "./codex-home.js";
+import { pathExists, prepareManagedCodexHome, resolveManagedCodexHomeDir, resolveSharedCodexHomeDir } from "./codex-home.js";
 import { resolveCodexDesiredSkillNames } from "./skills.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -69,7 +66,7 @@ function resolveCodexBillingType(env: Record<string, string>): "api" | "subscrip
 function resolveCodexBiller(env: Record<string, string>, billingType: "api" | "subscription"): string {
   const openAiCompatibleBiller = inferOpenAiCompatibleBiller(env, "openai");
   if (openAiCompatibleBiller === "openrouter") return "openrouter";
-  return billingType === "subscription" ? "chatgpt" : (openAiCompatibleBiller ?? "openai");
+  return billingType === "subscription" ? "chatgpt" : openAiCompatibleBiller ?? "openai";
 }
 
 async function isLikelyPaperclipRepoRoot(candidate: string): Promise<boolean> {
@@ -132,12 +129,15 @@ async function pruneBrokenUnavailablePaperclipSkillSymlinks(
     }
 
     await fs.unlink(target).catch(() => {});
-    await onLog("stdout", `[paperclip] Removed stale Codex skill "${entry.name}" from ${skillsHome}\n`);
+    await onLog(
+      "stdout",
+      `[paperclip] Removed stale Codex skill "${entry.name}" from ${skillsHome}\n`,
+    );
   }
 }
 
-function resolveCodexWorkspaceSkillsDir(cwd: string): string {
-  return path.join(cwd, ".agents", "skills");
+function resolveCodexSkillsDir(codexHome: string): string {
+  return path.join(codexHome, "skills");
 }
 
 type EnsureCodexSkillsInjectedOptions = {
@@ -151,13 +151,14 @@ export async function ensureCodexSkillsInjected(
   onLog: AdapterExecutionContext["onLog"],
   options: EnsureCodexSkillsInjectedOptions = {},
 ) {
-  const allSkillsEntries = options.skillsEntries ?? (await readPaperclipRuntimeSkillEntries({}, __moduleDir));
-  const desiredSkillNames = options.desiredSkillNames ?? allSkillsEntries.map((entry) => entry.key);
+  const allSkillsEntries = options.skillsEntries ?? await readPaperclipRuntimeSkillEntries({}, __moduleDir);
+  const desiredSkillNames =
+    options.desiredSkillNames ?? allSkillsEntries.map((entry) => entry.key);
   const desiredSet = new Set(desiredSkillNames);
   const skillsEntries = allSkillsEntries.filter((entry) => desiredSet.has(entry.key));
   if (skillsEntries.length === 0) return;
 
-  const skillsHome = options.skillsHome ?? resolveCodexWorkspaceSkillsDir(process.cwd());
+  const skillsHome = options.skillsHome ?? resolveCodexSkillsDir(resolveSharedCodexHomeDir());
   await fs.mkdir(skillsHome, { recursive: true });
   const linkSkill = options.linkSkill;
   for (const entry of skillsEntries) {
@@ -167,7 +168,9 @@ export async function ensureCodexSkillsInjected(
       const existing = await fs.lstat(target).catch(() => null);
       if (existing?.isSymbolicLink()) {
         const linkedPath = await fs.readlink(target).catch(() => null);
-        const resolvedLinkedPath = linkedPath ? path.resolve(path.dirname(target), linkedPath) : null;
+        const resolvedLinkedPath = linkedPath
+          ? path.resolve(path.dirname(target), linkedPath)
+          : null;
         if (
           resolvedLinkedPath &&
           resolvedLinkedPath !== entry.source &&
@@ -179,7 +182,10 @@ export async function ensureCodexSkillsInjected(
           } else {
             await fs.symlink(entry.source, target);
           }
-          await onLog("stdout", `[paperclip] Repaired Codex skill "${entry.runtimeName}" into ${skillsHome}\n`);
+          await onLog(
+            "stdout",
+            `[paperclip] Repaired Codex skill "${entry.runtimeName}" into ${skillsHome}\n`,
+          );
           continue;
         }
       }
@@ -215,7 +221,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   );
   const command = asString(config.command, "codex");
   const model = asString(config.model, "");
-  const modelReasoningEffort = asString(config.modelReasoningEffort, asString(config.reasoningEffort, ""));
+  const modelReasoningEffort = asString(
+    config.modelReasoningEffort,
+    asString(config.reasoningEffort, ""),
+  );
   const search = asBoolean(config.search, false);
   const bypass = asBoolean(
     config.dangerouslyBypassApprovalsAndSandbox,
@@ -260,18 +269,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const codexSkillEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
   const desiredSkillNames = resolveCodexDesiredSkillNames(config, codexSkillEntries);
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
-  const preparedManagedCodexHome = configuredCodexHome
-    ? null
-    : await prepareManagedCodexHome(process.env, onLog, agent.companyId);
+  const preparedManagedCodexHome =
+    configuredCodexHome ? null : await prepareManagedCodexHome(process.env, onLog, agent.companyId);
   const defaultCodexHome = resolveManagedCodexHomeDir(process.env, agent.companyId);
   const effectiveCodexHome = configuredCodexHome ?? preparedManagedCodexHome ?? defaultCodexHome;
   await fs.mkdir(effectiveCodexHome, { recursive: true });
-  const codexWorkspaceSkillsDir = resolveCodexWorkspaceSkillsDir(cwd);
-  await ensureCodexSkillsInjected(onLog, {
-    skillsHome: codexWorkspaceSkillsDir,
-    skillsEntries: codexSkillEntries,
-    desiredSkillNames,
-  });
+  // Inject skills into the same CODEX_HOME that Codex will actually run with
+  // (managed home in the default case, or an explicit override from adapter config).
+  const codexSkillsDir = resolveCodexSkillsDir(effectiveCodexHome);
+  await ensureCodexSkillsInjected(
+    onLog,
+    {
+      skillsHome: codexSkillsDir,
+      skillsEntries: codexSkillEntries,
+      desiredSkillNames,
+    },
+  );
   const hasExplicitApiKey =
     typeof envConfig.PAPERCLIP_API_KEY === "string" && envConfig.PAPERCLIP_API_KEY.trim().length > 0;
   const env: Record<string, string> = { ...buildPaperclipEnv(agent) };
@@ -282,15 +295,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     (typeof context.issueId === "string" && context.issueId.trim().length > 0 && context.issueId.trim()) ||
     null;
   const wakeReason =
-    typeof context.wakeReason === "string" && context.wakeReason.trim().length > 0 ? context.wakeReason.trim() : null;
+    typeof context.wakeReason === "string" && context.wakeReason.trim().length > 0
+      ? context.wakeReason.trim()
+      : null;
   const wakeCommentId =
-    (typeof context.wakeCommentId === "string" &&
-      context.wakeCommentId.trim().length > 0 &&
-      context.wakeCommentId.trim()) ||
+    (typeof context.wakeCommentId === "string" && context.wakeCommentId.trim().length > 0 && context.wakeCommentId.trim()) ||
     (typeof context.commentId === "string" && context.commentId.trim().length > 0 && context.commentId.trim()) ||
     null;
   const approvalId =
-    typeof context.approvalId === "string" && context.approvalId.trim().length > 0 ? context.approvalId.trim() : null;
+    typeof context.approvalId === "string" && context.approvalId.trim().length > 0
+      ? context.approvalId.trim()
+      : null;
   const approvalStatus =
     typeof context.approvalStatus === "string" && context.approvalStatus.trim().length > 0
       ? context.approvalStatus.trim()
@@ -369,6 +384,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const billingType = resolveCodexBillingType(effectiveEnv);
   const runtimeEnv = ensurePathInEnv(effectiveEnv);
   await ensureCommandResolvable(command, cwd, runtimeEnv);
+  const resolvedCommand = await resolveCommandForLogs(command, cwd, runtimeEnv);
+  const loggedEnv = buildInvocationEnvForLogs(env, {
+    runtimeEnv,
+    includeRuntimeKeys: ["HOME"],
+    resolvedCommand,
+  });
 
   const timeoutSec = asNumber(config.timeoutSec, 0);
   const graceSec = asNumber(config.graceSec, 20);
@@ -403,7 +424,6 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         `The above agent instructions were loaded from ${instructionsFilePath}. ` +
         `Resolve any relative file references from ${instructionsDir}.\n\n`;
       instructionsChars = instructionsPrefix.length;
-      await onLog("stdout", `[paperclip] Loaded agent instructions file: ${instructionsFilePath}\n`);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       await onLog(
@@ -412,16 +432,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       );
     }
   }
+  const repoAgentsNote =
+    "Codex exec automatically applies repo-scoped AGENTS.md instructions from the current workspace; Paperclip does not currently suppress that discovery.";
   const commandNotes = (() => {
-    if (!instructionsFilePath) return [] as string[];
+    if (!instructionsFilePath) {
+      return [repoAgentsNote];
+    }
     if (instructionsPrefix.length > 0) {
       return [
         `Loaded agent instructions from ${instructionsFilePath}`,
         `Prepended instructions + path directive to stdin prompt (relative references from ${instructionsDir}).`,
+        repoAgentsNote,
       ];
     }
     return [
       `Configured instructionsFilePath ${instructionsFilePath}, but file could not be read; continuing without injected instructions.`,
+      repoAgentsNote,
     ];
   })();
   const bootstrapPromptTemplate = asString(config.bootstrapPromptTemplate, "");
@@ -440,7 +466,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       ? renderTemplate(bootstrapPromptTemplate, templateData).trim()
       : "";
   const sessionHandoffNote = asString(context.paperclipSessionHandoffMarkdown, "").trim();
-  const prompt = joinPromptSections([instructionsPrefix, renderedBootstrapPrompt, sessionHandoffNote, renderedPrompt]);
+  const prompt = joinPromptSections([
+    instructionsPrefix,
+    renderedBootstrapPrompt,
+    sessionHandoffNote,
+    renderedPrompt,
+  ]);
   const promptMetrics = {
     promptChars: prompt.length,
     instructionsChars,
@@ -466,14 +497,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (onMeta) {
       await onMeta({
         adapterType: "codex_local",
-        command,
+        command: resolvedCommand,
         cwd,
         commandNotes,
         commandArgs: args.map((value, idx) => {
           if (idx === args.length - 1 && value !== "-") return `<prompt ${prompt.length} chars>`;
           return value;
         }),
-        env: redactEnvForLogs(env),
+        env: loggedEnv,
         prompt,
         promptMetrics,
         context,
@@ -509,11 +540,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   };
 
   const toResult = (
-    attempt: {
-      proc: { exitCode: number | null; signal: string | null; timedOut: boolean; stdout: string; stderr: string };
-      rawStderr: string;
-      parsed: ReturnType<typeof parseCodexJsonl>;
-    },
+    attempt: { proc: { exitCode: number | null; signal: string | null; timedOut: boolean; stdout: string; stderr: string }; rawStderr: string; parsed: ReturnType<typeof parseCodexJsonl> },
     clearSessionOnMissingSession = false,
   ): AdapterExecutionResult => {
     if (attempt.proc.timedOut) {
@@ -529,22 +556,28 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     const resolvedSessionId = attempt.parsed.sessionId ?? runtimeSessionId ?? runtime.sessionId ?? null;
     const resolvedSessionParams = resolvedSessionId
       ? ({
-          sessionId: resolvedSessionId,
-          cwd,
-          ...(workspaceId ? { workspaceId } : {}),
-          ...(workspaceRepoUrl ? { repoUrl: workspaceRepoUrl } : {}),
-          ...(workspaceRepoRef ? { repoRef: workspaceRepoRef } : {}),
-        } as Record<string, unknown>)
+        sessionId: resolvedSessionId,
+        cwd,
+        ...(workspaceId ? { workspaceId } : {}),
+        ...(workspaceRepoUrl ? { repoUrl: workspaceRepoUrl } : {}),
+        ...(workspaceRepoRef ? { repoRef: workspaceRepoRef } : {}),
+      } as Record<string, unknown>)
       : null;
     const parsedError = typeof attempt.parsed.errorMessage === "string" ? attempt.parsed.errorMessage.trim() : "";
     const stderrLine = firstNonEmptyLine(attempt.proc.stderr);
-    const fallbackErrorMessage = parsedError || stderrLine || `Codex exited with code ${attempt.proc.exitCode ?? -1}`;
+    const fallbackErrorMessage =
+      parsedError ||
+      stderrLine ||
+      `Codex exited with code ${attempt.proc.exitCode ?? -1}`;
 
     return {
       exitCode: attempt.proc.exitCode,
       signal: attempt.proc.signal,
       timedOut: false,
-      errorMessage: (attempt.proc.exitCode ?? 0) === 0 ? null : fallbackErrorMessage,
+      errorMessage:
+        (attempt.proc.exitCode ?? 0) === 0
+          ? null
+          : fallbackErrorMessage,
       usage: attempt.parsed.usage,
       sessionId: resolvedSessionId,
       sessionParams: resolvedSessionParams,

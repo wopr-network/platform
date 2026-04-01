@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import { execute, testEnvironment } from "@paperclipai/adapter-openclaw-gateway/server";
-import { buildOpenClawGatewayConfig, parseOpenClawGatewayStdoutLine } from "@paperclipai/adapter-openclaw-gateway/ui";
+import {
+  buildOpenClawGatewayConfig,
+  parseOpenClawGatewayStdoutLine,
+} from "@paperclipai/adapter-openclaw-gateway/ui";
 import type { AdapterExecutionContext } from "@paperclipai/adapter-utils";
 
 function buildContext(
@@ -36,7 +39,9 @@ function buildContext(
   };
 }
 
-async function createMockGatewayServer(options?: { waitPayload?: Record<string, unknown> }) {
+async function createMockGatewayServer(options?: {
+  waitPayload?: Record<string, unknown>;
+}) {
   const server = createServer();
   const wss = new WebSocketServer({ server });
 
@@ -83,7 +88,10 @@ async function createMockGatewayServer(options?: { waitPayload?: Record<string, 
 
       if (frame.method === "agent") {
         agentPayload = frame.params ?? null;
-        const runId = typeof frame.params?.idempotencyKey === "string" ? frame.params.idempotencyKey : "run-123";
+        const runId =
+          typeof frame.params?.idempotencyKey === "string"
+            ? frame.params.idempotencyKey
+            : "run-123";
 
         socket.send(
           JSON.stringify({
@@ -296,7 +304,10 @@ async function createMockGatewayServerWithPairing() {
 
       if (frame.method === "agent") {
         agentPayload = frame.params ?? null;
-        const runId = typeof frame.params?.idempotencyKey === "string" ? frame.params.idempotencyKey : "run-123";
+        const runId =
+          typeof frame.params?.idempotencyKey === "string"
+            ? frame.params.idempotencyKey
+            : "run-123";
 
         socket.send(
           JSON.stringify({
@@ -370,7 +381,8 @@ afterEach(() => {
 describe("openclaw gateway ui stdout parser", () => {
   it("parses assistant deltas from gateway event lines", () => {
     const ts = "2026-03-06T15:00:00.000Z";
-    const line = '[openclaw-gateway:event] run=run-1 stream=assistant data={"delta":"hello"}';
+    const line =
+      '[openclaw-gateway:event] run=run-1 stream=assistant data={"delta":"hello"}';
 
     expect(parseOpenClawGatewayStdoutLine(line, ts)).toEqual([
       {

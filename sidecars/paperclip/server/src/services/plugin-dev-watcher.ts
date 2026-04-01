@@ -33,7 +33,9 @@ export interface PluginDevWatcher {
   close(): void;
 }
 
-export type ResolvePluginPackagePath = (pluginId: string) => Promise<string | null | undefined>;
+export type ResolvePluginPackagePath = (
+  pluginId: string,
+) => Promise<string | null | undefined>;
 
 export interface PluginDevWatcherFsDeps {
   existsSync?: typeof existsSync;
@@ -169,7 +171,10 @@ export function createPluginDevWatcher(
 
     const absPath = path.resolve(packagePath);
     if (!fileExists(absPath)) {
-      log.warn({ pluginId, packagePath: absPath }, "plugin-dev-watcher: package path does not exist, skipping watch");
+      log.warn(
+        { pluginId, packagePath: absPath },
+        "plugin-dev-watcher: package path does not exist, skipping watch",
+      );
       return;
     }
 

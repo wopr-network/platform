@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@/lib/router";
 import { AGENT_ROLE_LABELS, type Agent, type AgentRuntimeState } from "@paperclipai/shared";
 import { agentsApi } from "../api/agents";
-import { healthApi } from "../api/health";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "./StatusBadge";
@@ -39,12 +38,6 @@ function PropertyRow({ label, children }: { label: string; children: React.React
 
 export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
   const { selectedCompanyId } = useCompany();
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    retry: false,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -68,11 +61,9 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
             <span className="text-sm">{agent.title}</span>
           </PropertyRow>
         )}
-        {!isHosted && (
-          <PropertyRow label="Adapter">
-            <span className="text-sm font-mono">{adapterLabels[agent.adapterType] ?? agent.adapterType}</span>
-          </PropertyRow>
-        )}
+        <PropertyRow label="Adapter">
+          <span className="text-sm font-mono">{adapterLabels[agent.adapterType] ?? agent.adapterType}</span>
+        </PropertyRow>
       </div>
 
       <Separator />
@@ -87,9 +78,7 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
         )}
         {runtimeState?.lastError && (
           <PropertyRow label="Last error">
-            <span className="text-xs text-red-600 dark:text-red-400 truncate max-w-[160px]">
-              {runtimeState.lastError}
-            </span>
+            <span className="text-xs text-red-600 dark:text-red-400 truncate max-w-[160px]">{runtimeState.lastError}</span>
           </PropertyRow>
         )}
         {agent.lastHeartbeatAt && (

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getRememberedPathOwnerCompanyId, sanitizeRememberedPathForCompany } from "../lib/company-page-memory";
+import {
+  getRememberedPathOwnerCompanyId,
+  sanitizeRememberedPathForCompany,
+} from "../lib/company-page-memory";
 
 const companies = [
   { id: "for", issuePrefix: "FOR" },

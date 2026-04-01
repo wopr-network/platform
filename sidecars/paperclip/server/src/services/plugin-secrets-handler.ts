@@ -71,7 +71,8 @@ function invalidSecretRef(secretRef: string): Error {
 // ---------------------------------------------------------------------------
 
 /** UUID v4 regex for validating secretRef format. */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Check whether a secretRef looks like a valid UUID.
@@ -85,7 +86,9 @@ function isUuid(value: string): boolean {
  * `format: "secret-ref"`. Only top-level and nested `properties` are walked —
  * this mirrors the flat/nested object shapes that `JsonSchemaForm` renders.
  */
-function collectSecretRefPaths(schema: Record<string, unknown> | null | undefined): Set<string> {
+function collectSecretRefPaths(
+  schema: Record<string, unknown> | null | undefined,
+): Set<string> {
   const paths = new Set<string>();
   if (!schema || typeof schema !== "object") return paths;
 
@@ -116,7 +119,10 @@ function collectSecretRefPaths(schema: Record<string, unknown> | null | undefine
  * When no schema is provided, falls back to collecting all UUID-shaped strings
  * (backwards-compatible for plugins without a declared instanceConfigSchema).
  */
-export function extractSecretRefsFromConfig(configJson: unknown, schema?: Record<string, unknown> | null): Set<string> {
+export function extractSecretRefsFromConfig(
+  configJson: unknown,
+  schema?: Record<string, unknown> | null,
+): Set<string> {
   const refs = new Set<string>();
   if (configJson == null || typeof configJson !== "object") return refs;
 
@@ -128,10 +134,7 @@ export function extractSecretRefsFromConfig(configJson: unknown, schema?: Record
       const keys = dotPath.split(".");
       let current: unknown = configJson;
       for (const k of keys) {
-        if (current == null || typeof current !== "object") {
-          current = undefined;
-          break;
-        }
+        if (current == null || typeof current !== "object") { current = undefined; break; }
         current = (current as Record<string, unknown>)[k];
       }
       if (typeof current === "string" && isUuid(current)) {
@@ -241,7 +244,9 @@ function createRateLimiter(maxAttempts: number, windowMs: number) {
   };
 }
 
-export function createPluginSecretsHandler(options: PluginSecretsHandlerOptions): PluginSecretsService {
+export function createPluginSecretsHandler(
+  options: PluginSecretsHandlerOptions,
+): PluginSecretsService {
   const { db, pluginId } = options;
   const registry = pluginRegistryService(db);
 
@@ -292,9 +297,8 @@ export function createPluginSecretsHandler(options: PluginSecretsHandlerOptions)
           registry.getById(pluginId),
         ]);
 
-        const schema = (plugin?.manifestJson as unknown as Record<string, unknown> | null)?.instanceConfigSchema as
-          | Record<string, unknown>
-          | undefined;
+        const schema = (plugin?.manifestJson as unknown as Record<string, unknown> | null)
+          ?.instanceConfigSchema as Record<string, unknown> | undefined;
         cachedAllowedRefs = extractSecretRefsFromConfig(configRow?.configJson, schema);
         cachedAllowedRefsExpiry = now + CONFIG_CACHE_TTL_MS;
       }
@@ -324,7 +328,10 @@ export function createPluginSecretsHandler(options: PluginSecretsHandlerOptions)
         .select()
         .from(companySecretVersions)
         .where(
-          and(eq(companySecretVersions.secretId, secret.id), eq(companySecretVersions.version, secret.latestVersion)),
+          and(
+            eq(companySecretVersions.secretId, secret.id),
+            eq(companySecretVersions.version, secret.latestVersion),
+          ),
         )
         .then((rows) => rows[0] ?? null);
 

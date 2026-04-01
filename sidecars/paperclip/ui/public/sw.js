@@ -5,7 +5,11 @@ self.addEventListener("install", () => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))));
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.map((key) => caches.delete(key)))
+    )
+  );
   self.clients.claim();
 });
 
@@ -33,6 +37,6 @@ self.addEventListener("fetch", (event) => {
           return caches.match("/") || new Response("Offline", { status: 503 });
         }
         return caches.match(request);
-      }),
+      })
   );
 });

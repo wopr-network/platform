@@ -65,7 +65,10 @@ describe("approvalService resolution idempotency", () => {
   });
 
   it("treats repeated approve retries as no-ops after another worker resolves the approval", async () => {
-    const dbStub = createDbStub([[createApproval("pending")], [createApproval("approved")]], []);
+    const dbStub = createDbStub(
+      [[createApproval("pending")], [createApproval("approved")]],
+      [],
+    );
 
     const svc = approvalService(dbStub.db as any);
     const result = await svc.approve("approval-1", "board", "ship it");
@@ -77,7 +80,10 @@ describe("approvalService resolution idempotency", () => {
   });
 
   it("treats repeated reject retries as no-ops after another worker resolves the approval", async () => {
-    const dbStub = createDbStub([[createApproval("pending")], [createApproval("rejected")]], []);
+    const dbStub = createDbStub(
+      [[createApproval("pending")], [createApproval("rejected")]],
+      [],
+    );
 
     const svc = approvalService(dbStub.db as any);
     const result = await svc.reject("approval-1", "board", "not now");

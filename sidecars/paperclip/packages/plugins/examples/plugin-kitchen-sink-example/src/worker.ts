@@ -104,7 +104,7 @@ async function writeInstanceState(ctx: PluginContext, stateKey: string, value: u
 }
 
 async function readInstanceState<T = unknown>(ctx: PluginContext, stateKey: string): Promise<T | null> {
-  return (await ctx.state.get({ scopeKind: "instance", stateKey })) as T | null;
+  return await ctx.state.get({ scopeKind: "instance", stateKey }) as T | null;
 }
 
 async function resolveWorkspace(
@@ -149,7 +149,9 @@ function parseScopeKey(params: Record<string, unknown>): ScopeKey {
   const scopeKind = isScopeKind(params.scopeKind) ? params.scopeKind : "instance";
   const scopeId = typeof params.scopeId === "string" && params.scopeId.length > 0 ? params.scopeId : undefined;
   const namespace = typeof params.namespace === "string" && params.namespace.length > 0 ? params.namespace : undefined;
-  const stateKey = typeof params.stateKey === "string" && params.stateKey.length > 0 ? params.stateKey : "demo";
+  const stateKey = typeof params.stateKey === "string" && params.stateKey.length > 0
+    ? params.stateKey
+    : "demo";
   return { scopeKind, scopeId, namespace, stateKey };
 }
 
@@ -353,15 +355,13 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
       issueId,
       preview: comment.body.slice(0, 160),
       length: comment.body.length,
-      copiedCount: (
-        await ctx.entities.list({
-          entityType: "copied-comment",
-          scopeKind: "issue",
-          scopeId: issueId,
-          limit: 100,
-          offset: 0,
-        })
-      ).filter((entry) => entry.externalId === commentId).length,
+      copiedCount: (await ctx.entities.list({
+        entityType: "copied-comment",
+        scopeKind: "issue",
+        scopeId: issueId,
+        limit: 100,
+        offset: 0,
+      })).filter((entry) => entry.externalId === commentId).length,
     };
   });
 
@@ -390,10 +390,9 @@ async function registerDataHandlers(ctx: PluginContext): Promise<void> {
 async function registerActionHandlers(ctx: PluginContext): Promise<void> {
   ctx.actions.register("emit-demo-event", async (params) => {
     const companyId = getCurrentCompanyId(params);
-    const message =
-      typeof params.message === "string" && params.message.trim().length > 0
-        ? params.message.trim()
-        : "Kitchen Sink demo event";
+    const message = typeof params.message === "string" && params.message.trim().length > 0
+      ? params.message.trim()
+      : "Kitchen Sink demo event";
     await ctx.events.emit("demo-event", companyId, {
       message,
       source: "kitchen-sink",
@@ -438,9 +437,12 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
 
   ctx.actions.register("upsert-entity", async (params) => {
     const title = typeof params.title === "string" && params.title.length > 0 ? params.title : "Kitchen Sink Entity";
-    const entityType =
-      typeof params.entityType === "string" && params.entityType.length > 0 ? params.entityType : "demo-record";
-    const scopeKind = isScopeKind(params.scopeKind) ? params.scopeKind : "instance";
+    const entityType = typeof params.entityType === "string" && params.entityType.length > 0
+      ? params.entityType
+      : "demo-record";
+    const scopeKind = isScopeKind(params.scopeKind)
+      ? params.scopeKind
+      : "instance";
     const scopeId = typeof params.scopeId === "string" && params.scopeId.length > 0 ? params.scopeId : undefined;
     const status = typeof params.status === "string" && params.status.length > 0 ? params.status : "active";
     const data = typeof params.data === "string" ? parseJsonish(params.data) : params.data;
@@ -448,11 +450,10 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
       entityType,
       scopeKind,
       scopeId,
-      externalId:
-        typeof params.externalId === "string" && params.externalId.length > 0 ? params.externalId : randomUUID(),
+      externalId: typeof params.externalId === "string" && params.externalId.length > 0 ? params.externalId : randomUUID(),
       title,
       status,
-      data: typeof data === "object" && data !== null ? (data as Record<string, unknown>) : { value: data },
+      data: typeof data === "object" && data !== null ? data as Record<string, unknown> : { value: data },
     });
     pushRecord({
       level: "info",
@@ -465,13 +466,11 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
 
   ctx.actions.register("create-issue", async (params) => {
     const companyId = getCurrentCompanyId(params);
-    const title =
-      typeof params.title === "string" && params.title.trim().length > 0
-        ? params.title.trim()
-        : "Kitchen Sink demo issue";
+    const title = typeof params.title === "string" && params.title.trim().length > 0
+      ? params.title.trim()
+      : "Kitchen Sink demo issue";
     const description = typeof params.description === "string" ? params.description : undefined;
-    const projectId =
-      typeof params.projectId === "string" && params.projectId.length > 0 ? params.projectId : undefined;
+    const projectId = typeof params.projectId === "string" && params.projectId.length > 0 ? params.projectId : undefined;
     const issue = await ctx.issues.create({ companyId, projectId, title, description });
     pushRecord({
       level: "info",
@@ -507,10 +506,9 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
 
   ctx.actions.register("create-goal", async (params) => {
     const companyId = getCurrentCompanyId(params);
-    const title =
-      typeof params.title === "string" && params.title.trim().length > 0
-        ? params.title.trim()
-        : "Kitchen Sink demo goal";
+    const title = typeof params.title === "string" && params.title.trim().length > 0
+      ? params.title.trim()
+      : "Kitchen Sink demo goal";
     const description = typeof params.description === "string" ? params.description : undefined;
     const goal = await ctx.goals.create({ companyId, title, description, level: "team", status: "planned" });
     pushRecord({
@@ -542,10 +540,9 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
     const companyId = getCurrentCompanyId(params);
     const entityType = typeof params.entityType === "string" ? params.entityType : undefined;
     const entityId = typeof params.entityId === "string" ? params.entityId : undefined;
-    const message =
-      typeof params.message === "string" && params.message.length > 0
-        ? params.message
-        : "Kitchen Sink wrote an activity entry";
+    const message = typeof params.message === "string" && params.message.length > 0
+      ? params.message
+      : "Kitchen Sink wrote an activity entry";
     await ctx.activity.log({
       companyId,
       entityType,
@@ -577,10 +574,9 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
 
   ctx.actions.register("http-fetch", async (params) => {
     const config = await getConfig(ctx);
-    const url =
-      typeof params.url === "string" && params.url.length > 0
-        ? params.url
-        : config.httpDemoUrl || DEFAULT_CONFIG.httpDemoUrl;
+    const url = typeof params.url === "string" && params.url.length > 0
+      ? params.url
+      : config.httpDemoUrl || DEFAULT_CONFIG.httpDemoUrl;
     const started = Date.now();
     const response = await ctx.http.fetch(url, { method: "GET" });
     const body = await response.text();
@@ -602,10 +598,9 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
 
   ctx.actions.register("resolve-secret", async (params) => {
     const config = await getConfig(ctx);
-    const secretRef =
-      typeof params.secretRef === "string" && params.secretRef.length > 0
-        ? params.secretRef
-        : config.secretRefExample || "";
+    const secretRef = typeof params.secretRef === "string" && params.secretRef.length > 0
+      ? params.secretRef
+      : config.secretRefExample || "";
     if (!secretRef) {
       throw new Error("No secret reference configured");
     }
@@ -626,8 +621,7 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
     const config = await getConfig(ctx);
     const companyId = getCurrentCompanyId(params);
     const projectId = typeof params.projectId === "string" ? params.projectId : "";
-    const workspaceId =
-      typeof params.workspaceId === "string" && params.workspaceId.length > 0 ? params.workspaceId : undefined;
+    const workspaceId = typeof params.workspaceId === "string" && params.workspaceId.length > 0 ? params.workspaceId : undefined;
     const commandKey = typeof params.commandKey === "string" ? params.commandKey : "pwd";
     if (!projectId) throw new Error("projectId is required");
     return await runCuratedCommand(ctx, config, companyId, projectId, workspaceId, commandKey);
@@ -640,12 +634,10 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
     }
     const companyId = getCurrentCompanyId(params);
     const projectId = typeof params.projectId === "string" ? params.projectId : "";
-    const workspaceId =
-      typeof params.workspaceId === "string" && params.workspaceId.length > 0 ? params.workspaceId : undefined;
-    const relativePath =
-      typeof params.relativePath === "string" && params.relativePath.length > 0
-        ? params.relativePath
-        : config.workspaceScratchFile || DEFAULT_CONFIG.workspaceScratchFile;
+    const workspaceId = typeof params.workspaceId === "string" && params.workspaceId.length > 0 ? params.workspaceId : undefined;
+    const relativePath = typeof params.relativePath === "string" && params.relativePath.length > 0
+      ? params.relativePath
+      : config.workspaceScratchFile || DEFAULT_CONFIG.workspaceScratchFile;
     if (!projectId) throw new Error("projectId is required");
     const workspace = await resolveWorkspace(ctx, companyId, projectId, workspaceId);
     const fullPath = ensureInsideWorkspace(workspace.path, relativePath);
@@ -664,12 +656,10 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
     }
     const companyId = getCurrentCompanyId(params);
     const projectId = typeof params.projectId === "string" ? params.projectId : "";
-    const workspaceId =
-      typeof params.workspaceId === "string" && params.workspaceId.length > 0 ? params.workspaceId : undefined;
-    const relativePath =
-      typeof params.relativePath === "string" && params.relativePath.length > 0
-        ? params.relativePath
-        : config.workspaceScratchFile || DEFAULT_CONFIG.workspaceScratchFile;
+    const workspaceId = typeof params.workspaceId === "string" && params.workspaceId.length > 0 ? params.workspaceId : undefined;
+    const relativePath = typeof params.relativePath === "string" && params.relativePath.length > 0
+      ? params.relativePath
+      : config.workspaceScratchFile || DEFAULT_CONFIG.workspaceScratchFile;
     const content = typeof params.content === "string" ? params.content : "Kitchen Sink workspace demo";
     if (!projectId) throw new Error("projectId is required");
     const workspace = await resolveWorkspace(ctx, companyId, projectId, workspaceId);
@@ -712,8 +702,9 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
   ctx.actions.register("invoke-agent", async (params) => {
     const companyId = getCurrentCompanyId(params);
     const agentId = typeof params.agentId === "string" ? params.agentId : "";
-    const prompt =
-      typeof params.prompt === "string" && params.prompt.length > 0 ? params.prompt : "Kitchen Sink test invocation";
+    const prompt = typeof params.prompt === "string" && params.prompt.length > 0
+      ? params.prompt
+      : "Kitchen Sink test invocation";
     if (!agentId) throw new Error("agentId is required");
     const result = await ctx.agents.invoke(agentId, companyId, { prompt, reason: "Kitchen Sink plugin demo" });
     pushRecord({
@@ -742,10 +733,9 @@ async function registerActionHandlers(ctx: PluginContext): Promise<void> {
   ctx.actions.register("ask-agent", async (params) => {
     const companyId = getCurrentCompanyId(params);
     const agentId = typeof params.agentId === "string" ? params.agentId : "";
-    const prompt =
-      typeof params.prompt === "string" && params.prompt.length > 0
-        ? params.prompt
-        : "Say hello from the Kitchen Sink plugin.";
+    const prompt = typeof params.prompt === "string" && params.prompt.length > 0
+      ? params.prompt
+      : "Say hello from the Kitchen Sink plugin.";
     if (!agentId) throw new Error("agentId is required");
 
     ctx.streams.open(STREAM_CHANNELS.agentChat, companyId);
@@ -1006,9 +996,7 @@ const plugin: PaperclipPlugin = definePlugin({
       }
     }
     if (typed.enableProcessDemos) {
-      warnings.push(
-        "Process demos run local child processes and are intended only for trusted development environments.",
-      );
+      warnings.push("Process demos run local child processes and are intended only for trusted development environments.");
     }
     return {
       ok: errors.length === 0,

@@ -30,7 +30,9 @@ describe("claude_local environment diagnostics", () => {
     expect(result.status).toBe("warn");
     expect(
       result.checks.some(
-        (check) => check.code === "claude_anthropic_api_key_overrides_subscription" && check.level === "warn",
+        (check) =>
+          check.code === "claude_anthropic_api_key_overrides_subscription" &&
+          check.level === "warn",
       ),
     ).toBe(true);
     expect(result.checks.some((check) => check.level === "error")).toBe(false);
@@ -54,7 +56,9 @@ describe("claude_local environment diagnostics", () => {
     expect(result.status).toBe("warn");
     expect(
       result.checks.some(
-        (check) => check.code === "claude_anthropic_api_key_overrides_subscription" && check.level === "warn",
+        (check) =>
+          check.code === "claude_anthropic_api_key_overrides_subscription" &&
+          check.level === "warn",
       ),
     ).toBe(true);
     expect(result.checks.some((check) => check.level === "error")).toBe(false);

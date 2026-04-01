@@ -6,8 +6,8 @@ import { useDialog } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
-import { healthApi } from "../api/health";
 import { projectsApi } from "../api/projects";
+import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import {
   CommandDialog,
@@ -40,14 +40,13 @@ export function CommandPalette() {
   const { selectedCompanyId } = useCompany();
   const { openNewIssue, openNewAgent } = useDialog();
   const { isMobile, setSidebarOpen } = useSidebar();
-  const searchQuery = query.trim();
-
   const healthQuery = useQuery({
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
-    retry: false,
+    staleTime: 60_000,
   });
   const isHosted = healthQuery.data?.hostedMode === true;
+  const searchQuery = query.trim();
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -88,7 +87,10 @@ export function CommandPalette() {
     queryFn: () => projectsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId && open,
   });
-  const projects = useMemo(() => allProjects.filter((p) => !p.archivedAt), [allProjects]);
+  const projects = useMemo(
+    () => allProjects.filter((p) => !p.archivedAt),
+    [allProjects],
+  );
 
   function go(path: string) {
     setOpen(false);
@@ -106,14 +108,15 @@ export function CommandPalette() {
   );
 
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(v) => {
+    <CommandDialog open={open} onOpenChange={(v) => {
         setOpen(v);
         if (v && isMobile) setSidebarOpen(false);
-      }}
-    >
-      <CommandInput placeholder="Search issues, agents, projects..." value={query} onValueChange={setQuery} />
+      }}>
+      <CommandInput
+        placeholder="Search issues, agents, projects..."
+        value={query}
+        onValueChange={setQuery}
+      />
       <CommandList>
         <CommandEmpty>No results found.</CommandEmpty>
 
@@ -128,17 +131,15 @@ export function CommandPalette() {
             Create new issue
             <span className="ml-auto text-xs text-muted-foreground">C</span>
           </CommandItem>
-          {!isHosted && (
-            <CommandItem
-              onSelect={() => {
-                setOpen(false);
-                openNewAgent();
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create new agent
-            </CommandItem>
-          )}
+          <CommandItem
+            onSelect={() => {
+              setOpen(false);
+              openNewAgent();
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create new agent
+          </CommandItem>
           <CommandItem onSelect={() => go("/projects")}>
             <Plus className="mr-2 h-4 w-4" />
             Create new project
@@ -189,7 +190,11 @@ export function CommandPalette() {
               {visibleIssues.slice(0, 10).map((issue) => (
                 <CommandItem
                   key={issue.id}
-                  value={searchQuery.length > 0 ? `${searchQuery} ${issue.identifier ?? ""} ${issue.title}` : undefined}
+                  value={
+                    searchQuery.length > 0
+                      ? `${searchQuery} ${issue.identifier ?? ""} ${issue.title}`
+                      : undefined
+                  }
                   onSelect={() => go(`/issues/${issue.identifier ?? issue.id}`)}
                 >
                   <CircleDot className="mr-2 h-4 w-4" />
@@ -197,11 +202,10 @@ export function CommandPalette() {
                     {issue.identifier ?? issue.id.slice(0, 8)}
                   </span>
                   <span className="flex-1 truncate">{issue.title}</span>
-                  {issue.assigneeAgentId &&
-                    (() => {
-                      const name = agentName(issue.assigneeAgentId);
-                      return name ? <Identity name={name} size="sm" className="ml-2 hidden sm:inline-flex" /> : null;
-                    })()}
+                  {issue.assigneeAgentId && (() => {
+                    const name = agentName(issue.assigneeAgentId);
+                    return name ? <Identity name={name} size="sm" className="ml-2 hidden sm:inline-flex" /> : null;
+                  })()}
                 </CommandItem>
               ))}
             </CommandGroup>

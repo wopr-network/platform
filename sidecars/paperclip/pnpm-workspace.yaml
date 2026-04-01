@@ -6,4 +6,3 @@ packages:
   - server
   - ui
   - cli
-  - services-provision-server

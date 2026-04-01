@@ -10,15 +10,26 @@ import type {
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToast } from "../context/ToastContext";
+import { authApi } from "../api/auth";
 import { companiesApi } from "../api/companies";
 import { agentsApi } from "../api/agents";
 import { queryKeys } from "../lib/queryKeys";
+import { getAgentOrderStorageKey, writeAgentOrder } from "../lib/agent-order";
+import { getProjectOrderStorageKey, writeProjectOrder } from "../lib/project-order";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "../components/EmptyState";
 import { AgentConfigForm } from "../components/AgentConfigForm";
 import { cn } from "../lib/utils";
-import { ArrowRight, Check, ChevronRight, Download, Code, Package, Upload } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Download,
+  Github,
+  Package,
+  Upload,
+} from "lucide-react";
 import { Field, adapterLabels } from "../components/agent-config-primitives";
 import { defaultCreateValues } from "../components/agent-config-defaults";
 import { getUIAdapter, listUIAdapters } from "../adapters";
@@ -106,7 +117,9 @@ function FrontmatterCard({ data }: { data: FrontmatterData }) {
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
         {Object.entries(data).map(([key, value]) => (
           <div key={key} className="contents">
-            <dt className="text-muted-foreground whitespace-nowrap py-0.5">{FRONTMATTER_FIELD_LABELS[key] ?? key}</dt>
+            <dt className="text-muted-foreground whitespace-nowrap py-0.5">
+              {FRONTMATTER_FIELD_LABELS[key] ?? key}
+            </dt>
             <dd className="py-0.5">
               {Array.isArray(value) ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -136,12 +149,10 @@ function renderImportFileExtra(node: FileTreeNode, checked: boolean, renameMap: 
   // Show rename indicator only on directories (folders), not individual files
   const renamedTo = node.kind === "dir" ? renameMap.get(node.path) : undefined;
   const actionBadge = node.action ? (
-    <span
-      className={cn(
-        "shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
-        ACTION_COLORS[node.action] ?? ACTION_COLORS.skip,
-      )}
-    >
+    <span className={cn(
+      "shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
+      ACTION_COLORS[node.action] ?? ACTION_COLORS.skip,
+    )}>
       {checked ? node.action : "skip"}
     </span>
   ) : null;
@@ -180,7 +191,9 @@ function ImportPreviewPane({
   renamedTo: string | null;
 }) {
   if (!selectedFile || content === null) {
-    return <EmptyState icon={Package} message="Select a file to preview its contents." />;
+    return (
+      <EmptyState icon={Package} message="Select a file to preview its contents." />
+    );
   }
 
   const textContent = getPortableFileText(content);
@@ -207,12 +220,17 @@ function ImportPreviewPane({
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex items-center gap-2">
             <span className="truncate font-mono text-sm">{selectedFile}</span>
-            {renamedTo && <span className="shrink-0 font-mono text-sm text-cyan-500">&rarr; {renamedTo}</span>}
+            {renamedTo && (
+              <span className="shrink-0 font-mono text-sm text-cyan-500">
+                &rarr; {renamedTo}
+              </span>
+            )}
           </div>
           {action && (
-            <span
-              className={cn("shrink-0 rounded-full border px-2 py-0.5 text-xs uppercase tracking-wide", actionColor)}
-            >
+            <span className={cn(
+              "shrink-0 rounded-full border px-2 py-0.5 text-xs uppercase tracking-wide",
+              actionColor,
+            )}>
               {action}
             </span>
           )}
@@ -255,7 +273,9 @@ interface ConflictItem {
   action: "rename" | "update";
 }
 
-function buildConflictList(preview: CompanyPortabilityPreviewResult): ConflictItem[] {
+function buildConflictList(
+  preview: CompanyPortabilityPreviewResult,
+): ConflictItem[] {
   const conflicts: ConflictItem[] = [];
   const manifest = preview.manifest;
 
@@ -325,6 +345,45 @@ function prefixedName(prefix: string | null, originalName: string): string {
   return `${prefix}-${originalName}`;
 }
 
+function applyImportedSidebarOrder(
+  preview: CompanyPortabilityPreviewResult | null,
+  result: {
+    company: { id: string };
+    agents: Array<{ slug: string; id: string | null }>;
+    projects: Array<{ slug: string; id: string | null }>;
+  },
+  userId: string | null | undefined,
+) {
+  const sidebar = preview?.manifest.sidebar;
+  if (!sidebar) return;
+  if (!userId?.trim()) return;
+
+  const agentIdBySlug = new Map(
+    result.agents
+      .filter((agent): agent is { slug: string; id: string } => typeof agent.id === "string" && agent.id.length > 0)
+      .map((agent) => [agent.slug, agent.id]),
+  );
+  const projectIdBySlug = new Map(
+    result.projects
+      .filter((project): project is { slug: string; id: string } => typeof project.id === "string" && project.id.length > 0)
+      .map((project) => [project.slug, project.id]),
+  );
+
+  const orderedAgentIds = sidebar.agents
+    .map((slug) => agentIdBySlug.get(slug))
+    .filter((id): id is string => Boolean(id));
+  const orderedProjectIds = sidebar.projects
+    .map((slug) => projectIdBySlug.get(slug))
+    .filter((id): id is string => Boolean(id));
+
+  if (orderedAgentIds.length > 0) {
+    writeAgentOrder(getAgentOrderStorageKey(result.company.id, userId), orderedAgentIds);
+  }
+  if (orderedProjectIds.length > 0) {
+    writeProjectOrder(getProjectOrderStorageKey(result.company.id, userId), orderedProjectIds);
+  }
+}
+
 // ── Conflict resolution UI ───────────────────────────────────────────
 
 function ConflictResolutionList({
@@ -350,7 +409,9 @@ function ConflictResolutionList({
     <div className="mx-5 mt-3">
       <div className="rounded-md border border-border">
         <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-          <h3 className="text-sm font-medium">Renames</h3>
+          <h3 className="text-sm font-medium">
+            Renames
+          </h3>
           <span className="text-xs text-muted-foreground">
             {conflicts.length} item{conflicts.length === 1 ? "" : "s"}
           </span>
@@ -383,25 +444,21 @@ function ConflictResolutionList({
                   {isSkipped ? "skipped" : "skip"}
                 </button>
 
-                <span
-                  className={cn(
-                    "shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
-                    isSkipped
-                      ? "text-muted-foreground border-border"
-                      : isConfirmed
-                        ? "text-emerald-500 border-emerald-500/30"
-                        : "text-amber-500 border-amber-500/30",
-                  )}
-                >
+                <span className={cn(
+                  "shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
+                  isSkipped
+                    ? "text-muted-foreground border-border"
+                    : isConfirmed
+                      ? "text-emerald-500 border-emerald-500/30"
+                      : "text-amber-500 border-amber-500/30",
+                )}>
                   {item.kind}
                 </span>
 
-                <span
-                  className={cn(
-                    "shrink-0 font-mono text-xs",
-                    isSkipped ? "text-muted-foreground line-through" : "text-muted-foreground",
-                  )}
-                >
+                <span className={cn(
+                  "shrink-0 font-mono text-xs",
+                  isSkipped ? "text-muted-foreground line-through" : "text-muted-foreground",
+                )}>
                   {item.originalName}
                 </span>
 
@@ -409,7 +466,9 @@ function ConflictResolutionList({
                   <>
                     <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                     {isConfirmed ? (
-                      <span className="min-w-0 flex-1 font-mono text-xs text-emerald-500">{currentName}</span>
+                      <span className="min-w-0 flex-1 font-mono text-xs text-emerald-500">
+                        {currentName}
+                      </span>
                     ) : (
                       <input
                         className="min-w-0 flex-1 rounded-md border border-border bg-transparent px-2 py-1 font-mono text-xs outline-none focus:border-foreground"
@@ -503,15 +562,15 @@ function AdapterPickerList({
             return (
               <div key={agent.slug}>
                 <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                  <span
-                    className={cn(
-                      "shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
-                      "text-blue-500 border-blue-500/30",
-                    )}
-                  >
+                  <span className={cn(
+                    "shrink-0 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide",
+                    "text-blue-500 border-blue-500/30",
+                  )}>
                     agent
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-muted-foreground">{agent.name}</span>
+                  <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                    {agent.name}
+                  </span>
                   <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                   <select
                     className="min-w-0 flex-1 rounded-md border border-border bg-transparent px-2 py-1 text-xs outline-none focus:border-foreground"
@@ -585,11 +644,20 @@ async function readLocalPackageZip(file: File): Promise<{
 // ── Main page ─────────────────────────────────────────────────────────
 
 export function CompanyImport() {
-  const { selectedCompanyId, selectedCompany, setSelectedCompanyId } = useCompany();
+  const {
+    selectedCompanyId,
+    selectedCompany,
+    setSelectedCompanyId,
+  } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const packageInputRef = useRef<HTMLInputElement | null>(null);
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+  });
+  const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
 
   // Source state
   const [sourceMode, setSourceMode] = useState<"github" | "local">("github");
@@ -605,7 +673,8 @@ export function CompanyImport() {
   const [newCompanyName, setNewCompanyName] = useState("");
 
   // Preview state
-  const [importPreview, setImportPreview] = useState<CompanyPortabilityPreviewResult | null>(null);
+  const [importPreview, setImportPreview] =
+    useState<CompanyPortabilityPreviewResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const [checkedFiles, setCheckedFiles] = useState<Set<string>>(new Set());
@@ -637,7 +706,10 @@ export function CompanyImport() {
     "Upload a .zip exported directly from Paperclip. Re-zipped archives created by Finder, Explorer, or other zip tools may not import correctly.";
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Org Chart", href: "/org" }, { label: "Import" }]);
+    setBreadcrumbs([
+      { label: "Org Chart", href: "/org" },
+      { label: "Import" },
+    ]);
   }, [setBreadcrumbs]);
 
   function buildSource(): CompanyPortabilitySource | null {
@@ -775,6 +847,18 @@ export function CompanyImport() {
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
       const importedCompany = await companiesApi.get(result.company.id);
+      const refreshedSession = currentUserId
+        ? null
+        : await queryClient.fetchQuery({
+          queryKey: queryKeys.auth.session,
+          queryFn: () => authApi.getSession(),
+        });
+      const sidebarOrderUserId =
+        currentUserId
+        ?? refreshedSession?.user?.id
+        ?? refreshedSession?.session?.userId
+        ?? null;
+      applyImportedSidebarOrder(importPreview, result, sidebarOrderUserId);
       setSelectedCompanyId(importedCompany.id);
       pushToast({
         tone: "success",
@@ -819,7 +903,10 @@ export function CompanyImport() {
     [importPreview, actionMap],
   );
 
-  const conflicts = useMemo(() => (importPreview ? buildConflictList(importPreview) : []), [importPreview]);
+  const conflicts = useMemo(
+    () => (importPreview ? buildConflictList(importPreview) : []),
+    [importPreview],
+  );
 
   // Map directory paths → planned rename name for display in the file tree
   // Also maps file paths for use in the preview header
@@ -955,10 +1042,7 @@ export function CompanyImport() {
   function handleAdapterConfigChange(slug: string, patch: Partial<CreateConfigValues>) {
     setAdapterConfigValues((prev) => ({
       ...prev,
-      [slug]: {
-        ...(prev[slug] ?? { ...defaultCreateValues, adapterType: adapterOverrides[slug] ?? "claude_local" }),
-        ...patch,
-      },
+      [slug]: { ...(prev[slug] ?? { ...defaultCreateValues, adapterType: adapterOverrides[slug] ?? "claude_local" }), ...patch },
     }));
   }
 
@@ -989,15 +1073,15 @@ export function CompanyImport() {
     return Object.keys(overrides).length > 0 ? overrides : undefined;
   }
 
-  const hasSource = sourceMode === "local" ? !!localPackage : importUrl.trim().length > 0;
+  const hasSource =
+    sourceMode === "local" ? !!localPackage : importUrl.trim().length > 0;
   const hasErrors = importPreview ? importPreview.errors.length > 0 : false;
 
-  const previewContent =
-    selectedFile && importPreview
-      ? (() => {
-          return importPreview.files[selectedFile] ?? null;
-        })()
-      : null;
+  const previewContent = selectedFile && importPreview
+    ? (() => {
+        return importPreview.files[selectedFile] ?? null;
+      })()
+    : null;
   const selectedAction = selectedFile ? (actionMap.get(selectedFile) ?? null) : null;
 
   if (!selectedCompanyId) {
@@ -1018,7 +1102,7 @@ export function CompanyImport() {
         <div className="grid gap-2 md:grid-cols-2">
           {(
             [
-              { key: "github", icon: Code, label: "GitHub repo" },
+              { key: "github", icon: Github, label: "GitHub repo" },
               { key: "local", icon: Upload, label: "Local zip" },
             ] as const
           ).map(({ key, icon: Icon, label }) => (
@@ -1027,7 +1111,9 @@ export function CompanyImport() {
               type="button"
               className={cn(
                 "rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                sourceMode === key ? "border-foreground bg-accent" : "border-border hover:bg-accent/50",
+                sourceMode === key
+                  ? "border-foreground bg-accent"
+                  : "border-border hover:bg-accent/50",
               )}
               onClick={() => {
                 setSourceMode(key);
@@ -1052,17 +1138,26 @@ export function CompanyImport() {
               onChange={handleChooseLocalPackage}
             />
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => packageInputRef.current?.click()}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => packageInputRef.current?.click()}
+              >
                 Choose zip
               </Button>
               {localPackage && (
                 <span className="text-xs text-muted-foreground">
-                  {localPackage.name} with {Object.keys(localPackage.files).length} file
+                  {localPackage.name} with{" "}
+                  {Object.keys(localPackage.files).length} file
                   {Object.keys(localPackage.files).length === 1 ? "" : "s"}
                 </span>
               )}
             </div>
-            {!localPackage && <p className="mt-2 text-xs text-muted-foreground">{localZipHelpText}</p>}
+            {!localPackage && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {localZipHelpText}
+              </p>
+            )}
           </div>
         ) : (
           <Field
@@ -1092,12 +1187,17 @@ export function CompanyImport() {
             }}
           >
             <option value="new">Create new company</option>
-            <option value="existing">Existing company: {selectedCompany?.name}</option>
+            <option value="existing">
+              Existing company: {selectedCompany?.name}
+            </option>
           </select>
         </Field>
 
         {targetMode === "new" && (
-          <Field label="New company name" hint="Optional override. Leave blank to use the package name.">
+          <Field
+            label="New company name"
+            hint="Optional override. Leave blank to use the package name."
+          >
             <input
               className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
               type="text"
@@ -1108,7 +1208,10 @@ export function CompanyImport() {
           </Field>
         )}
 
-        <Field label="Collision strategy" hint="Board imports can rename, skip, or replace matching company content.">
+        <Field
+          label="Collision strategy"
+          hint="Board imports can rename, skip, or replace matching company content."
+        >
           <select
             className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
             value={collisionStrategy}
@@ -1141,7 +1244,9 @@ export function CompanyImport() {
           {/* Sticky import action bar */}
           <div className="sticky top-0 z-10 border-b border-border bg-background px-5 py-3">
             <div className="flex flex-wrap items-center gap-4 text-sm">
-              <span className="font-medium">Import preview</span>
+              <span className="font-medium">
+                Import preview
+              </span>
               <span className="text-muted-foreground">
                 {selectedCount} / {totalFiles} file{totalFiles === 1 ? "" : "s"} selected
               </span>
@@ -1198,9 +1303,7 @@ export function CompanyImport() {
           {importPreview.warnings.length > 0 && (
             <div className="mx-5 mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3">
               {importPreview.warnings.map((w) => (
-                <div key={w} className="text-xs text-amber-500">
-                  {w}
-                </div>
+                <div key={w} className="text-xs text-amber-500">{w}</div>
               ))}
             </div>
           )}
@@ -1209,9 +1312,7 @@ export function CompanyImport() {
           {importPreview.errors.length > 0 && (
             <div className="mx-5 mt-3 rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3">
               {importPreview.errors.map((e) => (
-                <div key={e} className="text-xs text-destructive">
-                  {e}
-                </div>
+                <div key={e} className="text-xs text-destructive">{e}</div>
               ))}
             </div>
           )}

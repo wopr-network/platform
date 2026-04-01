@@ -25,7 +25,10 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useCompanyPageMemory } from "../hooks/useCompanyPageMemory";
 import { healthApi } from "../api/health";
 import { shouldSyncCompanySelectionFromRoute } from "../lib/company-selection";
-import { DEFAULT_INSTANCE_SETTINGS_PATH, normalizeRememberedInstanceSettingsPath } from "../lib/instance-settings";
+import {
+  DEFAULT_INSTANCE_SETTINGS_PATH,
+  normalizeRememberedInstanceSettingsPath,
+} from "../lib/instance-settings";
 import { queryKeys } from "../lib/queryKeys";
 import { cn } from "../lib/utils";
 import { NotFoundPage } from "../pages/NotFound";
@@ -63,9 +66,7 @@ export function Layout() {
   const onboardingTriggered = useRef(false);
   const lastMainScrollTop = useRef(0);
   const [mobileNavVisible, setMobileNavVisible] = useState(true);
-  const [instanceSettingsTarget, setInstanceSettingsTarget] = useState<string>(() =>
-    readRememberedInstanceSettingsPath(),
-  );
+  const [instanceSettingsTarget, setInstanceSettingsTarget] = useState<string>(() => readRememberedInstanceSettingsPath());
   const nextTheme = theme === "dark" ? "light" : "dark";
   const matchedCompany = useMemo(() => {
     if (!companyPrefix) return null;
@@ -99,10 +100,9 @@ export function Layout() {
     if (!companyPrefix || companiesLoading || companies.length === 0) return;
 
     if (!matchedCompany) {
-      const fallback =
-        (selectedCompanyId ? companies.find((company) => company.id === selectedCompanyId) : null) ??
-        companies[0] ??
-        null;
+      const fallback = (selectedCompanyId ? companies.find((company) => company.id === selectedCompanyId) : null)
+        ?? companies[0]
+        ?? null;
       if (fallback && selectedCompanyId !== fallback.id) {
         setSelectedCompanyId(fallback.id, { source: "route_sync" });
       }
@@ -247,7 +247,9 @@ export function Layout() {
   useEffect(() => {
     if (!location.pathname.startsWith("/instance/settings/")) return;
 
-    const nextPath = normalizeRememberedInstanceSettingsPath(`${location.pathname}${location.search}${location.hash}`);
+    const nextPath = normalizeRememberedInstanceSettingsPath(
+      `${location.pathname}${location.search}${location.hash}`,
+    );
     setInstanceSettingsTarget(nextPath);
 
     try {
@@ -286,7 +288,7 @@ export function Layout() {
           <div
             className={cn(
               "fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden pt-[env(safe-area-inset-top)] transition-transform duration-100 ease-out",
-              sidebarOpen ? "translate-x-0" : "-translate-x-full",
+              sidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}
           >
             <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -343,7 +345,10 @@ export function Layout() {
             <div className="flex flex-1 min-h-0">
               <CompanyRail />
               <div
-                className={cn("overflow-hidden transition-[width] duration-100 ease-out", sidebarOpen ? "w-60" : "w-0")}
+                className={cn(
+                  "overflow-hidden transition-[width] duration-100 ease-out",
+                  sidebarOpen ? "w-60" : "w-0"
+                )}
               >
                 {isInstanceSettingsRoute ? <InstanceSidebar /> : <Sidebar />}
               </div>
@@ -398,8 +403,7 @@ export function Layout() {
         <div className={cn("flex min-w-0 flex-col", isMobile ? "w-full" : "h-full flex-1")}>
           <div
             className={cn(
-              isMobile &&
-                "sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85",
+              isMobile && "sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85",
             )}
           >
             <BreadcrumbBar />

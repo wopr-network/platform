@@ -1,6 +1,10 @@
-import { extractCompanyPrefixFromPath, normalizeCompanyPrefix, toCompanyRelativePath } from "./company-routes";
+import {
+  extractCompanyPrefixFromPath,
+  normalizeCompanyPrefix,
+  toCompanyRelativePath,
+} from "./company-routes";
 
-const GLOBAL_SEGMENTS = new Set(["auth", "invite", "board-claim", "docs"]);
+const GLOBAL_SEGMENTS = new Set(["auth", "invite", "board-claim", "cli-auth", "docs"]);
 
 export function isRememberableCompanyPath(path: string): boolean {
   const pathname = path.split("?")[0] ?? "";
@@ -29,12 +33,10 @@ export function getRememberedPathOwnerCompanyId<T extends { id: string; issuePre
     return params.fallbackCompanyId;
   }
 
-  return (
-    findCompanyByPrefix({
-      companies: params.companies,
-      companyPrefix: routeCompanyPrefix,
-    })?.id ?? null
-  );
+  return findCompanyByPrefix({
+    companies: params.companies,
+    companyPrefix: routeCompanyPrefix,
+  })?.id ?? null;
 }
 
 export function sanitizeRememberedPathForCompany(params: {

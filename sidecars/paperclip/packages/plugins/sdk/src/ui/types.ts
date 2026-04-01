@@ -14,7 +14,11 @@
  * @see PLUGIN_SPEC.md §29.2 — SDK Versioning
  */
 
-import type { PluginBridgeErrorCode, PluginLauncherBounds, PluginLauncherRenderEnvironment } from "@paperclipai/shared";
+import type {
+  PluginBridgeErrorCode,
+  PluginLauncherBounds,
+  PluginLauncherRenderEnvironment,
+} from "@paperclipai/shared";
 import type {
   PluginLauncherRenderContextSnapshot,
   PluginModalBoundsRequest,
@@ -101,7 +105,9 @@ export interface PluginHostContext {
 /**
  * Async-capable callback invoked during a host-managed close lifecycle.
  */
-export type PluginRenderCloseHandler = (event: PluginRenderCloseEvent) => void | Promise<void>;
+export type PluginRenderCloseHandler = (
+  event: PluginRenderCloseEvent,
+) => void | Promise<void>;
 
 /**
  * Close lifecycle hooks available when the plugin UI is rendered inside a
@@ -117,7 +123,8 @@ export interface PluginRenderCloseLifecycle {
 /**
  * Runtime information about the host container currently rendering a plugin UI.
  */
-export interface PluginRenderEnvironmentContext extends PluginLauncherRenderContextSnapshot {
+export interface PluginRenderEnvironmentContext
+  extends PluginLauncherRenderContextSnapshot {
   /** Optional host callback for requesting new bounds while a modal is open. */
   requestModalBounds?(request: PluginModalBoundsRequest): Promise<void>;
   /** Optional close lifecycle callbacks for host-managed overlays. */

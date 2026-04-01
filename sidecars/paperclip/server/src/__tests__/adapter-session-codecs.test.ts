@@ -108,9 +108,24 @@ describe("adapter session codecs", () => {
 
 describe("codex resume recovery detection", () => {
   it("detects unknown session errors from codex output", () => {
-    expect(isCodexUnknownSessionError('{"type":"error","message":"Unknown session id abc"}', "")).toBe(true);
-    expect(isCodexUnknownSessionError("", "thread 123 not found")).toBe(true);
-    expect(isCodexUnknownSessionError('{"type":"result","ok":true}', "")).toBe(false);
+    expect(
+      isCodexUnknownSessionError(
+        '{"type":"error","message":"Unknown session id abc"}',
+        "",
+      ),
+    ).toBe(true);
+    expect(
+      isCodexUnknownSessionError(
+        "",
+        "thread 123 not found",
+      ),
+    ).toBe(true);
+    expect(
+      isCodexUnknownSessionError(
+        '{"type":"result","ok":true}',
+        "",
+      ),
+    ).toBe(false);
   });
 });
 
@@ -122,22 +137,57 @@ describe("opencode resume recovery detection", () => {
         "NotFoundError: Resource not found: /Users/test/.local/share/opencode/storage/session/proj/ses_missing.json",
       ),
     ).toBe(true);
-    expect(isOpenCodeUnknownSessionError('{"type":"step_finish","part":{"reason":"stop"}}', "")).toBe(false);
+    expect(
+      isOpenCodeUnknownSessionError(
+        "{\"type\":\"step_finish\",\"part\":{\"reason\":\"stop\"}}",
+        "",
+      ),
+    ).toBe(false);
   });
 });
 
 describe("cursor resume recovery detection", () => {
   it("detects unknown session errors from cursor output", () => {
-    expect(isCursorUnknownSessionError("", "Error: unknown session id abc")).toBe(true);
-    expect(isCursorUnknownSessionError("", "chat abc not found")).toBe(true);
-    expect(isCursorUnknownSessionError('{"type":"result","subtype":"success"}', "")).toBe(false);
+    expect(
+      isCursorUnknownSessionError(
+        "",
+        "Error: unknown session id abc",
+      ),
+    ).toBe(true);
+    expect(
+      isCursorUnknownSessionError(
+        "",
+        "chat abc not found",
+      ),
+    ).toBe(true);
+    expect(
+      isCursorUnknownSessionError(
+        "{\"type\":\"result\",\"subtype\":\"success\"}",
+        "",
+      ),
+    ).toBe(false);
   });
 });
 
 describe("gemini resume recovery detection", () => {
   it("detects unknown session errors from gemini output", () => {
-    expect(isGeminiUnknownSessionError("", "unknown session id abc")).toBe(true);
-    expect(isGeminiUnknownSessionError("", "checkpoint latest not found")).toBe(true);
-    expect(isGeminiUnknownSessionError('{"type":"result","subtype":"success"}', "")).toBe(false);
+    expect(
+      isGeminiUnknownSessionError(
+        "",
+        "unknown session id abc",
+      ),
+    ).toBe(true);
+    expect(
+      isGeminiUnknownSessionError(
+        "",
+        "checkpoint latest not found",
+      ),
+    ).toBe(true);
+    expect(
+      isGeminiUnknownSessionError(
+        "{\"type\":\"result\",\"subtype\":\"success\"}",
+        "",
+      ),
+    ).toBe(false);
   });
 });

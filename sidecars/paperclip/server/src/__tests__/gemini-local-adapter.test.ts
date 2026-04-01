@@ -172,7 +172,10 @@ describe("gemini_local cli formatter", () => {
         }),
         false,
       );
-      printGeminiStreamEvent(JSON.stringify({ type: "error", message: "boom" }), false);
+      printGeminiStreamEvent(
+        JSON.stringify({ type: "error", message: "boom" }),
+        false,
+      );
       joined = spy.mock.calls.map((call) => stripAnsi(call.join(" "))).join("\n");
     } finally {
       spy.mockRestore();

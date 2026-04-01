@@ -31,12 +31,22 @@ export function healthRoutes(
       return;
     }
 
+    try {
+      await db.execute(sql`SELECT 1`);
+    } catch {
+      res.status(503).json({
+        status: "unhealthy",
+        version: serverVersion,
+        error: "database_unreachable",
+      });
+      return;
+    }
+
     let bootstrapStatus: "ready" | "bootstrap_pending" = "ready";
     let bootstrapInviteActive = false;
     if (opts.hostedMode) {
       // Hosted instances are provisioned externally — skip bootstrap check
       bootstrapStatus = "ready";
-      bootstrapInviteActive = false;
     } else if (opts.deploymentMode === "authenticated") {
       const roleCount = await db
         .select({ count: count() })
@@ -88,10 +98,10 @@ export function healthRoutes(
       authReady: opts.authReady,
       bootstrapStatus,
       bootstrapInviteActive,
-      hostedMode: opts.hostedMode ?? false,
       features: {
         companyDeletionEnabled: opts.companyDeletionEnabled,
       },
+      hostedMode: opts.hostedMode ?? false,
       ...(devServer ? { devServer } : {}),
     });
   });

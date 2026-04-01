@@ -10,7 +10,11 @@ import { loadPaperclipEnvFile } from "../config/env.js";
 import { configExists, resolveConfigPath } from "../config/store.js";
 import type { PaperclipConfig } from "../config/schema.js";
 import { readConfig } from "../config/store.js";
-import { describeLocalInstancePaths, resolvePaperclipHomeDir, resolvePaperclipInstanceId } from "../config/home.js";
+import {
+  describeLocalInstancePaths,
+  resolvePaperclipHomeDir,
+  resolvePaperclipInstanceId,
+} from "../config/home.js";
 
 interface RunOptions {
   config?: string;
@@ -87,7 +91,10 @@ export async function runCommand(opts: RunOptions): Promise<void> {
   }
 }
 
-function resolveBootstrapInviteBaseUrl(config: PaperclipConfig, startedServer: StartedServer): string {
+function resolveBootstrapInviteBaseUrl(
+  config: PaperclipConfig,
+  startedServer: StartedServer,
+): string {
   const explicitBaseUrl =
     process.env.PAPERCLIP_PUBLIC_URL ??
     process.env.PAPERCLIP_AUTH_PUBLIC_BASE_URL ??
@@ -163,7 +170,10 @@ async function importServerEntry(): Promise<StartedServer> {
           `${formatError(err)}`,
       );
     }
-    throw new Error(`Paperclip server failed to start.\n` + `${formatError(err)}`);
+    throw new Error(
+      `Paperclip server failed to start.\n` +
+        `${formatError(err)}`,
+    );
   }
 }
 

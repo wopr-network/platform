@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock3, ExternalLink, Settings } from "lucide-react";
+import { Clock3, ExternalLink, Settings, ShieldCheck } from "lucide-react";
 import type { InstanceSchedulerHeartbeatAgent } from "@paperclipai/shared";
-import { Link, Navigate } from "@/lib/router";
+import { Link } from "@/lib/router";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
 import { healthApi } from "../api/health";
@@ -35,18 +35,16 @@ export function InstanceSettings() {
   const healthQuery = useQuery({
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
-    retry: false,
+    staleTime: 60_000,
   });
   const isHosted = healthQuery.data?.hostedMode === true;
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Instance Settings" }, { label: "Heartbeats" }]);
+    setBreadcrumbs([
+      { label: "Instance Settings" },
+      { label: "Heartbeats" },
+    ]);
   }, [setBreadcrumbs]);
-
-  // Instance settings expose heartbeat/runtime controls — not for hosted mode
-  if (isHosted) {
-    return <Navigate to="/" replace />;
-  }
 
   const heartbeatsQuery = useQuery({
     queryKey: queryKeys.instance.schedulerHeartbeats,
@@ -87,9 +85,64 @@ export function InstanceSettings() {
     },
   });
 
+  const disableAllMutation = useMutation({
+    mutationFn: async (agentRows: InstanceSchedulerHeartbeatAgent[]) => {
+      const enabled = agentRows.filter((a) => a.heartbeatEnabled);
+      if (enabled.length === 0) return enabled;
+
+      const results = await Promise.allSettled(
+        enabled.map(async (agentRow) => {
+          const agent = await agentsApi.get(agentRow.id, agentRow.companyId);
+          const runtimeConfig = asRecord(agent.runtimeConfig) ?? {};
+          const heartbeat = asRecord(runtimeConfig.heartbeat) ?? {};
+          await agentsApi.update(
+            agentRow.id,
+            {
+              runtimeConfig: {
+                ...runtimeConfig,
+                heartbeat: { ...heartbeat, enabled: false },
+              },
+            },
+            agentRow.companyId,
+          );
+        }),
+      );
+
+      const failures = results.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+      if (failures.length > 0) {
+        const firstError = failures[0]?.reason;
+        const detail = firstError instanceof Error ? firstError.message : "Unknown error";
+        throw new Error(
+          failures.length === 1
+            ? `Failed to disable 1 timer heartbeat: ${detail}`
+            : `Failed to disable ${failures.length} of ${enabled.length} timer heartbeats. First error: ${detail}`,
+        );
+      }
+      return enabled;
+    },
+    onSuccess: async (updatedRows) => {
+      setActionError(null);
+      const companies = new Set(updatedRows.map((row) => row.companyId));
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.instance.schedulerHeartbeats }),
+        ...Array.from(companies, (companyId) =>
+          queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) }),
+        ),
+        ...updatedRows.map((row) =>
+          queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(row.id) }),
+        ),
+      ]);
+    },
+    onError: (error) => {
+      setActionError(error instanceof Error ? error.message : "Failed to disable all heartbeats.");
+    },
+  });
+
   const agents = heartbeatsQuery.data ?? [];
   const activeCount = agents.filter((agent) => agent.schedulerActive).length;
   const disabledCount = agents.length - activeCount;
+  const enabledCount = agents.filter((agent) => agent.heartbeatEnabled).length;
+  const anyEnabled = enabledCount > 0;
 
   const grouped = useMemo(() => {
     const map = new Map<string, { companyName: string; agents: InstanceSchedulerHeartbeatAgent[] }>();
@@ -103,6 +156,22 @@ export function InstanceSettings() {
     }
     return [...map.values()];
   }, [agents]);
+
+  if (isHosted) {
+    return (
+      <div className="max-w-5xl space-y-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-muted-foreground" />
+            <h1 className="text-lg font-semibold">Managed Instance</h1>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Instance settings are managed by the platform. No configuration is needed.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (heartbeatsQuery.isLoading) {
     return <div className="text-sm text-muted-foreground">Loading scheduler heartbeats...</div>;
@@ -130,17 +199,27 @@ export function InstanceSettings() {
         </p>
       </div>
 
-      <div className="flex gap-4 text-sm text-muted-foreground">
-        <span>
-          <span className="font-semibold text-foreground">{activeCount}</span> active
-        </span>
-        <span>
-          <span className="font-semibold text-foreground">{disabledCount}</span> disabled
-        </span>
-        <span>
-          <span className="font-semibold text-foreground">{grouped.length}</span>{" "}
-          {grouped.length === 1 ? "company" : "companies"}
-        </span>
+      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <span><span className="font-semibold text-foreground">{activeCount}</span> active</span>
+        <span><span className="font-semibold text-foreground">{disabledCount}</span> disabled</span>
+        <span><span className="font-semibold text-foreground">{grouped.length}</span> {grouped.length === 1 ? "company" : "companies"}</span>
+        {anyEnabled && (
+          <Button
+            variant="destructive"
+            size="sm"
+            className="ml-auto h-7 text-xs"
+            disabled={disableAllMutation.isPending}
+            onClick={() => {
+              const noun = enabledCount === 1 ? "agent" : "agents";
+              if (!window.confirm(`Disable timer heartbeats for all ${enabledCount} enabled ${noun}?`)) {
+                return;
+              }
+              disableAllMutation.mutate(agents);
+            }}
+          >
+            {disableAllMutation.isPending ? "Disabling..." : "Disable All"}
+          </Button>
+        )}
       </div>
 
       {actionError && (
@@ -150,7 +229,10 @@ export function InstanceSettings() {
       )}
 
       {agents.length === 0 ? (
-        <EmptyState icon={Clock3} message="No scheduler heartbeats match the current criteria." />
+        <EmptyState
+          icon={Clock3}
+          message="No scheduler heartbeats match the current criteria."
+        />
       ) : (
         <div className="space-y-4">
           {grouped.map((group) => (
@@ -163,25 +245,35 @@ export function InstanceSettings() {
                   {group.agents.map((agent) => {
                     const saving = toggleMutation.isPending && toggleMutation.variables?.id === agent.id;
                     return (
-                      <div key={agent.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                      <div
+                        key={agent.id}
+                        className="flex items-center gap-3 px-3 py-2 text-sm"
+                      >
                         <Badge
                           variant={agent.schedulerActive ? "default" : "outline"}
                           className="shrink-0 text-[10px] px-1.5 py-0"
                         >
                           {agent.schedulerActive ? "On" : "Off"}
                         </Badge>
-                        <Link to={buildAgentHref(agent)} className="font-medium truncate hover:underline">
+                        <Link
+                          to={buildAgentHref(agent)}
+                          className="font-medium truncate hover:underline"
+                        >
                           {agent.agentName}
                         </Link>
                         <span className="hidden sm:inline text-muted-foreground truncate">
                           {humanize(agent.title ?? agent.role)}
                         </span>
-                        <span className="text-muted-foreground tabular-nums shrink-0">{agent.intervalSec}s</span>
+                        <span className="text-muted-foreground tabular-nums shrink-0">
+                          {agent.intervalSec}s
+                        </span>
                         <span
                           className="hidden md:inline text-muted-foreground truncate"
                           title={agent.lastHeartbeatAt ? formatDateTime(agent.lastHeartbeatAt) : undefined}
                         >
-                          {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "never"}
+                          {agent.lastHeartbeatAt
+                            ? relativeTime(agent.lastHeartbeatAt)
+                            : "never"}
                         </span>
                         <span className="ml-auto flex items-center gap-1.5 shrink-0">
                           <Link
@@ -198,11 +290,7 @@ export function InstanceSettings() {
                             disabled={saving}
                             onClick={() => toggleMutation.mutate(agent)}
                           >
-                            {saving
-                              ? "..."
-                              : agent.heartbeatEnabled
-                                ? "Disable Timer Heartbeat"
-                                : "Enable Timer Heartbeat"}
+                            {saving ? "..." : agent.heartbeatEnabled ? "Disable Timer Heartbeat" : "Enable Timer Heartbeat"}
                           </Button>
                         </span>
                       </div>

@@ -7,12 +7,8 @@ export const agentTaskSessions = pgTable(
   "agent_task_sessions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id),
-    agentId: uuid("agent_id")
-      .notNull()
-      .references(() => agents.id),
+    companyId: uuid("company_id").notNull().references(() => companies.id),
+    agentId: uuid("agent_id").notNull().references(() => agents.id),
     adapterType: text("adapter_type").notNull(),
     taskKey: text("task_key").notNull(),
     sessionParamsJson: jsonb("session_params_json").$type<Record<string, unknown>>(),

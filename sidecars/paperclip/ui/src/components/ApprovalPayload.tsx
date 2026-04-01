@@ -1,7 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
 import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
-import { healthApi } from "../api/health";
-import { queryKeys } from "../lib/queryKeys";
 import { formatCents } from "../lib/utils";
 
 export const typeLabel: Record<string, string> = {
@@ -50,7 +47,10 @@ function SkillList({ values }: { values: unknown }) {
       <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs pt-0.5">Skills</span>
       <div className="flex flex-wrap gap-1.5">
         {items.map((item) => (
-          <span key={item} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+          <span
+            key={item}
+            className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+          >
             {item}
           </span>
         ))}
@@ -59,14 +59,7 @@ function SkillList({ values }: { values: unknown }) {
   );
 }
 
-export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    retry: false,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
-
+export function HireAgentPayload({ payload, hostedMode }: { payload: Record<string, unknown>; hostedMode?: boolean }) {
   return (
     <div className="mt-3 space-y-1.5 text-sm">
       <div className="flex items-center gap-2">
@@ -82,10 +75,12 @@ export function HireAgentPayload({ payload }: { payload: Record<string, unknown>
           <span className="text-muted-foreground">{String(payload.capabilities)}</span>
         </div>
       )}
-      {!isHosted && !!payload.adapterType && (
+      {!hostedMode && !!payload.adapterType && (
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs">Adapter</span>
-          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{String(payload.adapterType)}</span>
+          <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+            {String(payload.adapterType)}
+          </span>
         </div>
       )}
       <SkillList values={payload.desiredSkills} />
@@ -120,19 +115,20 @@ export function BudgetOverridePayload({ payload }: { payload: Record<string, unk
       <PayloadField label="Scope" value={payload.scopeName ?? payload.scopeType} />
       <PayloadField label="Window" value={payload.windowKind} />
       <PayloadField label="Metric" value={payload.metric} />
-      {budgetAmount !== null || observedAmount !== null ? (
+      {(budgetAmount !== null || observedAmount !== null) ? (
         <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Limit {budgetAmount !== null ? formatCents(budgetAmount) : "—"} · Observed{" "}
-          {observedAmount !== null ? formatCents(observedAmount) : "—"}
+          Limit {budgetAmount !== null ? formatCents(budgetAmount) : "—"} · Observed {observedAmount !== null ? formatCents(observedAmount) : "—"}
         </div>
       ) : null}
-      {!!payload.guidance && <p className="text-muted-foreground">{String(payload.guidance)}</p>}
+      {!!payload.guidance && (
+        <p className="text-muted-foreground">{String(payload.guidance)}</p>
+      )}
     </div>
   );
 }
 
-export function ApprovalPayloadRenderer({ type, payload }: { type: string; payload: Record<string, unknown> }) {
-  if (type === "hire_agent") return <HireAgentPayload payload={payload} />;
+export function ApprovalPayloadRenderer({ type, payload, hostedMode }: { type: string; payload: Record<string, unknown>; hostedMode?: boolean }) {
+  if (type === "hire_agent") return <HireAgentPayload payload={payload} hostedMode={hostedMode} />;
   if (type === "budget_override_required") return <BudgetOverridePayload payload={payload} />;
   return <CeoStrategyPayload payload={payload} />;
 }

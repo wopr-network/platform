@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Navigate, useParams } from "@/lib/router";
+import { Link, useParams } from "@/lib/router";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
@@ -17,13 +17,15 @@ const adapterLabels: Record<string, string> = {
   codex_local: "Codex (local)",
   gemini_local: "Gemini CLI (local)",
   opencode_local: "OpenCode (local)",
+  pi_local: "Pi (local)",
   openclaw_gateway: "OpenClaw Gateway",
   cursor: "Cursor (local)",
+  hermes_local: "Hermes Agent",
   process: "Process",
   http: "HTTP",
 };
 
-const ENABLED_INVITE_ADAPTERS = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "cursor"]);
+const ENABLED_INVITE_ADAPTERS = new Set(["claude_local", "codex_local", "gemini_local", "opencode_local", "pi_local", "cursor", "hermes_local"]);
 
 function dateTime(value: string) {
   return new Date(value).toLocaleString();
@@ -66,9 +68,8 @@ export function InviteLandingPage() {
     retry: false,
   });
 
-  const isHosted = healthQuery.data?.hostedMode === true;
-
   const invite = inviteQuery.data;
+  const companyName = invite?.companyName?.trim() || null;
   const allowedJoinTypes = invite?.allowedJoinTypes ?? "both";
   const availableJoinTypes = useMemo(() => {
     if (invite?.inviteType === "bootstrap_ceo") return ["human"] as JoinType[];
@@ -82,8 +83,12 @@ export function InviteLandingPage() {
     }
   }, [availableJoinTypes, joinType]);
 
+  const isHosted = healthQuery.data?.hostedMode === true;
+
   const requiresAuthForHuman =
-    joinType === "human" && healthQuery.data?.deploymentMode === "authenticated" && !sessionQuery.data;
+    joinType === "human" &&
+    healthQuery.data?.deploymentMode === "authenticated" &&
+    !sessionQuery.data;
 
   const acceptMutation = useMutation({
     mutationFn: async () => {
@@ -114,8 +119,6 @@ export function InviteLandingPage() {
     },
   });
 
-  if (isHosted) return <Navigate to="/" replace />;
-
   if (!token) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-destructive">Invalid invite token.</div>;
   }
@@ -129,7 +132,9 @@ export function InviteLandingPage() {
       <div className="mx-auto max-w-xl py-10">
         <div className="rounded-lg border border-border bg-card p-6">
           <h1 className="text-lg font-semibold">Invite not available</h1>
-          <p className="mt-2 text-sm text-muted-foreground">This invite may be expired, revoked, or already used.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            This invite may be expired, revoked, or already used.
+          </p>
         </div>
       </div>
     );
@@ -192,9 +197,7 @@ export function InviteLandingPage() {
             <div className="mt-3 space-y-1 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">Paperclip skill bootstrap</p>
               {onboardingSkillUrl && <p className="font-mono break-all">GET {onboardingSkillUrl}</p>}
-              {!onboardingSkillUrl && onboardingSkillPath && (
-                <p className="font-mono break-all">GET {onboardingSkillPath}</p>
-              )}
+              {!onboardingSkillUrl && onboardingSkillPath && <p className="font-mono break-all">GET {onboardingSkillPath}</p>}
               {onboardingInstallPath && <p className="font-mono break-all">Install to {onboardingInstallPath}</p>}
             </div>
           )}
@@ -202,9 +205,7 @@ export function InviteLandingPage() {
             <div className="mt-3 space-y-1 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">Agent-readable onboarding text</p>
               {onboardingTextUrl && <p className="font-mono break-all">GET {onboardingTextUrl}</p>}
-              {!onboardingTextUrl && onboardingTextPath && (
-                <p className="font-mono break-all">GET {onboardingTextPath}</p>
-              )}
+              {!onboardingTextUrl && onboardingTextPath && <p className="font-mono break-all">GET {onboardingTextPath}</p>}
             </div>
           )}
           {diagnostics.length > 0 && (
@@ -229,9 +230,18 @@ export function InviteLandingPage() {
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
         <h1 className="text-xl font-semibold">
-          {invite.inviteType === "bootstrap_ceo" ? "Bootstrap your Paperclip instance" : "Join this Paperclip company"}
+          {invite.inviteType === "bootstrap_ceo"
+            ? "Bootstrap your Paperclip instance"
+            : companyName
+              ? `Join ${companyName}`
+              : "Join this Paperclip company"}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">Invite expires {dateTime(invite.expiresAt)}.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {invite.inviteType !== "bootstrap_ceo" && companyName
+            ? `You were invited to join ${companyName}. `
+            : null}
+          Invite expires {dateTime(invite.expiresAt)}.
+        </p>
 
         {invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-5 flex gap-2">
@@ -272,8 +282,7 @@ export function InviteLandingPage() {
                 >
                   {joinAdapterOptions.map((type) => (
                     <option key={type} value={type} disabled={!ENABLED_INVITE_ADAPTERS.has(type)}>
-                      {adapterLabels[type]}
-                      {!ENABLED_INVITE_ADAPTERS.has(type) ? " (Coming soon)" : ""}
+                      {adapterLabels[type]}{!ENABLED_INVITE_ADAPTERS.has(type) ? " (Coming soon)" : ""}
                     </option>
                   ))}
                 </select>

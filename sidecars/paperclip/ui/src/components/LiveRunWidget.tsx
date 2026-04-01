@@ -62,7 +62,9 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
         issueId,
       });
     }
-    return [...deduped.values()].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return [...deduped.values()].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }, [activeRun, issueId, liveRuns]);
 
   const { transcriptByRun, hasOutputForRun } = useLiveRunTranscripts({ runs, companyId });
@@ -146,9 +148,7 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
                   limit={8}
                   streaming={isActive}
                   collapseStdout
-                  emptyMessage={
-                    hasOutputForRun(run.id) ? "Waiting for transcript parsing..." : "Waiting for run output..."
-                  }
+                  emptyMessage={hasOutputForRun(run.id) ? "Waiting for transcript parsing..." : "Waiting for run output..."}
                 />
               </div>
             </section>

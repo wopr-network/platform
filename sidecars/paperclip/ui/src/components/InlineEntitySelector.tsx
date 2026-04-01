@@ -101,9 +101,7 @@ export const InlineEntitySelector = forwardRef<HTMLButtonElement, InlineEntitySe
               "inline-flex min-w-0 items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-sm font-medium text-foreground transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               className,
             )}
-            onPointerDown={() => {
-              isPointerDownRef.current = true;
-            }}
+            onPointerDown={() => { isPointerDownRef.current = true; }}
             onFocus={() => {
               if (!isPointerDownRef.current) setOpen(true);
               isPointerDownRef.current = false;
@@ -195,12 +193,7 @@ export const InlineEntitySelector = forwardRef<HTMLButtonElement, InlineEntitySe
                     onClick={() => commitSelection(index, true)}
                   >
                     {renderOption ? renderOption(option, isSelected) : <span className="truncate">{option.label}</span>}
-                    <Check
-                      className={cn(
-                        "ml-auto h-3.5 w-3.5 text-muted-foreground",
-                        isSelected ? "opacity-100" : "opacity-0",
-                      )}
-                    />
+                    <Check className={cn("ml-auto h-3.5 w-3.5 text-muted-foreground", isSelected ? "opacity-100" : "opacity-0")} />
                   </button>
                 );
               })

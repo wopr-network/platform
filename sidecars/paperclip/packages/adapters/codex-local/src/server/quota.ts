@@ -60,7 +60,7 @@ function decodeJwtPayload(token: string | null | undefined): Record<string, unkn
   if (!decoded) return null;
   try {
     const parsed = JSON.parse(decoded) as unknown;
-    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : null;
+    return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : null;
   } catch {
     return null;
   }
@@ -75,10 +75,7 @@ function readNestedString(record: Record<string, unknown>, pathSegments: string[
   return typeof current === "string" && current.trim().length > 0 ? current.trim() : null;
 }
 
-function parsePlanAndEmailFromToken(
-  idToken: string | null,
-  accessToken: string | null,
-): {
+function parsePlanAndEmailFromToken(idToken: string | null, accessToken: string | null): {
   email: string | null;
   planType: string | null;
 } {
@@ -91,26 +88,27 @@ function parsePlanAndEmailFromToken(
       typeof payload["https://api.openai.com/auth"] === "object" &&
       payload["https://api.openai.com/auth"] !== null &&
       !Array.isArray(payload["https://api.openai.com/auth"])
-        ? (payload["https://api.openai.com/auth"] as Record<string, unknown>)
+        ? payload["https://api.openai.com/auth"] as Record<string, unknown>
         : null;
     const profileBlock =
       typeof payload["https://api.openai.com/profile"] === "object" &&
       payload["https://api.openai.com/profile"] !== null &&
       !Array.isArray(payload["https://api.openai.com/profile"])
-        ? (payload["https://api.openai.com/profile"] as Record<string, unknown>)
+        ? payload["https://api.openai.com/profile"] as Record<string, unknown>
         : null;
     const email =
-      directEmail ??
-      (typeof profileBlock?.email === "string" ? profileBlock.email : null) ??
-      (typeof authBlock?.chatgpt_user_email === "string" ? authBlock.chatgpt_user_email : null);
-    const planType = typeof authBlock?.chatgpt_plan_type === "string" ? authBlock.chatgpt_plan_type : null;
+      directEmail
+      ?? (typeof profileBlock?.email === "string" ? profileBlock.email : null)
+      ?? (typeof authBlock?.chatgpt_user_email === "string" ? authBlock.chatgpt_user_email : null);
+    const planType =
+      typeof authBlock?.chatgpt_plan_type === "string" ? authBlock.chatgpt_plan_type : null;
     if (email || planType) return { email: email ?? null, planType };
   }
   return { email: null, planType: null };
 }
 
-export async function readCodexAuthInfo(): Promise<CodexAuthInfo | null> {
-  const authPath = path.join(codexHomeDir(), "auth.json");
+export async function readCodexAuthInfo(codexHome?: string): Promise<CodexAuthInfo | null> {
+  const authPath = path.join(codexHome ?? codexHomeDir(), "auth.json");
   let raw: string;
   try {
     raw = await fs.readFile(authPath, "utf8");
@@ -129,19 +127,31 @@ export async function readCodexAuthInfo(): Promise<CodexAuthInfo | null> {
   const legacy = obj as CodexLegacyAuthFile;
 
   const accessToken =
-    legacy.accessToken ?? modern.tokens?.access_token ?? readNestedString(obj, ["tokens", "access_token"]);
+    legacy.accessToken
+    ?? modern.tokens?.access_token
+    ?? readNestedString(obj, ["tokens", "access_token"]);
   if (typeof accessToken !== "string" || accessToken.length === 0) return null;
 
-  const accountId = legacy.accountId ?? modern.tokens?.account_id ?? readNestedString(obj, ["tokens", "account_id"]);
-  const refreshToken = modern.tokens?.refresh_token ?? readNestedString(obj, ["tokens", "refresh_token"]);
-  const idToken = modern.tokens?.id_token ?? readNestedString(obj, ["tokens", "id_token"]);
+  const accountId =
+    legacy.accountId
+    ?? modern.tokens?.account_id
+    ?? readNestedString(obj, ["tokens", "account_id"]);
+  const refreshToken =
+    modern.tokens?.refresh_token
+    ?? readNestedString(obj, ["tokens", "refresh_token"]);
+  const idToken =
+    modern.tokens?.id_token
+    ?? readNestedString(obj, ["tokens", "id_token"]);
   const { email, planType } = parsePlanAndEmailFromToken(idToken, accessToken);
 
   return {
     accessToken,
-    accountId: typeof accountId === "string" && accountId.trim().length > 0 ? accountId.trim() : null,
-    refreshToken: typeof refreshToken === "string" && refreshToken.trim().length > 0 ? refreshToken.trim() : null,
-    idToken: typeof idToken === "string" && idToken.trim().length > 0 ? idToken.trim() : null,
+    accountId:
+      typeof accountId === "string" && accountId.trim().length > 0 ? accountId.trim() : null,
+    refreshToken:
+      typeof refreshToken === "string" && refreshToken.trim().length > 0 ? refreshToken.trim() : null,
+    idToken:
+      typeof idToken === "string" && idToken.trim().length > 0 ? idToken.trim() : null,
     email,
     planType,
     lastRefresh:
@@ -181,7 +191,10 @@ interface WhamUsageResponse {
  * Map a window duration in seconds to a human-readable label.
  * Falls back to the provided fallback string when seconds is null/undefined.
  */
-export function secondsToWindowLabel(seconds: number | null | undefined, fallback: string): string {
+export function secondsToWindowLabel(
+  seconds: number | null | undefined,
+  fallback: string,
+): string {
   if (seconds == null) return fallback;
   const hours = seconds / 3600;
   if (hours < 6) return "5h";
@@ -191,7 +204,11 @@ export function secondsToWindowLabel(seconds: number | null | undefined, fallbac
 }
 
 /** fetch with an abort-based timeout so a hanging provider api doesn't block the response indefinitely */
-export async function fetchWithTimeout(url: string, init: RequestInit, ms = 8000): Promise<Response> {
+export async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  ms = 8000,
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try {
@@ -206,7 +223,10 @@ function normalizeCodexUsedPercent(rawPct: number | null | undefined): number | 
   return Math.min(100, Math.round(rawPct < 1 ? rawPct * 100 : rawPct));
 }
 
-export async function fetchCodexQuota(token: string, accountId: string | null): Promise<QuotaWindow[]> {
+export async function fetchCodexQuota(
+  token: string,
+  accountId: string | null,
+): Promise<QuotaWindow[]> {
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
   };
@@ -223,7 +243,10 @@ export async function fetchCodexQuota(token: string, accountId: string | null): 
     windows.push({
       label: "5h limit",
       usedPercent: normalizeCodexUsedPercent(w.used_percent),
-      resetsAt: typeof w.reset_at === "number" ? unixSecondsToIso(w.reset_at) : (w.reset_at ?? null),
+      resetsAt:
+        typeof w.reset_at === "number"
+          ? unixSecondsToIso(w.reset_at)
+          : (w.reset_at ?? null),
       valueLabel: null,
       detail: null,
     });
@@ -233,7 +256,10 @@ export async function fetchCodexQuota(token: string, accountId: string | null): 
     windows.push({
       label: "Weekly limit",
       usedPercent: normalizeCodexUsedPercent(w.used_percent),
-      resetsAt: typeof w.reset_at === "number" ? unixSecondsToIso(w.reset_at) : (w.reset_at ?? null),
+      resetsAt:
+        typeof w.reset_at === "number"
+          ? unixSecondsToIso(w.reset_at)
+          : (w.reset_at ?? null),
       valueLabel: null,
       detail: null,
     });
@@ -323,10 +349,7 @@ function parseCreditBalance(value: string | number | null | undefined): string |
   return null;
 }
 
-export function mapCodexRpcQuota(
-  result: CodexRpcRateLimitsResult,
-  account?: CodexRpcAccountResult | null,
-): CodexRpcQuotaSnapshot {
+export function mapCodexRpcQuota(result: CodexRpcRateLimitsResult, account?: CodexRpcAccountResult | null): CodexRpcQuotaSnapshot {
   const windows: QuotaWindow[] = [];
   const limitOrder = ["codex"];
   const limitsById = result.rateLimitsByLimitId ?? {};
@@ -345,7 +368,10 @@ export function mapCodexRpcQuota(
   for (const limitId of limitOrder) {
     const limit = allLimits.get(limitId);
     if (!limit) continue;
-    const prefix = limitId === "codex" ? "" : `${limit.limitName ?? limitId} · `;
+    const prefix =
+      limitId === "codex"
+        ? ""
+        : `${limit.limitName ?? limitId} · `;
     const primary = buildCodexRpcWindow(`${prefix}5h limit`, limit.primary);
     if (primary) windows.push(primary);
     const secondary = buildCodexRpcWindow(`${prefix}Weekly limit`, limit.secondary);
@@ -370,9 +396,7 @@ export function mapCodexRpcQuota(
     planType:
       typeof account?.account?.planType === "string" && account.account.planType.trim().length > 0
         ? account.account.planType.trim()
-        : typeof rootLimit?.planType === "string" && rootLimit.planType.trim().length > 0
-          ? rootLimit.planType.trim()
-          : null,
+        : (typeof rootLimit?.planType === "string" && rootLimit.planType.trim().length > 0 ? rootLimit.planType.trim() : null),
   };
 }
 
@@ -383,10 +407,11 @@ type PendingRequest = {
 };
 
 class CodexRpcClient {
-  private proc = spawn("codex", ["-s", "read-only", "-a", "untrusted", "app-server"], {
-    stdio: ["pipe", "pipe", "pipe"],
-    env: process.env,
-  });
+  private proc = spawn(
+    "codex",
+    ["-s", "read-only", "-a", "untrusted", "app-server"],
+    { stdio: ["pipe", "pipe", "pipe"], env: process.env },
+  );
 
   private nextId = 1;
   private buffer = "";
@@ -404,6 +429,13 @@ class CodexRpcClient {
       for (const request of this.pending.values()) {
         clearTimeout(request.timer);
         request.reject(new Error(this.stderr.trim() || "codex app-server closed unexpectedly"));
+      }
+      this.pending.clear();
+    });
+    this.proc.on("error", (err: Error) => {
+      for (const request of this.pending.values()) {
+        clearTimeout(request.timer);
+        request.reject(err);
       }
       this.pending.clear();
     });
@@ -433,11 +465,7 @@ class CodexRpcClient {
     }
   }
 
-  private request(
-    method: string,
-    params: Record<string, unknown> = {},
-    timeoutMs = 6_000,
-  ): Promise<Record<string, unknown>> {
+  private request(method: string, params: Record<string, unknown> = {}, timeoutMs = 6_000): Promise<Record<string, unknown>> {
     const id = this.nextId++;
     const payload = JSON.stringify({ id, method, params }) + "\n";
     return new Promise<Record<string, unknown>>((resolve, reject) => {
@@ -487,7 +515,10 @@ export async function fetchCodexRpcQuota(): Promise<CodexRpcQuotaSnapshot> {
   const client = new CodexRpcClient();
   try {
     await client.initialize();
-    const [limits, account] = await Promise.all([client.fetchRateLimits(), client.fetchAccount()]);
+    const [limits, account] = await Promise.all([
+      client.fetchRateLimits(),
+      client.fetchAccount(),
+    ]);
     return mapCodexRpcQuota(limits, account);
   } finally {
     await client.shutdown();

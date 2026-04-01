@@ -1,6 +1,5 @@
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from "@/lib/router";
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Layout } from "./components/Layout";
 import { OnboardingWizard } from "./components/OnboardingWizard";
@@ -12,6 +11,7 @@ import { Agents } from "./pages/Agents";
 import { AgentDetail } from "./pages/AgentDetail";
 import { Projects } from "./pages/Projects";
 import { ProjectDetail } from "./pages/ProjectDetail";
+import { ProjectWorkspaceDetail } from "./pages/ProjectWorkspaceDetail";
 import { Issues } from "./pages/Issues";
 import { IssueDetail } from "./pages/IssueDetail";
 import { Routines } from "./pages/Routines";
@@ -40,6 +40,7 @@ import { OrgChart } from "./pages/OrgChart";
 import { NewAgent } from "./pages/NewAgent";
 import { AuthPage } from "./pages/Auth";
 import { BoardClaimPage } from "./pages/BoardClaim";
+import { CliAuthPage } from "./pages/CliAuth";
 import { InviteLandingPage } from "./pages/InviteLanding";
 import { NotFoundPage } from "./pages/NotFound";
 import { queryKeys } from "./lib/queryKeys";
@@ -59,7 +60,7 @@ function BootstrapPendingPage({ hasActiveInvite = false }: { hasActiveInvite?: b
             : "No instance admin exists yet. Run this command in your Paperclip environment to generate the first admin invite URL:"}
         </p>
         <pre className="mt-4 overflow-x-auto rounded-md border border-border bg-muted/30 p-3 text-xs">
-          {`pnpm paperclipai auth bootstrap-ceo`}
+{`pnpm paperclipai auth bootstrap-ceo`}
         </pre>
       </div>
     </div>
@@ -76,7 +77,9 @@ function CloudAccessGate() {
       const data = query.state.data as
         | { deploymentMode?: "local_trusted" | "authenticated"; bootstrapStatus?: "ready" | "bootstrap_pending" }
         | undefined;
-      return data?.deploymentMode === "authenticated" && data.bootstrapStatus === "bootstrap_pending" ? 2000 : false;
+      return data?.deploymentMode === "authenticated" && data.bootstrapStatus === "bootstrap_pending"
+        ? 2000
+        : false;
     },
     refetchIntervalInBackground: true,
   });
@@ -102,11 +105,7 @@ function CloudAccessGate() {
     );
   }
 
-  if (
-    isAuthenticatedMode &&
-    healthQuery.data?.bootstrapStatus === "bootstrap_pending" &&
-    !healthQuery.data?.hostedMode
-  ) {
+  if (isAuthenticatedMode && healthQuery.data?.bootstrapStatus === "bootstrap_pending") {
     return <BootstrapPendingPage hasActiveInvite={healthQuery.data.bootstrapInviteActive} />;
   }
 
@@ -147,6 +146,8 @@ function boardRoutes() {
       <Route path="projects/:projectId/overview" element={<ProjectDetail />} />
       <Route path="projects/:projectId/issues" element={<ProjectDetail />} />
       <Route path="projects/:projectId/issues/:filter" element={<ProjectDetail />} />
+      <Route path="projects/:projectId/workspaces/:workspaceId" element={<ProjectWorkspaceDetail />} />
+      <Route path="projects/:projectId/workspaces" element={<ProjectDetail />} />
       <Route path="projects/:projectId/configuration" element={<ProjectDetail />} />
       <Route path="projects/:projectId/budget" element={<ProjectDetail />} />
       <Route path="issues" element={<Issues />} />
@@ -168,10 +169,11 @@ function boardRoutes() {
       <Route path="costs" element={<Costs />} />
       <Route path="activity" element={<Activity />} />
       <Route path="inbox" element={<InboxRootRedirect />} />
+      <Route path="inbox/mine" element={<Inbox />} />
       <Route path="inbox/recent" element={<Inbox />} />
       <Route path="inbox/unread" element={<Inbox />} />
       <Route path="inbox/all" element={<Inbox />} />
-      <Route path="inbox/new" element={<Navigate to="/inbox/recent" replace />} />
+      <Route path="inbox/new" element={<Navigate to="/inbox/mine" replace />} />
       <Route path="design-guide" element={<DesignGuide />} />
       <Route path="tests/ux/runs" element={<RunTranscriptUxLab />} />
       <Route path=":pluginRoutePath" element={<PluginPage />} />
@@ -194,7 +196,7 @@ function OnboardingRoutePage() {
   const { openOnboarding } = useDialog();
   const { companyPrefix } = useParams<{ companyPrefix?: string }>();
   const matchedCompany = companyPrefix
-    ? (companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null)
+    ? companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null
     : null;
 
   const title = matchedCompany
@@ -216,7 +218,9 @@ function OnboardingRoutePage() {
         <div className="mt-4">
           <Button
             onClick={() =>
-              matchedCompany ? openOnboarding({ initialStep: 2, companyId: matchedCompany.id }) : openOnboarding()
+              matchedCompany
+                ? openOnboarding({ initialStep: 2, companyId: matchedCompany.id })
+                : openOnboarding()
             }
           >
             {matchedCompany ? "Add Agent" : "Start Onboarding"}
@@ -229,29 +233,14 @@ function OnboardingRoutePage() {
 
 function CompanyRootRedirect() {
   const { companies, selectedCompany, loading } = useCompany();
-  const { onboardingOpen } = useDialog();
   const location = useLocation();
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    retry: false,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
 
   if (loading) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
   }
 
-  // Keep the first-run onboarding mounted until it completes.
-  if (!isHosted && onboardingOpen) {
-    return <NoCompaniesStartPage />;
-  }
-
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
-    if (isHosted) {
-      return <HostedProvisioningPage />;
-    }
     if (
       shouldRedirectCompanylessRouteToOnboarding({
         pathname: location.pathname,
@@ -269,12 +258,6 @@ function CompanyRootRedirect() {
 function UnprefixedBoardRedirect() {
   const location = useLocation();
   const { companies, selectedCompany, loading } = useCompany();
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    retry: false,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
 
   if (loading) {
     return <div className="mx-auto max-w-xl py-10 text-sm text-muted-foreground">Loading...</div>;
@@ -282,9 +265,6 @@ function UnprefixedBoardRedirect() {
 
   const targetCompany = selectedCompany ?? companies[0] ?? null;
   if (!targetCompany) {
-    if (isHosted) {
-      return <HostedProvisioningPage />;
-    }
     if (
       shouldRedirectCompanylessRouteToOnboarding({
         pathname: location.pathname,
@@ -297,7 +277,10 @@ function UnprefixedBoardRedirect() {
   }
 
   return (
-    <Navigate to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`} replace />
+    <Navigate
+      to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`}
+      replace
+    />
   );
 }
 
@@ -308,7 +291,9 @@ function NoCompaniesStartPage() {
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
         <h1 className="text-xl font-semibold">Create your first company</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Get started by creating a company.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Get started by creating a company.
+        </p>
         <div className="mt-4">
           <Button onClick={() => openOnboarding()}>New Company</Button>
         </div>
@@ -317,40 +302,20 @@ function NoCompaniesStartPage() {
   );
 }
 
-function HostedProvisioningPage() {
-  const queryClient = useQueryClient();
-  useEffect(() => {
-    const interval = setInterval(() => {
-      queryClient.invalidateQueries();
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [queryClient]);
-
-  return (
-    <div className="mx-auto max-w-xl py-10">
-      <div className="rounded-lg border border-border bg-card p-6">
-        <h1 className="text-xl font-semibold">Setting up...</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Your workspace is being provisioned. This page will refresh automatically.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export function App() {
-  const healthQuery = useQuery({
+  const appHealthQuery = useQuery({
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
-    retry: false,
+    staleTime: 60_000,
   });
-  const isHosted = healthQuery.data?.hostedMode === true;
+  const isHosted = appHealthQuery.data?.hostedMode === true;
 
   return (
     <>
       <Routes>
         <Route path="auth" element={<AuthPage />} />
         <Route path="board-claim/:token" element={<BoardClaimPage />} />
+        <Route path="cli-auth/:id" element={<CliAuthPage />} />
         <Route path="invite/:token" element={<InviteLandingPage />} />
 
         <Route element={<CloudAccessGate />}>
@@ -383,7 +348,10 @@ export function App() {
           <Route path="projects/:projectId/overview" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/issues/:filter" element={<UnprefixedBoardRedirect />} />
+          <Route path="projects/:projectId/workspaces" element={<UnprefixedBoardRedirect />} />
+          <Route path="projects/:projectId/workspaces/:workspaceId" element={<UnprefixedBoardRedirect />} />
           <Route path="projects/:projectId/configuration" element={<UnprefixedBoardRedirect />} />
+          <Route path="execution-workspaces/:workspaceId" element={<UnprefixedBoardRedirect />} />
           <Route path="tests/ux/runs" element={<UnprefixedBoardRedirect />} />
           <Route path=":companyPrefix" element={<Layout />}>
             {boardRoutes()}

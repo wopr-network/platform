@@ -4,7 +4,12 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { toNodeHandler } from "better-auth/node";
 import type { Db } from "@paperclipai/db";
-import { authAccounts, authSessions, authUsers, authVerifications } from "@paperclipai/db";
+import {
+  authAccounts,
+  authSessions,
+  authUsers,
+  authVerifications,
+} from "@paperclipai/db";
 import type { Config } from "../config.js";
 
 export type BetterAuthSessionUser = {
@@ -93,7 +98,7 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins?
     delete (authConfig as { baseURL?: string }).baseURL;
   }
 
-  return betterAuth(authConfig) as BetterAuthInstance;
+  return betterAuth(authConfig);
 }
 
 export function createBetterAuthHandler(auth: BetterAuthInstance): RequestHandler {
@@ -119,8 +124,9 @@ export async function resolveBetterAuthSessionFromHeaders(
     session?: { id?: string; userId?: string } | null;
     user?: { id?: string; email?: string | null; name?: string | null } | null;
   };
-  const session =
-    value.session?.id && value.session.userId ? { id: value.session.id, userId: value.session.userId } : null;
+  const session = value.session?.id && value.session.userId
+    ? { id: value.session.id, userId: value.session.userId }
+    : null;
   const user = value.user?.id
     ? {
         id: value.user.id,

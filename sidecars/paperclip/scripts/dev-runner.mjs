@@ -5,6 +5,7 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { fileURLToPath } from "node:url";
+import { shouldTrackDevServerPath } from "./dev-runner-paths.mjs";
 
 const mode = process.argv[2] === "watch" ? "watch" : "dev";
 const cliArgs = process.argv.slice(3);
@@ -16,7 +17,6 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const devServerStatusFilePath = path.join(repoRoot, ".paperclip", "dev-server-status.json");
 
 const watchedDirectories = [
-  ".paperclip",
   "cli",
   "scripts",
   "server",
@@ -36,11 +36,24 @@ const watchedFiles = [
   "vitest.config.ts",
 ].map((relativePath) => path.join(repoRoot, relativePath));
 
-const ignoredDirectoryNames = new Set([".git", ".turbo", ".vite", "coverage", "dist", "node_modules", "ui-dist"]);
+const ignoredDirectoryNames = new Set([
+  ".git",
+  ".turbo",
+  ".vite",
+  "coverage",
+  "dist",
+  "node_modules",
+  "ui-dist",
+]);
 
-const ignoredRelativePaths = new Set([".paperclip/dev-server-status.json"]);
+const ignoredRelativePaths = new Set([
+  ".paperclip/dev-server-status.json",
+]);
 
-const tailscaleAuthFlagNames = new Set(["--tailscale-auth", "--authenticated-private"]);
+const tailscaleAuthFlagNames = new Set([
+  "--tailscale-auth",
+  "--authenticated-private",
+]);
 
 let tailscaleAuth = false;
 const forwardedArgs = [];
@@ -152,6 +165,7 @@ function readSignature(absolutePath) {
 function addFileToSnapshot(snapshot, absolutePath) {
   const relativePath = toRelativePath(absolutePath);
   if (ignoredRelativePaths.has(relativePath)) return;
+  if (!shouldTrackDevServerPath(relativePath)) return;
   snapshot.set(relativePath, readSignature(absolutePath));
 }
 
@@ -214,18 +228,14 @@ function writeDevServerStatus() {
   const changedPaths = [...dirtyPaths].sort();
   writeFileSync(
     devServerStatusFilePath,
-    `${JSON.stringify(
-      {
-        dirty: changedPaths.length > 0 || pendingMigrations.length > 0,
-        lastChangedAt,
-        changedPathCount: changedPaths.length,
-        changedPathsSample: changedPaths.slice(0, changedPathSampleLimit),
-        pendingMigrations,
-        lastRestartAt,
-      },
-      null,
-      2,
-    )}\n`,
+    `${JSON.stringify({
+      dirty: changedPaths.length > 0 || pendingMigrations.length > 0,
+      lastChangedAt,
+      changedPathCount: changedPaths.length,
+      changedPathsSample: changedPaths.slice(0, changedPathSampleLimit),
+      pendingMigrations,
+      lastRestartAt,
+    }, null, 2)}\n`,
     "utf8",
   );
 }
@@ -270,9 +280,10 @@ async function runPnpm(args, options = {}) {
 }
 
 async function getMigrationStatusPayload() {
-  const status = await runPnpm(["--filter", "@paperclipai/db", "exec", "tsx", "src/migration-status.ts", "--json"], {
-    env,
-  });
+  const status = await runPnpm(
+    ["--filter", "@paperclipai/db", "exec", "tsx", "src/migration-status.ts", "--json"],
+    { env },
+  );
   if (status.code !== 0) {
     process.stderr.write(
       status.stderr ||
@@ -286,7 +297,9 @@ async function getMigrationStatusPayload() {
     return JSON.parse(status.stdout.trim());
   } catch (error) {
     process.stderr.write(
-      status.stderr || status.stdout || "[paperclip] migration-status returned invalid JSON payload\n",
+      status.stderr ||
+        status.stdout ||
+        "[paperclip] migration-status returned invalid JSON payload\n",
     );
     throw toError(error, "Unable to parse migration-status JSON output");
   }
@@ -366,7 +379,10 @@ async function maybePreflightMigrations(options = {}) {
 
 async function buildPluginSdk() {
   console.log("[paperclip] building plugin sdk...");
-  const result = await runPnpm(["--filter", "@paperclipai/plugin-sdk", "build"], { stdio: "inherit" });
+  const result = await runPnpm(
+    ["--filter", "@paperclipai/plugin-sdk", "build"],
+    { stdio: "inherit" },
+  );
   if (result.signal) {
     exitForSignal(result.signal);
     return;
@@ -440,11 +456,11 @@ async function startServerChild() {
   await buildPluginSdk();
 
   const serverScript = mode === "watch" ? "dev:watch" : "dev";
-  child = spawn(pnpmBin, ["--filter", "@paperclipai/server", serverScript, ...forwardedArgs], {
-    stdio: "inherit",
-    env,
-    shell: process.platform === "win32",
-  });
+  child = spawn(
+    pnpmBin,
+    ["--filter", "@paperclipai/server", serverScript, ...forwardedArgs],
+    { stdio: "inherit", env, shell: process.platform === "win32" },
+  );
 
   childExitPromise = new Promise((resolve, reject) => {
     child.on("error", reject);

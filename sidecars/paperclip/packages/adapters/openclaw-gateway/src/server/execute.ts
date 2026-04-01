@@ -223,7 +223,8 @@ function resolveAuthToken(config: Record<string, unknown>, headers: Record<strin
   if (nonEmpty(tokenHeader)) return nonEmpty(tokenHeader);
 
   const authHeader =
-    headerMapGetIgnoreCase(headers, "x-openclaw-auth") ?? headerMapGetIgnoreCase(headers, "authorization");
+    headerMapGetIgnoreCase(headers, "x-openclaw-auth") ??
+    headerMapGetIgnoreCase(headers, "authorization");
   return tokenFromAuthHeader(authHeader);
 }
 
@@ -293,7 +294,9 @@ function buildWakePayload(ctx: AdapterExecutionContext): WakePayload {
     approvalId: nonEmpty(context.approvalId),
     approvalStatus: nonEmpty(context.approvalStatus),
     issueIds: Array.isArray(context.issueIds)
-      ? context.issueIds.filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      ? context.issueIds.filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0,
+        )
       : [],
   };
 }
@@ -387,12 +390,12 @@ function buildWakeText(payload: WakePayload, paperclipEnv: Record<string, string
     "1) GET /api/agents/me",
     `2) Determine issueId: PAPERCLIP_TASK_ID if present, otherwise issue_id (${issueIdHint}).`,
     "3) If issueId exists:",
-    '   - POST /api/issues/{issueId}/checkout with {"agentId":"$PAPERCLIP_AGENT_ID","expectedStatuses":["todo","backlog","blocked"]}',
+    "   - POST /api/issues/{issueId}/checkout with {\"agentId\":\"$PAPERCLIP_AGENT_ID\",\"expectedStatuses\":[\"todo\",\"backlog\",\"blocked\"]}",
     "   - GET /api/issues/{issueId}",
     "   - GET /api/issues/{issueId}/comments",
     "   - Execute the issue instructions exactly.",
-    '   - If instructions require a comment, POST /api/issues/{issueId}/comments with {"body":"..."}.',
-    '   - PATCH /api/issues/{issueId} with {"status":"done","comment":"what changed and why"}.',
+    "   - If instructions require a comment, POST /api/issues/{issueId}/comments with {\"body\":\"...\"}.",
+    "   - PATCH /api/issues/{issueId} with {\"status\":\"done\",\"comment\":\"what changed and why\"}.",
     "4) If issueId does not exist:",
     "   - GET /api/companies/$PAPERCLIP_COMPANY_ID/issues?assigneeAgentId=$PAPERCLIP_AGENT_ID&status=todo,in_progress,blocked",
     "   - Pick in_progress first, then todo, then blocked, then execute step 3.",
@@ -425,8 +428,8 @@ function buildStandardPaperclipPayload(
     : [];
   const configuredWorkspaceRuntime = parseObject(ctx.config.workspaceRuntime);
   const runtimeServiceIntents = Array.isArray(ctx.context.paperclipRuntimeServiceIntents)
-    ? ctx.context.paperclipRuntimeServiceIntents.filter((entry): entry is Record<string, unknown> =>
-        Boolean(asRecord(entry)),
+    ? ctx.context.paperclipRuntimeServiceIntents.filter(
+        (entry): entry is Record<string, unknown> => Boolean(asRecord(entry)),
       )
     : [];
 
@@ -669,7 +672,11 @@ class GatewayWsClient {
     return hello;
   }
 
-  async request<T>(method: string, params: unknown, opts: GatewayClientRequestOptions): Promise<T> {
+  async request<T>(
+    method: string,
+    params: unknown,
+    opts: GatewayClientRequestOptions,
+  ): Promise<T> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error("gateway not connected");
     }
@@ -761,7 +768,10 @@ class GatewayWsClient {
     }
 
     const errorRecord = asRecord(parsed.error);
-    const message = nonEmpty(errorRecord?.message) ?? nonEmpty(errorRecord?.code) ?? "gateway request failed";
+    const message =
+      nonEmpty(errorRecord?.message) ??
+      nonEmpty(errorRecord?.code) ??
+      "gateway request failed";
     const err = new Error(message) as GatewayResponseError;
     const code = nonEmpty(errorRecord?.code);
     const details = asRecord(errorRecord?.details);
@@ -826,20 +836,17 @@ async function autoApproveDevicePairing(params: {
 
     let requestId = params.requestId;
     if (!requestId) {
-      const listPayload = await client.request<Record<string, unknown>>(
-        "device.pair.list",
-        {},
-        {
-          timeoutMs: params.connectTimeoutMs,
-        },
-      );
+      const listPayload = await client.request<Record<string, unknown>>("device.pair.list", {}, {
+        timeoutMs: params.connectTimeoutMs,
+      });
       const pending = Array.isArray(listPayload.pending) ? listPayload.pending : [];
       const pendingRecords = pending
         .map((entry) => asRecord(entry))
         .filter((entry): entry is Record<string, unknown> => Boolean(entry));
       const matching =
-        (params.deviceId ? pendingRecords.find((entry) => nonEmpty(entry.deviceId) === params.deviceId) : null) ??
-        pendingRecords[pendingRecords.length - 1];
+        (params.deviceId
+          ? pendingRecords.find((entry) => nonEmpty(entry.deviceId) === params.deviceId)
+          : null) ?? pendingRecords[pendingRecords.length - 1];
       requestId = nonEmpty(matching?.requestId);
     }
 
@@ -904,7 +911,9 @@ function extractRuntimeServicesFromMeta(meta: Record<string, unknown> | null): A
     const lifecycle = rawLifecycle === "shared" ? "shared" : "ephemeral";
     const rawScopeType = nonEmpty(entry.scopeType)?.toLowerCase();
     const scopeType =
-      rawScopeType === "project_workspace" || rawScopeType === "execution_workspace" || rawScopeType === "agent"
+      rawScopeType === "project_workspace" ||
+      rawScopeType === "execution_workspace" ||
+      rawScopeType === "agent"
         ? rawScopeType
         : "run";
     const rawHealth = nonEmpty(entry.healthStatus)?.toLowerCase();
@@ -1293,7 +1302,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
             exitCode: 1,
             signal: null,
             timedOut: false,
-            errorMessage: nonEmpty(waitPayload?.error) ?? lifecycleError ?? "OpenClaw gateway run failed",
+            errorMessage:
+              nonEmpty(waitPayload?.error) ??
+              lifecycleError ??
+              "OpenClaw gateway run failed",
             errorCode: "openclaw_gateway_wait_error",
             resultJson: waitPayload,
           };
@@ -1329,7 +1341,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         ...(latestMeta ?? {}),
       };
       const agentMeta =
-        asRecord(mergedMeta.agentMeta) ?? asRecord(acceptedMeta?.agentMeta) ?? asRecord(latestMeta?.agentMeta);
+        asRecord(mergedMeta.agentMeta) ??
+        asRecord(acceptedMeta?.agentMeta) ??
+        asRecord(latestMeta?.agentMeta);
       const usage = parseUsage(agentMeta?.usage ?? mergedMeta.usage);
       const runtimeServices = extractRuntimeServicesFromMeta(agentMeta ?? mergedMeta);
       const provider = nonEmpty(agentMeta?.provider) ?? nonEmpty(mergedMeta.provider) ?? "openclaw";
@@ -1389,7 +1403,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           );
           continue;
         }
-        await ctx.onLog("stderr", `[openclaw-gateway] auto-pairing failed: ${pairResult.reason}\n`);
+        await ctx.onLog(
+          "stderr",
+          `[openclaw-gateway] auto-pairing failed: ${pairResult.reason}\n`,
+        );
       }
 
       const detailedMessage = pairingRequired

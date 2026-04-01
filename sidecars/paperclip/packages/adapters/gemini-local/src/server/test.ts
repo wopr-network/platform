@@ -42,7 +42,9 @@ function summarizeProbeDetail(stdout: string, stderr: string, parsedError: strin
   return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
-export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promise<AdapterEnvironmentTestResult> {
+export async function testEnvironment(
+  ctx: AdapterEnvironmentTestContext,
+): Promise<AdapterEnvironmentTestResult> {
   const checks: AdapterEnvironmentCheck[] = [];
   const config = parseObject(ctx.config);
   const command = asString(config.command, "gemini");
@@ -118,9 +120,8 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
     });
   }
 
-  const canRunProbe = checks.every(
-    (check) => check.code !== "gemini_cwd_invalid" && check.code !== "gemini_command_unresolvable",
-  );
+  const canRunProbe =
+    checks.every((check) => check.code !== "gemini_cwd_invalid" && check.code !== "gemini_command_unresolvable");
   if (canRunProbe) {
     if (!commandLooksLike(command, "gemini")) {
       checks.push({
@@ -160,7 +161,7 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
           env,
           timeoutSec: helloProbeTimeoutSec,
           graceSec: 5,
-          onLog: async () => {},
+          onLog: async () => { },
         },
       );
       const parsed = parseGeminiJsonl(probe.stdout);
@@ -206,8 +207,8 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
           ...(hasHello
             ? {}
             : {
-                hint: 'Try `gemini --output-format json "Respond with hello."` manually to inspect full output.',
-              }),
+              hint: "Try `gemini --output-format json \"Respond with hello.\"` manually to inspect full output.",
+            }),
         });
       } else if (authMeta.requiresAuth) {
         checks.push({
@@ -223,7 +224,7 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
           level: "error",
           message: "Gemini hello probe failed.",
           ...(detail ? { detail } : {}),
-          hint: 'Run `gemini --output-format json "Respond with hello."` manually in this working directory to debug.',
+          hint: "Run `gemini --output-format json \"Respond with hello.\"` manually in this working directory to debug.",
         });
       }
     }
