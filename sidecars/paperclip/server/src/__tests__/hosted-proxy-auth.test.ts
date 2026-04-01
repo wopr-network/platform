@@ -94,7 +94,7 @@ describe("hosted_proxy auth middleware", () => {
     expect(res.status).toBe(200);
     expect(res.body.type).toBe("board");
     expect(res.body.userId).toBe("user-42");
-    expect(res.body.source).toBe("hosted_proxy");
+    expect(res.body.source).toBe("local_implicit");
   });
 
   it("returns type none when header is missing", async () => {
@@ -108,11 +108,8 @@ describe("hosted_proxy auth middleware", () => {
     expect(res.body.source).toBe("none");
   });
 
-  it("looks up companyIds and isInstanceAdmin from DB", async () => {
-    mockDb = createMockDb({
-      roleRow: { id: "role-1" },
-      memberships: [{ companyId: "comp-a" }, { companyId: "comp-b" }],
-    });
+  it("trusts proxy header as instance admin (no DB lookup)", async () => {
+    mockDb = createMockDb();
     const app = createApp(mockDb);
 
     const res = await request(app).get("/test").set("x-paperclip-user-id", "user-99");
@@ -121,21 +118,20 @@ describe("hosted_proxy auth middleware", () => {
     expect(res.body.type).toBe("board");
     expect(res.body.userId).toBe("user-99");
     expect(res.body.isInstanceAdmin).toBe(true);
-    expect(res.body.companyIds).toEqual(["comp-a", "comp-b"]);
-    expect(res.body.source).toBe("hosted_proxy");
+    expect(res.body.source).toBe("local_implicit");
+    // No DB calls — we trust the platform proxy completely
+    expect(mockDb.select).not.toHaveBeenCalled();
   });
 
-  it("sets isInstanceAdmin false when no role row exists", async () => {
-    mockDb = createMockDb({
-      roleRow: null,
-      memberships: [{ companyId: "comp-x" }],
-    });
+  it("also accepts x-platform-user-id header", async () => {
+    mockDb = createMockDb();
     const app = createApp(mockDb);
 
-    const res = await request(app).get("/test").set("x-paperclip-user-id", "user-50");
+    const res = await request(app).get("/test").set("x-platform-user-id", "user-50");
 
     expect(res.status).toBe(200);
-    expect(res.body.isInstanceAdmin).toBe(false);
-    expect(res.body.companyIds).toEqual(["comp-x"]);
+    expect(res.body.type).toBe("board");
+    expect(res.body.userId).toBe("user-50");
+    expect(res.body.isInstanceAdmin).toBe(true);
   });
 });

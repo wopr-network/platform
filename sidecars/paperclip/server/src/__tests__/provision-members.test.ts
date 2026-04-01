@@ -19,7 +19,6 @@ const accessSvcMock = {
   promoteInstanceAdmin: vi.fn(),
   demoteInstanceAdmin: vi.fn(),
   setPrincipalGrants: vi.fn(),
-  removeMembership: vi.fn(),
   listUserCompanyAccess: vi.fn(),
 };
 const logActivityMock = vi.fn();
@@ -230,8 +229,8 @@ describe("provision member routes", () => {
       expect(res.status).toBe(401);
     });
 
-    it("calls removeMembership and demotes if no remaining companies", async () => {
-      accessSvcMock.removeMembership.mockResolvedValue(undefined);
+    it("suspends membership and demotes if no remaining companies", async () => {
+      accessSvcMock.ensureMembership.mockResolvedValue(undefined);
       accessSvcMock.listUserCompanyAccess.mockResolvedValue([]); // no remaining companies
       accessSvcMock.demoteInstanceAdmin.mockResolvedValue(undefined);
 
@@ -242,12 +241,12 @@ describe("provision member routes", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
-      expect(accessSvcMock.removeMembership).toHaveBeenCalledWith("comp-1", "user", "user-1");
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "member", "suspended");
       expect(accessSvcMock.demoteInstanceAdmin).toHaveBeenCalledWith("user-1");
     });
 
     it("does not demote if user still has other companies", async () => {
-      accessSvcMock.removeMembership.mockResolvedValue(undefined);
+      accessSvcMock.ensureMembership.mockResolvedValue(undefined);
       accessSvcMock.listUserCompanyAccess.mockResolvedValue([{ companyId: "comp-2", membershipRole: "owner" }]);
 
       const res = await request(app)
@@ -256,7 +255,7 @@ describe("provision member routes", () => {
         .send({ companyId: "comp-1", userId: "user-1" });
 
       expect(res.status).toBe(200);
-      expect(accessSvcMock.removeMembership).toHaveBeenCalledWith("comp-1", "user", "user-1");
+      expect(accessSvcMock.ensureMembership).toHaveBeenCalledWith("comp-1", "user", "user-1", "member", "suspended");
       expect(accessSvcMock.demoteInstanceAdmin).not.toHaveBeenCalled();
     });
   });
