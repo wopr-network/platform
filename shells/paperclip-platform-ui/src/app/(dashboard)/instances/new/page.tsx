@@ -1,36 +1,46 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Check, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, Loader2, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { createInstance } from "@/lib/api";
+import {
+  type ChatMessage,
+  type OnboardingPlan,
+  parseOnboardingStream,
+  sendOnboardingChat,
+} from "@/lib/onboarding-chat";
 import { cn } from "@/lib/utils";
 
+const CEO_INTRO = "I'm your CEO. Tell me what you want to build and I'll put together a plan to make it happen.";
 const NAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 
-const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the company.
-
-- hire a founding engineer
-- write a hiring plan
-- break the roadmap into concrete tasks and start delegating work`;
+interface DisplayMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  plan?: OnboardingPlan;
+}
 
 export default function NewPaperclipInstancePage() {
-  const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(1);
-  const [name, setName] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const [messages, setMessages] = useState<DisplayMessage[]>([{ id: "intro", role: "assistant", content: CEO_INTRO }]);
+  const [input, setInput] = useState("");
+  const [streaming, setStreaming] = useState(false);
+  const [plan, setPlan] = useState<OnboardingPlan | null>(null);
+  const [companyName, setCompanyName] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
-  const [companyGoal, setCompanyGoal] = useState("");
-  const [taskTitle, setTaskTitle] = useState("Get started");
-  const [taskDescription, setTaskDescription] = useState(DEFAULT_TASK_DESCRIPTION);
-  const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [launching, setLaunching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages triggers scroll-to-bottom
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
 
   function validateName(value: string): string | null {
     if (!value.trim()) return null;
@@ -40,201 +50,240 @@ export default function NewPaperclipInstancePage() {
     return null;
   }
 
-  function handleNameChange(e: { target: { value: string } }) {
-    const value = e.target.value;
-    setName(value);
-    setNameError(validateName(value));
-  }
+  async function handleSend() {
+    const text = input.trim();
+    if (!text || streaming) return;
 
-  async function handleCreate() {
-    if (!name.trim()) return;
-    const validation = validateName(name);
-    if (validation) {
-      setNameError(validation);
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
+    setInput("");
+    setError(null);
+
+    const msgId = `msg-${Date.now()}`;
+    const userMsg: DisplayMessage = { id: msgId, role: "user", content: text };
+    setMessages((prev) => [...prev, userMsg]);
+
+    // Build chat history excluding the static intro
+    const history: ChatMessage[] = [
+      ...messages.slice(1).map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: text },
+    ];
+
+    setMessages((prev) => [...prev, { id: `${msgId}-reply`, role: "assistant", content: "" }]);
+    setStreaming(true);
 
     try {
+      const { response } = sendOnboardingChat(history);
+      const body = await response;
+
+      const result = await parseOnboardingStream(body, {
+        onDelta: (delta) => {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last.role === "assistant") {
+              updated[updated.length - 1] = { ...last, content: last.content + delta };
+            }
+            return updated;
+          });
+        },
+      });
+
+      if (result.plan) {
+        setPlan(result.plan);
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === "assistant") {
+            updated[updated.length - 1] = { ...last, plan: result.plan ?? undefined };
+          }
+          return updated;
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === "assistant" && !last.content) {
+          updated.pop();
+        }
+        return updated;
+      });
+    } finally {
+      setStreaming(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  async function handleFoundCompany() {
+    if (!plan || !companyName.trim() || nameError || launching) return;
+
+    setLaunching(true);
+    try {
+      const goal = messages.find((m) => m.role === "user")?.content ?? "";
       await createInstance({
-        name: name.trim(),
+        name: companyName.trim(),
         provider: "opencode",
         channels: [],
         plugins: [],
         extra: {
           onboarding: {
-            goal: companyGoal.trim() || undefined,
-            taskTitle: taskTitle.trim() || undefined,
-            taskDescription: taskDescription.trim() || undefined,
+            goal,
+            taskTitle: plan.taskTitle,
+            taskDescription: plan.taskDescription,
           },
         },
       });
-      setCreated(true);
-      setTimeout(() => router.push("/instances"), 1500);
+      window.location.href = `https://${companyName.trim()}.runpaperclip.com`;
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Failed to create instance");
-      setSubmitting(false);
+      setError(err instanceof Error ? err.message : "Failed to create instance");
+      setLaunching(false);
     }
   }
 
-  if (created) {
-    return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-6">
-        <motion.div
-          className="flex h-16 w-16 items-center justify-center rounded-full border border-primary/30 bg-primary/10"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        >
-          <Check className="h-8 w-8 text-primary" />
-        </motion.div>
-        <motion.h2
-          className="text-xl font-semibold"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          Instance created
-        </motion.h2>
-        <motion.p
-          className="text-muted-foreground"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          Your Paperclip instance <span className="font-medium text-primary">&ldquo;{name}&rdquo;</span> is
-          provisioning. Your CEO agent will start working shortly.
-        </motion.p>
-      </div>
-    );
-  }
-
   return (
-    <motion.div
-      className="mx-auto max-w-2xl space-y-6 py-8"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
-    >
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Create Paperclip Instance</h1>
-        <p className="text-sm text-muted-foreground">Set up your AI company with a CEO agent ready to start working.</p>
+    <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-2xl flex-col">
+      {/* Message list */}
+      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto py-6">
+        <AnimatePresence initial={false}>
+          {messages.map((msg, i) => (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="flex gap-3"
+            >
+              <div
+                className={cn(
+                  "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                  msg.role === "assistant"
+                    ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
+                    : "bg-zinc-800 text-zinc-400",
+                )}
+              >
+                {msg.role === "assistant" ? "C" : "Y"}
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-3">
+                <p className="text-xs text-muted-foreground">{msg.role === "assistant" ? "CEO Agent" : "You"}</p>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+                  {msg.content}
+                  {streaming && i === messages.length - 1 && msg.role === "assistant" && (
+                    <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
+                  )}
+                </div>
+
+                {msg.plan && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="rounded-md border-l-2 border-indigo-500 bg-zinc-900 p-4"
+                  >
+                    <p className="mb-2 text-[10px] uppercase tracking-widest text-indigo-400">Founding Brief</p>
+                    <p className="mb-1 text-sm font-semibold text-zinc-100">{msg.plan.taskTitle}</p>
+                    <p className="whitespace-pre-wrap text-sm text-zinc-400">{msg.plan.taskDescription}</p>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {error && (
+          <div className="ml-10 rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {error}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-2 text-red-400 hover:text-red-300"
+              onClick={() => setError(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Step 1: Name & Goal */}
-      {step === 1 && (
-        <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <div className="space-y-2">
-            <Label htmlFor="instance-name">Company Name</Label>
-            <Input
-              id="instance-name"
-              placeholder="my-company"
-              value={name}
-              onChange={handleNameChange}
-              aria-invalid={nameError !== null}
-            />
-            {nameError ? (
-              <p className="text-xs text-red-500">{nameError}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground/60">
-                Lowercase letters, numbers, and hyphens only. This becomes your subdomain.
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="company-goal">Company Goal (optional)</Label>
-            <Input
-              id="company-goal"
-              placeholder="Build a SaaS product that helps teams collaborate"
-              value={companyGoal}
-              onChange={(e) => setCompanyGoal(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground/60">
-              What should your AI company work toward? The CEO will use this to plan.
-            </p>
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" asChild>
-              <Link href="/instances">Cancel</Link>
-            </Button>
-            <Button onClick={() => setStep(2)} disabled={!name.trim() || !!nameError}>
-              Next
-            </Button>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Step 2: First Task */}
-      {step === 2 && (
-        <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <div className="rounded-md border border-border bg-muted/30 px-4 py-3">
-            <p className="text-sm">
-              Company: <span className="font-medium">{name}</span>
-              {companyGoal && (
-                <>
-                  {" "}
-                  — <span className="text-muted-foreground">{companyGoal}</span>
-                </>
-              )}
-            </p>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-2">
-            <Label htmlFor="task-title">First Task for the CEO</Label>
-            <Input
-              id="task-title"
-              placeholder="Get started"
-              value={taskTitle}
-              onChange={(e) => setTaskTitle(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="task-description">Task Instructions</Label>
-            <textarea
-              id="task-description"
-              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              placeholder="What should the CEO do first?"
-              value={taskDescription}
-              onChange={(e) => setTaskDescription(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground/60">
-              The CEO agent will receive this as their first assignment.
-            </p>
-          </div>
-
-          {submitError && (
-            <div className="rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-500">
-              {submitError}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setStep(1)}>
-              Back
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!name.trim() || !!nameError || submitting}
-              className={cn(submitting && "opacity-80")}
+      {/* Bottom bar */}
+      <div className="space-y-3 border-t border-zinc-800 py-4">
+        <AnimatePresence>
+          {plan && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex items-start gap-2"
             >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Instance"
-              )}
-            </Button>
-          </div>
-        </motion.div>
-      )}
-    </motion.div>
+              <div className="flex-1 space-y-1">
+                <Input
+                  placeholder="company-name"
+                  value={companyName}
+                  onChange={(e) => {
+                    setCompanyName(e.target.value);
+                    setNameError(validateName(e.target.value));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleFoundCompany();
+                    }
+                  }}
+                  aria-invalid={nameError !== null}
+                />
+                {nameError ? (
+                  <p className="text-xs text-red-500">{nameError}</p>
+                ) : companyName.trim() ? (
+                  <p className="text-xs font-mono text-indigo-400/70">
+                    {companyName
+                      .toLowerCase()
+                      .replace(/[^a-z0-9-]/g, "-")
+                      .replace(/-+/g, "-")
+                      .replace(/^-|-$/g, "")}
+                    .runpaperclip.com
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                onClick={handleFoundCompany}
+                disabled={!companyName.trim() || !!nameError || launching}
+                className="shrink-0 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+              >
+                {launching ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Founding...
+                  </>
+                ) : (
+                  <>
+                    Found Company
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className="flex gap-2"
+        >
+          <Input
+            ref={inputRef}
+            placeholder={plan ? "Refine the plan, or name your company above..." : "Describe what you want to build..."}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={streaming}
+            autoFocus
+          />
+          <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </div>
+    </div>
   );
 }
