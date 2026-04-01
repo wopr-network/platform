@@ -232,7 +232,28 @@ export async function mountRoutes(
 
     // Enabled social providers per product — public endpoint for login page OAuth buttons
     app.get("/api/auth/providers", async (c) => {
-      const slug = c.req.header("x-product") ?? c.req.query("slug") ?? bootConfig.slug ?? "wopr";
+      let slug = c.req.header("x-product") ?? c.req.query("slug") ?? null;
+      // Resolve from Origin/Referer domain if no explicit slug
+      if (!slug) {
+        const origin = c.req.header("origin") ?? c.req.header("referer") ?? "";
+        try {
+          const host = new URL(origin).hostname;
+          const allProducts = await container.productConfigService.listAll();
+          for (const pc of allProducts) {
+            if (pc.product?.domain === host || pc.product?.appDomain === host) {
+              slug = pc.product.slug ?? null;
+              break;
+            }
+            if (pc.domains?.some((d) => d.host === host)) {
+              slug = pc.product?.slug ?? null;
+              break;
+            }
+          }
+        } catch {
+          // Invalid URL
+        }
+      }
+      slug = slug ?? bootConfig.slug ?? "wopr";
       if (!container.productAuthManager) return c.json([]);
       const providers = await container.productAuthManager.getEnabledProviders(slug);
       return c.json(providers);

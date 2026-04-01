@@ -23,8 +23,11 @@ export function OAuthButtons({ callbackUrl = "/", productSlug }: OAuthButtonsPro
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const slug = productSlug ?? window.location.hostname.split(".")[0];
-    fetch(`${API_BASE_URL}/auth/providers?slug=${encodeURIComponent(slug)}`)
+    // Don't pass slug — let the server resolve from Origin header
+    const url = productSlug
+      ? `${API_BASE_URL}/auth/providers?slug=${encodeURIComponent(productSlug)}`
+      : `${API_BASE_URL}/auth/providers`;
+    fetch(url)
       .then((r) => r.json())
       .then((data) => setEnabledProviders(Array.isArray(data) ? data : []))
       .catch(() => setEnabledProviders([]))
