@@ -119,9 +119,7 @@ export default function NewPaperclipInstancePage() {
     >
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Create Paperclip Instance</h1>
-        <p className="text-sm text-muted-foreground">
-          Set up your AI company with a CEO agent ready to start working.
-        </p>
+        <p className="text-sm text-muted-foreground">Set up your AI company with a CEO agent ready to start working.</p>
       </div>
 
       {/* Step 1: Name & Goal */}
@@ -177,7 +175,8 @@ export default function NewPaperclipInstancePage() {
               Company: <span className="font-medium">{name}</span>
               {companyGoal && (
                 <>
-                  {" "}— <span className="text-muted-foreground">{companyGoal}</span>
+                  {" "}
+                  — <span className="text-muted-foreground">{companyGoal}</span>
                 </>
               )}
             </p>
