@@ -1,24 +1,23 @@
 /**
- * Auth Social Router — exposes which OAuth providers are configured.
+ * Auth Social Router — exposes which OAuth providers are configured per product.
  *
- * Returns a list of provider IDs (e.g., ["github", "google"]) based on
- * which providers have credentials in Vault. Used by platform-ui-core's
- * OAuthButtons component.
+ * Client IDs from DB (product_auth_config), secrets from Vault ({slug}/prod).
+ * Zero downtime on new product: insert product row + auth config row.
  */
 
-import { getAuth } from "../auth/better-auth.js";
+import type { ProductAuthManager } from "../auth/product-auth-manager.js";
 import { publicProcedure, router } from "./init.js";
 
+let _manager: ProductAuthManager | null = null;
+
+export function setProductAuthManager(manager: ProductAuthManager): void {
+  _manager = manager;
+}
+
 export const authSocialRouter = router({
-  enabledSocialProviders: publicProcedure.query(() => {
-    const auth = getAuth();
-    const providers: string[] = [];
-    const opts = auth.options as { socialProviders?: Record<string, unknown> };
-    if (opts.socialProviders) {
-      for (const [id, config] of Object.entries(opts.socialProviders)) {
-        if (config) providers.push(id);
-      }
-    }
-    return providers;
+  enabledSocialProviders: publicProcedure.query(async ({ ctx }) => {
+    if (!_manager) return [];
+    const slug = ctx.productSlug ?? "wopr";
+    return _manager.getEnabledProviders(slug);
   }),
 });

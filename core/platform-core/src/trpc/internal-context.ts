@@ -21,5 +21,6 @@ export function createInternalTRPCContext(c: Context<InternalServiceAuthEnv>): T
   return {
     user: c.get("user"),
     tenantId: c.get("tenantId"),
+    productSlug: c.req.header("x-product") ?? undefined,
   };
 }

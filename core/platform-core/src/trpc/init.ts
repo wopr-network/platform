@@ -20,6 +20,8 @@ export interface TRPCContext {
   user: AuthUser | undefined;
   /** Tenant ID associated with the bearer token, if any. */
   tenantId: string | undefined;
+  /** Product slug from X-Product header (standalone mode). */
+  productSlug: string | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,7 +49,7 @@ export async function createTRPCContext(req: Request): Promise<TRPCContext> {
   } catch {
     // No session — unauthenticated request
   }
-  return { user, tenantId: tenantId ?? "" };
+  return { user, tenantId: tenantId ?? "", productSlug: req.headers.get("x-product") ?? undefined };
 }
 
 // ---------------------------------------------------------------------------

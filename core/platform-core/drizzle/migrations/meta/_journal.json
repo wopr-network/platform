@@ -204,6 +204,13 @@
       "when": 1774147200000,
       "tag": "0028_leader_lease_and_node_docker_url",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1775020800000,
+      "tag": "0029_product_auth_config",
+      "breakpoints": true
     }
   ]
 }
