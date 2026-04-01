@@ -2,7 +2,7 @@
 -- Client IDs are public (used in browser redirects). Client secrets stay in Vault.
 CREATE TABLE IF NOT EXISTS "product_auth_config" (
   "id" serial PRIMARY KEY,
-  "product_id" integer NOT NULL REFERENCES "products"("id") ON DELETE CASCADE,
+  "product_id" uuid NOT NULL REFERENCES "products"("id") ON DELETE CASCADE,
   "provider" text NOT NULL,
   "client_id" text NOT NULL,
   "enabled" boolean NOT NULL DEFAULT true,

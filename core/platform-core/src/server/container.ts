@@ -445,7 +445,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
         if (vaultConfig) {
           const vault = new VaultConfigProvider(vaultConfig);
           const prodData = await vault.read(`${pc.product.slug}/prod`).catch(() => ({}) as Record<string, string>);
-          await authManager.seedFromVault(Number(pc.product.id), pc.product.slug, prodData);
+          await authManager.seedFromVault(String(pc.product.id), pc.product.slug, prodData);
         }
       } catch {
         // Non-fatal — product may not have Vault secrets yet

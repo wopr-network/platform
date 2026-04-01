@@ -58,7 +58,7 @@ export class ProductAuthManager {
     const rows = await this.db
       .select()
       .from(productAuthConfig)
-      .where(eq(productAuthConfig.productId, Number(pc.product.id)));
+      .where(eq(productAuthConfig.productId, String(pc.product.id)));
 
     const providers: Record<string, OAuthProviderConfig> = {};
     const enabledProviders: string[] = [];
@@ -100,7 +100,7 @@ export class ProductAuthManager {
    * Seed auth config from Vault secrets.
    * Called during platformBoot — writes client IDs to DB if not already present.
    */
-  async seedFromVault(productId: number, slug: string, vaultData: Record<string, string>): Promise<void> {
+  async seedFromVault(productId: string, slug: string, vaultData: Record<string, string>): Promise<void> {
     const pairs: Array<{ provider: string; clientId: string }> = [];
 
     if (vaultData.github_client_id) {
