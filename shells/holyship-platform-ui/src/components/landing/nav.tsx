@@ -9,6 +9,7 @@ const links = [
   { href: "/the-real-cost", label: "The Real Cost" },
   { href: "/the-learning-loop", label: "The Learning Loop" },
   { href: "/vibe-coding-vs-engineering", label: "Vibe vs. Engineering" },
+  { href: "/why-not-prompts", label: "Why Not Prompts" },
 ];
 
 export function Nav() {

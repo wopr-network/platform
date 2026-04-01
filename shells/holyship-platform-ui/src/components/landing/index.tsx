@@ -1,3 +1,6 @@
+export { ArchitectureDiagram } from "./architecture-diagram";
+export { CodeVsCritique } from "./code-vs-critique";
+export { ComparisonTimeline } from "./comparison-timeline";
 export { CostCurve } from "./cost-curve";
 export { FadeIn } from "./fade-in";
 export { LandingFooter } from "./footer";
