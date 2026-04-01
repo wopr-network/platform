@@ -1,282 +1,231 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { type EngineStatus, getEngineStatus, listEntities, type PipelineEntity } from "@/lib/holyship-client";
 
-interface Stage {
-  name: string;
-  label: string;
-  description: string;
-  enabled: boolean;
-  approvalRequired: boolean;
-  isTerminal?: boolean;
+const STATE_ORDER = ["spec", "code", "review", "fix", "docs", "merge"];
+const TERMINAL_STATES = new Set(["done", "stuck", "cancelled", "budget_exceeded"]);
+
+const STATE_COLORS: Record<string, string> = {
+  spec: "border-sky-500/40 bg-sky-500/5",
+  code: "border-violet-500/40 bg-violet-500/5",
+  review: "border-amber-500/40 bg-amber-500/5",
+  fix: "border-orange-500/40 bg-orange-500/5",
+  docs: "border-teal-500/40 bg-teal-500/5",
+  merge: "border-green-500/40 bg-green-500/5",
+  done: "border-green-600/40 bg-green-600/5",
+  stuck: "border-red-500/40 bg-red-500/5",
+  cancelled: "border-zinc-500/40 bg-zinc-500/5",
+  budget_exceeded: "border-red-500/40 bg-red-500/5",
+};
+
+const STATE_DOT: Record<string, string> = {
+  spec: "bg-sky-500",
+  code: "bg-violet-500",
+  review: "bg-amber-500",
+  fix: "bg-orange-500",
+  docs: "bg-teal-500",
+  merge: "bg-green-500",
+  done: "bg-green-600",
+  stuck: "bg-red-500",
+  cancelled: "bg-zinc-500",
+  budget_exceeded: "bg-red-500",
+};
+
+function timeAgo(dateStr: string): string {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  return `${Math.floor(hr / 24)}d`;
 }
 
-const DEFAULT_STAGES: Stage[] = [
-  {
-    name: "spec",
-    label: "Spec",
-    description: "Architect writes a detailed specification",
-    enabled: true,
-    approvalRequired: false,
-  },
-  {
-    name: "coding",
-    label: "Code",
-    description: "Coder implements the spec",
-    enabled: true,
-    approvalRequired: false,
-  },
-  {
-    name: "reviewing",
-    label: "Review",
-    description: "Reviewer checks code quality and correctness",
-    enabled: true,
-    approvalRequired: false,
-  },
-  {
-    name: "fixing",
-    label: "Fix",
-    description: "Fix issues found during review (loops back to review)",
-    enabled: true,
-    approvalRequired: false,
-  },
-  {
-    name: "documentation",
-    label: "Docs",
-    description: "Write or update documentation",
-    enabled: true,
-    approvalRequired: false,
-  },
-  {
-    name: "learning",
-    label: "Learn",
-    description: "Extract patterns and learnings for future work",
-    enabled: true,
-    approvalRequired: false,
-  },
-  {
-    name: "merging",
-    label: "Merge",
-    description: "Merge the PR into the target branch",
-    enabled: true,
-    approvalRequired: false,
-  },
-];
-
-export default function PipelinePage() {
-  const [stages, setStages] = useState<Stage[]>(DEFAULT_STAGES);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [flowName, _setFlowName] = useState("engineering");
-
-  // Load current flow config
-  useEffect(() => {
-    fetch(`/api/trpc/flow.get?input=${encodeURIComponent(JSON.stringify({ name: flowName }))}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.result?.data) {
-          const flow = data.result.data;
-          setStages((prev) =>
-            prev.map((stage) => {
-              const state = flow.states?.find(
-                (s: { name: string; promptTemplate?: string | null }) => s.name === stage.name,
-              );
-              if (!state) return stage;
-              return {
-                ...stage,
-                enabled: !!state.promptTemplate,
-                // Check if there's an approval gate on transitions TO this state
-                approvalRequired:
-                  flow.transitions?.some(
-                    (t: { toState: string; gateId?: string | null }) => t.toState === stage.name && t.gateId,
-                  ) ?? false,
-              };
-            }),
-          );
-        }
-      })
-      .catch(() => {});
-  }, [flowName]);
-
-  const toggleStage = useCallback((name: string) => {
-    setStages((prev) => prev.map((s) => (s.name === name ? { ...s, enabled: !s.enabled } : s)));
-    setSaved(false);
-  }, []);
-
-  const toggleApproval = useCallback((name: string) => {
-    setStages((prev) => prev.map((s) => (s.name === name ? { ...s, approvalRequired: !s.approvalRequired } : s)));
-    setSaved(false);
-  }, []);
-
-  async function saveConfig() {
-    setSaving(true);
-    try {
-      await fetch("/api/pipeline/configure", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          flowName,
-          stages: stages.map((s) => ({
-            name: s.name,
-            enabled: s.enabled,
-            approvalRequired: s.approvalRequired,
-          })),
-        }),
-      });
-      setSaved(true);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // Find the last enabled stage
-  const lastEnabledIdx = stages.reduce((acc, s, i) => (s.enabled ? i : acc), -1);
-
-  // Count enabled stages
-  const enabledCount = stages.filter((s) => s.enabled).length;
-  const approvalCount = stages.filter((s) => s.enabled && s.approvalRequired).length;
+function EntityCard({ entity }: { entity: PipelineEntity }) {
+  const a = entity.artifacts ?? {};
+  const issueTitle = (a.issueTitle as string) ?? "Untitled";
+  const issueNumber = a.issueNumber as number | undefined;
+  const prUrl = a.prUrl as string | undefined;
+  const prNumber = a.prNumber as number | undefined;
+  const repoFullName = a.repoFullName as string | undefined;
+  const hasSpec = !!a.architectSpec;
+  const hasFindings = !!a.reviewFindings;
 
   return (
-    <div className="max-w-3xl">
-      <p className="text-muted-foreground mb-8">
-        Configure which stages run and where you want to review before proceeding.
-      </p>
-
-      {/* Pipeline visualization */}
-      <div className="space-y-1 mb-8">
-        {stages.map((stage, idx) => {
-          const isLast = idx === lastEnabledIdx;
-          const nextEnabled = stages.slice(idx + 1).find((s) => s.enabled);
-
-          return (
-            <div key={stage.name}>
-              <div
-                className={`flex items-center justify-between rounded-lg border p-4 transition-all ${
-                  stage.enabled ? "bg-background border-border" : "bg-muted/30 border-transparent opacity-50"
-                }`}
-              >
-                {/* Left: toggle + info */}
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleStage(stage.name)}
-                    className={`relative w-12 h-6 rounded-full transition-colors ${
-                      stage.enabled ? "bg-green-600" : "bg-muted"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                        stage.enabled ? "translate-x-6" : "translate-x-0.5"
-                      }`}
-                    />
-                  </button>
-                  <div>
-                    <span className="font-medium">{stage.label}</span>
-                    <p className="text-sm text-muted-foreground">{stage.description}</p>
-                  </div>
-                </div>
-
-                {/* Right: approval toggle */}
-                {stage.enabled && (
-                  <button
-                    type="button"
-                    onClick={() => toggleApproval(stage.name)}
-                    className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                      stage.approvalRequired
-                        ? "bg-amber-600/20 text-amber-400 border border-amber-600/40"
-                        : "bg-muted text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {stage.approvalRequired ? "Approval required" : "Auto"}
-                  </button>
-                )}
-              </div>
-
-              {/* Connector arrow */}
-              {stage.enabled && nextEnabled && (
-                <div className="flex justify-center py-1">
-                  <div className="flex flex-col items-center">
-                    {stage.approvalRequired && (
-                      <span className="text-xs text-amber-400 font-medium mb-0.5">waits for approval</span>
-                    )}
-                    <svg
-                      aria-hidden="true"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      className="text-muted-foreground"
-                    >
-                      <path d="M8 2 L8 14 M4 10 L8 14 L12 10" stroke="currentColor" strokeWidth="2" fill="none" />
-                    </svg>
-                  </div>
-                </div>
-              )}
-
-              {/* Terminal indicator */}
-              {stage.enabled && isLast && idx < stages.length - 1 && (
-                <div className="flex justify-center py-1">
-                  <span className="text-xs text-muted-foreground font-medium">pipeline stops here</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Summary + save */}
-      <div className="flex items-center justify-between rounded-lg border p-4 bg-muted/50">
-        <div className="text-sm text-muted-foreground">
-          {enabledCount} stages enabled
-          {approvalCount > 0 && ` \u00b7 ${approvalCount} approval checkpoint${approvalCount > 1 ? "s" : ""}`}
+    <div className={`rounded-lg border p-3 ${STATE_COLORS[entity.state] ?? "border-border"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            {issueNumber && <span className="text-xs text-muted-foreground font-mono">#{issueNumber}</span>}
+            <span className="text-sm font-medium truncate">{issueTitle}</span>
+          </div>
+          {repoFullName && <span className="text-xs text-muted-foreground">{repoFullName}</span>}
         </div>
-        <button
-          type="button"
-          onClick={saveConfig}
-          disabled={saving || saved}
-          className={`rounded-lg px-6 py-2 font-bold ${
-            saved ? "bg-green-600 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
-          } disabled:opacity-70`}
-        >
-          {saved ? "Saved" : saving ? "Saving..." : "Save Pipeline"}
-        </button>
+        <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(entity.updatedAt)}</span>
       </div>
 
-      {/* Presets */}
-      <div className="mt-6">
-        <p className="text-sm font-medium text-muted-foreground mb-3">Quick presets</p>
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { label: "Spec only", enable: ["spec"] },
-            { label: "Spec + Code", enable: ["spec", "coding"] },
-            {
-              label: "Full (no docs)",
-              enable: ["spec", "coding", "reviewing", "fixing", "merging"],
-            },
-            {
-              label: "Full pipeline",
-              enable: ["spec", "coding", "reviewing", "fixing", "documentation", "learning", "merging"],
-            },
-          ].map((preset) => (
-            <button
-              key={preset.label}
-              type="button"
-              onClick={() => {
-                setStages((prev) =>
-                  prev.map((s) => ({
-                    ...s,
-                    enabled: preset.enable.includes(s.name),
-                    approvalRequired: false,
-                  })),
-                );
-                setSaved(false);
-              }}
-              className="rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
-            >
-              {preset.label}
-            </button>
+      {/* Artifact badges */}
+      <div className="flex flex-wrap gap-1 mt-2">
+        {hasSpec && (
+          <span className="rounded-full bg-sky-500/10 text-sky-400 px-2 py-0.5 text-[10px] font-medium">spec</span>
+        )}
+        {prUrl && prNumber && (
+          <a
+            href={prUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full bg-violet-500/10 text-violet-400 px-2 py-0.5 text-[10px] font-medium hover:bg-violet-500/20"
+          >
+            PR #{prNumber}
+          </a>
+        )}
+        {hasFindings && (
+          <span className="rounded-full bg-amber-500/10 text-amber-400 px-2 py-0.5 text-[10px] font-medium">
+            findings
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StateLane({ state, entities }: { state: string; entities: PipelineEntity[] }) {
+  return (
+    <div className="flex-1 min-w-[180px]">
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`w-2 h-2 rounded-full ${STATE_DOT[state] ?? "bg-zinc-500"}`} />
+        <span className="text-sm font-semibold capitalize">{state}</span>
+        {entities.length > 0 && <span className="text-xs text-muted-foreground">({entities.length})</span>}
+      </div>
+      <div className="space-y-2 min-h-[60px]">
+        {entities.length === 0 && (
+          <div className="rounded-lg border border-dashed border-border/50 p-4 text-center">
+            <span className="text-xs text-muted-foreground">Empty</span>
+          </div>
+        )}
+        {entities.map((e) => (
+          <EntityCard key={e.id} entity={e} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function PipelineLivePage() {
+  const [entities, setEntities] = useState<PipelineEntity[]>([]);
+  const [status, setStatus] = useState<EngineStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function poll() {
+      try {
+        const [entityList, engineStatus] = await Promise.all([
+          listEntities().catch(() => [] as PipelineEntity[]),
+          getEngineStatus().catch(() => null),
+        ]);
+        if (!active) return;
+        setEntities(entityList);
+        setStatus(engineStatus);
+        setError(null);
+      } catch (err) {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : "Failed to load");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted/50 rounded w-48" />
+          <div className="flex gap-4">
+            {STATE_ORDER.map((s) => (
+              <div key={s} className="flex-1 h-32 bg-muted/30 rounded-lg" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const activeEntities = entities.filter((e) => !TERMINAL_STATES.has(e.state));
+  const terminalEntities = entities.filter((e) => TERMINAL_STATES.has(e.state));
+
+  const byState: Record<string, PipelineEntity[]> = {};
+  for (const state of STATE_ORDER) {
+    byState[state] = activeEntities.filter((e) => e.state === state);
+  }
+
+  const isEmpty = entities.length === 0;
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Status bar */}
+      {status && (
+        <div className="flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-muted-foreground">
+              {status.activeInvocations} active worker
+              {status.activeInvocations !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <span className="text-muted-foreground">{activeEntities.length} in pipeline</span>
+          <span className="text-muted-foreground">{terminalEntities.length} completed</span>
+          {error && <span className="text-red-400 text-xs">{error}</span>}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {isEmpty && (
+        <div className="rounded-lg border border-dashed p-12 text-center">
+          <p className="text-lg font-medium mb-2">No entities in the pipeline</p>
+          <p className="text-muted-foreground mb-4">Ship an issue to get started.</p>
+          <Link href="/ship" className="rounded-lg bg-primary px-6 py-3 font-bold text-primary-foreground">
+            Ship It
+          </Link>
+        </div>
+      )}
+
+      {/* Swim lanes */}
+      {!isEmpty && (
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {STATE_ORDER.map((state) => (
+            <StateLane key={state} state={state} entities={byState[state] ?? []} />
           ))}
         </div>
-      </div>
+      )}
+
+      {/* Terminal entities */}
+      {terminalEntities.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+            {terminalEntities.length} completed entit
+            {terminalEntities.length === 1 ? "y" : "ies"}
+          </summary>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            {terminalEntities.map((e) => (
+              <EntityCard key={e.id} entity={e} />
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

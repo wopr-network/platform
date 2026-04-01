@@ -117,3 +117,37 @@ export function applyFlow(owner: string, repo: string, yaml: string, commitMessa
     body: JSON.stringify({ yaml, commitMessage, baseSha }),
   });
 }
+
+// ─── Engine Pipeline ───
+
+export interface PipelineEntity {
+  id: string;
+  flowId: string;
+  flowVersion: number;
+  state: string;
+  artifacts: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EngineStatus {
+  flows: Record<string, Record<string, number>>;
+  activeInvocations: number;
+  pendingClaims: number;
+}
+
+export async function listEntities(flowId?: string, state?: string, limit = 50) {
+  const params = new URLSearchParams();
+  if (flowId) params.set("flowId", flowId);
+  if (state) params.set("state", state);
+  params.set("limit", String(limit));
+  return request<PipelineEntity[]>(`/engine/entities?${params}`);
+}
+
+export async function getEntity(entityId: string) {
+  return request<PipelineEntity>(`/engine/entities/${entityId}`);
+}
+
+export async function getEngineStatus() {
+  return request<EngineStatus>(`/engine/status`);
+}
