@@ -233,7 +233,7 @@ export async function mountRoutes(
 
   // 2d. BetterAuth routes (when auth config provided)
   if (bootConfig?.auth) {
-    const { initBetterAuth, runAuthMigrations, getAuth } = await import("../auth/better-auth.js");
+    const { initBetterAuth, runAuthMigrations } = await import("../auth/better-auth.js");
 
     // In standalone mode, resolve all product domains for multi-brand auth.
     // BetterAuth needs to trust origins from ALL products, not just one.
@@ -292,8 +292,41 @@ export async function mountRoutes(
     });
     await runAuthMigrations();
 
-    const { createAuthRoutes } = await import("../api/routes/auth.js");
-    app.route("/api/auth", createAuthRoutes(getAuth()));
+    // Wire per-product auth manager into BetterAuth
+    if (container.productAuthManager) {
+      const { setAuthProductManager } = await import("../auth/better-auth.js");
+      setAuthProductManager(container.productAuthManager);
+    }
+
+    // Auth routes — resolve per-product BetterAuth instance at request time.
+    // Product slug comes from X-Product header (set by UI server-side requests)
+    // or from the Origin header → product domain lookup.
+    const { getAuthForProduct } = await import("../auth/better-auth.js");
+    app.all("/api/auth/*", async (c) => {
+      // Try X-Product header first, then resolve from Origin domain
+      let slug = c.req.header("x-product") ?? bootConfig.slug ?? "wopr";
+      if (!c.req.header("x-product")) {
+        const origin = c.req.header("origin") ?? c.req.header("referer") ?? "";
+        try {
+          const host = new URL(origin).hostname;
+          const allProducts = await container.productConfigService.listAll();
+          for (const pc of allProducts) {
+            if (pc.product?.domain === host || pc.product?.appDomain === host) {
+              slug = pc.product.slug ?? slug;
+              break;
+            }
+            if (pc.domains?.some((d) => d.host === host)) {
+              slug = pc.product?.slug ?? slug;
+              break;
+            }
+          }
+        } catch {
+          // Invalid origin URL — use default slug
+        }
+      }
+      const auth = await getAuthForProduct(slug);
+      return auth.handler(c.req.raw);
+    });
   }
 
   // 2e. Chat routes (when chat backend is provided)

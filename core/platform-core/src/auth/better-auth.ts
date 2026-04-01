@@ -358,6 +358,69 @@ export function getAuth(): Auth {
   return _auth;
 }
 
+// ---------------------------------------------------------------------------
+// Per-product auth registry — one BetterAuth instance per product slug
+// ---------------------------------------------------------------------------
+
+const _productAuths = new Map<string, Auth>();
+let _productAuthManager: import("./product-auth-manager.js").ProductAuthManager | null = null;
+
+/** Set the ProductAuthManager for per-product OAuth resolution. */
+export function setAuthProductManager(manager: import("./product-auth-manager.js").ProductAuthManager): void {
+  _productAuthManager = manager;
+}
+
+/**
+ * Get a BetterAuth instance for a specific product.
+ * Creates lazily with product-specific OAuth creds, baseURL, and cookieDomain.
+ * Falls back to the global singleton if no per-product config exists.
+ */
+export async function getAuthForProduct(slug: string): Promise<Auth> {
+  const cached = _productAuths.get(slug);
+  if (cached) return cached;
+
+  if (!_config) throw new Error("BetterAuth not initialized — call initBetterAuth() first");
+  if (!_productAuthManager) return getAuth(); // Fallback to global
+
+  const providers = await _productAuthManager.getSocialProviders(slug);
+  if (Object.keys(providers).length === 0) return getAuth(); // No per-product config
+
+  // Resolve product domain for baseURL + cookieDomain
+  const socialProviders: BetterAuthConfig["socialProviders"] = {};
+  if (providers.github) socialProviders.github = providers.github;
+  if (providers.google) socialProviders.google = providers.google;
+
+  // Look up the product's domain from the config service
+  let baseURL = _config.baseURL;
+  let cookieDomain = _config.cookieDomain;
+  try {
+    const pc = await _productAuthManager["productConfigService"].getBySlug(slug);
+    if (pc?.product?.domain) {
+      baseURL = `https://api.${pc.product.domain}`;
+      cookieDomain = `.${pc.product.domain}`;
+    }
+  } catch {
+    // Use defaults
+  }
+
+  const productConfig: BetterAuthConfig = {
+    ..._config,
+    baseURL,
+    cookieDomain,
+    socialProviders,
+  };
+
+  const auth = betterAuth(authOptions(productConfig));
+  _productAuths.set(slug, auth);
+  logger.info(`Created BetterAuth instance for product ${slug}`, { baseURL, providers: Object.keys(providers) });
+  return auth;
+}
+
+/** Invalidate a cached per-product auth instance (call after config changes). */
+export function invalidateProductAuth(slug: string): void {
+  _productAuths.delete(slug);
+}
+
 /** Get an IEmailVerifier backed by the auth database. */
 export function getEmailVerifier(): PgEmailVerifier {
   if (!_config) throw new Error("BetterAuth not initialized — call initBetterAuth() first");
