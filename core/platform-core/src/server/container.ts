@@ -422,15 +422,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { ProductAuthManager } = await import("../auth/product-auth-manager.js");
     const { setProductAuthManager } = await import("../trpc/auth-social-router.js");
 
-    // Resolve per-product OAuth secrets from Vault.
-    // Each product's secrets are at {slug}/prod → github_client_secret, google_client_secret.
-    // For the boot slug, secrets are already resolved. For others, read from Vault.
-    const providerSecrets: Record<string, string> = {};
-    const bootSecrets = bootConfig.secrets;
-    if (bootSecrets?.githubClientSecret) providerSecrets.github = bootSecrets.githubClientSecret;
-    if (bootSecrets?.googleClientSecret) providerSecrets.google = bootSecrets.googleClientSecret;
-
-    const authManager = new ProductAuthManager(db, result.productConfigService, providerSecrets);
+    const authManager = new ProductAuthManager(db, result.productConfigService);
     result.productAuthManager = authManager;
     setProductAuthManager(authManager);
 

@@ -2,7 +2,7 @@
  * ProductAuthManager — per-product OAuth provider configuration.
  *
  * Client IDs come from DB (product_auth_config table).
- * Client secrets come from Vault (resolved at boot, keyed by provider).
+ * Client secrets come from Vault (resolved at boot per product, cached in memory).
  * Adding a new product row + auth config row = zero downtime.
  */
 
@@ -32,18 +32,15 @@ const CACHE_TTL_MS = 60_000;
 
 export class ProductAuthManager {
   private cache = new Map<string, CachedEntry>();
+  /** Per-product, per-provider secrets from Vault. Key: `${slug}:${provider}` */
+  private secrets = new Map<string, string>();
 
   constructor(
     private readonly db: PlatformDb,
-    private readonly productConfigService: ProductConfigService,
-    /** Provider secrets from Vault, keyed by provider name. */
-    private readonly providerSecrets: Record<string, string>,
+    readonly productConfigService: ProductConfigService,
   ) {}
 
-  /**
-   * Get OAuth providers configured for a product.
-   * Client IDs from DB, secrets from Vault.
-   */
+  /** Get OAuth providers configured for a product. Client IDs from DB, secrets from memory (loaded at boot from Vault). */
   async getProvidersForProduct(slug: string): Promise<ProductAuthEntry> {
     const cached = this.cache.get(slug);
     if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
@@ -65,7 +62,7 @@ export class ProductAuthManager {
 
     for (const row of rows) {
       if (!row.enabled) continue;
-      const secret = this.providerSecrets[row.provider];
+      const secret = this.secrets.get(`${slug}:${row.provider}`);
       if (!secret) {
         logger.warn(`OAuth provider ${row.provider} for ${slug}: client_id in DB but no secret in Vault — skipping`);
         continue;
@@ -98,7 +95,7 @@ export class ProductAuthManager {
 
   /**
    * Seed auth config from Vault secrets.
-   * Called during platformBoot — writes client IDs to DB if not already present.
+   * Called during platformBoot — writes client IDs to DB, stores secrets in memory.
    */
   async seedFromVault(productId: string, slug: string, vaultData: Record<string, string>): Promise<void> {
     const pairs: Array<{ provider: string; clientId: string }> = [];
@@ -108,6 +105,14 @@ export class ProductAuthManager {
     }
     if (vaultData.google_client_id) {
       pairs.push({ provider: "google", clientId: vaultData.google_client_id });
+    }
+
+    // Store secrets in memory (never written to DB)
+    if (vaultData.github_client_secret) {
+      this.secrets.set(`${slug}:github`, vaultData.github_client_secret);
+    }
+    if (vaultData.google_client_secret) {
+      this.secrets.set(`${slug}:google`, vaultData.google_client_secret);
     }
 
     for (const { provider, clientId } of pairs) {
