@@ -48,8 +48,8 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 
 COPY --from=build /app/shells/paperclip-platform-ui/.next/standalone/ ./
-COPY --from=build /app/shells/paperclip-platform-ui/.next/static ./.next/static
-COPY --from=build /app/shells/paperclip-platform-ui/public ./public
+COPY --from=build /app/shells/paperclip-platform-ui/.next/static ./shells/paperclip-platform-ui/.next/static
+COPY --from=build /app/shells/paperclip-platform-ui/public ./shells/paperclip-platform-ui/public
 
 USER paperclip
 EXPOSE 3000
@@ -57,4 +57,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-CMD ["node", "server.js"]
+CMD ["node", "shells/paperclip-platform-ui/server.js"]
