@@ -21,6 +21,7 @@ import type { BootConfig, RoutePlugin } from "./boot-config.js";
 import type { PlatformContainer } from "./container.js";
 import { createTenantProxyMiddleware } from "./middleware/tenant-proxy.js";
 import { createCryptoWebhookRoutes } from "./routes/crypto-webhook.js";
+import { createOnboardingChatRoutes } from "./routes/onboarding-chat.js";
 import { createProvisionWebhookRoutes } from "./routes/provision-webhook.js";
 import { createStripeWebhookRoutes } from "./routes/stripe-webhook.js";
 
@@ -285,6 +286,8 @@ export async function mountRoutes(
       if (c.req.path.startsWith("/api/products")) return next();
       // Chat SSE streams use browser session auth, not internal service auth
       if (c.req.path.startsWith("/api/chat")) return next();
+      // Onboarding chat uses browser session auth (platform service key generated server-side)
+      if (c.req.path.startsWith("/api/onboarding-chat")) return next();
       // Webhooks use their own signature verification (Stripe/crypto), not service tokens
       if (c.req.path.startsWith("/api/webhooks")) return next();
       // Tenant subdomain requests are authenticated by the tenant proxy middleware — skip internal auth
@@ -628,6 +631,8 @@ export async function mountRoutes(
         maxInstancesPerTenant: fleetConfig?.maxInstances ?? 5,
       }),
     );
+    // 5a. Onboarding chat SSE (when fleet management is enabled — needs serviceKeyRepo)
+    app.route("/api/onboarding-chat", createOnboardingChatRoutes(container));
   }
 
   // 6. Metered inference gateway (when gateway is enabled)
