@@ -50,8 +50,12 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     }
 
     // Auto-seed from preset
-    const { navItems, fleet, marginDefault, defaultModel, ...productData } = preset;
-    const product = await repo.upsertProduct(slug, productData);
+    const { navItems, fleet, marginDefault, defaultModel, infra, ...productData } = preset;
+    const product = await repo.upsertProduct(slug, {
+      ...productData,
+      uiService: infra.uiService,
+      uiPort: infra.uiPort,
+    });
     await repo.replaceNavItems(
       product.id,
       navItems.map((item) => ({

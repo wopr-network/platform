@@ -1,56 +1,71 @@
-# Managed Paperclip image — built by wopr-network fleet for hosted instances.
-# All configuration comes via env vars injected by platform-core at container start.
-# No interactive onboarding, no CLI prompts, no manual setup.
+# ---------------------------------------------------------------------------
+# Managed Paperclip image — built from monorepo via turbo prune
+# ---------------------------------------------------------------------------
 
 FROM node:lts-trixie-slim AS base
 LABEL org.opencontainers.image.source=https://github.com/wopr-network/paperclip
+ENV CI=true
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git \
+  && apt-get install -y --no-install-recommends ca-certificates curl git locales \
+  && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
+  && locale-gen en_US.UTF-8 \
   && rm -rf /var/lib/apt/lists/*
-RUN corepack enable
+ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+RUN npm install -g pnpm@10 turbo@2.8.20
 
+# --- Prune monorepo to only packages needed by @paperclipai/server ---
+FROM base AS pruner
+WORKDIR /app
+COPY . .
+RUN turbo prune @paperclipai/server --docker \
+    && cd out/json \
+    && printf "packages:\n" > pnpm-workspace.yaml \
+    && find . -mindepth 2 -name "package.json" -exec dirname {} \; | sed 's|^./||' | sort | awk '{print "  - "$0}' >> pnpm-workspace.yaml \
+    && cp pnpm-workspace.yaml ../full/pnpm-workspace.yaml
+
+# --- Install dependencies from pruned lockfile ---
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./
-COPY cli/package.json cli/
-COPY server/package.json server/
-COPY ui/package.json ui/
-COPY packages/shared/package.json packages/shared/
-COPY packages/db/package.json packages/db/
-COPY packages/adapter-utils/package.json packages/adapter-utils/
-COPY packages/adapters/claude-local/package.json packages/adapters/claude-local/
-COPY packages/adapters/codex-local/package.json packages/adapters/codex-local/
-COPY packages/adapters/cursor-local/package.json packages/adapters/cursor-local/
-COPY packages/adapters/openclaw-gateway/package.json packages/adapters/openclaw-gateway/
-COPY packages/adapters/opencode-local/package.json packages/adapters/opencode-local/
-COPY packages/adapters/gemini-local/package.json packages/adapters/gemini-local/
-COPY packages/adapters/pi-local/package.json packages/adapters/pi-local/
-COPY packages/plugins/sdk/package.json packages/plugins/sdk/
+COPY --from=pruner /app/out/json/ .
+RUN echo "node-linker=hoisted" > .npmrc && pnpm install --no-frozen-lockfile
 
-RUN pnpm install --frozen-lockfile
-
+# --- Build ---
 FROM base AS build
 WORKDIR /app
-COPY --from=deps /app /app
-COPY . .
-RUN pnpm --filter @paperclipai/shared build
-RUN pnpm --filter @paperclipai/plugin-sdk build
-RUN pnpm --filter @paperclipai/ui build
-RUN rm -rf server/dist server/*.tsbuildinfo && pnpm --filter @paperclipai/server build
-RUN cat server/dist/routes/health.js | grep -q 'hostedMode: opts' || (echo "ERROR: health.js missing hostedMode in res.json" && exit 1)
-RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
+COPY --from=pruner /app/out/full/ .
+COPY --from=deps /app/ .
+# turbo prune doesn't include non-package config files — copy them from source
+COPY sidecars/paperclip/tsconfig.base.json sidecars/paperclip/tsconfig.base.json
+COPY sidecars/paperclip/tsconfig.json sidecars/paperclip/tsconfig.json
+RUN pnpm --filter @wopr-network/provision-server build \
+    && pnpm --filter @paperclipai/shared build \
+    && pnpm --filter @paperclipai/plugin-sdk build \
+    && pnpm --filter @paperclipai/ui build \
+    && pnpm --filter @paperclipai/server build
+RUN test -f sidecars/paperclip/server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
 
-FROM base AS production
-WORKDIR /app
-COPY --chown=node:node --from=build /app /app
-COPY changelogs/user-facing/ /app/changelogs/
-RUN test -L /app/changelogs/latest.json || test -f /app/changelogs/latest.json || echo "WARN: latest.json not found"
-RUN mkdir -p /paperclip /data && chown -R node:node /paperclip /data
-
-# Install opencode globally — the opencode_local adapter spawns `opencode run`
-# to execute agents, routing inference through the metered gateway.
+# --- Production ---
+FROM node:lts-trixie-slim AS production
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl git locales \
+  && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
+  && locale-gen en_US.UTF-8 \
+  && rm -rf /var/lib/apt/lists/*
+ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 RUN npm install -g opencode-ai@latest
 
+RUN groupadd paperclip && useradd -g paperclip -m paperclip
+WORKDIR /app
+COPY --chown=paperclip:paperclip --from=build /app/ .
+RUN mkdir -p /paperclip /data && chown -R paperclip:paperclip /paperclip /data
+
+# embedded-postgres bundles its own libs — create soname symlinks and set LD_LIBRARY_PATH
+RUN cd /app/node_modules/@embedded-postgres/linux-x64/native/lib && \
+    for f in *.so.*.*; do \
+      soname="${f%.*}"; [ ! -e "$soname" ] && ln -s "$f" "$soname" || true; \
+      base="${soname%.*}"; [ ! -e "$base" ] && ln -s "$f" "$base" || true; \
+    done
+ENV LD_LIBRARY_PATH=/app/node_modules/@embedded-postgres/linux-x64/native/lib
 ENV NODE_ENV=production \
   HOME=/paperclip \
   HOST=0.0.0.0 \
@@ -58,20 +73,16 @@ ENV NODE_ENV=production \
   SERVE_UI=true \
   PAPERCLIP_HOME=/paperclip \
   PAPERCLIP_INSTANCE_ID=default \
-  PAPERCLIP_DEPLOYMENT_MODE=hosted_proxy \
-  PAPERCLIP_DEPLOYMENT_EXPOSURE=private \
-  PAPERCLIP_MIGRATION_AUTO_APPLY=true \
-  PAPERCLIP_HOSTED_MODE=true
+  PAPERCLIP_MIGRATION_AUTO_APPLY=true
 
-# Fleet injects these at container start:
-#   WOPR_PROVISION_SECRET  — auth token for /internal/* API
-#   WOPR_GATEWAY_URL       — platform-core inference gateway
-#   WOPR_TENANT_API_KEY    — tenant's API key for the gateway
-#   WOPR_TENANT_ID         — platform-core tenant ID
-#   DATABASE_URL           — managed Postgres connection string (optional; falls back to embedded)
+# Managed image marker — tells the sidecar it's platform-managed.
+# Deployment config (hostedMode, deploymentMode) comes from this file,
+# NOT from env vars. Provisioning writes a richer config to the data volume.
+RUN echo '{"deploymentMode":"hosted_proxy","hostedMode":true,"deploymentExposure":"private"}' > /app/.managed-instance.json
 
 VOLUME ["/paperclip"]
 EXPOSE 3100
 
-USER node
-CMD ["node", "--import", "./server/node_modules/tsx/dist/loader.mjs", "server/dist/index.js"]
+USER paperclip
+WORKDIR /app
+CMD ["node", "--import", "/app/node_modules/tsx/dist/loader.mjs", "sidecars/paperclip/server/dist/index.js"]

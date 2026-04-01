@@ -26,8 +26,8 @@
 # Claude Code worktrees (full repo copies)
 .claude/
 
-# Sidecars are separate images, not needed in platform builds
-sidecars/
+# Sidecars — included for turbo prune builds (sidecar Dockerfiles use monorepo root as context)
+# Individual sidecar builds prune to only what they need via turbo prune.
 
 # IDE/editor
 **/.vscode/

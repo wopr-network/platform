@@ -18,7 +18,7 @@ export const dockerVolumeNameSchema = z
  * Default allowlisted Docker image registry prefixes.
  * Configurable via FLEET_IMAGE_ALLOWLIST env var (comma-separated).
  */
-const DEFAULT_IMAGE_ALLOWLIST = ["ghcr.io/wopr-network/"];
+const DEFAULT_IMAGE_ALLOWLIST = ["ghcr.io/wopr-network/", "registry.wopr.bot/"];
 
 function getImageAllowlist(): string[] {
   const envVal = process.env.FLEET_IMAGE_ALLOWLIST;
@@ -78,9 +78,19 @@ export const botProfileSchema = z.object({
   network: z.string().min(1).optional(),
   /** When true, disables ReadonlyRootfs and CapDrop for containers that need write access (e.g., ephemeral workers). */
   ephemeral: z.boolean().optional(),
+  /** Product this instance belongs to. Determines container name prefix and billing rules. */
+  productSlug: z.string().min(1),
 });
 
 export type BotProfile = z.infer<typeof botProfileSchema>;
+
+/** Derive the Docker container name from a profile. Deterministic: {product}-{sanitizedName} */
+export function containerNameFor(profile: Pick<BotProfile, "name" | "productSlug">): string {
+  if (!profile.productSlug)
+    throw new Error(`Profile "${profile.name}" has no productSlug — cannot derive container name`);
+  const sanitized = profile.name.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
+  return `${profile.productSlug}-${sanitized}`;
+}
 
 /** Schema for creating a bot via the API */
 export const createBotSchema = z.object({
@@ -104,6 +114,8 @@ export const createBotSchema = z.object({
   network: z.string().min(1).optional(),
   /** When true, disables ReadonlyRootfs and CapDrop for ephemeral workers. */
   ephemeral: z.boolean().optional(),
+  /** Product this instance belongs to. Determines container name prefix and billing rules. */
+  productSlug: z.string().min(1),
 });
 
 /** Schema for updating a bot via the API */

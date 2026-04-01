@@ -20,6 +20,10 @@ export const products = pgTable(
     fromEmail: text("from_email").notNull().default(""),
     homePath: text("home_path").notNull().default("/marketplace"),
     storagePrefix: text("storage_prefix").notNull(),
+    /** Docker service name for the UI container (e.g., "paperclip-ui"). */
+    uiService: text("ui_service").notNull().default(""),
+    /** Internal port the UI container listens on. */
+    uiPort: integer("ui_port").notNull().default(3000),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

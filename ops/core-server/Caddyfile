@@ -6,6 +6,16 @@ wopr.bot {
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
+*.wopr.bot {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+	reverse_proxy core:3001 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
 api.wopr.bot {
 	reverse_proxy core:3001 {
 		header_up X-Real-IP {remote_host}
@@ -23,6 +33,16 @@ runpaperclip.com {
 	}
 }
 api.runpaperclip.com {
+	reverse_proxy core:3001 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+*.runpaperclip.com {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
 	reverse_proxy core:3001 {
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}

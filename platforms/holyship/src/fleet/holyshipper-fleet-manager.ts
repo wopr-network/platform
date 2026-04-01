@@ -76,6 +76,7 @@ export class HolyshipperFleetManager implements IFleetManager {
     const instance = await this.fleet.create({
       name: botName,
       tenantId: "holyship",
+      productSlug: "holyship",
       image: this.image,
       env,
       restartPolicy: "no",

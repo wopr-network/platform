@@ -102,7 +102,10 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     let instanceImage = config.instanceImage;
     let containerPort = config.containerPort;
     let maxInstances = config.maxInstancesPerTenant;
-    let containerPrefix = config.containerPrefix ?? "wopr";
+    if (!productSlug) {
+      return c.json({ error: "Product slug required (X-Product header or request body)" }, 400);
+    }
+    let containerPrefix = productSlug;
 
     if (productSlug && container.productConfigService) {
       const productConfig = await container.productConfigService.getBySlug(productSlug);
@@ -143,11 +146,15 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     logger.info(`Placing container on node: ${targetNode.config.name} (${targetNode.config.id})`);
 
     // Create the Docker container — image comes from product config
+    if (!productSlug) {
+      return c.json({ error: "Product slug is required: set 'product' in body or X-Product header" }, 422);
+    }
     const instance = await fleet.create({
       tenantId,
       name: subdomain,
       description: `Managed instance for ${subdomain}`,
       image: instanceImage,
+      productSlug,
       env: {
         PORT: String(containerPort),
         PROVISION_SECRET: config.provisionSecret,

@@ -26,6 +26,8 @@ export interface Product {
   fromEmail: string;
   homePath: string;
   storagePrefix: string;
+  uiService: string;
+  uiPort: number;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -213,6 +213,22 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
     },
 
     async onProvisioned(req: ProvisionRequest, _result: ProvisionResponse) {
+      // Persist instance config to data volume so deployment identity
+      // survives container restarts.  The provision request carries
+      // instanceConfig in `extra`; merge with sensible defaults.
+      const extraConfig = (req.extra?.instanceConfig ?? {}) as Record<string, unknown>;
+      const instanceConfig = {
+        deploymentMode: "hosted_proxy",
+        hostedMode: true,
+        deploymentExposure: "private",
+        ...extraConfig,
+        tenantId: req.tenantId,
+        provisionedAt: new Date().toISOString(),
+      };
+      const configPath = path.join(process.env.PAPERCLIP_HOME ?? "/data", ".instance-config.json");
+      await fs.mkdir(path.dirname(configPath), { recursive: true });
+      await fs.writeFile(configPath, JSON.stringify(instanceConfig, null, 2) + "\n");
+
       await logActivity(db, {
         companyId: _result.tenantEntityId,
         actorType: "user",

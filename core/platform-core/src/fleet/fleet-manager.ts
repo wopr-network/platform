@@ -525,15 +525,30 @@ export class FleetManager {
   }
 
   private async findContainer(botId: string): Promise<Docker.Container | null> {
+    // 1. Try by label (cold-created containers)
     const containers = await this.docker.listContainers({
       all: true,
       filters: {
         label: [`${CONTAINER_ID_LABEL}=${botId}`],
       },
     });
+    if (containers.length > 0) return this.docker.getContainer(containers[0].Id);
 
-    if (containers.length === 0) return null;
-    return this.docker.getContainer(containers[0].Id);
+    // 2. Try by deterministic name (pool-claimed containers don't have labels)
+    const profile = await this.store.get(botId);
+    if (profile) {
+      const { containerNameFor } = await import("./types.js");
+      const name = containerNameFor(profile);
+      try {
+        const container = this.docker.getContainer(name);
+        await container.inspect();
+        return container;
+      } catch {
+        // Not found
+      }
+    }
+
+    return null;
   }
 
   private async statusForProfile(profile: BotProfile): Promise<BotStatus> {

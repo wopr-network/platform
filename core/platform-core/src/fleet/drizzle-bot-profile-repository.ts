@@ -31,6 +31,7 @@ export class DrizzleBotProfileRepository implements IBotProfileRepository {
         description: profile.description ?? "",
         releaseChannel: profile.releaseChannel ?? "stable",
         discoveryJson: profile.discovery ? JSON.stringify(profile.discovery) : null,
+        productSlug: profile.productSlug,
       })
       .onConflictDoUpdate({
         target: botProfiles.id,
@@ -45,6 +46,7 @@ export class DrizzleBotProfileRepository implements IBotProfileRepository {
           description: profile.description ?? "",
           releaseChannel: profile.releaseChannel ?? "stable",
           discoveryJson: profile.discovery ? JSON.stringify(profile.discovery) : null,
+          productSlug: profile.productSlug,
           updatedAt: sql`(now())`,
         },
       });
@@ -69,6 +71,7 @@ function toProfile(row: typeof botProfiles.$inferSelect): BotProfile {
     tenantId: row.tenantId,
     name: row.name,
     image: row.image,
+    productSlug: row.productSlug,
     env: (() => {
       try {
         return JSON.parse(row.env) as Record<string, string>;

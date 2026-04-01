@@ -318,6 +318,14 @@ export type Auth = ReturnType<typeof betterAuth>;
 /** Initialize Better Auth with the given config. Must be called before getAuth(). */
 export function initBetterAuth(config: BetterAuthConfig): void {
   _config = config;
+  const secretHash = config.secret ? config.secret.slice(0, 4) + "..." + config.secret.slice(-4) : "(none)";
+  logger.info("initBetterAuth called", {
+    baseURL: config.baseURL ?? "(undefined)",
+    cookieDomain: config.cookieDomain ?? "(undefined)",
+    secretHash,
+    trustedOrigins: config.trustedOrigins?.slice(0, 6),
+    socialProviders: Object.keys(config.socialProviders ?? {}),
+  });
 }
 
 /**
@@ -377,13 +385,22 @@ export function setAuthProductManager(manager: import("./product-auth-manager.js
  */
 export async function getAuthForProduct(slug: string): Promise<Auth> {
   const cached = _productAuths.get(slug);
-  if (cached) return cached;
+  if (cached) {
+    logger.debug(`BetterAuth [${slug}]: using cached instance`);
+    return cached;
+  }
 
   if (!_config) throw new Error("BetterAuth not initialized — call initBetterAuth() first");
-  if (!_productAuthManager) return getAuth(); // Fallback to global
+  if (!_productAuthManager) {
+    logger.warn(`BetterAuth [${slug}]: no productAuthManager — falling back to global`);
+    return getAuth(); // Fallback to global
+  }
 
   const providers = await _productAuthManager.getSocialProviders(slug);
-  if (Object.keys(providers).length === 0) return getAuth(); // No per-product config
+  if (Object.keys(providers).length === 0) {
+    logger.warn(`BetterAuth [${slug}]: no providers configured — falling back to global`);
+    return getAuth(); // No per-product config
+  }
 
   // Resolve product domain for baseURL + cookieDomain
   const socialProviders: BetterAuthConfig["socialProviders"] = {};
@@ -403,6 +420,17 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
     // Use defaults
   }
 
+  // Log the config for this product instance (hash secret for safety)
+  const secretHash = _config.secret ? _config.secret.slice(0, 4) + "..." + _config.secret.slice(-4) : "(ephemeral)";
+  logger.info(`BetterAuth [${slug}]: creating instance`, {
+    baseURL,
+    cookieDomain,
+    secretHash,
+    globalBaseURL: _config.baseURL ?? "(undefined → localhost)",
+    globalCookieDomain: _config.cookieDomain ?? "(undefined → none)",
+    providers: Object.keys(providers),
+  });
+
   const productConfig: BetterAuthConfig = {
     ..._config,
     baseURL,
@@ -412,7 +440,6 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
 
   const auth = betterAuth(authOptions(productConfig));
   _productAuths.set(slug, auth);
-  logger.info(`Created BetterAuth instance for product ${slug}`, { baseURL, providers: Object.keys(providers) });
   return auth;
 }
 

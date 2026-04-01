@@ -90,11 +90,14 @@ async function createWarmContainer(
       });
     }
 
-    // Init volume permissions
+    // Init volume: clear any stale embedded-PG data dirs and fix ownership.
+    // Paperclip's managed image runs embedded PostgreSQL in /paperclip/instances/default/db.
+    // If a previous init left PG data files, the next start fails with "data directory already exists".
+    // We wipe the volume clean so each warm container starts fresh.
     const init = await docker.createContainer({
       Image: containerImage,
       Entrypoint: ["/bin/sh", "-c"],
-      Cmd: ["chown -R 999:999 /data"],
+      Cmd: ["rm -rf /data/* /data/.* 2>/dev/null; chown -R 999:999 /data || true"],
       User: "root",
       HostConfig: { Binds: [`${volumeName}:/data`] },
     });
@@ -102,21 +105,47 @@ async function createWarmContainer(
     await init.wait();
     await init.remove();
 
+    // Inspect the image to get its original entrypoint and cmd so we can
+    // wrap them with a cleanup step. Some images (e.g. Paperclip) have
+    // embedded databases whose data dirs get baked into the image layer.
+    // Without cleanup, the container crash-loops with "data directory already exists".
+    const imageInfo = await docker.getImage(containerImage).inspect();
+    const rawEntrypoint = imageInfo.Config?.Entrypoint ?? [];
+    const rawCmd = imageInfo.Config?.Cmd ?? [];
+    const origEntrypoint: string[] = Array.isArray(rawEntrypoint) ? rawEntrypoint : [rawEntrypoint];
+    const origCmd: string[] = Array.isArray(rawCmd) ? rawCmd : [rawCmd];
+    const fullCmd = [...origEntrypoint, ...origCmd].join(" ");
+
+    // Build a wrapper that clears known stale state paths before exec-ing
+    // the original command. This is a no-op for images without embedded DBs.
+    const cleanupAndExec = ["rm -rf /paperclip/instances/default/db 2>/dev/null;", `exec ${fullCmd}`].join(" ");
+
     const warmContainer = await docker.createContainer({
       Image: containerImage,
       name: containerName,
-      Env: [`PORT=${containerPort}`, `PROVISION_SECRET=${provisionSecret}`, "HOME=/data"],
+      Entrypoint: ["/bin/sh", "-c"],
+      Cmd: [cleanupAndExec],
+      Env: [`PORT=${containerPort}`, `WOPR_PROVISION_SECRET=${provisionSecret}`, "HOME=/data"],
       HostConfig: {
         Binds: [`${volumeName}:/data`],
-        RestartPolicy: { Name: "unless-stopped" },
+        RestartPolicy: { Name: "on-failure", MaximumRetryCount: 3 },
       },
     });
 
     await warmContainer.start();
 
-    if (dockerNetwork) {
-      const network = docker.getNetwork(dockerNetwork);
+    // Connect to Docker network so the core server can reach pool containers
+    // by hostname (Docker DNS). Default to "platform" — the compose network
+    // created by the core-server docker-compose.yml.
+    const targetNetwork = dockerNetwork || "platform";
+    try {
+      const network = docker.getNetwork(targetNetwork);
       await network.connect({ Container: warmContainer.id });
+      logger.info(`Hot pool: connected ${containerName} to network ${targetNetwork}`);
+    } catch (netErr) {
+      logger.warn(`Hot pool: failed to connect ${containerName} to network ${targetNetwork}`, {
+        error: (netErr as Error).message,
+      });
     }
 
     await repo.insertWarm(id, warmContainer.id, productSlug, containerImage);
@@ -198,14 +227,23 @@ async function cleanupDead(container: PlatformContainer, repo: IPoolRepository):
     try {
       const c = docker.getContainer(instance.containerId);
       const info = await c.inspect();
-      if (!info.State.Running) {
+      // Mark dead if stopped, or if crash-looping (Restarting state with high restart count)
+      const isRunning = info.State.Running && !info.State.Restarting;
+      const restartCount = info.RestartCount ?? 0;
+      const isCrashLooping = info.State.Restarting || restartCount > 2;
+      if (!isRunning || isCrashLooping) {
         await repo.markDead(instance.id);
         try {
+          await c.stop().catch(() => {});
           await c.remove({ force: true });
         } catch {
           /* already gone */
         }
-        logger.warn(`Hot pool: marked dead container ${instance.id}`);
+        logger.warn(`Hot pool: marked dead container ${instance.id}`, {
+          running: info.State.Running,
+          restarting: info.State.Restarting,
+          restartCount,
+        });
       }
     } catch {
       await repo.markDead(instance.id);

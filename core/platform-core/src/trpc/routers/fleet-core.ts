@@ -73,6 +73,10 @@ export interface FleetCoreRouterDeps {
   resolveProductConfig?: (slug: string) => Promise<ProductConfig | null>;
   /** Hot pool repository — try claiming a pre-warmed container before cold create. */
   poolRepo?: IPoolRepository;
+  /** Docker client for container rename after pool claim. */
+  docker?: import("dockerode");
+  /** Instance service — orchestrates create, provision, billing. */
+  instanceService: import("../../fleet/instance-service.js").InstanceService;
 }
 
 /** Derive tenantId from context — personal org uses userId as tenantId. */
@@ -264,7 +268,6 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         z.object({
           name: z.string().min(1).max(63),
           description: z.string().optional().default(""),
-          productSlug: z.string().min(1).optional(),
           orgId: z.string().min(1).optional(),
           env: z.record(z.string(), z.string()).optional(),
         }),
@@ -274,111 +277,32 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         const userId = (ctx as ProtectedCtx).user.id;
         await d.assertOrgAdminOrOwner(tenant, userId);
 
-        // Resolve product config for the image + gateway URL
-        const slug = input.productSlug ?? "wopr";
+        if (!ctx.productSlug) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Product could not be determined from request" });
+        }
         let pc = d.productConfig;
-        if (d.resolveProductConfig && slug !== d.productConfig.product?.slug) {
-          const resolved = await d.resolveProductConfig(slug);
+        if (d.resolveProductConfig && ctx.productSlug !== d.productConfig.product?.slug) {
+          const resolved = await d.resolveProductConfig(ctx.productSlug);
           if (resolved) pc = resolved;
         }
 
-        const fleetConfig = pc.fleet;
-        const image = fleetConfig?.containerImage ?? "registry.wopr.bot/wopr:managed";
-
-        // Credit check — minimum 17 cents (1 day of runtime).
-        // Ephemeral instances skip this — they bill per-token at the gateway.
-        const isEphemeral = fleetConfig?.lifecycle === "ephemeral";
-        const { Credit } = await import("../../credits/index.js");
-        const balance = await d.creditLedger.balance(tenant);
-        if (!isEphemeral && balance.lessThan(Credit.fromCents(17))) {
-          throw new TRPCError({
-            code: "PRECONDITION_FAILED",
-            message: `Insufficient credits: ${balance.toCentsRounded()}¢ (need 17¢ minimum)`,
-          });
-        }
-
-        // 1. Create — try claiming a pre-warmed container first, cold create as fallback
-        const fleet = d.getFleetForInstance("__new__");
-        let instance: { id: string; profile: { name: string; tenantId: string } } | null = null;
-
-        // Try claiming a pre-warmed container from the hot pool
-        if (d.poolRepo) {
-          const claimed = await d.poolRepo.claimWarm(tenant, input.name, slug);
-          if (claimed) {
-            instance = { id: claimed.id, profile: { name: input.name, tenantId: tenant } };
-            logger.info(`Fleet: claimed warm container from pool`, { instanceId: claimed.id, productSlug: slug });
-          }
-        }
-
-        // Cold create as fallback
-        if (!instance) {
-          instance = await fleet.create({
+        try {
+          return await d.instanceService.create({
             tenantId: tenant,
+            userId,
+            userEmail: ctx.userEmail ?? "",
             name: input.name,
-            description: input.description ?? "",
-            image,
-            env: (input.env ?? {}) as Record<string, string>,
-            restartPolicy: "unless-stopped",
-            releaseChannel: "stable",
-            updatePolicy: "manual",
+            description: input.description,
+            productSlug: ctx.productSlug,
+            productConfig: pc,
+            env: input.env,
           });
-          logger.info(`Fleet: cold-created container`, { instanceId: instance.id, productSlug: slug });
-        }
-
-        // Generate gateway service key for metered inference
-        let gatewayKey: string | undefined;
-        if (d.serviceKeyRepo) {
-          try {
-            gatewayKey = await d.serviceKeyRepo.generate(tenant, instance.id, slug);
-          } catch (err) {
-            logger.warn("Gateway key generation failed (non-fatal)", { instanceId: instance.id, err });
+        } catch (err) {
+          if (err instanceof Error && err.message.startsWith("Insufficient credits")) {
+            throw new TRPCError({ code: "PRECONDITION_FAILED", message: err.message });
           }
+          throw err;
         }
-
-        // 2. Provision — give the container its identity
-        const containerPort = fleetConfig?.containerPort ?? 3000;
-        const gatewayUrl = pc.product?.domain ? `https://api.${pc.product.domain}` : "https://api.wopr.bot";
-        if (d.provisionSecret && gatewayKey) {
-          try {
-            const { provisionContainer } = await import("@wopr-network/provision-client");
-            const containerUrl = `http://localhost:${containerPort}`;
-            await provisionContainer(containerUrl, d.provisionSecret, {
-              tenantId: tenant,
-              tenantName: input.name,
-              gatewayUrl,
-              apiKey: gatewayKey,
-              budgetCents: balance.toCentsRounded(),
-              adminUser: {
-                id: userId,
-                email: "",
-                name: input.name,
-              },
-            });
-          } catch (err) {
-            logger.warn("Provisioning failed (non-fatal, container still created)", {
-              instanceId: instance.id,
-              err,
-            });
-          }
-        }
-
-        // 3. Start billing — activate the $0.17/day clock.
-        // Ephemeral instances (e.g., holyship) skip this — they bill per-token at the gateway.
-        if (!isEphemeral) {
-          try {
-            const inst = await fleet.getInstance(instance.id);
-            await inst.startBilling();
-          } catch (err) {
-            logger.warn("startBilling failed (non-fatal)", { instanceId: instance.id, err });
-          }
-        }
-
-        return {
-          id: instance.id,
-          name: instance.profile.name,
-          tenantId: instance.profile.tenantId,
-          gatewayKey,
-        };
       }),
 
     /** List available templates for instance creation. */

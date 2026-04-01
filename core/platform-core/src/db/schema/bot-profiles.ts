@@ -31,6 +31,8 @@ export const botProfiles = pgTable(
     volumeName: text("volume_name"),
     /** P2P discovery configuration as JSON (optional, matches DiscoveryConfig schema) */
     discoveryJson: text("discovery_json"),
+    /** Product slug this instance belongs to */
+    productSlug: text("product_slug").notNull().default(""),
     /** Human-readable description */
     description: text("description").notNull().default(""),
     /** ISO timestamp of record creation */

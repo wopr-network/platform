@@ -18,9 +18,11 @@ import type { TRPCContext } from "./init.js";
  * time this runs (requests without valid tokens are rejected with 401/400).
  */
 export function createInternalTRPCContext(c: Context<InternalServiceAuthEnv>): TRPCContext {
+  const ctx = c as unknown as { get(k: string): string | undefined };
   return {
     user: c.get("user"),
     tenantId: c.get("tenantId"),
-    productSlug: c.req.header("x-product") ?? undefined,
+    productSlug: c.req.header("x-product") ?? ctx.get("product") ?? undefined,
+    userEmail: ctx.get("userEmail") ?? undefined,
   };
 }

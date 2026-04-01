@@ -48,8 +48,8 @@ export interface ProxyUserInfo {
 }
 
 export interface TenantProxyConfig {
-  /** The platform root domain (e.g. "runpaperclip.com"). */
-  platformDomain: string;
+  /** All product root domains (e.g. ["runpaperclip.com", "wopr.bot", "nemopod.com"]). */
+  platformDomains: string[];
 
   /**
    * Resolve the authenticated user from the request.
@@ -113,7 +113,7 @@ export function buildUpstreamHeaders(incoming: Headers, user: ProxyUserInfo, ten
 function resolveContainerUrl(
   container: PlatformContainer,
   subdomain: string,
-  profile: { name: string; env?: Record<string, string> },
+  profile: { name: string; productSlug?: string; env?: Record<string, string> },
 ): string | null {
   if (!container.fleet) return null;
 
@@ -125,7 +125,9 @@ function resolveContainerUrl(
   }
 
   // Fallback: derive from persistent profile data (survives restarts)
-  const containerName = `wopr-${profile.name.replace(/_/g, "-")}`;
+  if (!profile.productSlug) return null;
+  const sanitized = profile.name.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
+  const containerName = `${profile.productSlug}-${sanitized}`;
   const port = profile.env?.PORT || "3100";
   return `http://${containerName}:${port}`;
 }
@@ -144,13 +146,18 @@ export function createTenantProxyMiddleware(
   container: PlatformContainer,
   config: TenantProxyConfig,
 ): MiddlewareHandler {
-  const { platformDomain, resolveUser } = config;
+  const { platformDomains, resolveUser } = config;
 
   return async (c, next) => {
     const host = c.req.header("host");
     if (!host) return next();
 
-    const subdomain = extractTenantSubdomain(host, platformDomain);
+    // Try each product domain to extract the subdomain
+    let subdomain: string | null = null;
+    for (const domain of platformDomains) {
+      subdomain = extractTenantSubdomain(host, domain);
+      if (subdomain) break;
+    }
     if (!subdomain) return next();
 
     // --- Fail-closed checks ---
@@ -180,7 +187,16 @@ export function createTenantProxyMiddleware(
 
     // Resolve fleet container URL (route table or profile fallback)
     const upstream = resolveContainerUrl(container, subdomain, profile);
+    const { logger } = await import("../../config/logger.js");
+    logger.info("Tenant proxy", {
+      subdomain,
+      upstream,
+      userId: user.id,
+      profileName: profile.name,
+      productSlug: profile.productSlug,
+    });
     if (!upstream) {
+      logger.warn("Tenant proxy: no upstream", { subdomain, productSlug: profile.productSlug });
       return c.json({ error: "Container unavailable" }, 503);
     }
 

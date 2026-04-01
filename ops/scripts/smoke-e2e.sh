@@ -44,7 +44,7 @@ trpc_query() {
   local proc="$1"
   http GET "$BASE/trpc/$proc" \
     -H "Authorization: Bearer $SERVICE_TOKEN" \
-    -H "X-Product: wopr" \
+    -H "X-Product: paperclip" \
     -H "X-User-Id: $USER_ID" \
     -H "X-Tenant-ID: $TENANT_ID"
 }
@@ -55,7 +55,7 @@ trpc_mutate() {
   http POST "$BASE/trpc/$proc" \
     -H "Authorization: Bearer $SERVICE_TOKEN" \
     -H "Content-Type: application/json" \
-    -H "X-Product: wopr" \
+    -H "X-Product: paperclip" \
     -H "X-User-Id: $USER_ID" \
     -H "X-Tenant-ID: $TENANT_ID" \
     -d "$body"
@@ -224,7 +224,7 @@ INSTANCE_RESP=$(curl -sf -X POST "$BASE/trpc/fleet.createInstance" \
   -H "X-Product: paperclip" \
   -H "X-User-Id: $USER_ID" \
   -H "X-Tenant-ID: $TENANT_ID" \
-  -d '{"name":"gw-test","productSlug":"paperclip"}' 2>/dev/null || echo "{}")
+  -d "{\"name\":\"gw-$(date +%s)\"}" 2>/dev/null || echo "{}")
 GW_KEY=$(echo "$INSTANCE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('result',{}).get('data',{}).get('gatewayKey',''))" 2>/dev/null || echo "")
 
 if [ -n "$GW_KEY" ] && [ "$GW_KEY" != "" ]; then

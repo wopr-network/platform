@@ -15,6 +15,15 @@ export interface FleetPreset {
   lifecycle: "managed" | "ephemeral";
   billingModel: "monthly" | "per_use" | "none";
   maxInstances: number;
+  /** Container port the sidecar listens on. */
+  containerPort?: number;
+}
+
+export interface InfraPreset {
+  /** Docker service name for the UI container (e.g., "paperclip-ui"). */
+  uiService: string;
+  /** Internal port the UI container listens on. */
+  uiPort: number;
 }
 
 export interface ProductPreset {
@@ -39,6 +48,8 @@ export interface ProductPreset {
   marginDefault: number;
   /** Default LLM model for the gateway (e.g. "moonshotai/kimi-k2.5"). */
   defaultModel: string;
+  /** Infrastructure config for Docker routing. */
+  infra: InfraPreset;
 }
 
 export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
@@ -80,7 +91,9 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       lifecycle: "managed",
       billingModel: "monthly",
       maxInstances: 5,
+      containerPort: 3000,
     },
+    infra: { uiService: "wopr-ui", uiPort: 3000 },
   },
   paperclip: {
     brandName: "Paperclip",
@@ -111,7 +124,9 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       lifecycle: "managed",
       billingModel: "monthly",
       maxInstances: 5,
+      containerPort: 3100,
     },
+    infra: { uiService: "paperclip-ui", uiPort: 3002 },
   },
   holyship: {
     brandName: "Holy Ship",
@@ -145,7 +160,9 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       lifecycle: "ephemeral",
       billingModel: "none",
       maxInstances: 50,
+      containerPort: 3005,
     },
+    infra: { uiService: "holyship-ui", uiPort: 3000 },
   },
   nemoclaw: {
     brandName: "NemoPod",
@@ -176,6 +193,8 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       lifecycle: "managed",
       billingModel: "monthly",
       maxInstances: 5,
+      containerPort: 3000,
     },
+    infra: { uiService: "nemoclaw-ui", uiPort: 3003 },
   },
 };

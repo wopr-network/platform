@@ -36,9 +36,11 @@ export interface PlatformSecrets {
   githubAppPrivateKey: string | null;
   githubWebhookSecret: string | null;
 
-  // Cloudflare (DNS token used by Caddy and provisioning)
+  // Cloudflare (DNS tokens used by Caddy and provisioning)
   cloudflareDnsToken: string | null;
   cloudflareTunnelToken: string | null;
+  /** Scoped CF token for Caddy wildcard TLS (Zone:Read + DNS:Edit). */
+  cloudflareCaddyDnsToken: string | null;
 
   // Crypto
   cryptoServiceKey: string | null;
@@ -96,6 +98,7 @@ export function mapSecrets(raw: Record<string, string>): PlatformSecrets {
     // Cloudflare
     cloudflareDnsToken: raw.dns_edit ?? null,
     cloudflareTunnelToken: raw.tunnel_edit ?? null,
+    cloudflareCaddyDnsToken: raw.caddy_dns_token ?? null,
 
     // Crypto
     cryptoServiceKey: raw.crypto_service_key ?? null,
@@ -149,6 +152,7 @@ export function mapSecretsFromPaths(paths: Record<string, Record<string, string>
     githubWebhookSecret: github.webhook_secret ?? null,
     cloudflareDnsToken: cloudflare.dns_edit ?? null,
     cloudflareTunnelToken: cloudflare.tunnel_edit ?? null,
+    cloudflareCaddyDnsToken: cloudflare.caddy_dns_token ?? null,
     cryptoServiceKey: prod.crypto_service_key ?? null,
     cryptoServiceUrl: prod.crypto_service_url ?? null,
     googleClientId: prod.google_client_id ?? null,
@@ -197,6 +201,7 @@ export function secretsFromEnv(): PlatformSecrets {
     githubWebhookSecret: null,
     cloudflareDnsToken: null,
     cloudflareTunnelToken: null,
+    cloudflareCaddyDnsToken: null,
     cryptoServiceKey: null,
     cryptoServiceUrl: null,
     googleClientId: null,

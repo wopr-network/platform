@@ -38,10 +38,18 @@ export function OAuthButtons({ callbackUrl = "/", productSlug }: OAuthButtonsPro
     setLoading(provider);
     try {
       const absoluteCallback = callbackUrl.startsWith("http") ? callbackUrl : `${window.location.origin}${callbackUrl}`;
-      await signIn.social({
+      const result = await signIn.social({
         provider,
         callbackURL: absoluteCallback,
+        fetchOptions: { redirect: "manual" },
       });
+      // BetterAuth returns { url, redirect } — navigate the browser explicitly
+      // fetch() can't follow cross-origin redirects to GitHub, so we must do it ourselves
+      const url = (result as { data?: { url?: string } })?.data?.url ?? (result as { url?: string })?.url;
+      if (url) {
+        window.location.href = url;
+        return; // page navigates away
+      }
     } catch {
       // signIn.social redirects on success; failure here means the redirect didn't happen
     } finally {

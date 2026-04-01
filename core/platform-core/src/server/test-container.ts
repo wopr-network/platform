@@ -143,6 +143,7 @@ export function createTestContainer(overrides?: Partial<PlatformContainer>): Pla
     gateway: null,
     hotPool: null,
     poolRepo: null,
+    instanceService: null,
     productAuthManager: null,
     leaderElection: {
       isLeader: true,

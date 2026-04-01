@@ -28,6 +28,62 @@ import { createStripeWebhookRoutes } from "./routes/stripe-webhook.js";
 // Config accepted at mount time
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve product slug from request headers: X-Product → Origin → Host.
+ * Used by all middleware that needs to know which product a request is for.
+ */
+/**
+ * Resolve product slug from request headers: X-Product → Origin → Referer → Host.
+ * Throws if the product cannot be determined — an unresolved product is a bug, not a fallback.
+ */
+async function resolveProductSlug(
+  req: { header(name: string): string | undefined },
+  productConfigService: PlatformContainer["productConfigService"],
+): Promise<string> {
+  const explicit = req.header("x-product");
+  if (explicit) return explicit;
+
+  const candidates: string[] = [];
+  const origin = req.header("origin") ?? "";
+  const referer = req.header("referer") ?? "";
+  try {
+    if (origin) candidates.push(new URL(origin).hostname);
+  } catch {
+    /* skip */
+  }
+  try {
+    if (referer) candidates.push(new URL(referer).hostname);
+  } catch {
+    /* skip */
+  }
+  const reqHost = req.header("host")?.split(":")[0];
+  if (reqHost) {
+    candidates.push(reqHost);
+    if (reqHost.startsWith("api.")) candidates.push(reqHost.slice(4));
+    // Instance subdomains: breeee.runpaperclip.com → runpaperclip.com
+    const parts = reqHost.split(".");
+    if (parts.length > 2) candidates.push(parts.slice(1).join("."));
+  }
+
+  const allProducts = await productConfigService.listAll();
+  for (const candidate of candidates) {
+    for (const pc of allProducts) {
+      if (pc.product?.domain === candidate || pc.product?.appDomain === candidate) {
+        if (!pc.product.slug) throw new Error(`Product matched domain ${candidate} but has no slug`);
+        return pc.product.slug;
+      }
+      if (pc.domains?.some((d) => d.host === candidate)) {
+        if (!pc.product?.slug) throw new Error(`Product matched domain ${candidate} but has no slug`);
+        return pc.product.slug;
+      }
+    }
+  }
+
+  throw new Error(
+    `Cannot resolve product from request (origin=${origin}, host=${reqHost}). Every request must be attributable to a product.`,
+  );
+}
+
 export interface MountConfig {
   provisionSecret: string;
   cryptoServiceKey?: string;
@@ -95,10 +151,14 @@ export async function mountRoutes(
   // Downstream handlers read c.get("productConfig") instead of container.productConfig.
   if (bootConfig?.standalone) {
     app.use("*", async (c, next) => {
-      const slug = c.req.header("x-product") ?? bootConfig.slug ?? "core";
+      // Health check is internal (localhost, no Origin) — skip product resolution
+      if (c.req.path === "/health" || c.req.path === "/api/health") return next();
+      const slug = await resolveProductSlug(c.req, container.productConfigService);
       const resolved = await container.productConfigService.getBySlug(slug);
       if (resolved) {
-        (c as unknown as { set(k: string, v: unknown): void }).set("productConfig", resolved);
+        const ctx = c as unknown as { set(k: string, v: unknown): void };
+        ctx.set("productConfig", resolved);
+        ctx.set("product", slug);
       }
       return next();
     });
@@ -124,9 +184,76 @@ export async function mountRoutes(
       allowedTokens: bootConfig.standalone.allowedServiceTokens,
     });
 
-    // Apply internal auth to /trpc/* and /api/* (but NOT /v1/* — gateway has its own auth,
-    // and NOT /api/auth/* — BetterAuth login/signup/OAuth must be public)
-    app.use("/trpc/*", authMiddleware);
+    // Apply internal auth to /trpc/* and /api/*. Browser requests use session cookies
+    // (no service token), so fall through to BetterAuth session validation.
+    const { getAuthForProduct: getAuthForTrpc } = await import("../auth/better-auth.js");
+    const { logger: trpcAuthLogger } = await import("../config/logger.js");
+    app.use("/trpc/*", async (c, next) => {
+      const ctx = c as unknown as { set(k: string, v: unknown): void };
+      const path = c.req.path;
+
+      // If a service token is present, use internal auth (server-to-server)
+      if (c.req.header("Authorization")) {
+        trpcAuthLogger.debug("tRPC auth: service token", { path });
+        return authMiddleware(c as never, next);
+      }
+
+      // No service token — try BetterAuth session (browser direct calls)
+      trpcAuthLogger.info("tRPC auth: no token, trying session", {
+        path,
+        hasCookies: !!c.req.header("cookie"),
+        origin: c.req.header("origin") ?? "(none)",
+      });
+
+      const slug = await resolveProductSlug(c.req, container.productConfigService);
+      const auth = await getAuthForTrpc(slug);
+      const session = await auth.api.getSession({ headers: c.req.raw.headers });
+
+      if (!session?.user) {
+        trpcAuthLogger.warn("tRPC auth: no valid session", { path, slug });
+        return c.json({ error: "Unauthorized" }, 401);
+      }
+
+      const role = (session.user as Record<string, unknown>).role ?? "user";
+      trpcAuthLogger.info("tRPC auth: session valid", {
+        path,
+        userId: session.user.id,
+        role,
+        slug,
+      });
+
+      // Resolve tenant and verify product matches
+      const tenantId = c.req.header("x-tenant-id") ?? session.user.id;
+      const { tenants: tenantsTable } = await import("../db/schema/index.js");
+      const { eq } = await import("drizzle-orm");
+      const [tenant] = await container.db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1);
+      if (tenant) {
+        if (!tenant.productSlug) {
+          // First request for this tenant — stamp it with the product
+          await container.db.update(tenantsTable).set({ productSlug: slug }).where(eq(tenantsTable.id, tenantId));
+          trpcAuthLogger.info("Stamped tenant with product", { tenantId, slug });
+        } else if (tenant.productSlug !== slug) {
+          trpcAuthLogger.warn("Product mismatch", {
+            tenantId,
+            tenantProduct: tenant.productSlug,
+            requestProduct: slug,
+          });
+          return c.json({ error: `Tenant belongs to ${tenant.productSlug}, not ${slug}` }, 403);
+        }
+      }
+
+      // Set context variables that tRPC handlers expect
+      ctx.set("userId", session.user.id);
+      ctx.set("userEmail", session.user.email ?? "");
+      ctx.set("tenantId", tenantId);
+      ctx.set("product", slug);
+      ctx.set("user", { id: session.user.id, roles: [role] });
+      ctx.set("userRoles", [role]);
+      ctx.set("authMethod", "session");
+      ctx.set("requestId", c.req.header("x-request-id") ?? crypto.randomUUID());
+      ctx.set("serviceName", "browser");
+      return next();
+    });
     app.use("/api/*", async (c, next) => {
       // BetterAuth routes must bypass internal auth — they handle browser sessions directly
       if (c.req.path.startsWith("/api/auth")) return next();
@@ -171,7 +298,7 @@ export async function mountRoutes(
         assertOrgAdminOrOwner,
       },
       settings: {
-        serviceName: `${bootConfig.slug ?? "core"}-platform`,
+        serviceName: `${bootConfig.slug}-platform`,
         getNotificationPrefsStore: () => need(container.notificationPrefsRepo, "notificationPrefsRepo"),
       },
       profile: {
@@ -203,6 +330,8 @@ export async function mountRoutes(
               provisionSecret: config.provisionSecret,
               resolveProductConfig: (slug: string) => container.productConfigService.getBySlug(slug),
               poolRepo: container.poolRepo ?? undefined,
+              docker: container.fleet.docker,
+              instanceService: need(container.instanceService, "instanceService"),
             },
           }
         : {}),
@@ -253,7 +382,7 @@ export async function mountRoutes(
           // Invalid URL
         }
       }
-      slug = slug ?? bootConfig.slug ?? "wopr";
+      if (!slug) return c.json({ error: "Cannot resolve product from request" }, 400);
       if (!container.productAuthManager) return c.json([]);
       const providers = await container.productAuthManager.getEnabledProviders(slug);
       return c.json(providers);
@@ -331,30 +460,87 @@ export async function mountRoutes(
     // Product slug comes from X-Product header (set by UI server-side requests)
     // or from the Origin header → product domain lookup.
     const { getAuthForProduct } = await import("../auth/better-auth.js");
+    const { logger: authRouteLogger } = await import("../config/logger.js");
     app.all("/api/auth/*", async (c) => {
-      // Try X-Product header first, then resolve from Origin domain
-      let slug = c.req.header("x-product") ?? bootConfig.slug ?? "wopr";
-      if (!c.req.header("x-product")) {
-        const origin = c.req.header("origin") ?? c.req.header("referer") ?? "";
-        try {
-          const host = new URL(origin).hostname;
-          const allProducts = await container.productConfigService.listAll();
-          for (const pc of allProducts) {
-            if (pc.product?.domain === host || pc.product?.appDomain === host) {
-              slug = pc.product.slug ?? slug;
-              break;
-            }
-            if (pc.domains?.some((d) => d.host === host)) {
-              slug = pc.product?.slug ?? slug;
-              break;
-            }
-          }
-        } catch {
-          // Invalid origin URL — use default slug
-        }
-      }
+      const path = c.req.path;
+      const method = c.req.method;
+      const slug = await resolveProductSlug(c.req, container.productConfigService);
+
+      // Log auth route resolution for debugging session issues
+      const cookieHeader = c.req.header("cookie") ?? "";
+      const allCookieNames = cookieHeader
+        .split(";")
+        .map((c) => c.trim().split("=")[0])
+        .filter(Boolean);
+      const fullUrl = c.req.url;
+      const hasCode = fullUrl.includes("code=");
+      const hasState = fullUrl.includes("state=");
+      authRouteLogger.info("Auth route", {
+        method,
+        path,
+        slug,
+        origin: c.req.header("origin") ?? "(none)",
+        cookies: allCookieNames,
+        hasCode,
+        hasState,
+      });
+
       const auth = await getAuthForProduct(slug);
-      return auth.handler(c.req.raw);
+      const rawResponse = await auth.handler(c.req.raw);
+
+      // BetterAuth returns a raw Response that bypasses Hono's CORS middleware.
+      // We must add CORS headers manually.
+      const origin = c.req.header("origin");
+      const resHeaders = new Headers(rawResponse.headers);
+      if (origin && corsOrigins.includes(origin)) {
+        resHeaders.set("Access-Control-Allow-Origin", origin);
+        resHeaders.set("Access-Control-Allow-Credentials", "true");
+        resHeaders.set(
+          "Access-Control-Allow-Headers",
+          "Content-Type,Authorization,X-Product,X-Tenant-ID,X-Session-ID,X-Request-ID",
+        );
+        authRouteLogger.debug("CORS headers added", { origin, path });
+      } else {
+        authRouteLogger.warn("CORS origin mismatch", {
+          origin: origin ?? "(none)",
+          corsOriginsCount: corsOrigins.length,
+          corsOriginsSample: corsOrigins.slice(0, 4),
+          path,
+        });
+      }
+      const response = new Response(rawResponse.body, {
+        status: rawResponse.status,
+        statusText: rawResponse.statusText,
+        headers: resHeaders,
+      });
+
+      // Log response for session validation calls (safe — never crashes)
+      try {
+        if (path.includes("get-session")) {
+          const cloned = response.clone();
+          const body = await cloned.text().catch(() => "");
+          const raw = body ? JSON.parse(body) : null;
+          const parsed = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+          authRouteLogger.info("Auth get-session response", {
+            slug,
+            status: response.status,
+            hasSession: !!parsed.session,
+            userId: (parsed.user as Record<string, unknown>)?.id ?? null,
+            cors: response.headers.get("access-control-allow-origin") ?? "(missing)",
+            bodyLen: body.length,
+          });
+        } else if (path.includes("callback")) {
+          authRouteLogger.info("Auth callback response", {
+            slug,
+            status: response.status,
+            location: response.headers.get("location")?.slice(0, 100) ?? "(none)",
+          });
+        }
+      } catch (logErr) {
+        authRouteLogger.warn("Auth response logging failed", { error: String(logErr) });
+      }
+
+      return response;
     });
   }
 
@@ -445,11 +631,17 @@ export async function mountRoutes(
     app.use(
       "*",
       createTenantProxyMiddleware(container, {
-        platformDomain: config.platformDomain,
+        platformDomains: (await container.productConfigService.listAll()).map((pc) => pc.product.domain),
         resolveUser: async (req: Request) => {
           try {
-            const { getAuth } = await import("../auth/better-auth.js");
-            const auth = getAuth();
+            const { getAuthForProduct } = await import("../auth/better-auth.js");
+            const host = req.headers.get("host")?.split(":")[0] ?? "";
+            const parts = host.split(".");
+            const parentDomain = parts.length > 2 ? parts.slice(1).join(".") : host;
+            const allProds = await container.productConfigService.listAll();
+            const matched = allProds.find((pc) => pc.product?.domain === parentDomain);
+            const slug = matched?.product?.slug ?? "wopr";
+            const auth = await getAuthForProduct(slug);
             const session = await auth.api.getSession({ headers: req.headers });
             if (!session?.user) return undefined;
             return {

@@ -158,9 +158,15 @@ export function internalServiceAuth(config: InternalServiceAuthConfig) {
       return c.json({ error: "Missing or invalid X-User-Id header" }, 400);
     }
 
-    // 3. Extract optional headers with defaults
-    const productRaw = c.req.header("X-Product")?.trim()?.toLowerCase() ?? "wopr";
-    const product: Product = VALID_PRODUCTS.has(productRaw) ? (productRaw as Product) : "wopr";
+    // 3. Extract and validate required product header
+    const productRaw = c.req.header("X-Product")?.trim()?.toLowerCase();
+    if (!productRaw) {
+      return c.json({ error: "Missing X-Product header" }, 400);
+    }
+    if (!VALID_PRODUCTS.has(productRaw)) {
+      return c.json({ error: `Invalid product: ${productRaw}` }, 400);
+    }
+    const product = productRaw as Product;
 
     const authMethod = c.req.header("X-Auth-Method")?.trim() || "session";
 

@@ -1,5 +1,5 @@
 import { readConfigFile } from "./config-file.js";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { resolvePaperclipEnvPath } from "./paths.js";
@@ -22,6 +22,47 @@ import {
   resolveDefaultStorageDir,
   resolveHomeAwarePath,
 } from "./home-paths.js";
+
+/**
+ * Instance config written by the provisioning endpoint and persisted
+ * to the data volume.  On first boot of a managed image, the build-time
+ * marker at /app/.managed-instance.json provides defaults until
+ * provisioning writes the full config.
+ */
+interface InstanceConfig {
+  deploymentMode?: string;
+  hostedMode?: boolean;
+  deploymentExposure?: string;
+  tenantId?: string;
+  provisionedAt?: string;
+}
+
+/** Path on the data volume — survives container restarts. */
+const INSTANCE_CONFIG_PATH = resolve(process.env.PAPERCLIP_HOME ?? "/data", ".instance-config.json");
+
+/** Build-time marker baked into Dockerfile.managed — immutable part of the image. */
+const MANAGED_MARKER_PATH = "/app/.managed-instance.json";
+
+/**
+ * Load deployment identity from persisted config or managed image marker.
+ *
+ * Priority:
+ *   1. Instance config on data volume (written by provision endpoint)
+ *   2. Managed image marker (baked into Dockerfile.managed)
+ *   3. Empty — self-hosted, uses file config / CLI defaults
+ */
+function loadInstanceConfig(): InstanceConfig {
+  for (const configPath of [INSTANCE_CONFIG_PATH, MANAGED_MARKER_PATH]) {
+    try {
+      if (existsSync(configPath)) {
+        return JSON.parse(readFileSync(configPath, "utf-8"));
+      }
+    } catch {
+      // Ignore parse errors — fall through to next source
+    }
+  }
+  return {};
+}
 
 const PAPERCLIP_ENV_FILE_PATH = resolvePaperclipEnvPath();
 if (existsSync(PAPERCLIP_ENV_FILE_PATH)) {
@@ -114,16 +155,31 @@ export function loadConfig(): Config {
       ? process.env.PAPERCLIP_STORAGE_S3_FORCE_PATH_STYLE === "true"
       : (fileStorage?.s3?.forcePathStyle ?? false);
 
-  const hostedMode = process.env.PAPERCLIP_HOSTED_MODE === "true";
+  // Deployment identity priority:
+  //   1. Instance config file (written by provisioning or baked into managed image)
+  //   2. Self-hosted file config (paperclip.yaml)
+  //   3. Env vars (self-hosted docker-compose fallback — not used by managed containers)
+  //   4. Defaults
+  const instanceConfig = loadInstanceConfig();
+  const hostedMode = instanceConfig.hostedMode ?? false;
+
+  const deploymentModeFromInstance =
+    instanceConfig.deploymentMode && DEPLOYMENT_MODES.includes(instanceConfig.deploymentMode as DeploymentMode)
+      ? (instanceConfig.deploymentMode as DeploymentMode)
+      : null;
   const deploymentModeFromEnvRaw = process.env.PAPERCLIP_DEPLOYMENT_MODE;
   const deploymentModeFromEnv =
     deploymentModeFromEnvRaw && DEPLOYMENT_MODES.includes(deploymentModeFromEnvRaw as DeploymentMode)
       ? (deploymentModeFromEnvRaw as DeploymentMode)
       : null;
-  // Hosted mode forces hosted_proxy — any image works as a managed instance
   const deploymentMode: DeploymentMode = hostedMode
     ? "hosted_proxy"
-    : (deploymentModeFromEnv ?? fileConfig?.server.deploymentMode ?? "local_trusted");
+    : (deploymentModeFromInstance ?? fileConfig?.server.deploymentMode ?? deploymentModeFromEnv ?? "local_trusted");
+
+  const deploymentExposureFromInstance =
+    instanceConfig.deploymentExposure && DEPLOYMENT_EXPOSURES.includes(instanceConfig.deploymentExposure as DeploymentExposure)
+      ? (instanceConfig.deploymentExposure as DeploymentExposure)
+      : null;
   const deploymentExposureFromEnvRaw = process.env.PAPERCLIP_DEPLOYMENT_EXPOSURE;
   const deploymentExposureFromEnv =
     deploymentExposureFromEnvRaw && DEPLOYMENT_EXPOSURES.includes(deploymentExposureFromEnvRaw as DeploymentExposure)
@@ -132,7 +188,7 @@ export function loadConfig(): Config {
   const deploymentExposure: DeploymentExposure =
     deploymentMode === "local_trusted"
       ? "private"
-      : (deploymentExposureFromEnv ?? fileConfig?.server.exposure ?? "private");
+      : (deploymentExposureFromInstance ?? fileConfig?.server.exposure ?? deploymentExposureFromEnv ?? "private");
   const authBaseUrlModeFromEnvRaw = process.env.PAPERCLIP_AUTH_BASE_URL_MODE;
   const authBaseUrlModeFromEnv =
     authBaseUrlModeFromEnvRaw && AUTH_BASE_URL_MODES.includes(authBaseUrlModeFromEnvRaw as AuthBaseUrlMode)

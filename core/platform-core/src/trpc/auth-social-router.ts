@@ -5,6 +5,7 @@
  * Zero downtime on new product: insert product row + auth config row.
  */
 
+import { TRPCError } from "@trpc/server";
 import type { ProductAuthManager } from "../auth/product-auth-manager.js";
 import { publicProcedure, router } from "./init.js";
 
@@ -17,7 +18,8 @@ export function setProductAuthManager(manager: ProductAuthManager): void {
 export const authSocialRouter = router({
   enabledSocialProviders: publicProcedure.query(async ({ ctx }) => {
     if (!_manager) return [];
-    const slug = ctx.productSlug ?? "wopr";
+    if (!ctx.productSlug) throw new TRPCError({ code: "BAD_REQUEST", message: "Product slug required" });
+    const slug = ctx.productSlug;
     return _manager.getEnabledProviders(slug);
   }),
 });

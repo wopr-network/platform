@@ -22,6 +22,8 @@ export interface TRPCContext {
   tenantId: string | undefined;
   /** Product slug from X-Product header (standalone mode). */
   productSlug: string | undefined;
+  /** User email from session (for provisioning). */
+  userEmail: string | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,21 +37,23 @@ export interface TRPCContext {
 export async function createTRPCContext(req: Request): Promise<TRPCContext> {
   let user: AuthUser | undefined;
   let tenantId: string | undefined;
+  let userEmail: string | undefined;
   try {
     const { getAuth } = await import("../auth/better-auth.js");
     const auth = getAuth();
     const session = await auth.api.getSession({ headers: req.headers });
     if (session?.user) {
-      const sessionUser = session.user as { id: string; role?: string };
+      const sessionUser = session.user as { id: string; role?: string; email?: string };
       const roles: string[] = [];
       if (sessionUser.role) roles.push(sessionUser.role);
       user = { id: sessionUser.id, roles };
       tenantId = req.headers.get("x-tenant-id") || sessionUser.id;
+      userEmail = sessionUser.email ?? undefined;
     }
   } catch {
     // No session — unauthenticated request
   }
-  return { user, tenantId: tenantId ?? "", productSlug: req.headers.get("x-product") ?? undefined };
+  return { user, tenantId: tenantId ?? "", productSlug: req.headers.get("x-product") ?? undefined, userEmail };
 }
 
 // ---------------------------------------------------------------------------

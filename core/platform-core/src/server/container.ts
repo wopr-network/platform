@@ -127,6 +127,8 @@ export interface PlatformContainer {
   hotPool: HotPoolServices | null;
   /** Pool repository — exposed for fleet createInstance to try warm claim. Null when hotPool disabled. */
   poolRepo: import("./services/pool-repository.js").IPoolRepository | null;
+  /** Instance lifecycle service — orchestrates create, provision, billing. Null only when fleet is disabled. */
+  instanceService: import("../fleet/instance-service.js").InstanceService | null;
   /** Per-product OAuth provider config. Null when auth is not configured. */
   productAuthManager: import("../auth/product-auth-manager.js").ProductAuthManager | null;
   /** Leader election — gates singleton background services. Always present. */
@@ -246,7 +248,31 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
 
     const fleetDataDir = productConfig.fleet?.fleetDataDir ?? "/data/fleet";
     const profileStore: IProfileStore = new ProfileStore(fleetDataDir);
-    const proxy: ProxyManagerInterface = new ProxyManager();
+    // Build product route configs for Caddy from DB — zero hardcoded infra
+    const allProducts = await productConfigService.listAll();
+    const productRouteConfigs = allProducts
+      .filter((pc) => pc.product?.domain && pc.product?.slug)
+      .map((pc) => {
+        const p = pc.product;
+        if (!p.uiService) throw new Error(`Product ${p.slug} has no uiService in DB`);
+        if (!p.uiPort) throw new Error(`Product ${p.slug} has no uiPort in DB`);
+        return {
+          slug: p.slug,
+          domain: p.domain,
+          uiUpstream: `${p.uiService}:${p.uiPort}`,
+          apiUpstream: "core:3001",
+        };
+      });
+
+    const proxy: ProxyManagerInterface = new ProxyManager({
+      caddyAdminUrl: "http://caddy:2019",
+      cloudflareApiToken:
+        bootConfig.secrets?.cloudflareCaddyDnsToken ??
+        (() => {
+          throw new Error("cloudflareCaddyDnsToken not in Vault — wildcard TLS will not work");
+        })(),
+      products: productRouteConfigs,
+    });
     const serviceKeyRepo: IServiceKeyRepository = new DrizzleServiceKeyRepository(db as never);
 
     // Build node registry from DB — single source of truth for all Docker hosts
@@ -375,6 +401,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     gateway,
     hotPool: null,
     poolRepo: null,
+    instanceService: null,
     productAuthManager: null,
     leaderElection,
   };
@@ -415,6 +442,24 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       getPoolSize: () => getSize(poolRepo),
       setPoolSize: (size) => setSize(poolRepo, size),
     };
+  }
+
+  // Bind InstanceService — orchestrates create, provision, billing
+  if (fleet) {
+    const { InstanceService } = await import("../fleet/instance-service.js");
+    const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
+    const botInstanceRepo = new DrizzleBotInstanceRepository(result.db);
+    const secrets = bootConfig.secrets;
+    result.instanceService = new InstanceService({
+      creditLedger: result.creditLedger,
+      profileStore: fleet.profileStore,
+      botInstanceRepo,
+      serviceKeyRepo: fleet.serviceKeyRepo,
+      poolRepo: result.poolRepo,
+      docker: fleet.docker ?? null,
+      provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? null,
+      getFleetManager: () => fleet.manager as never,
+    });
   }
 
   // Bind per-product OAuth manager (standalone mode)

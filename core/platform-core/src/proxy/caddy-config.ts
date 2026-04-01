@@ -1,83 +1,153 @@
-import type { CaddyConfig, CaddyRoute, ProxyRoute } from "./types.js";
+/**
+ * Caddy JSON config generator.
+ *
+ * Produces a complete Caddy config from product definitions + dynamic instance routes.
+ * Pushed to Caddy's admin API at boot — no Caddyfile needed.
+ * CF DNS token from Vault enables wildcard TLS for instance subdomains.
+ */
 
-const DEFAULT_DOMAIN = "wopr.bot";
+import type { ProxyRoute } from "./types.js";
+
+export interface ProductRouteConfig {
+  /** Product slug (e.g., "paperclip") */
+  slug: string;
+  /** Root domain (e.g., "runpaperclip.com") */
+  domain: string;
+  /** UI container hostname:port (e.g., "paperclip-ui:3002") */
+  uiUpstream: string;
+  /** API upstream hostname:port (e.g., "core:3001") */
+  apiUpstream: string;
+}
 
 export interface CaddyConfigOptions {
-  /** Base domain for subdomain routing (default: "wopr.bot") */
-  domain?: string;
-  /** HTTP listen addresses (default: [":443"]) */
-  listenAddresses?: string[];
+  /** Cloudflare API token for DNS-01 TLS challenge (wildcard certs). */
+  cloudflareApiToken: string;
+  /** Static product route configs (UIs + API). */
+  products: ProductRouteConfig[];
+  /** Dynamic instance proxy routes. */
+  instanceRoutes?: ProxyRoute[];
+  /** Core server upstream (default: "core:3001"). */
+  coreUpstream?: string;
+}
+
+function route(match: Record<string, unknown>[], handle: unknown[]) {
+  return { match, handle };
+}
+
+function hostMatch(...hosts: string[]) {
+  return { host: hosts };
+}
+
+const proxyHeaders = {
+  "X-Real-IP": ["{http.request.remote.host}"],
+  "X-Forwarded-For": ["{http.request.remote.host}"],
+  "X-Forwarded-Proto": ["{http.request.scheme}"],
+};
+
+function reverseProxyWithHeaders(upstream: string) {
+  return {
+    handler: "reverse_proxy",
+    upstreams: [{ dial: upstream }],
+    headers: { request: { set: proxyHeaders } },
+  };
 }
 
 /**
- * Build a Caddy reverse_proxy route for a healthy upstream.
+ * Generate a complete Caddy JSON config.
+ *
+ * Includes:
+ * - Static product routes (UI + API per product)
+ * - Wildcard subdomain routes for instance proxying (→ core)
+ * - TLS automation with Cloudflare DNS-01 challenge
+ * - Dynamic instance routes (healthy/unhealthy)
  */
-function buildProxyRoute(route: ProxyRoute, domain: string): CaddyRoute[] {
-  const upstream = `${route.upstreamHost}:${route.upstreamPort}`;
-  const routes: CaddyRoute[] = [];
+export function generateCaddyConfig(options: CaddyConfigOptions): Record<string, unknown> {
+  const { cloudflareApiToken, products, instanceRoutes = [], coreUpstream = "core:3001" } = options;
 
-  if (route.healthy) {
-    // Subdomain route: {instanceId}.wopr.bot
-    routes.push({
-      match: [{ host: [`${route.subdomain}.${domain}`] }],
-      handle: [
-        {
-          handler: "reverse_proxy",
-          upstreams: [{ dial: upstream }],
-        },
-      ],
-    });
+  const routes: unknown[] = [];
+  const wildcardDomains: string[] = [];
 
-    // Path route: /instance/{instanceId}/*
-    routes.push({
-      match: [{ path: [`/instance/${route.instanceId}/*`] }],
-      handle: [
-        {
-          handler: "reverse_proxy",
-          upstreams: [{ dial: upstream }],
-        },
-      ],
-    });
-  } else {
-    // Unhealthy: return 503 for both subdomain and path routes
-    const unavailableHandler = {
-      handler: "static_response" as const,
-      status_code: "503",
-      body: `Instance ${route.instanceId} is unavailable`,
-      headers: { "Content-Type": ["text/plain"] },
-    };
+  // Static product routes
+  for (const product of products) {
+    // Root domain → UI
+    routes.push(route([hostMatch(product.domain)], [reverseProxyWithHeaders(product.uiUpstream)]));
 
-    routes.push({
-      match: [{ host: [`${route.subdomain}.${domain}`] }],
-      handle: [unavailableHandler],
-    });
+    // api.domain → core
+    routes.push(route([hostMatch(`api.${product.domain}`)], [reverseProxyWithHeaders(product.apiUpstream)]));
 
-    routes.push({
-      match: [{ path: [`/instance/${route.instanceId}/*`] }],
-      handle: [unavailableHandler],
-    });
+    // *.domain → core (tenant proxy handles routing to instance containers)
+    wildcardDomains.push(`*.${product.domain}`);
   }
 
-  return routes;
-}
+  // Wildcard routes → core (catch-all for instance subdomains)
+  if (wildcardDomains.length > 0) {
+    routes.push(route([hostMatch(...wildcardDomains)], [reverseProxyWithHeaders(coreUpstream)]));
+  }
 
-/**
- * Generate a complete Caddy JSON config from a set of proxy routes.
- */
-export function generateCaddyConfig(routes: ProxyRoute[], options: CaddyConfigOptions = {}): CaddyConfig {
-  const domain = options.domain ?? DEFAULT_DOMAIN;
-  const listenAddresses = options.listenAddresses ?? [":443"];
+  // Dynamic instance routes (subdomain → container direct)
+  for (const inst of instanceRoutes) {
+    if (inst.healthy) {
+      const upstream = `${inst.upstreamHost}:${inst.upstreamPort}`;
+      // Find which product domain this subdomain belongs to
+      for (const product of products) {
+        routes.push(route([hostMatch(`${inst.subdomain}.${product.domain}`)], [reverseProxyWithHeaders(upstream)]));
+      }
+    }
+  }
 
-  const caddyRoutes: CaddyRoute[] = routes.flatMap((route) => buildProxyRoute(route, domain));
+  // Collect all domains for TLS
+  const allDomains: string[] = [];
+  for (const product of products) {
+    allDomains.push(product.domain, `api.${product.domain}`, `*.${product.domain}`);
+  }
 
   return {
     apps: {
       http: {
         servers: {
-          proxy: {
-            listen: listenAddresses,
-            routes: caddyRoutes,
+          srv0: {
+            listen: [":443"],
+            routes,
           },
+          // HTTP → HTTPS redirect
+          srv_redirect: {
+            listen: [":80"],
+            routes: [
+              {
+                handle: [
+                  {
+                    handler: "static_response",
+                    headers: {
+                      Location: ["https://{http.request.host}{http.request.uri}"],
+                    },
+                    status_code: 301,
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+      tls: {
+        automation: {
+          policies: [
+            {
+              subjects: allDomains,
+              issuers: [
+                {
+                  module: "acme",
+                  challenges: {
+                    dns: {
+                      provider: {
+                        name: "cloudflare",
+                        api_token: cloudflareApiToken,
+                      },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
         },
       },
     },

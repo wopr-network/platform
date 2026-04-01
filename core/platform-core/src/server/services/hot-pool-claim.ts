@@ -47,10 +47,14 @@ export async function claimPoolInstance(
   if (!container.fleet) throw new Error("Fleet services required for pool claim");
 
   const pc = container.productConfig;
-  const containerPort = pc.fleet?.containerPort ?? 3100;
-  const containerImage = pc.fleet?.containerImage ?? "registry.wopr.bot/wopr:managed";
-  const platformDomain = pc.product?.domain ?? "localhost";
-  const prefix = config?.containerPrefix ?? "wopr";
+  if (!pc.product?.slug) throw new Error("Product slug required for pool claim");
+  if (!pc.fleet?.containerPort) throw new Error("Fleet containerPort required for pool claim");
+  if (!pc.fleet?.containerImage) throw new Error("Fleet containerImage required for pool claim");
+  if (!pc.product?.domain) throw new Error("Product domain required for pool claim");
+  const containerPort = pc.fleet.containerPort;
+  const containerImage = pc.fleet.containerImage;
+  const platformDomain = pc.product.domain;
+  const prefix = pc.product.slug;
 
   // ---- Step 1: Atomically claim a warm instance ----
   const claimed = await repo.claimWarm(tenantId, name);
@@ -77,11 +81,13 @@ export async function claimPoolInstance(
   const gatewayKey = serviceKeyRepo ? await serviceKeyRepo.generate(tenantId, instanceId) : crypto.randomUUID();
 
   const store = container.fleet.profileStore;
+  const productSlug = container.productConfig.product.slug;
   const profile = {
     id: instanceId,
     name,
     tenantId,
     image: containerImage,
+    productSlug,
     description: `Managed instance: ${name}`,
     env: {
       PORT: String(containerPort),

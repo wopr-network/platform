@@ -20,22 +20,32 @@ export function createProvisionRouter(adapter: ProvisionAdapter, opts?: Provisio
 
   const router = Router();
 
-  /** Validate bearer token against env var. */
+  /** Track whether provisioning has been completed. Once done, endpoint is dead forever. */
+  let provisioned = false;
+
+  /**
+   * Validate provision auth. Two modes:
+   * 1. WOPR_PROVISION_SECRET is set → validate bearer token against it (legacy / explicit secret)
+   * 2. WOPR_PROVISION_SECRET is NOT set → accept any bearer token (one-time use, private network)
+   *
+   * In both cases, provisioning works exactly once. After the first successful provision,
+   * all subsequent calls return 410 Gone.
+   */
   function assertAuth(authHeader: string | undefined): void {
-    const secret = process.env[secretVar];
-    if (!secret) {
-      const err = new Error(`${secretVar} not set — provisioning API disabled`);
-      throw err;
+    if (provisioned) {
+      throw Object.assign(new Error("Already provisioned — endpoint permanently disabled"), { status: 410 });
     }
     if (!authHeader?.startsWith("Bearer ")) {
-      const err = Object.assign(new Error("Missing provision bearer token"), { status: 401 });
-      throw err;
+      throw Object.assign(new Error("Missing provision bearer token"), { status: 401 });
     }
-    const token = authHeader.slice("Bearer ".length).trim();
-    if (token !== secret) {
-      const err = Object.assign(new Error("Invalid provision token"), { status: 401 });
-      throw err;
+    const secret = process.env[secretVar];
+    if (secret) {
+      const token = authHeader.slice("Bearer ".length).trim();
+      if (token !== secret) {
+        throw Object.assign(new Error("Invalid provision token"), { status: 401 });
+      }
     }
+    // No secret set → accept any bearer token (one-time use on private network)
   }
 
   /** Throw a 422 with a message. */
@@ -51,8 +61,8 @@ export function createProvisionRouter(adapter: ProvisionAdapter, opts?: Provisio
     if (!body.tenantId || !body.tenantName || !body.gatewayUrl) {
       unprocessable("Missing required fields: tenantId, tenantName, gatewayUrl");
     }
-    if (!body.adminUser?.id || !body.adminUser?.email) {
-      unprocessable("Missing required fields: adminUser.id, adminUser.email");
+    if (!body.adminUser?.id) {
+      unprocessable("Missing required field: adminUser.id");
     }
 
     const provisionReq = {
@@ -102,6 +112,8 @@ export function createProvisionRouter(adapter: ProvisionAdapter, opts?: Provisio
       await adapter.onProvisioned(provisionReq, result);
     }
 
+    // Mark as provisioned — endpoint is dead forever after this response
+    provisioned = true;
     res.status(201).json(result);
   });
 
@@ -150,10 +162,10 @@ export function createProvisionRouter(adapter: ProvisionAdapter, opts?: Provisio
 
   // ─── GET /provision/health ──────────────────────────────────────────
   router.get("/provision/health", (_req, res) => {
-    const secret = process.env[secretVar];
     res.json({
       ok: true,
-      provisioning: Boolean(secret),
+      provisioned,
+      provisioning: !provisioned,
       managed: Boolean(process.env[managedVar]),
     });
   });

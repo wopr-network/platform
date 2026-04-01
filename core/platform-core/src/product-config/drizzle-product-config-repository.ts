@@ -155,6 +155,8 @@ export class DrizzleProductConfigRepository implements IProductConfigRepository 
       fromEmail: row.fromEmail,
       homePath: row.homePath,
       storagePrefix: row.storagePrefix,
+      uiService: row.uiService,
+      uiPort: row.uiPort,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
