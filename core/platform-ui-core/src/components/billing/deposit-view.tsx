@@ -1,8 +1,8 @@
 "use client";
 
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { Check, Copy, Wallet } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { CheckoutResult } from "@/lib/api";
 
@@ -10,7 +10,6 @@ interface DepositViewProps {
   checkout: CheckoutResult;
   status: "waiting" | "partial" | "confirming" | "credited" | "expired" | "failed";
   onBack: () => void;
-  /** Native crypto amounts for partial payment display */
   expectedAmount?: string | null;
   receivedAmount?: string | null;
   token?: string;
@@ -23,7 +22,7 @@ function formatCrypto(raw: string, decimals: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Payment URI builder — triggers wallet apps on QR scan or deep link click
+// Payment URI builder — triggers wallet apps on QR scan
 // ---------------------------------------------------------------------------
 
 const CHAIN_URI_SCHEMES: Record<string, string> = {
@@ -46,32 +45,100 @@ function buildPaymentUri(chain: string, address: string, nativeAmount?: string |
   const scheme = CHAIN_URI_SCHEMES[chain.toLowerCase()];
   if (!scheme) return address;
 
-  // UTXO chains use human-readable amounts (e.g. 0.001 BTC)
   if (scheme === "bitcoin" || scheme === "litecoin" || scheme === "dogecoin") {
     const d = decimals ?? 8;
     const human = nativeAmount ? formatCrypto(nativeAmount, d) : undefined;
     return human ? `${scheme}:${address}?amount=${human}` : `${scheme}:${address}`;
   }
 
-  // EVM chains use wei for native transfers
   if (scheme === "ethereum") {
     return nativeAmount ? `${scheme}:${address}?value=${nativeAmount}` : `${scheme}:${address}`;
   }
 
-  // Solana uses human-readable amounts
   if (scheme === "solana") {
     const d = decimals ?? 9;
     const human = nativeAmount ? formatCrypto(nativeAmount, d) : undefined;
     return human ? `${scheme}:${address}?amount=${human}` : `${scheme}:${address}`;
   }
 
-  // TRON
-  if (scheme === "tron") {
-    return `${scheme}:${address}`;
+  return `${scheme}:${address}`;
+}
+
+// ---------------------------------------------------------------------------
+// Wallet detection + direct transaction submission
+// ---------------------------------------------------------------------------
+
+type WalletType = "metamask" | "solana" | "tron" | null;
+
+function detectWallet(chain: string): WalletType {
+  if (typeof window === "undefined") return null;
+  const scheme = CHAIN_URI_SCHEMES[chain.toLowerCase()];
+  if (scheme === "ethereum" && (window as { ethereum?: unknown }).ethereum) return "metamask";
+  if (scheme === "solana" && (window as { solana?: { isPhantom?: boolean } }).solana?.isPhantom) return "solana";
+  if (scheme === "tron" && (window as { tronWeb?: unknown }).tronWeb) return "tron";
+  return null;
+}
+
+function walletLabel(type: WalletType): string {
+  switch (type) {
+    case "metamask":
+      return "Pay with Wallet";
+    case "solana":
+      return "Pay with Phantom";
+    case "tron":
+      return "Pay with TronLink";
+    default:
+      return "Pay with Wallet";
+  }
+}
+
+async function sendViaWallet(walletType: WalletType, to: string, amount: string | null): Promise<string | null> {
+  if (!amount) return null;
+
+  if (walletType === "metamask") {
+    const eth = (
+      window as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }
+    ).ethereum;
+    if (!eth) return null;
+    const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+    if (!accounts[0]) return null;
+    const txHash = (await eth.request({
+      method: "eth_sendTransaction",
+      params: [{ from: accounts[0], to, value: `0x${BigInt(amount).toString(16)}` }],
+    })) as string;
+    return txHash;
   }
 
-  return address;
+  if (walletType === "solana") {
+    const sol = (
+      window as {
+        solana?: {
+          connect: () => Promise<{ publicKey: { toString: () => string } }>;
+          request: (args: unknown) => Promise<{ signature: string }>;
+        };
+      }
+    ).solana;
+    if (!sol) return null;
+    await sol.connect();
+    // Solana requires @solana/web3.js for proper tx construction — fall back to URI
+    return null;
+  }
+
+  if (walletType === "tron") {
+    const tw = (
+      window as { tronWeb?: { trx: { sendTransaction: (to: string, amount: number) => Promise<{ txid: string }> } } }
+    ).tronWeb;
+    if (!tw) return null;
+    const result = await tw.trx.sendTransaction(to, Number(amount));
+    return result.txid;
+  }
+
+  return null;
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function DepositView({
   checkout,
@@ -83,8 +150,15 @@ export function DepositView({
   decimals,
 }: DepositViewProps) {
   const [copied, setCopied] = useState(false);
+  const [walletType, setWalletType] = useState<WalletType>(null);
+  const [sending, setSending] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [txSent, setTxSent] = useState(false);
 
-  // Build payment URI — updates when native amount arrives from poll
+  useEffect(() => {
+    setWalletType(detectWallet(checkout.chain));
+  }, [checkout.chain]);
+
   const paymentUri = useMemo(
     () => buildPaymentUri(checkout.chain, checkout.depositAddress, expectedAmount, decimals),
     [checkout.chain, checkout.depositAddress, expectedAmount, decimals],
@@ -95,6 +169,29 @@ export function DepositView({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [checkout.depositAddress]);
+
+  const handleWalletPay = useCallback(async () => {
+    setSending(true);
+    setWalletError(null);
+    try {
+      const amountToSend =
+        expectedAmount && receivedAmount ? String(BigInt(expectedAmount) - BigInt(receivedAmount)) : expectedAmount;
+      const txHash = await sendViaWallet(walletType, checkout.depositAddress, amountToSend ?? null);
+      if (txHash) {
+        setTxSent(true);
+      } else if (walletType === "solana") {
+        // Solana needs SDK — fall back to URI
+        window.open(paymentUri);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Transaction rejected";
+      if (!msg.includes("User denied") && !msg.includes("rejected")) {
+        setWalletError(msg);
+      }
+    } finally {
+      setSending(false);
+    }
+  }, [walletType, checkout.depositAddress, expectedAmount, receivedAmount, paymentUri]);
 
   return (
     <div className="space-y-4 text-center">
@@ -121,23 +218,30 @@ export function DepositView({
           </p>
         </>
       )}
+
+      {/* Wallet button — primary action when wallet detected */}
+      {walletType && !txSent && (
+        <Button onClick={handleWalletPay} disabled={sending} className="w-full gap-2">
+          <Wallet className="h-4 w-4" />
+          {sending ? "Confirm in wallet..." : walletLabel(walletType)}
+        </Button>
+      )}
+      {txSent && <p className="text-sm text-primary font-medium">Transaction sent — waiting for confirmation...</p>}
+      {walletError && <p className="text-xs text-destructive">{walletError}</p>}
+
+      {/* QR + manual address — fallback or mobile */}
       <div className="mx-auto w-fit rounded-lg border border-border bg-white p-3" aria-hidden="true">
         <QRCodeSVG value={paymentUri} size={140} bgColor="#ffffff" fgColor="#000000" />
       </div>
-      <p className="text-[10px] text-muted-foreground">Scan with your wallet app</p>
+      <p className="text-[10px] text-muted-foreground">
+        {walletType ? "Or scan with another wallet" : "Scan with your wallet app"}
+      </p>
       <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
         <code className="flex-1 truncate text-xs font-mono">{checkout.depositAddress}</code>
         <Button variant="ghost" size="sm" onClick={handleCopy} aria-label="Copy address">
           {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
         </Button>
       </div>
-      <a
-        href={paymentUri}
-        className="inline-flex items-center gap-1.5 rounded-md border border-primary/25 bg-primary/5 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
-      >
-        <ExternalLink className="h-3.5 w-3.5" />
-        Open in Wallet
-      </a>
       <div className="flex items-center justify-center gap-2 rounded-lg border border-border p-2">
         {status === "waiting" && (
           <>
