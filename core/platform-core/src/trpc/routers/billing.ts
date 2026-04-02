@@ -414,14 +414,6 @@ export function createBillingRouter(d: BillingRouterDeps) {
           }
           return result;
         } catch (err) {
-          console.error("[billing.checkout] Crypto checkout failed:", {
-            methodId: input.methodId,
-            amountUsd: input.amountUsd,
-            tenant,
-            domain,
-            callbackUrl,
-            error: err instanceof Error ? err.message : String(err),
-          });
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: err instanceof Error ? err.message : "Crypto checkout failed",

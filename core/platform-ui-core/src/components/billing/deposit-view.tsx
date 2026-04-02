@@ -219,7 +219,16 @@ export function DepositView({
     } finally {
       setSending(false);
     }
-  }, [walletType, checkout.depositAddress, expectedAmount, receivedAmount, paymentUri]);
+  }, [
+    walletType,
+    checkout.depositAddress,
+    checkout.type,
+    checkout.contractAddress,
+    checkout.expectedAmount,
+    expectedAmount,
+    receivedAmount,
+    paymentUri,
+  ]);
 
   return (
     <div className="space-y-4 text-center">
@@ -227,16 +236,26 @@ export function DepositView({
         &larr; Back
       </button>
       {status === "partial" && expectedAmount && receivedAmount && decimals != null && token ? (
-        <>
-          <p className="text-sm text-muted-foreground">Send remaining</p>
-          <p className="text-2xl font-semibold">
-            {formatCrypto(String(BigInt(expectedAmount) - BigInt(receivedAmount)), decimals)} {token}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            on {checkout.chain} &middot; {formatCrypto(receivedAmount, decimals)} of{" "}
-            {formatCrypto(expectedAmount, decimals)} {token} received
-          </p>
-        </>
+        BigInt(receivedAmount) >= BigInt(expectedAmount) ? (
+          <>
+            <p className="text-sm text-primary font-medium">Full amount received</p>
+            <p className="text-2xl font-semibold">
+              {formatCrypto(receivedAmount, decimals)} {token}
+            </p>
+            <p className="text-xs text-muted-foreground animate-pulse">Waiting for on-chain confirmation...</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">Send remaining</p>
+            <p className="text-2xl font-semibold">
+              {formatCrypto(String(BigInt(expectedAmount) - BigInt(receivedAmount)), decimals)} {token}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              on {checkout.chain} &middot; {formatCrypto(receivedAmount, decimals)} of{" "}
+              {formatCrypto(expectedAmount, decimals)} {token} received
+            </p>
+          </>
+        )
       ) : (
         <>
           <p className="text-sm text-muted-foreground">Send exactly</p>
