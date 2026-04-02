@@ -1395,12 +1395,16 @@ export interface ChargeStatusResult {
   status: "pending" | "partial" | "confirmed" | "expired" | "failed";
   amountExpectedCents: number;
   amountReceivedCents: number;
+  /** Native crypto amount expected (base units as string). */
+  expectedAmount?: string | null;
+  /** Native crypto amount received so far (base units as string). */
+  receivedAmount?: string | null;
+  token?: string;
+  decimals?: number;
   confirmations: number;
   confirmationsRequired: number;
   txHash?: string;
   credited: boolean;
-  /** @deprecated Use amountExpectedCents. Removed next major. */
-  amountUsdCents: number;
 }
 
 export async function getChargeStatus(referenceId: string): Promise<ChargeStatusResult> {

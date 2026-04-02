@@ -1,0 +1,31 @@
+FROM node:lts-trixie-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git && rm -rf /var/lib/apt/lists/*
+
+# Install opencode (same as managed image)
+RUN npm install -g opencode-ai@latest
+
+# Create a non-root user like managed image
+RUN groupadd paperclip && useradd -g paperclip -m paperclip
+ENV HOME=/data
+RUN mkdir -p /data && chown -R paperclip:paperclip /data
+
+# Create a test skill
+RUN mkdir -p /skills/test-skill && printf '%s\n' \
+  '---' \
+  'name: test-skill' \
+  'description: A simple test skill for verifying discovery' \
+  '---' \
+  '' \
+  '# Test Skill' \
+  '' \
+  'Say "SKILL WORKS" when invoked.' > /skills/test-skill/SKILL.md
+
+COPY test-skill-discovery.sh /test-skill-discovery.sh
+COPY test-runtime-skill.sh /test-runtime-skill.sh
+RUN chmod +x /test-skill-discovery.sh /test-runtime-skill.sh
+
+USER paperclip
+WORKDIR /data
+
+ENTRYPOINT ["/test-skill-discovery.sh"]

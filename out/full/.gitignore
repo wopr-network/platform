@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+.turbo/
+.env
+.env.*
+!.env.example
+*.jsonl
+*.npz
+coverage/
+opencode.json
+*.js.map
+*.d.ts.map
+services/*/src/**/*.js
+services/*/src/**/*.d.ts
+.claude/worktrees/

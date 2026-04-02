@@ -1,0 +1,12 @@
+packages:
+  - "core/*"
+  - "platforms/*"
+  - "shells/*"
+  - "services/*"
+  - "sidecars/paperclip"
+  - "sidecars/paperclip/packages/*"
+  - "sidecars/paperclip/packages/adapters/*"
+  - "sidecars/paperclip/packages/plugins/*"
+  - "sidecars/paperclip/server"
+  - "sidecars/paperclip/ui"
+  - "sidecars/paperclip/cli"

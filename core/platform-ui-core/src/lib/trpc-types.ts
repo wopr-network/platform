@@ -101,6 +101,7 @@ type AppRouterRecord = {
     billingInfo: AnyTRPCQueryProcedure;
     creditsBalance: AnyTRPCQueryProcedure;
     creditsHistory: AnyTRPCQueryProcedure;
+    creditsDailySummary: AnyTRPCQueryProcedure;
     creditsCheckout: AnyTRPCMutationProcedure;
     creditOptions: AnyTRPCQueryProcedure;
     inferenceMode: AnyTRPCQueryProcedure;
