@@ -192,7 +192,10 @@ export function DepositView({
   }, [checkout.depositAddress]);
 
   const handleWalletPay = useCallback(async () => {
-    if (sendingRef.current) return;
+    if (sendingRef.current) {
+      console.warn("[wallet] Blocked duplicate call — already sending");
+      return;
+    }
     sendingRef.current = true;
     setSending(true);
     setWalletError(null);
@@ -201,6 +204,13 @@ export function DepositView({
         expectedAmount && receivedAmount
           ? String(BigInt(expectedAmount) - BigInt(receivedAmount))
           : (checkout.expectedAmount ?? expectedAmount);
+      console.warn("[wallet] Sending tx", {
+        walletType,
+        tokenType: checkout.type,
+        contractAddress: checkout.contractAddress,
+        amount: amountToSend,
+        to: checkout.depositAddress,
+      });
       const txHash = await sendViaWallet({
         walletType,
         depositAddress: checkout.depositAddress,
