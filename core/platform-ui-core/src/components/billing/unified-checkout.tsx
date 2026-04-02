@@ -252,26 +252,6 @@ export function UnifiedCheckout() {
     }
   }, [amountUsd, creditTiers]);
 
-  const handleCoinSelect = useCallback(
-    (token: string) => {
-      const methods = coinGroups.get(token);
-      if (!methods || methods.length === 0) return;
-      setError(null);
-      if (methods.length === 1) {
-        // Single chain — go straight to checkout
-        handleCryptoCheckout(methods[0]);
-      } else {
-        // Multiple chains — show chain picker
-        setSelectedCoin(token);
-        setStep("chain");
-      }
-    },
-    [
-      coinGroups, // Single chain — go straight to checkout
-      handleCryptoCheckout,
-    ],
-  );
-
   const handleCryptoCheckout = useCallback(
     async (method: SupportedPaymentMethod) => {
       setLoading(true);
@@ -290,6 +270,21 @@ export function UnifiedCheckout() {
       }
     },
     [amountUsd, pathname, router],
+  );
+
+  const handleCoinSelect = useCallback(
+    (token: string) => {
+      const methods = coinGroups.get(token);
+      if (!methods || methods.length === 0) return;
+      setError(null);
+      if (methods.length === 1) {
+        handleCryptoCheckout(methods[0]);
+      } else {
+        setSelectedCoin(token);
+        setStep("chain");
+      }
+    },
+    [coinGroups, handleCryptoCheckout],
   );
 
   const handleReset = useCallback(() => {
