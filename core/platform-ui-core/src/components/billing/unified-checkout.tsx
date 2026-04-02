@@ -81,6 +81,7 @@ export function UnifiedCheckout() {
   const [confirmations, setConfirmations] = useState(0);
   const [confirmationsRequired, setConfirmationsRequired] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Amount input
   const [selected, setSelected] = useState<number | null>(null);
@@ -194,14 +195,17 @@ export function UnifiedCheckout() {
     const tier = creditTiers.find((t) => t.amountCents === amountUsd * 100);
     if (!tier) return;
     setLoading(true);
+    setError(null);
     try {
       const { checkoutUrl } = await createCreditCheckout(tier.priceId);
       if (isAllowedRedirectUrl(checkoutUrl)) {
         window.location.href = checkoutUrl;
       } else {
+        setError("Unexpected checkout URL.");
         setLoading(false);
       }
     } catch {
+      setError("Card checkout failed. Please try again.");
       setLoading(false);
     }
   }, [amountUsd, creditTiers]);
@@ -209,6 +213,7 @@ export function UnifiedCheckout() {
   const handleCryptoMethod = useCallback(
     async (method: SupportedPaymentMethod) => {
       setLoading(true);
+      setError(null);
       try {
         const result = await createCheckout(method.id, amountUsd);
         setCheckout(result);
@@ -217,7 +222,7 @@ export function UnifiedCheckout() {
         storePendingCharge(result);
         router.replace(`${pathname}?charge=${result.referenceId}`);
       } catch {
-        /* stay on method step */
+        setError("Crypto checkout failed. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -348,6 +353,7 @@ export function UnifiedCheckout() {
                   {loading && (
                     <p className="mt-2 text-center text-xs text-muted-foreground animate-pulse">Creating checkout...</p>
                   )}
+                  {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}
                 </div>
               </motion.div>
             )}

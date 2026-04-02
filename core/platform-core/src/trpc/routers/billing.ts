@@ -343,7 +343,7 @@ export function createBillingRouter(d: BillingRouterDeps) {
           if (input.tenant && input.tenant !== ctx.tenantId) {
             throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
           }
-          await d.assertOrgAdminOrOwner(tenant, ctx.user.id);
+          // No org admin check — any authenticated tenant user can buy credits
           try {
             assertSafeRedirectUrl(input.successUrl);
             assertSafeRedirectUrl(input.cancelUrl);
@@ -397,7 +397,7 @@ export function createBillingRouter(d: BillingRouterDeps) {
       )
       .mutation(async ({ input, ctx }: { input: { methodId: string; amountUsd: number }; ctx: TenantCtx }) => {
         const tenant = ctx.tenantId;
-        await d.assertOrgAdminOrOwner(tenant, ctx.user.id);
+        // No org admin check — any authenticated tenant user can buy credits
         if (!d.cryptoClient) {
           throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "Crypto payments not configured" });
         }
