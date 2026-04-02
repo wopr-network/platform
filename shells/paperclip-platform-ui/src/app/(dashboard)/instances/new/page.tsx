@@ -315,7 +315,7 @@ export default function NewPaperclipInstancePage() {
           },
         },
       });
-      window.location.href = `https://${companyName.trim()}.runpaperclip.com`;
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create instance");
       setLaunching(false);
