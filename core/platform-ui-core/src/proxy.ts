@@ -80,49 +80,21 @@ export function validateCsrfOrigin(request: NextRequest): boolean {
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Sidecar proxy: forward /_sidecar/* to the user's instance backend
-  if (pathname.startsWith("/_sidecar")) {
-    // Resolve instance URL dynamically from the platform API
-    const internalApiUrl = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL;
-    if (!internalApiUrl) {
-      return NextResponse.json({ error: "API not configured" }, { status: 502 });
+  // Sidecar proxy: forward /_sidecar/{instance-name}/* to the instance backend
+  // URL format: /_sidecar/{name}/rest/of/path → http://paperclip-{name}:3100/rest/of/path
+  // The client (SidecarFrame) includes the instance name in the iframe src.
+  if (pathname.startsWith("/_sidecar/")) {
+    const withoutPrefix = pathname.slice("/_sidecar/".length); // "mule-reborn/dashboard" or "mule-reborn"
+    const slashIdx = withoutPrefix.indexOf("/");
+    const instanceName = slashIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, slashIdx);
+    const targetPath = slashIdx === -1 ? "/" : withoutPrefix.slice(slashIdx);
+
+    if (!instanceName) {
+      return NextResponse.json({ error: "No instance specified" }, { status: 400 });
     }
 
-    // Forward auth cookies to the internal API to get the user's instance
-    const cookieHeader = request.headers.get("cookie") || "";
-    const tenantCookie = request.cookies.get(TENANT_COOKIE_NAME);
-    const tenantId = tenantCookie?.value;
-
-    let instanceUrl: string | null = null;
-    try {
-      const listRes = await fetch(
-        `${internalApiUrl}/api/trpc/fleet.listInstances?input=%7B%7D`,
-        {
-          headers: {
-            cookie: cookieHeader,
-            ...(tenantId ? { "x-tenant-id": tenantId } : {}),
-          },
-        },
-      );
-      if (listRes.ok) {
-        const data = await listRes.json() as { result?: { data?: Array<{ name?: string; status?: string }> } };
-        const instances = data.result?.data ?? [];
-        const running = instances.find((i) => i.status === "running") ?? instances[0];
-        if (running?.name) {
-          // Container name convention: paperclip-{instance-name} on port 3100
-          instanceUrl = `http://paperclip-${running.name}:3100`;
-        }
-      }
-    } catch {
-      // Fall through to error
-    }
-
-    if (!instanceUrl) {
-      return NextResponse.json({ error: "No running instance found" }, { status: 502 });
-    }
-
-    const targetPath = pathname.replace(/^\/_sidecar/, "") || "/";
-    const targetUrl = `${instanceUrl}${targetPath}${request.nextUrl.search}`;
+    const instanceUrl = `http://paperclip-${instanceName}:3100`;
+    const targetUrl = `${instanceUrl}${targetPath || "/"}${request.nextUrl.search}`;
 
     const proxyHeaders = new Headers(request.headers);
     proxyHeaders.delete("host");

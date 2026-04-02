@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSidecarBridge } from "@/hooks/use-sidecar-bridge";
 import { getRouteType } from "@/lib/sidecar-routes";
 
-export function SidecarFrame() {
+export function SidecarFrame({ instanceName }: { instanceName: string }) {
   const { ready, setIframeRef, navigate } = useSidecarBridge();
   const pathname = usePathname();
   const iframeElRef = useRef<HTMLIFrameElement>(null);
@@ -57,7 +57,7 @@ export function SidecarFrame() {
       )}
       <iframe
         ref={iframeElRef}
-        src="/_sidecar/"
+        src={`/_sidecar/${instanceName}/`}
         title="Paperclip"
         className="h-full w-full border-0"
         onLoad={() => setIframeLoaded(true)}
