@@ -44,11 +44,26 @@ export function DepositView({
       <button type="button" onClick={onBack} className="text-sm text-muted-foreground hover:text-foreground self-start">
         &larr; Back
       </button>
-      <p className="text-sm text-muted-foreground">Send exactly</p>
-      <p className="text-2xl font-semibold">{checkout.displayAmount}</p>
-      <p className="text-xs text-muted-foreground">
-        on {checkout.chain} &middot; ${checkout.amountUsd.toFixed(2)} USD
-      </p>
+      {status === "partial" && expectedAmount && receivedAmount && decimals != null && token ? (
+        <>
+          <p className="text-sm text-muted-foreground">Send remaining</p>
+          <p className="text-2xl font-semibold">
+            {formatCrypto(String(BigInt(expectedAmount) - BigInt(receivedAmount)), decimals)} {token}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            on {checkout.chain} &middot; {formatCrypto(receivedAmount, decimals)} of{" "}
+            {formatCrypto(expectedAmount, decimals)} {token} received
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">Send exactly</p>
+          <p className="text-2xl font-semibold">{checkout.displayAmount}</p>
+          <p className="text-xs text-muted-foreground">
+            on {checkout.chain} &middot; ${checkout.amountUsd.toFixed(2)} USD
+          </p>
+        </>
+      )}
       <div className="mx-auto w-fit rounded-lg border border-border bg-background p-3" aria-hidden="true">
         <QRCodeSVG
           value={checkout.depositAddress}
