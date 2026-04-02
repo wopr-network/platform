@@ -1208,6 +1208,7 @@ export type CreditTransactionType =
   | "purchase"
   | "signup_credit"
   | "bot_runtime"
+  | "adapter_usage"
   | "refund"
   | "bonus"
   | "adjustment"
@@ -1217,6 +1218,7 @@ export interface CreditTransaction {
   id: string;
   type: CreditTransactionType;
   description: string;
+  /** Amount in dollars. Positive = credit (green), negative = debit (red). */
   amount: number;
   createdAt: string;
 }
@@ -1268,37 +1270,127 @@ export async function getCreditBalance(): Promise<CreditBalance> {
   };
 }
 
-function mapTransactionType(backendType: string): CreditTransactionType {
+function mapEntryType(entryType: string): CreditTransactionType {
   const map: Record<string, CreditTransactionType> = {
-    grant: "purchase",
+    purchase: "purchase",
+    signup_credit: "signup_credit",
+    bot_runtime: "bot_runtime",
+    adapter_usage: "adapter_usage",
     refund: "refund",
+    bonus: "bonus",
     correction: "adjustment",
     community_dividend: "community_dividend",
+    // Legacy mappings
+    grant: "purchase",
   };
-  return map[backendType] ?? "adjustment";
+  return map[entryType] ?? "adjustment";
 }
+
+/** Nanodollars per dollar (10^9). */
+const NANO_PER_DOLLAR = 1_000_000_000;
+
+/**
+ * Extract the user-facing dollar amount from a ledger entry's lines.
+ * Positive = credit to user (purchase), negative = debit from user (usage).
+ */
+function extractAmount(lines: Array<{ accountCode: string; amount: number; side: string }>, tenantId: string): number {
+  const tenantAccount = `2000:${tenantId}`;
+  for (const line of lines) {
+    if (line.accountCode === tenantAccount) {
+      const dollars = line.amount / NANO_PER_DOLLAR;
+      return line.side === "credit" ? dollars : -dollars;
+    }
+  }
+  // Fallback: use first line
+  if (lines.length > 0) {
+    const dollars = lines[0].amount / NANO_PER_DOLLAR;
+    return lines[0].side === "credit" ? dollars : -dollars;
+  }
+  return 0;
+}
+
+/** Group key: YYYY-MM-DD:entryType */
+function dayKey(isoDate: string, entryType: string): string {
+  return `${isoDate.slice(0, 10)}:${entryType}`;
+}
+
+/** Entry types that should be aggregated by day instead of shown individually. */
+const AGGREGATE_TYPES = new Set(["adapter_usage"]);
 
 export async function getCreditHistory(_cursor?: string): Promise<CreditHistoryResponse> {
   const res = await trpcVanilla.billing.creditsHistory.query({});
   const entries = Array.isArray(res?.entries) ? res.entries : [];
-  return {
-    transactions: (
-      entries as Array<{
-        id?: string;
-        type?: string;
-        reason?: string;
-        amount_cents?: number;
-        created_at?: number;
-      }>
-    ).map((e) => ({
-      id: e.id ?? "",
-      type: mapTransactionType(e.type ?? ""),
-      description: e.reason ?? "",
-      amount: (e.amount_cents ?? 0) / 100,
-      createdAt: e.created_at ? new Date(e.created_at * 1000).toISOString() : new Date().toISOString(),
-    })),
-    nextCursor: null, // NOTE(WOP-687): implement cursor-based pagination
-  };
+
+  // Map raw entries
+  const raw = (
+    entries as Array<{
+      id?: string;
+      entryType?: string;
+      description?: string;
+      postedAt?: string;
+      tenantId?: string;
+      lines?: Array<{ accountCode: string; amount: number; side: string }>;
+    }>
+  ).map((e) => ({
+    id: e.id ?? "",
+    type: mapEntryType(e.entryType ?? ""),
+    entryType: e.entryType ?? "",
+    description: e.description ?? "",
+    amount: extractAmount(e.lines ?? [], e.tenantId ?? ""),
+    createdAt: e.postedAt ?? new Date().toISOString(),
+  }));
+
+  // Group-by day for usage types, keep others individual
+  const dayBuckets = new Map<
+    string,
+    { ids: string[]; type: CreditTransactionType; amount: number; createdAt: string; count: number }
+  >();
+  const individual: CreditTransaction[] = [];
+
+  for (const entry of raw) {
+    if (AGGREGATE_TYPES.has(entry.entryType)) {
+      const key = dayKey(entry.createdAt, entry.entryType);
+      const existing = dayBuckets.get(key);
+      if (existing) {
+        existing.amount += entry.amount;
+        existing.count++;
+        existing.ids.push(entry.id);
+      } else {
+        dayBuckets.set(key, {
+          ids: [entry.id],
+          type: entry.type,
+          amount: entry.amount,
+          createdAt: entry.createdAt,
+          count: 1,
+        });
+      }
+    } else {
+      individual.push({
+        id: entry.id,
+        type: entry.type,
+        description: entry.description,
+        amount: entry.amount,
+        createdAt: entry.createdAt,
+      });
+    }
+  }
+
+  // Convert day buckets to transactions
+  for (const [, bucket] of dayBuckets) {
+    const date = new Date(bucket.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    individual.push({
+      id: bucket.ids[0],
+      type: bucket.type,
+      description: `LLM Inference — ${bucket.count} request${bucket.count > 1 ? "s" : ""} (${date})`,
+      amount: bucket.amount,
+      createdAt: bucket.createdAt,
+    });
+  }
+
+  // Sort by date descending
+  individual.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return { transactions: individual, nextCursor: null };
 }
 
 export async function getCreditOptions(): Promise<CreditOption[]> {

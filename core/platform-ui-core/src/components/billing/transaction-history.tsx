@@ -25,6 +25,7 @@ const TYPE_CONFIG: Record<CreditTransactionType, { icon: typeof ArrowUpIcon; lab
   purchase: { icon: ArrowUpIcon, label: "Purchase" },
   signup_credit: { icon: GiftIcon, label: "Signup credit" },
   bot_runtime: { icon: WrenchIcon, label: "Bot runtime" },
+  adapter_usage: { icon: ArrowDownIcon, label: "LLM Inference" },
   refund: { icon: RotateCcwIcon, label: "Refund" },
   bonus: { icon: SparklesIcon, label: "Bonus" },
   adjustment: { icon: SlidersHorizontalIcon, label: "Adjustment" },
