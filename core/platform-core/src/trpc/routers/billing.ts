@@ -6,6 +6,7 @@
  */
 
 import { TRPCError } from "@trpc/server";
+import { sql } from "drizzle-orm";
 import type { AuditLogger } from "../../audit/logger.js";
 import type { ICryptoChargeRepository, IPaymentProcessor } from "../../billing/index.js";
 import { type CryptoServiceClient, createUnifiedCheckout, MIN_PAYMENT_USD } from "../../billing/index.js";
@@ -154,6 +155,8 @@ export interface BillingRouterDeps {
   promotionEngine?: PromotionEngine;
   productConfig?: { product: { domain?: string } };
   productConfigService?: ProductConfigService;
+  /** Raw DB for aggregation queries. */
+  db?: import("../../db/index.js").DrizzleDb;
   /** Assert caller is admin/owner of the tenant. Skips check for personal tenants (tenantId === userId). */
   assertOrgAdminOrOwner: (tenantId: string, userId: string) => Promise<void>;
 }
@@ -206,6 +209,88 @@ export function createBillingRouter(d: BillingRouterDeps) {
           return { entries, total: entries.length };
         },
       ),
+
+    /**
+     * Daily-aggregated transaction history.
+     * Usage entries (adapter_usage) are GROUP BY day with SUM.
+     * Individual entries (purchase, refund, etc.) are returned as-is.
+     * All amounts come from the double-entry ledger via JOIN on journal_lines.
+     */
+    creditsDailySummary: tenantProcedure
+      .input(
+        z
+          .object({ tenant: tenantIdSchema.optional(), limit: z.number().int().positive().max(100).optional() })
+          .optional(),
+      )
+      .query(async ({ input, ctx }: { input: { tenant?: string; limit?: number } | undefined; ctx: TenantCtx }) => {
+        if (!d.db) return { rows: [] };
+        const tenant = input?.tenant ?? ctx.tenantId;
+        const limit = input?.limit ?? 50;
+        const tenantAccountCode = `2000:${tenant}`;
+
+        const result = await d.db.execute(sql`
+          WITH tenant_acct AS (
+            SELECT id FROM accounts WHERE code = ${tenantAccountCode} LIMIT 1
+          ),
+          -- Individual entries (not aggregated)
+          individual AS (
+            SELECT
+              je.id,
+              je.entry_type,
+              je.description,
+              je.posted_at,
+              CASE WHEN jl.side = 'credit' THEN jl.amount ELSE -jl.amount END AS signed_amount,
+              1 AS entry_count
+            FROM journal_entries je
+            JOIN journal_lines jl ON jl.journal_entry_id = je.id
+            WHERE je.tenant_id = ${tenant}
+              AND jl.account_id = (SELECT id FROM tenant_acct)
+              AND je.entry_type NOT IN ('adapter_usage')
+          ),
+          -- Aggregated usage by day
+          aggregated AS (
+            SELECT
+              MIN(je.id) AS id,
+              je.entry_type,
+              'LLM Inference' AS description,
+              SUBSTRING(je.posted_at, 1, 10) AS posted_at,
+              SUM(CASE WHEN jl.side = 'credit' THEN jl.amount ELSE -jl.amount END) AS signed_amount,
+              COUNT(*)::int AS entry_count
+            FROM journal_entries je
+            JOIN journal_lines jl ON jl.journal_entry_id = je.id
+            WHERE je.tenant_id = ${tenant}
+              AND jl.account_id = (SELECT id FROM tenant_acct)
+              AND je.entry_type IN ('adapter_usage')
+            GROUP BY SUBSTRING(je.posted_at, 1, 10), je.entry_type
+          )
+          SELECT * FROM individual
+          UNION ALL
+          SELECT * FROM aggregated
+          ORDER BY posted_at DESC
+          LIMIT ${limit}
+        `);
+
+        const typed = result as { rows: Array<Record<string, unknown>> };
+        return {
+          rows: (
+            typed.rows as Array<{
+              id: string;
+              entry_type: string;
+              description: string;
+              posted_at: string;
+              signed_amount: string | number;
+              entry_count: string | number;
+            }>
+          ).map((r) => ({
+            id: r.id,
+            entryType: r.entry_type,
+            description: r.description,
+            postedAt: r.posted_at,
+            signedAmountNano: Number(r.signed_amount),
+            entryCount: Number(r.entry_count),
+          })),
+        };
+      }),
 
     creditOptions: protectedProcedure.query(async ({ ctx }) => {
       // Resolve price map per-product from DB, falling back to boot-time singleton
