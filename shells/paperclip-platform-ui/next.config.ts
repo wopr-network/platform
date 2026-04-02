@@ -9,25 +9,6 @@ const nextConfig: NextConfig = {
       { hostname: "**.googleusercontent.com" },
     ],
   },
-  rewrites: async () => ({
-    beforeFiles: [
-      // Proxy sidecar UI: /_sidecar/* → instance backend
-      ...(process.env.INSTANCE_INTERNAL_URL
-        ? [
-            {
-              source: "/_sidecar/:path*",
-              destination: `${process.env.INSTANCE_INTERNAL_URL}/:path*`,
-            },
-            {
-              source: "/_sidecar",
-              destination: `${process.env.INSTANCE_INTERNAL_URL}/`,
-            },
-          ]
-        : []),
-    ],
-    afterFiles: [],
-    fallback: [],
-  }),
   headers: async () => [
     {
       source: "/:path*",

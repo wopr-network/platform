@@ -80,7 +80,42 @@ export function validateCsrfOrigin(request: NextRequest): boolean {
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Sidecar proxy is handled by next.config.ts rewrites (/_sidecar/* → instance backend)
+  // Sidecar proxy: forward /_sidecar/* to the instance backend
+  if (pathname.startsWith("/_sidecar")) {
+    const instanceUrl = process.env.INSTANCE_INTERNAL_URL;
+    if (!instanceUrl) {
+      return NextResponse.json({ error: "No instance configured" }, { status: 502 });
+    }
+
+    const targetPath = pathname.replace(/^\/_sidecar/, "") || "/";
+    const targetUrl = `${instanceUrl}${targetPath}${request.nextUrl.search}`;
+
+    const proxyHeaders = new Headers(request.headers);
+    // Remove host header so the instance sees its own host
+    proxyHeaders.delete("host");
+    const tenantCookie = request.cookies.get(TENANT_COOKIE_NAME);
+    if (tenantCookie?.value) {
+      proxyHeaders.set("x-tenant-id", tenantCookie.value);
+    }
+    proxyHeaders.set("x-paperclip-deployment-mode", "hosted_proxy");
+
+    const upstream = await fetch(targetUrl, {
+      method: request.method,
+      headers: proxyHeaders,
+      body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+      redirect: "manual",
+    });
+
+    const responseHeaders = new Headers(upstream.headers);
+    // Remove transfer-encoding since Next.js handles chunking
+    responseHeaders.delete("transfer-encoding");
+
+    return new NextResponse(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders,
+    });
+  }
 
   const nonce = crypto.randomUUID();
   const cspHeaderValue = buildCsp(nonce, request.url, request.headers.get("host") ?? "");
