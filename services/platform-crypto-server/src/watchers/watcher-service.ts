@@ -78,7 +78,7 @@ async function enqueueWebhook(
   });
 }
 
-async function processDeliveries(
+export async function processDeliveries(
   db: CryptoDb,
   allowedPrefixes: string[],
   log: (msg: string, meta?: Record<string, unknown>) => void,

@@ -32,7 +32,7 @@ import { DrizzleCryptoChargeRepository } from "./stores/charge-store.js";
 import { DrizzleWatcherCursorStore } from "./stores/cursor-store.js";
 import { DrizzlePaymentMethodStore } from "./stores/payment-method-store.js";
 import { startPluginWatchers } from "./watchers/plugin-watcher-service.js";
-import { startWatchers } from "./watchers/watcher-service.js";
+import { processDeliveries, startWatchers } from "./watchers/watcher-service.js";
 
 const PORT = Number(process.env.PORT ?? "3100");
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -125,12 +125,28 @@ async function main(): Promise<void> {
         log: (msg, meta) => console.log(`[watcher] ${msg}`, meta ?? ""),
       });
 
+  // Plugin watchers enqueue webhooks but don't run the delivery loop.
+  // Start the outbox processor so enqueued webhooks actually get POSTed.
+  let deliveryTimer: ReturnType<typeof setInterval> | null = null;
+  if (!useLegacy) {
+    const log = (msg: string, meta?: unknown) => console.log(`[webhook] ${msg}`, meta ?? "");
+    deliveryTimer = setInterval(async () => {
+      try {
+        const count = await processDeliveries(db as never, ["https://"], log, SERVICE_KEY);
+        if (count > 0) log("Webhooks delivered", { count });
+      } catch (err) {
+        log("Delivery error", { error: err instanceof Error ? err.message : String(err) });
+      }
+    }, 10_000);
+  }
+
   const server = serve({ fetch: app.fetch, port: PORT });
   console.log(`[crypto-key-server] Listening on :${PORT}`);
 
   // Graceful shutdown — stop accepting requests, drain watchers, close pool
   const shutdown = async () => {
     console.log("[crypto-key-server] Shutting down...");
+    if (deliveryTimer) clearInterval(deliveryTimer);
     stopWatchers();
     server.close();
     await pool.end();
