@@ -13,6 +13,7 @@ import type { IUserRoleRepository } from "../auth/user-role-repository.js";
 import type { ICryptoChargeRepository } from "../billing/crypto/charge-store.js";
 import type { IPaymentProcessor } from "../billing/index.js";
 import type { IWebhookSeenRepository } from "../billing/webhook-seen-repository.js";
+import { logger } from "../config/logger.js";
 import type { IAutoTopupSettingsRepository } from "../credits/auto-topup-settings-repository.js";
 import type { ILedger } from "../credits/ledger.js";
 import type { ITenantCustomerRepository } from "../credits/tenant-customer-repository.js";
@@ -125,6 +126,8 @@ export interface PlatformContainer {
   crypto: CryptoServices | null;
   /** Null when the product does not use Stripe billing. */
   stripe: StripeServices | null;
+  /** Null when crypto payments are not configured. */
+  cryptoClient: import("../billing/crypto/client.js").CryptoServiceClient | null;
   /** Null when the product does not expose a metered inference gateway. */
   gateway: GatewayServices | null;
   /** Null when the product does not use a hot-pool of pre-provisioned instances. */
@@ -155,6 +158,17 @@ export interface PlatformContainer {
  * `bootConfig.features`. Disabled features yield `null`.
  */
 export async function buildContainer(bootConfig: BootConfig): Promise<PlatformContainer> {
+  logger.info("Building container", {
+    slug: bootConfig.slug,
+    features: bootConfig.features,
+    hasSecrets: {
+      stripe: !!bootConfig.secrets?.stripeSecretKey,
+      crypto: !!bootConfig.secrets?.cryptoServiceKey,
+      cryptoUrl: !!bootConfig.secrets?.cryptoServiceUrl,
+      openrouter: !!bootConfig.secrets?.openrouterApiKey,
+      betterAuth: !!bootConfig.secrets?.betterAuthSecret,
+    },
+  });
   // 1. Database pool — reuse existing or create new
   let pool: Pool;
   if (bootConfig.pool) {
@@ -312,12 +326,24 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
 
   // 9. Crypto services (when enabled)
   let crypto: CryptoServices | null = null;
+  let cryptoClient: import("../billing/crypto/client.js").CryptoServiceClient | null = null;
   if (bootConfig.features.crypto) {
     const { DrizzleCryptoChargeRepository } = await import("../billing/crypto/charge-store.js");
+    const { CryptoServiceClient } = await import("../billing/crypto/client.js");
 
     const chargeRepo: ICryptoChargeRepository = new DrizzleCryptoChargeRepository(db as never);
+    const cryptoUrl = bootConfig.secrets?.cryptoServiceUrl ?? "";
+    const cryptoKey = bootConfig.secrets?.cryptoServiceKey ?? "";
+    if (cryptoUrl) {
+      cryptoClient = new CryptoServiceClient({ baseUrl: cryptoUrl, serviceKey: cryptoKey });
+      logger.info("Crypto service client initialized", { baseUrl: cryptoUrl });
+    } else {
+      logger.warn("Crypto feature enabled but no CRYPTO_SERVICE_URL — crypto payments disabled");
+    }
 
     crypto = { chargeRepo, webhookSeenRepo };
+  } else {
+    logger.info("Crypto feature disabled (no CRYPTO_SERVICE_KEY)");
   }
 
   // 10. Stripe services (when enabled)
@@ -331,6 +357,10 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     bootConfig.stripeWebhookSecret ??
     "";
   if (bootConfig.features.stripe && stripeKey) {
+    logger.info("Stripe initialized", {
+      keyPrefix: `${stripeKey.slice(0, 12)}...`,
+      priceCount: Object.keys(productConfig?.billing?.creditPrices ?? {}).length,
+    });
     const StripeModule = await import("stripe");
     const StripeClass = StripeModule.default;
     const stripeClient: Stripe = new StripeClass(stripeKey);
@@ -394,6 +424,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     productConfigService,
     creditLedger,
     webhookSeenRepo,
+    cryptoClient,
     orgMemberRepo,
     orgService,
     userRoleRepo,

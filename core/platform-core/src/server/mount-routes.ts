@@ -349,6 +349,9 @@ export async function mountRoutes(
         affiliateRepo: need(container.affiliateRepo, "affiliateRepo"),
         productConfig: container.productConfig,
         productConfigService: container.productConfigService,
+        cryptoClient: container.cryptoClient ?? undefined,
+        cryptoChargeRepo: container.crypto?.chargeRepo,
+        db: container.db,
         assertOrgAdminOrOwner,
       },
       settings: {

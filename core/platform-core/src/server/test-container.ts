@@ -121,6 +121,7 @@ export function createTestContainer(overrides?: Partial<PlatformContainer>): Pla
     productConfigService: stubProductConfigService(),
     creditLedger: stubLedger(),
     webhookSeenRepo: noOpReplayGuard,
+    cryptoClient: null,
     orgMemberRepo: stubOrgMemberRepo(),
     orgService: {} as OrgService,
     userRoleRepo: stubUserRoleRepo(),
