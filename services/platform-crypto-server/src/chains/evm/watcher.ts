@@ -100,15 +100,22 @@ export class EvmWatcher {
         ? this._watchedAddresses.map((a) => `0x000000000000000000000000${a.slice(2)}`)
         : null;
 
-    // Scan from cursor to latest (not just confirmed) to detect pending txs
-    const logs = (await this.rpc("eth_getLogs", [
-      {
-        address: this.contractAddress,
-        topics: [TRANSFER_TOPIC, null, toFilter],
-        fromBlock: `0x${this._cursor.toString(16)}`,
-        toBlock: `0x${latest.toString(16)}`,
-      },
-    ])) as RpcLog[];
+    // Scan from cursor to latest in chunks to avoid RPC block range limits (e.g. 50k on public nodes)
+    const MAX_BLOCK_RANGE = 10_000;
+    const allLogs: RpcLog[] = [];
+    for (let from = this._cursor; from <= latest; from += MAX_BLOCK_RANGE) {
+      const to = Math.min(from + MAX_BLOCK_RANGE - 1, latest);
+      const chunk = (await this.rpc("eth_getLogs", [
+        {
+          address: this.contractAddress,
+          topics: [TRANSFER_TOPIC, null, toFilter],
+          fromBlock: `0x${from.toString(16)}`,
+          toBlock: `0x${to.toString(16)}`,
+        },
+      ])) as RpcLog[];
+      allLogs.push(...chunk);
+    }
+    const logs = allLogs;
 
     // Group logs by block
     const logsByBlock = new Map<number, RpcLog[]>();

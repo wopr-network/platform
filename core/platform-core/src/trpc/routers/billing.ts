@@ -403,15 +403,30 @@ export function createBillingRouter(d: BillingRouterDeps) {
         }
         const domain = d.productConfig?.product?.domain ?? "localhost";
         const callbackUrl = `https://api.${domain}/api/webhooks/crypto`;
-        const result = await createUnifiedCheckout({ cryptoService: d.cryptoClient }, input.methodId, {
-          tenant,
-          amountUsd: input.amountUsd,
-          callbackUrl,
-        });
-        if (d.cryptoChargeRepo) {
-          await d.cryptoChargeRepo.create(result.referenceId, tenant, Math.round(input.amountUsd * 100));
+        try {
+          const result = await createUnifiedCheckout({ cryptoService: d.cryptoClient }, input.methodId, {
+            tenant,
+            amountUsd: input.amountUsd,
+            callbackUrl,
+          });
+          if (d.cryptoChargeRepo) {
+            await d.cryptoChargeRepo.create(result.referenceId, tenant, Math.round(input.amountUsd * 100));
+          }
+          return result;
+        } catch (err) {
+          console.error("[billing.checkout] Crypto checkout failed:", {
+            methodId: input.methodId,
+            amountUsd: input.amountUsd,
+            tenant,
+            domain,
+            callbackUrl,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: err instanceof Error ? err.message : "Crypto checkout failed",
+          });
         }
-        return result;
       }),
 
     chargeStatus: tenantProcedure
