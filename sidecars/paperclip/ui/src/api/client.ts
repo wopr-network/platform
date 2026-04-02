@@ -1,4 +1,4 @@
-const VITE_BASE = (import.meta.env.BASE_URL ?? "/").replace(/\/$/, "");
+const VITE_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const BASE = `${VITE_BASE}/api`;
 
 export class ApiError extends Error {
