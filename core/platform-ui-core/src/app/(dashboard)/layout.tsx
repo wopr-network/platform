@@ -14,7 +14,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { MenuIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import { EmailVerificationBanner } from "@/components/auth/email-verification-banner";
 import { EmailVerificationResultBanner } from "@/components/auth/email-verification-result-banner";
 import { SuspensionBanner } from "@/components/billing/suspension-banner";
@@ -47,8 +47,11 @@ export default function DashboardLayout({
 
   if (isPending || !isAuthed) return null;
 
+  const chatEnabled = getBrandConfig().chatEnabled;
+  const Wrapper = chatEnabled ? ChatProvider : Fragment;
+
   return (
-    <ChatProvider>
+    <Wrapper>
       {/* Desktop layout - hidden on mobile with CSS */}
       <div className="hidden lg:flex h-screen">
         <Sidebar />
@@ -106,7 +109,7 @@ export default function DashboardLayout({
           </motion.main>
         </AnimatePresence>
       </div>
-      {getBrandConfig().chatEnabled && !pathname.startsWith("/chat") && <ChatWidget />}
-    </ChatProvider>
+      {chatEnabled && !pathname.startsWith("/chat") && <ChatWidget />}
+    </Wrapper>
   );
 }
