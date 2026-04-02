@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { CircleDollarSign, CreditCard } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +65,9 @@ function clearPendingCharge(referenceId: string) {
   }
 }
 
+// Global dedup — prevents double toast/invalidation from desktop+mobile dual mount
+const notifiedCharges = new Set<string>();
+
 // ---------------------------------------------------------------------------
 // UnifiedCheckout — Amount → Method (Card + Coins) → Chain → Deposit → Confirm
 // ---------------------------------------------------------------------------
@@ -74,7 +77,6 @@ export function UnifiedCheckout() {
   const pathname = usePathname();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const didRefreshBalance = useRef(false);
 
   // Wizard state
   const [step, setStep] = useState<Step>("amount");
@@ -150,8 +152,11 @@ export function UnifiedCheckout() {
           setStatus("credited");
           setStep("confirming");
           clearPendingCharge(chargeRef);
-          queryClient.invalidateQueries({ queryKey: [["billing"]] });
-          toast.success("Payment confirmed — credits added to your account");
+          if (!notifiedCharges.has(chargeRef)) {
+            notifiedCharges.add(chargeRef);
+            queryClient.invalidateQueries({ queryKey: [["billing"]] });
+            toast.success("Payment confirmed — credits added to your account");
+          }
         } else if (res.status === "expired" || res.status === "failed") {
           setStatus(res.status as PaymentStatus);
           clearPendingCharge(chargeRef);
@@ -172,7 +177,7 @@ export function UnifiedCheckout() {
         clearPendingCharge(chargeRef);
         router.replace(pathname);
       });
-  }, [chargeRef, pathname, router]);
+  }, [chargeRef, pathname, router, queryClient.invalidateQueries]);
 
   // ── Poll charge status every 5s while on deposit/confirming ────────────
   useEffect(() => {
@@ -191,8 +196,8 @@ export function UnifiedCheckout() {
           setStep("confirming");
           clearPendingCharge(checkout.referenceId);
           clearInterval(interval);
-          if (!didRefreshBalance.current) {
-            didRefreshBalance.current = true;
+          if (!notifiedCharges.has(checkout.referenceId)) {
+            notifiedCharges.add(checkout.referenceId);
             queryClient.invalidateQueries({ queryKey: [["billing"]] });
             toast.success("Payment confirmed — credits added to your account");
           }
@@ -211,7 +216,7 @@ export function UnifiedCheckout() {
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [checkout?.referenceId]);
+  }, [checkout?.referenceId, queryClient.invalidateQueries]);
 
   // ── Derived state ──────────────────────────────────────────────────────
   const activeAmount = custom ? Number(custom) : selected;
@@ -261,7 +266,10 @@ export function UnifiedCheckout() {
         setStep("chain");
       }
     },
-    [coinGroups],
+    [
+      coinGroups, // Single chain — go straight to checkout
+      handleCryptoCheckout,
+    ],
   );
 
   const handleCryptoCheckout = useCallback(
