@@ -9,6 +9,7 @@
  */
 
 import type { IUserRoleRepository } from "../auth/user-role-repository.js";
+import { noOpReplayGuard } from "../billing/webhook-seen-repository.js";
 import type { ILedger } from "../credits/ledger.js";
 import type { DrizzleDb } from "../db/index.js";
 import type { ProductConfig } from "../product-config/repository-types.js";
@@ -119,6 +120,7 @@ export function createTestContainer(overrides?: Partial<PlatformContainer>): Pla
     productConfig: stubProductConfig(),
     productConfigService: stubProductConfigService(),
     creditLedger: stubLedger(),
+    webhookSeenRepo: noOpReplayGuard,
     orgMemberRepo: stubOrgMemberRepo(),
     orgService: {} as OrgService,
     userRoleRepo: stubUserRoleRepo(),
