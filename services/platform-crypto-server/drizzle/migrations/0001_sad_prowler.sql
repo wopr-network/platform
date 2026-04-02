@@ -1,1 +1,1 @@
-ALTER TABLE "crypto_charges" ADD COLUMN "seen_tx_hashes" text[] DEFAULT '{}'::text[] NOT NULL;
+ALTER TABLE "crypto_charges" ADD COLUMN IF NOT EXISTS "seen_tx_hashes" text[] DEFAULT '{}'::text[] NOT NULL;
