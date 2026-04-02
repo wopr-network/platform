@@ -1,6 +1,6 @@
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import type { PlatformDb } from "../../db/index.js";
-import { cryptoCharges } from "../../db/schema/crypto.js";
+import { cryptoCharges, paymentMethods } from "../../db/schema/crypto.js";
 import type { CryptoCharge, CryptoChargeStatus, CryptoPaymentState } from "./types.js";
 
 export interface CryptoChargeRecord {
@@ -148,13 +148,27 @@ export class DrizzleCryptoChargeRepository implements ICryptoChargeRepository {
   async get(referenceId: string): Promise<CryptoCharge | null> {
     const row = (await this.db.select().from(cryptoCharges).where(eq(cryptoCharges.referenceId, referenceId)))[0];
     if (!row) return null;
+    // Look up decimals from payment method if available
+    let decimals = 18;
+    if (row.token && row.chain) {
+      const methods = await this.db
+        .select({ decimals: paymentMethods.decimals })
+        .from(paymentMethods)
+        .where(and(eq(paymentMethods.token, row.token), eq(paymentMethods.chain, row.chain)))
+        .limit(1);
+      if (methods[0]) decimals = methods[0].decimals;
+    }
     return {
       id: row.referenceId,
       tenantId: row.tenantId,
       chain: row.chain ?? "unknown",
+      token: row.token ?? "unknown",
       status: this.mapStatus(row.status, row.creditedAt != null),
       amountExpectedCents: row.amountUsdCents,
       amountReceivedCents: row.amountReceivedCents,
+      expectedAmount: row.expectedAmount ?? null,
+      receivedAmount: row.receivedAmount ?? null,
+      decimals,
       confirmations: row.confirmations,
       confirmationsRequired: row.confirmationsRequired,
       txHash: row.txHash ?? undefined,

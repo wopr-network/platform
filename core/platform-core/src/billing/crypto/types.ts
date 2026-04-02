@@ -9,9 +9,16 @@ export interface CryptoCharge {
   id: string;
   tenantId: string;
   chain: string;
+  token: string;
   status: CryptoChargeStatus;
   amountExpectedCents: number;
   amountReceivedCents: number;
+  /** Native crypto amount expected (base units as string, e.g. sats or wei). */
+  expectedAmount: string | null;
+  /** Native crypto amount received so far (base units as string). */
+  receivedAmount: string | null;
+  /** Token decimals for converting native units to display units. */
+  decimals: number;
   confirmations: number;
   confirmationsRequired: number;
   txHash?: string;

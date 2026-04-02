@@ -10,9 +10,27 @@ interface DepositViewProps {
   checkout: CheckoutResult;
   status: "waiting" | "partial" | "confirming" | "credited" | "expired" | "failed";
   onBack: () => void;
+  /** Native crypto amounts for partial payment display */
+  expectedAmount?: string | null;
+  receivedAmount?: string | null;
+  token?: string;
+  decimals?: number;
 }
 
-export function DepositView({ checkout, status, onBack }: DepositViewProps) {
+function formatCrypto(raw: string, decimals: number): string {
+  const n = Number(raw) / 10 ** decimals;
+  return n.toFixed(Math.min(decimals, 8)).replace(/\.?0+$/, "");
+}
+
+export function DepositView({
+  checkout,
+  status,
+  onBack,
+  expectedAmount,
+  receivedAmount,
+  token,
+  decimals,
+}: DepositViewProps) {
   const [copied, setCopied] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30 * 60);
 
@@ -68,7 +86,16 @@ export function DepositView({ checkout, status, onBack }: DepositViewProps) {
         {status === "partial" && (
           <>
             <span className="h-2 w-2 rounded-full bg-blue-500" />
-            <span className="text-xs text-blue-500">Partial payment received</span>
+            <span className="text-xs text-blue-500">
+              {expectedAmount && receivedAmount && decimals != null && token ? (
+                <>
+                  Received {formatCrypto(receivedAmount, decimals)} of {formatCrypto(expectedAmount, decimals)} {token}{" "}
+                  &mdash; send {formatCrypto(String(BigInt(expectedAmount) - BigInt(receivedAmount)), decimals)} more
+                </>
+              ) : (
+                "Partial payment received"
+              )}
+            </span>
           </>
         )}
         {status === "expired" && <span className="text-xs text-destructive">Payment expired</span>}

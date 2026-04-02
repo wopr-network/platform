@@ -85,6 +85,10 @@ export function UnifiedCheckout() {
   const [confirmationsRequired, setConfirmationsRequired] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expectedAmount, setExpectedAmount] = useState<string | null>(null);
+  const [receivedAmount, setReceivedAmount] = useState<string | null>(null);
+  const [chargeToken, setChargeToken] = useState<string | null>(null);
+  const [chargeDecimals, setChargeDecimals] = useState(18);
 
   // Amount input
   const [selected, setSelected] = useState<number | null>(null);
@@ -176,6 +180,10 @@ export function UnifiedCheckout() {
         const res = await getChargeStatus(checkout.referenceId);
         setConfirmations(res.confirmations);
         setConfirmationsRequired(res.confirmationsRequired);
+        setExpectedAmount(res.expectedAmount ?? null);
+        setReceivedAmount(res.receivedAmount ?? null);
+        if (res.token) setChargeToken(res.token);
+        if (res.decimals != null) setChargeDecimals(res.decimals);
         if (res.credited) {
           setStatus("credited");
           setStep("confirming");
@@ -497,7 +505,15 @@ export function UnifiedCheckout() {
             {/* ── Step 4: Deposit (crypto only) ──────────────────────── */}
             {step === "deposit" && checkout && (
               <motion.div key="deposit" {...slide}>
-                <DepositView checkout={checkout} status={status} onBack={() => setStep("method")} />
+                <DepositView
+                  checkout={checkout}
+                  status={status}
+                  onBack={() => setStep("method")}
+                  expectedAmount={expectedAmount}
+                  receivedAmount={receivedAmount}
+                  token={chargeToken ?? undefined}
+                  decimals={chargeDecimals}
+                />
               </motion.div>
             )}
 
