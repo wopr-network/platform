@@ -158,10 +158,25 @@ async function sendViaWallet(opts: WalletTxOpts): Promise<string | null> {
   }
 
   if (walletType === "tron") {
-    const tw = (
-      window as { tronWeb?: { trx: { sendTransaction: (to: string, amount: number) => Promise<{ txid: string }> } } }
-    ).tronWeb;
+    type TronWeb = {
+      trx: { sendTransaction: (to: string, amount: number) => Promise<{ txid: string }> };
+      contract: () => {
+        at: (addr: string) => Promise<{ transfer: (to: string, amount: string) => { send: () => Promise<string> } }>;
+      };
+    };
+    const tw = (window as { tronWeb?: TronWeb }).tronWeb;
     if (!tw) return null;
+
+    // TRC-20: call transfer() on the contract via tronWeb.contract()
+    if (tokenType === "erc20" && contractAddress) {
+      console.warn("[wallet] TRC-20 transfer via TronLink", { contractAddress, to: depositAddress, amount });
+      const contract = await tw.contract().at(contractAddress);
+      const txHash = await contract.transfer(depositAddress, amount).send();
+      return txHash;
+    }
+
+    // Native TRX
+    console.warn("[wallet] Native TRX transfer via TronLink", { to: depositAddress, amount });
     const result = await tw.trx.sendTransaction(depositAddress, Number(amount));
     return result.txid;
   }
