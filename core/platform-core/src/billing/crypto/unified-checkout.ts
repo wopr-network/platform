@@ -14,6 +14,14 @@ export interface UnifiedCheckoutResult {
   token: string;
   chain: string;
   referenceId: string;
+  /** "native" or "erc20" */
+  type?: string;
+  /** ERC-20 contract address (null for native tokens). */
+  contractAddress?: string | null;
+  /** Token decimals. */
+  decimals?: number;
+  /** Expected amount in native base units. */
+  expectedAmount?: string;
   /** For volatile assets: price at checkout time (microdollars per unit, 10^-6 USD). */
   priceMicros?: number;
 }
@@ -47,6 +55,10 @@ export async function createUnifiedCheckout(
     token: result.token,
     chain: result.chain,
     referenceId: result.chargeId,
+    type: result.type,
+    contractAddress: result.contractAddress,
+    decimals: result.decimals,
+    expectedAmount: result.expectedAmount,
     priceMicros: result.priceMicros,
   };
 }

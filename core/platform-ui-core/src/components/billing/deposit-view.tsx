@@ -92,7 +92,25 @@ function walletLabel(type: WalletType): string {
   }
 }
 
-async function sendViaWallet(walletType: WalletType, to: string, amount: string | null): Promise<string | null> {
+// ERC-20 transfer(address,uint256) function selector
+const TRANSFER_SELECTOR = "0xa9059cbb";
+
+function encodeErc20Transfer(to: string, amount: string): string {
+  const addr = to.slice(2).toLowerCase().padStart(64, "0");
+  const val = BigInt(amount).toString(16).padStart(64, "0");
+  return `${TRANSFER_SELECTOR}${addr}${val}`;
+}
+
+interface WalletTxOpts {
+  walletType: WalletType;
+  depositAddress: string;
+  amount: string | null;
+  tokenType?: string;
+  contractAddress?: string | null;
+}
+
+async function sendViaWallet(opts: WalletTxOpts): Promise<string | null> {
+  const { walletType, depositAddress, amount, tokenType, contractAddress } = opts;
   if (!amount) return null;
 
   if (walletType === "metamask") {
@@ -102,25 +120,27 @@ async function sendViaWallet(walletType: WalletType, to: string, amount: string 
     if (!eth) return null;
     const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
     if (!accounts[0]) return null;
+
+    // ERC-20: call transfer() on the contract
+    if (tokenType === "erc20" && contractAddress) {
+      const data = encodeErc20Transfer(depositAddress, amount);
+      const txHash = (await eth.request({
+        method: "eth_sendTransaction",
+        params: [{ from: accounts[0], to: contractAddress, value: "0x0", data }],
+      })) as string;
+      return txHash;
+    }
+
+    // Native: send ETH/AVAX/etc. directly
     const txHash = (await eth.request({
       method: "eth_sendTransaction",
-      params: [{ from: accounts[0], to, value: `0x${BigInt(amount).toString(16)}` }],
+      params: [{ from: accounts[0], to: depositAddress, value: `0x${BigInt(amount).toString(16)}` }],
     })) as string;
     return txHash;
   }
 
   if (walletType === "solana") {
-    const sol = (
-      window as {
-        solana?: {
-          connect: () => Promise<{ publicKey: { toString: () => string } }>;
-          request: (args: unknown) => Promise<{ signature: string }>;
-        };
-      }
-    ).solana;
-    if (!sol) return null;
-    await sol.connect();
-    // Solana requires @solana/web3.js for proper tx construction — fall back to URI
+    // Solana requires @solana/web3.js for tx construction — fall back to URI
     return null;
   }
 
@@ -129,7 +149,7 @@ async function sendViaWallet(walletType: WalletType, to: string, amount: string 
       window as { tronWeb?: { trx: { sendTransaction: (to: string, amount: number) => Promise<{ txid: string }> } } }
     ).tronWeb;
     if (!tw) return null;
-    const result = await tw.trx.sendTransaction(to, Number(amount));
+    const result = await tw.trx.sendTransaction(depositAddress, Number(amount));
     return result.txid;
   }
 
@@ -175,8 +195,16 @@ export function DepositView({
     setWalletError(null);
     try {
       const amountToSend =
-        expectedAmount && receivedAmount ? String(BigInt(expectedAmount) - BigInt(receivedAmount)) : expectedAmount;
-      const txHash = await sendViaWallet(walletType, checkout.depositAddress, amountToSend ?? null);
+        expectedAmount && receivedAmount
+          ? String(BigInt(expectedAmount) - BigInt(receivedAmount))
+          : (checkout.expectedAmount ?? expectedAmount);
+      const txHash = await sendViaWallet({
+        walletType,
+        depositAddress: checkout.depositAddress,
+        amount: amountToSend ?? null,
+        tokenType: checkout.type,
+        contractAddress: checkout.contractAddress,
+      });
       if (txHash) {
         setTxSent(true);
       } else if (walletType === "solana") {

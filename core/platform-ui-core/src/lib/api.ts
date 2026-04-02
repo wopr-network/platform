@@ -1381,6 +1381,14 @@ export interface CheckoutResult {
   token: string;
   chain: string;
   referenceId: string;
+  /** "native" or "erc20" */
+  type?: string;
+  /** ERC-20 contract address (null for native tokens). */
+  contractAddress?: string | null;
+  /** Token decimals. */
+  decimals?: number;
+  /** Expected amount in native base units. */
+  expectedAmount?: string;
   priceCents?: number;
 }
 

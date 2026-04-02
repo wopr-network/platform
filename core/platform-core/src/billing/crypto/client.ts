@@ -26,7 +26,11 @@ export interface CreateChargeResult {
   address: string;
   chain: string;
   token: string;
+  type?: string;
+  contractAddress?: string | null;
+  decimals?: number;
   amountUsd: number;
+  expectedAmount?: string;
   derivationIndex: number;
   expiresAt: string;
   displayAmount?: string;

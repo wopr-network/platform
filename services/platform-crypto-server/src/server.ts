@@ -303,6 +303,9 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
         address,
         chain,
         token,
+        type: method.type, // "native" or "erc20"
+        contractAddress: method.contractAddress ?? null,
+        decimals: method.decimals,
         amountUsd: body.amountUsd,
         expectedAmount: expectedAmount.toString(),
         displayAmount,
