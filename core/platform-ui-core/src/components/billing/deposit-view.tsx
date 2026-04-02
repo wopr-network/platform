@@ -2,7 +2,7 @@
 
 import { Check, Copy } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { CheckoutResult } from "@/lib/api";
 
@@ -32,22 +32,12 @@ export function DepositView({
   decimals,
 }: DepositViewProps) {
   const [copied, setCopied] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(checkout.depositAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [checkout.depositAddress]);
-
-  useEffect(() => {
-    if (status !== "waiting") return;
-    const timer = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [status]);
-
-  const mins = Math.floor(timeLeft / 60);
-  const secs = timeLeft % 60;
 
   return (
     <div className="space-y-4 text-center">
@@ -78,9 +68,6 @@ export function DepositView({
           <>
             <span className="h-2 w-2 animate-pulse rounded-full bg-yellow-500" />
             <span className="text-xs text-yellow-500">Waiting for payment...</span>
-            <span className="text-xs text-muted-foreground">
-              &middot; {mins}:{secs.toString().padStart(2, "0")}
-            </span>
           </>
         )}
         {status === "partial" && (
