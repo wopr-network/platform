@@ -49,11 +49,30 @@ vi.mock("node:fs/promises", () => ({
   },
 }));
 
+const goalSvcMock = {
+  create: vi.fn(),
+};
+const projectSvcMock = {
+  create: vi.fn(),
+};
+const issueSvcMock = {
+  create: vi.fn(),
+};
+const heartbeatSvcMock = {};
+
 vi.mock("../services/index.js", () => ({
   companyService: () => companySvcMock,
   agentService: () => agentSvcMock,
   accessService: () => accessSvcMock,
+  goalService: () => goalSvcMock,
+  projectService: () => projectSvcMock,
+  issueService: () => issueSvcMock,
+  heartbeatService: () => heartbeatSvcMock,
   logActivity: (...args: unknown[]) => logActivityMock(...args),
+}));
+
+vi.mock("../services/issue-assignment-wakeup.js", () => ({
+  queueIssueAssignmentWakeup: vi.fn(),
 }));
 
 import { provisionRoutes } from "../routes/provision.js";
@@ -97,6 +116,10 @@ describe("provision routes", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockDb = createMockDb();
+    // Default stubs for onboarding services called by onProvisioned
+    goalSvcMock.create.mockResolvedValue({ id: "goal-1" });
+    projectSvcMock.create.mockResolvedValue({ id: "proj-1", name: "Onboarding" });
+    issueSvcMock.create.mockResolvedValue({ id: "issue-1", assigneeAgentId: null, status: "todo" });
     app = createApp(mockDb);
   });
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSidecarBridge } from "@/hooks/use-sidecar-bridge";
 import { getRouteType } from "@/lib/sidecar-routes";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export function SidecarFrame() {
   const { ready, setIframeRef, navigate } = useSidecarBridge();
@@ -42,10 +42,7 @@ export function SidecarFrame() {
   }, [navigate]);
 
   return (
-    <div
-      className="relative flex-1 min-h-0"
-      style={{ display: isVisible ? "flex" : "none" }}
-    >
+    <div className="relative flex-1 min-h-0" style={{ display: isVisible ? "flex" : "none" }}>
       {/* Loading skeleton until sidecar posts "ready" */}
       {isVisible && !iframeLoaded && (
         <div className="absolute inset-0 flex flex-col gap-4 p-6">

@@ -46,19 +46,22 @@ function createMockDb(opts?: { roleRow?: { id: string } | null; memberships?: { 
   const roleRow = opts?.roleRow ?? null;
   const memberships = opts?.memberships ?? [];
 
-  let callCount = 0;
+  // Track the last table passed to from() so then() returns the right data
+  let lastTable: unknown = null;
 
   const thenFn = vi.fn().mockImplementation((cb) => {
-    callCount++;
-    // First select call = instanceUserRoles, second = companyMemberships
-    if (callCount % 2 === 1) {
-      return Promise.resolve(cb ? cb(roleRow ? [roleRow] : []) : roleRow ? [roleRow] : []);
-    }
-    return Promise.resolve(cb ? cb(memberships) : memberships);
+    // Determine result based on which table was queried
+    const isMemberships =
+      lastTable && typeof lastTable === "object" && "principalType" in (lastTable as Record<string, unknown>);
+    const result = isMemberships ? memberships : roleRow ? [roleRow] : [];
+    return Promise.resolve(cb ? cb(result) : result);
   });
 
   const whereFn = vi.fn().mockReturnValue({ then: thenFn });
-  const fromFn = vi.fn().mockReturnValue({ where: whereFn });
+  const fromFn = vi.fn().mockImplementation((table: unknown) => {
+    lastTable = table;
+    return { where: whereFn };
+  });
   const selectFn = vi.fn().mockReturnValue({ from: fromFn });
 
   return { select: selectFn, _fromFn: fromFn, _whereFn: whereFn, _thenFn: thenFn };
@@ -108,8 +111,8 @@ describe("hosted_proxy auth middleware", () => {
     expect(res.body.source).toBe("none");
   });
 
-  it("trusts proxy header as instance admin (no DB lookup)", async () => {
-    mockDb = createMockDb();
+  it("trusts proxy header as instance admin (membership lookup only)", async () => {
+    mockDb = createMockDb({ memberships: [{ companyId: "comp-1" }] });
     const app = createApp(mockDb);
 
     const res = await request(app).get("/test").set("x-paperclip-user-id", "user-99");
@@ -119,8 +122,9 @@ describe("hosted_proxy auth middleware", () => {
     expect(res.body.userId).toBe("user-99");
     expect(res.body.isInstanceAdmin).toBe(true);
     expect(res.body.source).toBe("local_implicit");
-    // No DB calls — we trust the platform proxy completely
-    expect(mockDb.select).not.toHaveBeenCalled();
+    // Trusts userId from proxy, but fetches company memberships
+    expect(res.body.companyIds).toEqual(["comp-1"]);
+    expect(mockDb.select).toHaveBeenCalledTimes(1);
   });
 
   it("also accepts x-platform-user-id header", async () => {
