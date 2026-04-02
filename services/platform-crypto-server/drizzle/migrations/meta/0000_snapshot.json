@@ -1,6 +1,6 @@
 {
-  "id": "8909cb35-e937-4abc-ae0c-330314546b13",
-  "prevId": "0e81c2ba-71fd-40c1-9bbb-68621c85fd37",
+  "id": "0e81c2ba-71fd-40c1-9bbb-68621c85fd37",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -225,13 +225,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
-        },
-        "seen_tx_hashes": {
-          "name": "seen_tx_hashes",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
         }
       },
       "indexes": {

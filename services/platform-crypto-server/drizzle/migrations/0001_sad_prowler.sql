@@ -1,0 +1,1 @@
+ALTER TABLE "crypto_charges" ADD COLUMN "seen_tx_hashes" text[] DEFAULT '{}'::text[] NOT NULL;
