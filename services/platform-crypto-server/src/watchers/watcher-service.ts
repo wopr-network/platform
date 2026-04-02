@@ -239,9 +239,12 @@ export async function handlePayment(
     await enqueueWebhook(db, charge.referenceId, charge.callbackUrl, {
       chargeId: charge.referenceId,
       chain: charge.chain,
+      token: charge.token,
       address: charge.depositAddress,
       amountExpectedCents: charge.amountUsdCents,
       amountReceivedCents,
+      expectedAmount: charge.expectedAmount,
+      receivedAmount: totalReceived,
       confirmations,
       confirmationsRequired,
       txHash,

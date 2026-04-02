@@ -45,6 +45,9 @@ export interface CryptoChargeProgressUpdate {
   confirmations: number;
   confirmationsRequired: number;
   txHash?: string;
+  expectedAmount?: string;
+  receivedAmount?: string;
+  token?: string;
 }
 
 export interface ICryptoChargeRepository {
@@ -186,16 +189,20 @@ export class DrizzleCryptoChargeRepository implements ICryptoChargeRepository {
       expired: "Expired",
       failed: "Invalid",
     };
+    const set: Record<string, unknown> = {
+      status: statusMap[update.status],
+      amountReceivedCents: update.amountReceivedCents,
+      confirmations: update.confirmations,
+      confirmationsRequired: update.confirmationsRequired,
+      txHash: update.txHash,
+      updatedAt: sql`now()`,
+    };
+    if (update.expectedAmount) set.expectedAmount = update.expectedAmount;
+    if (update.receivedAmount) set.receivedAmount = update.receivedAmount;
+    if (update.token) set.token = update.token;
     await this.db
       .update(cryptoCharges)
-      .set({
-        status: statusMap[update.status],
-        amountReceivedCents: update.amountReceivedCents,
-        confirmations: update.confirmations,
-        confirmationsRequired: update.confirmationsRequired,
-        txHash: update.txHash,
-        updatedAt: sql`now()`,
-      })
+      .set(set as never)
       .where(eq(cryptoCharges.referenceId, referenceId));
   }
 

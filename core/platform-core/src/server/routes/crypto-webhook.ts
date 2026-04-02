@@ -21,9 +21,13 @@ import type { PlatformContainer } from "../container.js";
 const cryptoWebhookSchema = z.object({
   chargeId: z.string().min(1),
   chain: z.string().min(1),
+  token: z.string().optional(),
   address: z.string().min(1),
   amountUsdCents: z.number().optional(),
   amountReceivedCents: z.number().optional(),
+  amountExpectedCents: z.number().optional(),
+  expectedAmount: z.string().optional(),
+  receivedAmount: z.string().optional(),
   status: z.string().min(1),
   txHash: z.string().optional(),
   amountReceived: z.string().optional(),

@@ -31,10 +31,16 @@ import type { CryptoChargeStatus } from "./types.js";
 export interface KeyServerWebhookPayload {
   chargeId: string;
   chain: string;
+  token?: string;
   address: string;
   /** @deprecated Use amountReceivedCents instead. Kept for one release cycle. */
   amountUsdCents?: number;
   amountReceivedCents?: number;
+  amountExpectedCents?: number;
+  /** Native crypto expected amount (base units as string). */
+  expectedAmount?: string;
+  /** Native crypto received amount (base units as string). */
+  receivedAmount?: string;
   status: string;
   txHash?: string;
   amountReceived?: string;
@@ -131,6 +137,9 @@ export async function handleKeyServerWebhook(
     confirmations,
     confirmationsRequired,
     txHash: payload.txHash,
+    expectedAmount: payload.expectedAmount,
+    receivedAmount: payload.receivedAmount,
+    token: payload.token,
   });
 
   // Also call deprecated updateStatus for backward compat with downstream consumers
