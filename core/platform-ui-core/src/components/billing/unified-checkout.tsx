@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CircleDollarSign, CreditCard } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -150,6 +151,7 @@ export function UnifiedCheckout() {
           setStep("confirming");
           clearPendingCharge(chargeRef);
           queryClient.invalidateQueries({ queryKey: [["billing"]] });
+          toast.success("Payment confirmed — credits added to your account");
         } else if (res.status === "expired" || res.status === "failed") {
           setStatus(res.status as PaymentStatus);
           clearPendingCharge(chargeRef);
@@ -192,6 +194,7 @@ export function UnifiedCheckout() {
           if (!didRefreshBalance.current) {
             didRefreshBalance.current = true;
             queryClient.invalidateQueries({ queryKey: [["billing"]] });
+            toast.success("Payment confirmed — credits added to your account");
           }
         } else if (res.status === "expired" || res.status === "failed") {
           setStatus(res.status as PaymentStatus);
