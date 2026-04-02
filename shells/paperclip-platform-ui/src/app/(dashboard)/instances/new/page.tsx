@@ -373,7 +373,9 @@ export default function NewPaperclipInstancePage() {
                     >
                       <p className="mb-2 text-[10px] uppercase tracking-widest text-indigo-400">Founding Brief</p>
                       <p className="mb-1 text-sm font-semibold text-zinc-100">{msg.plan.taskTitle}</p>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">{msg.plan.taskDescription}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">
+                        {msg.plan.taskDescription}
+                      </p>
                     </motion.div>
                   )}
                 </div>

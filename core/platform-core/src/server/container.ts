@@ -101,6 +101,7 @@ export interface PlatformContainer {
   productConfig: ProductConfig;
   productConfigService: ProductConfigService;
   creditLedger: ILedger;
+  webhookSeenRepo: IWebhookSeenRepository;
   orgMemberRepo: IOrgMemberRepository;
   orgService: OrgService;
   userRoleRepo: IUserRoleRepository;
@@ -305,14 +306,16 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     };
   }
 
+  // 8b. Webhook replay guard (shared by Stripe + crypto webhooks)
+  const { DrizzleWebhookSeenRepository } = await import("../billing/drizzle-webhook-seen-repository.js");
+  const webhookSeenRepo: IWebhookSeenRepository = new DrizzleWebhookSeenRepository(db as never);
+
   // 9. Crypto services (when enabled)
   let crypto: CryptoServices | null = null;
   if (bootConfig.features.crypto) {
     const { DrizzleCryptoChargeRepository } = await import("../billing/crypto/charge-store.js");
-    const { DrizzleWebhookSeenRepository } = await import("../billing/drizzle-webhook-seen-repository.js");
 
     const chargeRepo: ICryptoChargeRepository = new DrizzleCryptoChargeRepository(db as never);
-    const webhookSeenRepo: IWebhookSeenRepository = new DrizzleWebhookSeenRepository(db as never);
 
     crypto = { chargeRepo, webhookSeenRepo };
   }
@@ -390,6 +393,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     productConfig,
     productConfigService,
     creditLedger,
+    webhookSeenRepo,
     orgMemberRepo,
     orgService,
     userRoleRepo,

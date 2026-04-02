@@ -1,21 +1,10 @@
 import { desc, eq } from "drizzle-orm";
+import type { ITenantCustomerRepository } from "../../credits/tenant-customer-repository.js";
 import type { PlatformDb } from "../../db/index.js";
 import { tenantCustomers } from "../../db/schema/tenant-customers.js";
 import type { TenantCustomerRow } from "./types.js";
 
-export interface ITenantCustomerRepository {
-  getByTenant(tenant: string): Promise<TenantCustomerRow | null>;
-  getByProcessorCustomerId(processorCustomerId: string): Promise<TenantCustomerRow | null>;
-  upsert(row: { tenant: string; processorCustomerId: string; tier?: string }): Promise<void>;
-  setTier(tenant: string, tier: string): Promise<void>;
-  setBillingHold(tenant: string, hold: boolean): Promise<void>;
-  hasBillingHold(tenant: string): Promise<boolean>;
-  getInferenceMode(tenant: string): Promise<string>;
-  setInferenceMode(tenant: string, mode: string): Promise<void>;
-  list(): Promise<TenantCustomerRow[]>;
-  buildCustomerIdMap(): Promise<Record<string, string>>;
-  listMetered(): Promise<Array<{ tenant: string; processorCustomerId: string }>>;
-}
+export type { ITenantCustomerRepository };
 
 /**
  * Manages tenant-to-payment-processor customer mappings in PostgreSQL.

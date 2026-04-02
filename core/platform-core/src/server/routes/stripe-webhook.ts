@@ -1,13 +1,16 @@
 import { Hono } from "hono";
 
+import { loadCreditPriceMap } from "../../billing/stripe/credit-prices.js";
 import { logger } from "../../config/logger.js";
+import { handleWebhookEvent } from "../../monetization/stripe/webhook.js";
 import type { PlatformContainer } from "../container.js";
 
 /**
  * Stripe webhook route factory.
  *
- * Tries per-product webhook secret first (from product_billing_config),
- * then falls back to the boot-time processor's secret.
+ * Resolves per-product webhook secret + price map from DB.
+ * Calls handleWebhookEvent directly with shared deps (ledger, replay guard)
+ * and per-product config (price map). No boot-time singleton dependency.
  */
 export function createStripeWebhookRoutes(container: PlatformContainer): Hono {
   const routes = new Hono();
@@ -24,45 +27,74 @@ export function createStripeWebhookRoutes(container: PlatformContainer): Hono {
       return c.json({ error: "Missing stripe-signature header" }, 400);
     }
 
-    // Try per-product webhook verification: resolve product from host,
-    // look up its webhook secret, and build a one-shot processor.
-    const allProducts = await container.productConfigService.listAll();
     const host = c.req.header("host")?.split(":")[0] ?? "";
     const hostBase = host.startsWith("api.") ? host.slice(4) : host;
+    logger.info("Stripe webhook received", { host, hostBase, sigLen: sig.length });
+
+    // Collect webhook secrets to try: per-product from DB first, boot-time fallback last.
+    const allProducts = await container.productConfigService.listAll();
+    const candidates: Array<{
+      label: string;
+      secret: string;
+      priceMap: ReturnType<typeof loadCreditPriceMap>;
+    }> = [];
 
     for (const pc of allProducts) {
-      const matches = pc.product.domain === hostBase || pc.product.appDomain === host ||
+      const matches =
+        pc.product.domain === hostBase ||
+        pc.product.appDomain === host ||
         pc.domains.some((d) => d.host === host || d.host === hostBase);
-      if (!matches || !pc.billing?.stripeWebhookSecret) continue;
+      if (!matches) continue;
+      if (!pc.billing?.stripeWebhookSecret) {
+        logger.warn("Stripe webhook: product matched but no webhook secret", { product: pc.product.slug });
+        continue;
+      }
+      candidates.push({
+        label: pc.product.slug,
+        secret: pc.billing.stripeWebhookSecret,
+        priceMap: loadCreditPriceMap(pc.billing.creditPrices as Record<string, unknown>),
+      });
+    }
+    // Boot-time fallback (uses container's price map)
+    candidates.push({
+      label: "boot-default",
+      secret: container.stripe.webhookSecret,
+      priceMap: container.priceMap ?? new Map(),
+    });
 
+    // Try each secret until one verifies, then process the event
+    for (const candidate of candidates) {
+      if (!candidate.secret) continue;
+      logger.info("Stripe webhook: trying key", { label: candidate.label });
       try {
-        const Stripe = (await import("stripe")).default;
-        const stripeClient = new Stripe(pc.billing.stripeSecretKey ?? "");
-        const { StripePaymentProcessor } = await import("../../billing/stripe/stripe-payment-processor.js");
-        const { loadCreditPriceMap } = await import("../../billing/stripe/credit-prices.js");
-        const processor = new StripePaymentProcessor({
-          stripe: stripeClient,
-          tenantRepo: container.stripe.customerRepo,
-          webhookSecret: pc.billing.stripeWebhookSecret,
-          priceMap: loadCreditPriceMap(pc.billing.creditPrices as Record<string, unknown>),
-          creditLedger: container.creditLedger,
+        const event = container.stripe.stripe.webhooks.constructEvent(rawBody, sig, candidate.secret);
+        logger.info("Stripe webhook: signature verified", { label: candidate.label, eventType: event.type });
+
+        // Process with shared deps + per-product price map
+        const result = await handleWebhookEvent(
+          {
+            tenantRepo: container.stripe.customerRepo,
+            creditLedger: container.creditLedger,
+            priceMap: candidate.priceMap,
+            replayGuard: container.webhookSeenRepo,
+          },
+          event,
+        );
+        logger.info("Stripe webhook processed", {
+          label: candidate.label,
+          handled: result.handled,
+          eventType: result.event_type,
+          tenant: result.tenant,
+          creditedCents: result.creditedCents,
         });
-        const result = await processor.handleWebhook(rawBody, sig);
-        logger.info("Stripe webhook processed (per-product)", { product: pc.product.slug, result });
         return c.json({ ok: true, result }, 200);
-      } catch {
-        // Signature didn't match this product — try next or fall back
+      } catch (err) {
+        logger.warn("Stripe webhook: key failed", { label: candidate.label, error: String(err) });
       }
     }
 
-    // Fallback: boot-time processor
-    try {
-      const result = await container.stripe.processor.handleWebhook(rawBody, sig);
-      return c.json({ ok: true, result }, 200);
-    } catch (err) {
-      logger.warn("Stripe webhook failed", { error: String(err) });
-      return c.json({ error: "Webhook processing failed" }, 400);
-    }
+    logger.error("Stripe webhook failed (all keys exhausted)", { host, candidateCount: candidates.length });
+    return c.json({ error: "Webhook processing failed" }, 400);
   });
 
   return routes;

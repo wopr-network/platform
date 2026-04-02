@@ -1,7 +1,7 @@
 import type {
   CreditPriceMap,
+  ITenantCustomerRepository,
   IWebhookSeenRepository,
-  TenantCustomerRepository,
 } from "@wopr-network/platform-core/billing";
 import type { ILedger } from "@wopr-network/platform-core/credits";
 import { Credit } from "@wopr-network/platform-core/credits";
@@ -42,7 +42,7 @@ export interface WebhookResult {
  * Dependencies required by the webhook handler.
  */
 export interface WebhookDeps {
-  tenantRepo: TenantCustomerRepository;
+  tenantRepo: ITenantCustomerRepository;
   creditLedger: ILedger;
   /** Map of Stripe Price ID -> CreditPricePoint for bonus calculation. */
   priceMap?: CreditPriceMap;
