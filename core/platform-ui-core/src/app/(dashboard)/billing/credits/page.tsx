@@ -3,9 +3,7 @@
 import { Clock } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { AutoTopupCard } from "@/components/billing/auto-topup-card";
 import { BuyCreditsPanel } from "@/components/billing/buy-credits-panel";
-import { CouponInput } from "@/components/billing/coupon-input";
 import { CreditBalance } from "@/components/billing/credit-balance";
 import { CryptoCheckout } from "@/components/billing/crypto-checkout";
 import { DividendBanner } from "@/components/billing/dividend-banner";
@@ -189,9 +187,7 @@ function CreditsContent() {
       )}
 
       <BuyCreditsPanel />
-      <CouponInput />
       <CryptoCheckout />
-      <AutoTopupCard />
       <TransactionHistory />
 
       {showDividends && dividendStats && <FirstDividendDialog todayAmountCents={todayDividendCents} />}
