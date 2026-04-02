@@ -99,111 +99,43 @@ export interface BrandConfig {
 
   /** Feature bullet points shown on the billing plans page. */
   planFeatures: string[];
+
+  /** Instance detail tabs to hide for this brand (e.g. ["plugins", "channels", "friends"]). */
+  hiddenInstanceTabs: string[];
 }
 
 /**
- * Build default config from NEXT_PUBLIC_BRAND_* env vars, falling
- * back to generic "Platform" values. Each brand deployment sets
- * its env vars in .env (or .env.local) and the config picks them up
- * at build time — no code changes required.
+ * Static defaults used before initBrandConfig() fetches from the core API.
+ * These are intentionally minimal — the real config comes from the DB.
+ * No process.env references. Brand shells call setBrandConfig() or
+ * initBrandConfig() to populate from the core API.
  */
-/**
- * Parse NEXT_PUBLIC_BRAND_NAV_ITEMS env var.
- * Format: JSON array of {label, href} objects.
- * Example: '[{"label":"Home","href":"/"},{"label":"Settings","href":"/settings"}]'
- * Returns null if unset or invalid (falls back to defaults).
- */
-function parseNavItems(raw: string | undefined): Array<{ label: string; href: string }> | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (
-      Array.isArray(parsed) &&
-      parsed.every(
-        (item: unknown) =>
-          typeof item === "object" &&
-          item !== null &&
-          typeof (item as { label?: unknown }).label === "string" &&
-          typeof (item as { href?: unknown }).href === "string",
-      )
-    ) {
-      return parsed as Array<{ label: string; href: string }>;
-    }
-  } catch {
-    // Invalid JSON — fall back to defaults
-  }
-  return null;
-}
-
-/** Parse a JSON string array env var. Returns null if unset/invalid. */
-function parseStringArray(raw: string | undefined): string[] | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.every((s: unknown) => typeof s === "string")) {
-      return parsed as string[];
-    }
-  } catch {
-    // Invalid JSON — fall back to defaults
-  }
-  return null;
-}
-
-function envDefaults(): BrandConfig {
-  // Direct process.env.X access is required — Next.js Turbopack only inlines
-  // NEXT_PUBLIC_* vars when accessed as literal dot-property references.
-  // Dynamic access like process.env[key] is NOT inlined at build time.
-  const productName = process.env.NEXT_PUBLIC_BRAND_PRODUCT_NAME || "Platform";
-  const brandName = process.env.NEXT_PUBLIC_BRAND_NAME || "Platform";
-  const storagePrefix = process.env.NEXT_PUBLIC_BRAND_STORAGE_PREFIX || "platform";
-  const eventPrefix = process.env.NEXT_PUBLIC_BRAND_EVENT_PREFIX || storagePrefix;
+function staticDefaults(): BrandConfig {
   return {
-    productName,
-    brandName,
-    domain: process.env.NEXT_PUBLIC_BRAND_DOMAIN || "localhost",
-    appDomain: process.env.NEXT_PUBLIC_BRAND_APP_DOMAIN || "localhost:3000",
-    tagline: process.env.NEXT_PUBLIC_BRAND_TAGLINE || "Your platform, your rules.",
-    emails: {
-      privacy: process.env.NEXT_PUBLIC_BRAND_EMAIL_PRIVACY || "privacy@example.com",
-      legal: process.env.NEXT_PUBLIC_BRAND_EMAIL_LEGAL || "legal@example.com",
-      support: process.env.NEXT_PUBLIC_BRAND_EMAIL_SUPPORT || "support@example.com",
-    },
-    defaultImage: process.env.NEXT_PUBLIC_BRAND_DEFAULT_IMAGE || "",
-    storagePrefix,
-    eventPrefix,
-    envVarPrefix: process.env.NEXT_PUBLIC_BRAND_ENV_PREFIX || storagePrefix.toUpperCase(),
-    toolPrefix: process.env.NEXT_PUBLIC_BRAND_TOOL_PREFIX || storagePrefix,
-    tenantCookieName: process.env.NEXT_PUBLIC_BRAND_TENANT_COOKIE || `${storagePrefix}_tenant_id`,
-    companyLegalName: process.env.NEXT_PUBLIC_BRAND_COMPANY_LEGAL || "Platform Inc.",
-    price: process.env.NEXT_PUBLIC_BRAND_PRICE || "",
-    homePath: process.env.NEXT_PUBLIC_BRAND_HOME_PATH || "/marketplace",
-    chatEnabled: process.env.NEXT_PUBLIC_BRAND_CHAT_ENABLED !== "false",
-    dividendsEnabled: process.env.NEXT_PUBLIC_BRAND_DIVIDENDS_ENABLED === "true",
-    planFeatures: parseStringArray(process.env.NEXT_PUBLIC_BRAND_PLAN_FEATURES) ?? [
-      "Signup credit included",
-      "All channels",
-      "All plugins",
-      "Hosted AI — no API keys needed",
-    ],
-    navItems: parseNavItems(process.env.NEXT_PUBLIC_BRAND_NAV_ITEMS) ?? [
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Chat", href: "/chat" },
-      { label: "Marketplace", href: "/marketplace" },
-      { label: "Channels", href: "/channels" },
-      { label: "Plugins", href: "/plugins" },
-      { label: "Instances", href: "/instances" },
-      { label: "Changesets", href: "/changesets" },
-      { label: "Network", href: "/dashboard/network" },
-      { label: "Fleet Health", href: "/fleet/health" },
-      { label: "Credits", href: "/billing/credits" },
-      { label: "Billing", href: "/billing/plans" },
-      { label: "Settings", href: "/settings/profile" },
-      { label: "Admin", href: "/admin/tenants" },
-    ],
+    productName: "Platform",
+    brandName: "Platform",
+    domain: "localhost",
+    appDomain: "localhost:3000",
+    tagline: "",
+    emails: { privacy: "", legal: "", support: "" },
+    defaultImage: "",
+    storagePrefix: "platform",
+    eventPrefix: "platform",
+    envVarPrefix: "PLATFORM",
+    toolPrefix: "platform",
+    tenantCookieName: "platform_tenant_id",
+    companyLegalName: "",
+    price: "",
+    homePath: "/",
+    chatEnabled: true,
+    dividendsEnabled: false,
+    planFeatures: [],
+    hiddenInstanceTabs: [],
+    navItems: [],
   };
 }
 
-let _config: BrandConfig = envDefaults();
+let _config: BrandConfig = staticDefaults();
 
 /**
  * Set the brand configuration. Call once at app startup
@@ -214,7 +146,7 @@ let _config: BrandConfig = envDefaults();
  * from the new prefix unless explicitly provided.
  */
 export function setBrandConfig(config: Partial<BrandConfig>): void {
-  const base = { ...envDefaults(), ...config };
+  const base = { ...staticDefaults(), ...config };
   // Re-derive prefix-dependent fields when storagePrefix is overridden
   // but the dependent fields were not explicitly provided.
   if (config.storagePrefix) {

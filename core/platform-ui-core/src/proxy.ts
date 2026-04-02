@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getBrandConfig } from "@/lib/brand-config";
 
 /**
  * Middleware — CSP headers, CSRF protection, nonce generation, tenant cookie forwarding.
@@ -11,7 +10,12 @@ const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 const CSRF_EXEMPT_AUTH_PATHS = ["/api/auth/callback"];
 
-const TENANT_COOKIE_NAME = getBrandConfig().tenantCookieName;
+// Middleware runs at edge before initBrandConfig(). Read cookie name from
+// env var directly — this is the ONE place process.env is acceptable for
+// brand config, because middleware can't await the core API.
+const TENANT_COOKIE_NAME =
+  process.env.NEXT_PUBLIC_BRAND_TENANT_COOKIE ||
+  `${process.env.NEXT_PUBLIC_BRAND_STORAGE_PREFIX || "platform"}_tenant_id`;
 
 const NONCE_STYLES_ENABLED = true;
 

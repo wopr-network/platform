@@ -21,6 +21,7 @@
 **/docs/
 **/*.md
 !**/README.md
+!**/SKILL.md
 **/CLAUDE.md
 
 # Claude Code worktrees (full repo copies)

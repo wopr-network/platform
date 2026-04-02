@@ -48,32 +48,31 @@ export const CREDIT_PRICE_POINTS: readonly CreditPricePoint[] = [
 ] as const;
 
 /**
- * Map of env var name -> index into CREDIT_PRICE_POINTS.
- * Each env var holds the Stripe Price ID for that tier.
+ * DB column keys mapping to CREDIT_PRICE_POINTS indices.
+ * The `credit_prices` jsonb column in product_billing_config stores:
+ *   { "500": "price_xxx", "1000": "price_yyy", ... }
+ * where keys are amountCents strings and values are Stripe Price IDs.
  */
-const PRICE_ENV_VARS = [
-  "STRIPE_CREDIT_PRICE_5",
-  "STRIPE_CREDIT_PRICE_10",
-  "STRIPE_CREDIT_PRICE_25",
-  "STRIPE_CREDIT_PRICE_50",
-  "STRIPE_CREDIT_PRICE_100",
-] as const;
+const AMOUNT_KEYS = ["500", "1000", "2500", "5000", "10000"] as const;
 
 /** Mapping from Stripe Price ID -> CreditPricePoint. */
 export type CreditPriceMap = ReadonlyMap<string, CreditPricePoint>;
 
 /**
- * Load credit price mappings from environment variables.
+ * Load credit price mappings from the DB-stored credit_prices record.
  *
- * Returns a Map from Stripe Price ID -> CreditPricePoint.
- * Only includes entries where the env var is set.
+ * @param creditPrices - Record from product_billing_config.credit_prices jsonb.
+ *   Keys are amountCents as strings ("500", "1000", etc.), values are Stripe Price IDs.
+ * @returns Map from Stripe Price ID -> CreditPricePoint.
  */
-export function loadCreditPriceMap(): CreditPriceMap {
+export function loadCreditPriceMap(creditPrices?: Record<string, unknown>): CreditPriceMap {
   const map = new Map<string, CreditPricePoint>();
 
-  for (let i = 0; i < PRICE_ENV_VARS.length; i++) {
-    const priceId = process.env[PRICE_ENV_VARS[i]];
-    if (priceId) {
+  if (!creditPrices) return map;
+
+  for (let i = 0; i < AMOUNT_KEYS.length; i++) {
+    const priceId = creditPrices[AMOUNT_KEYS[i]];
+    if (typeof priceId === "string" && priceId) {
       map.set(priceId, CREDIT_PRICE_POINTS[i]);
     }
   }
@@ -100,14 +99,8 @@ export function lookupCreditPrice(priceMap: CreditPriceMap, priceId: string): Cr
   return priceMap.get(priceId) ?? null;
 }
 
-/** Get all configured Stripe Price IDs (for validation). */
-export function getConfiguredPriceIds(): string[] {
-  const ids: string[] = [];
-  for (const envVar of PRICE_ENV_VARS) {
-    const priceId = process.env[envVar];
-    if (priceId) {
-      ids.push(priceId);
-    }
-  }
-  return ids;
+/** Get all configured Stripe Price IDs from a credit prices record. */
+export function getConfiguredPriceIds(creditPrices?: Record<string, unknown>): string[] {
+  if (!creditPrices) return [];
+  return AMOUNT_KEYS.map((key) => creditPrices[key]).filter((v): v is string => typeof v === "string" && v.length > 0);
 }

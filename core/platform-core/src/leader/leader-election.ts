@@ -64,7 +64,7 @@ export class LeaderElection {
     if (this._isLeader) {
       // Release the lease so standby can take over immediately
       try {
-        await (this.db as any).delete(leaderLease).where(eq(leaderLease.holderId, this.instanceId));
+        await this.db.delete(leaderLease).where(eq(leaderLease.holderId, this.instanceId));
       } catch {
         // Best-effort release
       }
@@ -94,13 +94,13 @@ export class LeaderElection {
   /** Leader heartbeat — update our timestamp. */
   private async heartbeat(): Promise<void> {
     const now = epochS();
-    const result = await (this.db as any)
+    const result = await this.db
       .update(leaderLease)
       .set({ heartbeatAt: now })
       .where(eq(leaderLease.holderId, this.instanceId));
 
     // If our row disappeared (someone deleted it), we lost leadership
-    if (result.rowCount === 0) {
+    if ((result as { rowCount?: number }).rowCount === 0) {
       this._isLeader = false;
       logger.warn("Demoted (lease row missing)", { instanceId: this.instanceId });
       this.demotedCb?.();
@@ -113,7 +113,7 @@ export class LeaderElection {
     const expiry = now - LEASE_TTL_S;
 
     // Try upsert: insert if no row exists, or claim if heartbeat expired
-    const result = await (this.db as any).execute(sql`
+    const result = await this.db.execute(sql`
       INSERT INTO leader_lease (id, holder_id, heartbeat_at)
       VALUES (${LEASE_KEY}, ${this.instanceId}, ${now})
       ON CONFLICT (id) DO UPDATE
@@ -121,7 +121,7 @@ export class LeaderElection {
         WHERE leader_lease.heartbeat_at < ${expiry}
     `);
 
-    const claimed = (result.rowCount ?? 0) > 0;
+    const claimed = ((result as { rowCount?: number }).rowCount ?? 0) > 0;
     if (claimed) {
       this._isLeader = true;
       logger.info("Promoted to leader", { instanceId: this.instanceId });

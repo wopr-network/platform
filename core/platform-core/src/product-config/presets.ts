@@ -50,6 +50,8 @@ export interface ProductPreset {
   defaultModel: string;
   /** Infrastructure config for Docker routing. */
   infra: InfraPreset;
+  /** Instance detail tabs to hide in the UI. */
+  hiddenInstanceTabs?: string[];
 }
 
 export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
@@ -127,6 +129,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       containerPort: 3100,
     },
     infra: { uiService: "paperclip-ui", uiPort: 3002 },
+    hiddenInstanceTabs: ["plugins", "channels", "friends", "sessions", "snapshots", "config"],
   },
   holyship: {
     brandName: "Holy Ship",

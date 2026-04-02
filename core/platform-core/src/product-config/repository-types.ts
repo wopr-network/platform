@@ -73,6 +73,7 @@ export interface ProductFeatures {
   sharedModuleBilling: boolean;
   sharedModuleMonitoring: boolean;
   sharedModuleAnalytics: boolean;
+  hiddenInstanceTabs: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +141,7 @@ export interface ProductBrandConfig {
   price: string;
   homePath: string;
   chatEnabled: boolean;
+  hiddenInstanceTabs: string[];
   navItems: Array<{ label: string; href: string }>;
   domains?: Array<{ host: string; role: string }>;
 }
@@ -215,6 +217,7 @@ export function toBrandConfig(config: ProductConfig, userRole?: string): Product
     price: product.priceLabel,
     homePath: product.homePath,
     chatEnabled: features?.chatEnabled ?? true,
+    hiddenInstanceTabs: features?.hiddenInstanceTabs ?? [],
     navItems: navItems
       .filter((n) => n.enabled)
       .filter((n) => !n.requiresRole || n.requiresRole === userRole)

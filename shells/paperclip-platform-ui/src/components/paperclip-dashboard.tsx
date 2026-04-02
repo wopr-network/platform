@@ -14,7 +14,7 @@ import { PaperclipCard, type PaperclipInstance } from "./paperclip-card";
 
 /** Poll interval: fast while provisioning, slow otherwise. */
 const POLL_FAST = 3_000;
-const POLL_SLOW = 30_000;
+const POLL_SLOW = 8_000;
 
 /**
  * Tracks instances currently being provisioned.
@@ -37,6 +37,7 @@ export function PaperclipDashboard() {
     refetch,
   } = trpc.fleet.listInstances.useQuery(undefined, {
     refetchInterval: hasProvisioning ? POLL_FAST : POLL_SLOW,
+    refetchOnWindowFocus: true,
   });
 
   // When server data arrives, reconcile provisioning map

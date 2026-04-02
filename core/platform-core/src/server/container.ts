@@ -315,9 +315,15 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   }
 
   // 10. Stripe services (when enabled)
+  // Stripe keys come from DB (product_billing_config) first, then BootConfig as fallback.
   let stripe: StripeServices | null = null;
-  const stripeKey = bootConfig.secrets?.stripeSecretKey ?? bootConfig.stripeSecretKey;
-  const stripeWhSecret = bootConfig.secrets?.stripeWebhookSecret ?? bootConfig.stripeWebhookSecret ?? "";
+  const stripeKey =
+    productConfig.billing?.stripeSecretKey ?? bootConfig.secrets?.stripeSecretKey ?? bootConfig.stripeSecretKey;
+  const stripeWhSecret =
+    productConfig.billing?.stripeWebhookSecret ??
+    bootConfig.secrets?.stripeWebhookSecret ??
+    bootConfig.stripeWebhookSecret ??
+    "";
   if (bootConfig.features.stripe && stripeKey) {
     const StripeModule = await import("stripe");
     const StripeClass = StripeModule.default;
@@ -328,7 +334,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { StripePaymentProcessor } = await import("../billing/stripe/stripe-payment-processor.js");
 
     const customerRepo = new DrizzleTenantCustomerRepository(db as never);
-    const priceMap = loadCreditPriceMap();
+    const priceMap = loadCreditPriceMap(productConfig?.billing?.creditPrices as Record<string, unknown> | undefined);
     const processor = new StripePaymentProcessor({
       stripe: stripeClient,
       tenantRepo: customerRepo,
@@ -365,7 +371,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   let tenantCustomerRepo: ITenantCustomerRepository | null = null;
   if (stripe) {
     const { loadCreditPriceMap } = await import("../billing/stripe/credit-prices.js");
-    priceMap = loadCreditPriceMap();
+    priceMap = loadCreditPriceMap(productConfig?.billing?.creditPrices as Record<string, unknown> | undefined);
     processor = stripe.processor as unknown as IPaymentProcessor;
     tenantCustomerRepo = stripe.customerRepo;
   }

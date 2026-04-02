@@ -59,7 +59,7 @@ export class OrgInstanceResolver {
       }
 
       const route = routes.find((r) => r.instanceId === profile.id);
-      if (!route || !route.healthy) {
+      if (!route?.healthy) {
         logger.debug("No healthy route for fleet profile", { orgId, profileId: profile.id });
         continue;
       }

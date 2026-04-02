@@ -323,165 +323,171 @@ export default function NewPaperclipInstancePage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-4rem)] max-w-2xl flex-col">
-      {/* Message list */}
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto py-6">
-        <AnimatePresence initial={false}>
-          {messages.map((msg, i) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="flex gap-3"
-            >
-              <div
-                className={cn(
-                  "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                  msg.role === "assistant"
-                    ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
-                    : "bg-zinc-800 text-zinc-400",
-                )}
+    <div className="flex h-[calc(100vh-4rem)] flex-col">
+      {/* Message area — scrollable, full width, content centered */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
+          <AnimatePresence initial={false}>
+            {messages.map((msg, i) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+                className="flex gap-4"
               >
-                {msg.role === "assistant" ? "C" : "Y"}
-              </div>
-
-              <div className="min-w-0 flex-1 space-y-3">
-                <p className="text-xs text-muted-foreground">{msg.role === "assistant" ? "CEO Agent" : "You"}</p>
-                <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
-                  {msg.content}
-                  {streaming &&
-                    i === messages.length - 1 &&
-                    msg.role === "assistant" &&
-                    (showIndicator ? (
-                      <ThinkingIndicator
-                        messages={plan ? THINKING_UPDATE : THINKING_FIRST}
-                        tokenCount={jsonTokenCount}
-                        done={thinkingDone}
-                      />
-                    ) : (
-                      <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
-                    ))}
+                <div
+                  className={cn(
+                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                    msg.role === "assistant"
+                      ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
+                      : "bg-zinc-800 text-zinc-400",
+                  )}
+                >
+                  {msg.role === "assistant" ? "C" : "Y"}
                 </div>
 
-                {msg.plan && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-md border-l-2 border-indigo-500 bg-zinc-900 p-4"
-                  >
-                    <p className="mb-2 text-[10px] uppercase tracking-widest text-indigo-400">Founding Brief</p>
-                    <p className="mb-1 text-sm font-semibold text-zinc-100">{msg.plan.taskTitle}</p>
-                    <p className="whitespace-pre-wrap text-sm text-zinc-400">{msg.plan.taskDescription}</p>
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <p className="text-xs text-muted-foreground">{msg.role === "assistant" ? "CEO Agent" : "You"}</p>
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
+                    {msg.content}
+                    {streaming &&
+                      i === messages.length - 1 &&
+                      msg.role === "assistant" &&
+                      (showIndicator ? (
+                        <ThinkingIndicator
+                          messages={plan ? THINKING_UPDATE : THINKING_FIRST}
+                          tokenCount={jsonTokenCount}
+                          done={thinkingDone}
+                        />
+                      ) : (
+                        <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
+                      ))}
+                  </div>
 
-        {error && (
-          <div className="ml-10 rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {error}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-2 text-red-400 hover:text-red-300"
-              onClick={() => setError(null)}
-            >
-              Dismiss
-            </Button>
-          </div>
-        )}
-      </div>
+                  {msg.plan && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-lg border border-indigo-500/20 bg-zinc-900/80 p-5"
+                    >
+                      <p className="mb-2 text-[10px] uppercase tracking-widest text-indigo-400">Founding Brief</p>
+                      <p className="mb-1 text-sm font-semibold text-zinc-100">{msg.plan.taskTitle}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">{msg.plan.taskDescription}</p>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
-      {/* Chat input */}
-      <div className="border-t border-zinc-800 py-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="flex gap-2"
-        >
-          <Input
-            ref={inputRef}
-            placeholder={plan ? "Refine the plan..." : "Describe what you want to build..."}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={streaming}
-            autoFocus
-          />
-          <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
-      </div>
-
-      {/* Found Company — visually distinct, below chat */}
-      <AnimatePresence>
-        {plan && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="rounded-lg border border-indigo-500/30 bg-gradient-to-b from-indigo-500/5 to-purple-500/5 p-4"
-          >
-            <p className="mb-3 text-[10px] uppercase tracking-widest text-indigo-400/60">Ready to launch</p>
-            <div className="flex items-start gap-3">
-              <div className="flex-1 space-y-1">
-                <Input
-                  placeholder="company-name"
-                  value={companyName}
-                  onChange={(e) => {
-                    setCompanyName(e.target.value);
-                    setNameError(validateName(e.target.value));
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleFoundCompany();
-                    }
-                  }}
-                  aria-invalid={nameError !== null}
-                  className="border-indigo-500/20 bg-zinc-900/50"
-                />
-                {nameError ? (
-                  <p className="text-xs text-red-500">{nameError}</p>
-                ) : companyName.trim() ? (
-                  <p className="text-sm font-mono text-indigo-400">
-                    {companyName
-                      .toLowerCase()
-                      .replace(/[^a-z0-9-]/g, "-")
-                      .replace(/-+/g, "-")
-                      .replace(/^-|-$/g, "")}
-                    .runpaperclip.com
-                  </p>
-                ) : (
-                  <p className="text-xs text-zinc-500">This becomes your company&apos;s URL</p>
-                )}
-              </div>
+          {error && (
+            <div className="ml-12 rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {error}
               <Button
-                onClick={handleFoundCompany}
-                disabled={!companyName.trim() || !!nameError || launching}
-                className="shrink-0 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                variant="ghost"
+                size="sm"
+                className="ml-2 text-red-400 hover:text-red-300"
+                onClick={() => setError(null)}
               >
-                {launching ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Founding...
-                  </>
-                ) : (
-                  <>
-                    Found Company
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
+                Dismiss
               </Button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </div>
+      </div>
+
+      {/* Pinned bottom controls */}
+      <div className="shrink-0 border-t border-zinc-800 bg-background/80 backdrop-blur-sm">
+        <div className="mx-auto max-w-3xl px-6 py-4 space-y-3">
+          {/* Launch bar — slides in when plan is ready */}
+          <AnimatePresence>
+            {plan && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="flex items-center gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/[0.03] px-4 py-3">
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        placeholder="company-name"
+                        value={companyName}
+                        onChange={(e) => {
+                          setCompanyName(e.target.value);
+                          setNameError(validateName(e.target.value));
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleFoundCompany();
+                          }
+                        }}
+                        aria-invalid={nameError !== null}
+                        className="max-w-xs border-indigo-500/20 bg-zinc-900/50"
+                      />
+                      {nameError ? (
+                        <p className="text-xs text-red-500">{nameError}</p>
+                      ) : companyName.trim() ? (
+                        <p className="text-sm font-mono text-indigo-400/70">
+                          {companyName
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, "-")
+                            .replace(/-+/g, "-")
+                            .replace(/^-|-$/g, "")}
+                          .runpaperclip.com
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-600">Your company&apos;s URL</p>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleFoundCompany}
+                    disabled={!companyName.trim() || !!nameError || launching}
+                    className="shrink-0 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
+                  >
+                    {launching ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Founding...
+                      </>
+                    ) : (
+                      <>
+                        Found Company
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Chat input */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            className="flex gap-2"
+          >
+            <Input
+              ref={inputRef}
+              placeholder={plan ? "Refine the plan..." : "Describe what you want to build..."}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={streaming}
+              autoFocus
+            />
+            <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

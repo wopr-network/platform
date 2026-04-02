@@ -3,6 +3,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@wopr-network/platform-ui-core"],
+  images: {
+    remotePatterns: [
+      { hostname: "**.githubusercontent.com" },
+      { hostname: "**.googleusercontent.com" },
+    ],
+  },
   headers: async () => [
     {
       source: "/:path*",

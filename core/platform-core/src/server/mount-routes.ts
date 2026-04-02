@@ -348,6 +348,7 @@ export async function mountRoutes(
         spendingLimitsRepo: need(container.spendingLimitsRepo, "spendingLimitsRepo"),
         affiliateRepo: need(container.affiliateRepo, "affiliateRepo"),
         productConfig: container.productConfig,
+        productConfigService: container.productConfigService,
         assertOrgAdminOrOwner,
       },
       settings: {

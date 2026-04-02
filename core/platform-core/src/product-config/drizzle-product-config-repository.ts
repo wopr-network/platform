@@ -196,6 +196,7 @@ export class DrizzleProductConfigRepository implements IProductConfigRepository 
       sharedModuleBilling: row.sharedModuleBilling,
       sharedModuleMonitoring: row.sharedModuleMonitoring,
       sharedModuleAnalytics: row.sharedModuleAnalytics,
+      hiddenInstanceTabs: row.hiddenInstanceTabs ?? [],
     };
   }
 

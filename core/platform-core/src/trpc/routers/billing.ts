@@ -23,8 +23,9 @@ import type { IMeterAggregator } from "../../metering/index.js";
 import type { IAffiliateRepository } from "../../monetization/affiliate/drizzle-affiliate-repository.js";
 import type { IDividendRepository } from "../../monetization/credits/dividend-repository.js";
 import type { ISpendingLimitsRepository } from "../../monetization/drizzle-spending-limits-repository.js";
-import type { CreditPriceMap, ITenantCustomerRepository } from "../../monetization/index.js";
+import { type CreditPriceMap, type ITenantCustomerRepository, loadCreditPriceMap } from "../../monetization/index.js";
 import type { PromotionEngine } from "../../monetization/promotions/engine.js";
+import type { ProductConfigService } from "../../product-config/service.js";
 import { assertSafeRedirectUrl } from "../../security/index.js";
 import {
   adminProcedure,
@@ -36,7 +37,7 @@ import {
 } from "../init.js";
 
 // Narrowed context after tenantProcedure middleware (user + tenantId non-optional)
-type TenantCtx = { user: NonNullable<TRPCContext["user"]>; tenantId: string };
+type TenantCtx = { user: NonNullable<TRPCContext["user"]>; tenantId: string; productSlug?: string };
 
 import { z } from "zod";
 
@@ -152,6 +153,7 @@ export interface BillingRouterDeps {
   auditLogger?: AuditLogger;
   promotionEngine?: PromotionEngine;
   productConfig?: { product: { domain?: string } };
+  productConfigService?: ProductConfigService;
   /** Assert caller is admin/owner of the tenant. Skips check for personal tenants (tenantId === userId). */
   assertOrgAdminOrOwner: (tenantId: string, userId: string) => Promise<void>;
 }
@@ -205,8 +207,16 @@ export function createBillingRouter(d: BillingRouterDeps) {
         },
       ),
 
-    creditOptions: publicProcedure.query(() => {
-      if (!d.priceMap || d.priceMap.size === 0) return [];
+    creditOptions: protectedProcedure.query(async ({ ctx }) => {
+      // Resolve price map per-product from DB, falling back to boot-time singleton
+      let priceMap = d.priceMap;
+      if (d.productConfigService && ctx.productSlug) {
+        const pc = await d.productConfigService.getBySlug(ctx.productSlug);
+        if (pc?.billing?.creditPrices && Object.keys(pc.billing.creditPrices).length > 0) {
+          priceMap = loadCreditPriceMap(pc.billing.creditPrices as Record<string, unknown>);
+        }
+      }
+      if (!priceMap || priceMap.size === 0) return [];
       const options: Array<{
         priceId: string;
         label: string;
@@ -214,7 +224,7 @@ export function createBillingRouter(d: BillingRouterDeps) {
         creditCents: number;
         bonusPercent: number;
       }> = [];
-      for (const [priceId, point] of d.priceMap) {
+      for (const [priceId, point] of priceMap) {
         options.push({
           priceId,
           label: point.label,
@@ -255,7 +265,26 @@ export function createBillingRouter(d: BillingRouterDeps) {
           } catch {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid redirect URL" });
           }
-          const session = await d.processor.createCheckoutSession({
+          // Resolve per-product Stripe key from DB for checkout
+          let processor = d.processor;
+          if (d.productConfigService && ctx.productSlug) {
+            const pc = await d.productConfigService.getBySlug(ctx.productSlug);
+            const productStripeKey = pc?.billing?.stripeSecretKey;
+            if (productStripeKey && pc?.billing) {
+              const StripeModule = await import("stripe");
+              const stripeClient = new StripeModule.default(productStripeKey);
+              const { StripePaymentProcessor } = await import("../../billing/stripe/stripe-payment-processor.js");
+              const priceMap = loadCreditPriceMap(pc.billing.creditPrices as Record<string, unknown>);
+              processor = new StripePaymentProcessor({
+                stripe: stripeClient,
+                tenantRepo: d.tenantRepo,
+                webhookSecret: pc.billing.stripeWebhookSecret ?? "",
+                priceMap,
+                creditLedger: d.creditLedger,
+              });
+            }
+          }
+          const session = await processor.createCheckoutSession({
             tenant,
             priceId: input.priceId,
             successUrl: input.successUrl,

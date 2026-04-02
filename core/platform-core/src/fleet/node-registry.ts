@@ -192,12 +192,12 @@ export class NodeRegistry {
    * This is the ONLY way nodes get registered — no in-memory fallbacks.
    */
   async loadFromDb(db: DrizzleDb, store: IProfileStore): Promise<void> {
-    const rows = await (db as any).select().from(nodes);
+    const rows = await db.select().from(nodes);
 
     // Day 1: no rows yet — seed the local node
     if (rows.length === 0) {
       const now = Math.floor(Date.now() / 1000);
-      await (db as any).insert(nodes).values({
+      await db.insert(nodes).values({
         id: LOCAL_NODE_ID,
         host: "localhost",
         status: "active",
@@ -205,12 +205,8 @@ export class NodeRegistry {
         registeredAt: now,
         updatedAt: now,
       });
-      rows.push({
-        id: LOCAL_NODE_ID,
-        host: "localhost",
-        status: "active",
-        dockerUrl: null,
-      });
+      // biome-ignore lint/suspicious/noExplicitAny: partial row for in-memory seed — only id/host/dockerUrl used downstream
+      rows.push({ id: LOCAL_NODE_ID, host: "localhost", status: "active", dockerUrl: null } as any);
       logger.info("Seeded default local fleet node in DB");
     }
 

@@ -50,7 +50,7 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     }
 
     // Auto-seed from preset
-    const { navItems, fleet, marginDefault, defaultModel, infra, ...productData } = preset;
+    const { navItems, fleet, marginDefault, defaultModel, infra, hiddenInstanceTabs, ...productData } = preset;
     const product = await repo.upsertProduct(slug, {
       ...productData,
       uiService: infra.uiService,
@@ -67,7 +67,9 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
       })),
     );
     await repo.upsertFleetConfig(product.id, fleet);
-    await repo.upsertFeatures(product.id, {});
+    await repo.upsertFeatures(product.id, {
+      ...(hiddenInstanceTabs ? { hiddenInstanceTabs } : {}),
+    });
     await repo.upsertBillingConfig(product.id, { marginConfig: { default: marginDefault } });
 
     // Seed default model for gateway
@@ -90,8 +92,12 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     if (presetSlug === slug) continue; // already seeded above
     const existing = await service.getBySlug(presetSlug);
     if (existing) continue; // already in DB
-    const { navItems, fleet, marginDefault, defaultModel, ...productData } = preset;
-    const product = await repo.upsertProduct(presetSlug, productData);
+    const { navItems, fleet, marginDefault, defaultModel, infra, hiddenInstanceTabs, ...productData } = preset;
+    const product = await repo.upsertProduct(presetSlug, {
+      ...productData,
+      uiService: infra.uiService,
+      uiPort: infra.uiPort,
+    });
     await repo.replaceNavItems(
       product.id,
       navItems.map((item) => ({
@@ -103,7 +109,9 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
       })),
     );
     await repo.upsertFleetConfig(product.id, fleet);
-    await repo.upsertFeatures(product.id, {});
+    await repo.upsertFeatures(product.id, {
+      ...(hiddenInstanceTabs ? { hiddenInstanceTabs } : {}),
+    });
     await repo.upsertBillingConfig(product.id, { marginConfig: { default: marginDefault } });
   }
 

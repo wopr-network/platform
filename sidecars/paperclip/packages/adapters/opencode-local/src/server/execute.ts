@@ -61,26 +61,15 @@ async function ensureOpenCodeSkillsInjected(
   await fs.mkdir(skillsHome, { recursive: true });
   const desiredSet = new Set(desiredSkillNames ?? skillsEntries.map((entry) => entry.key));
   const selectedEntries = skillsEntries.filter((entry) => desiredSet.has(entry.key));
-  const removedSkills = await removeMaintainerOnlySkillSymlinks(
+  await removeMaintainerOnlySkillSymlinks(
     skillsHome,
     selectedEntries.map((entry) => entry.runtimeName),
   );
-  for (const skillName of removedSkills) {
-    await onLog(
-      "stderr",
-      `[paperclip] Removed maintainer-only OpenCode skill "${skillName}" from ${skillsHome}\n`,
-    );
-  }
   for (const entry of selectedEntries) {
     const target = path.join(skillsHome, entry.runtimeName);
 
     try {
-      const result = await ensurePaperclipSkillSymlink(entry.source, target);
-      if (result === "skipped") continue;
-      await onLog(
-        "stderr",
-        `[paperclip] ${result === "repaired" ? "Repaired" : "Injected"} OpenCode skill "${entry.key}" into ${skillsHome}\n`,
-      );
+      await ensurePaperclipSkillSymlink(entry.source, target);
     } catch (err) {
       await onLog(
         "stderr",
@@ -118,13 +107,37 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
   await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
+  // Ensure cwd is a git repo so OpenCode's walk-up skill discovery works.
+  // Without a .git, OpenCode can't find .claude/skills/ or .opencode/skills/.
+  try {
+    await fs.access(path.join(cwd, ".git"));
+  } catch {
+    const { execFileSync } = await import("node:child_process");
+    try {
+      execFileSync("git", ["init", "--quiet"], { cwd, stdio: "ignore" });
+    } catch { /* git not available */ }
+  }
   const openCodeSkillEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
   const desiredOpenCodeSkillNames = resolvePaperclipDesiredSkillNames(config, openCodeSkillEntries);
+  // Inject skills into both HOME/.claude/skills/ (global) AND cwd/.opencode/skills/ (project-local).
+  // The global path requires walk-up to HOME which may not be an ancestor of cwd.
+  // The project-local path works if cwd is a git repo (ensured above).
   await ensureOpenCodeSkillsInjected(
     onLog,
     openCodeSkillEntries,
     desiredOpenCodeSkillNames,
   );
+  // Also inject into cwd/.opencode/skills/ for project-local discovery
+  const cwdSkillsDir = path.join(cwd, ".opencode", "skills");
+  await fs.mkdir(cwdSkillsDir, { recursive: true });
+  for (const entry of openCodeSkillEntries) {
+    const target = path.join(cwdSkillsDir, entry.runtimeName);
+    try {
+      await fs.cp(entry.source, target, { recursive: true });
+    } catch {
+      // Already exists or copy failed — skip
+    }
+  }
 
   const envConfig = parseObject(config.env);
   const hasExplicitApiKey =
@@ -180,6 +193,22 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     env.PAPERCLIP_API_KEY = authToken;
   }
   const preparedRuntimeConfig = await prepareOpenCodeRuntimeConfig({ env, config });
+  // Inject skills into the XDG_CONFIG_HOME temp dir so OpenCode's global
+  // skill discovery finds them. Without this, XDG override hides ~/.claude/skills/.
+  const runtimeXdg = preparedRuntimeConfig.env.XDG_CONFIG_HOME;
+  if (runtimeXdg) {
+    const xdgSkillsDir = path.join(runtimeXdg, "opencode", "skills");
+    await fs.mkdir(xdgSkillsDir, { recursive: true });
+    const skillEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
+    for (const entry of skillEntries) {
+      const target = path.join(xdgSkillsDir, entry.runtimeName);
+      try {
+        await fs.cp(entry.source, target, { recursive: true });
+      } catch {
+        // Already exists
+      }
+    }
+  }
   try {
     const runtimeEnv = Object.fromEntries(
       Object.entries(ensurePathInEnv({ ...process.env, ...preparedRuntimeConfig.env })).filter(

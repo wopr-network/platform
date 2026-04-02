@@ -61,7 +61,7 @@ export class FleetResolver {
   resolveContainerUrl(subdomain: string): string | null {
     const routes = this.proxy.getRoutes();
     const route = routes.find((r) => r.subdomain === subdomain);
-    if (!route || !route.healthy) return null;
+    if (!route?.healthy) return null;
     return `http://${route.upstreamHost}:${route.upstreamPort}`;
   }
 

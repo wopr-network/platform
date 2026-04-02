@@ -225,6 +225,13 @@
       "when": 1775110800000,
       "tag": "0031_product_ui_infra",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1775196000000,
+      "tag": "0032_product_hidden_instance_tabs",
+      "breakpoints": true
     }
   ]
 }

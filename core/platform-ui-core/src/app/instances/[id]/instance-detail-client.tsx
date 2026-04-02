@@ -3,7 +3,7 @@
 import { ArrowDownToLine, ArrowLeft, Check, Loader2, Lock, Pencil, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FriendsTab } from "@/components/instances/friends-tab";
 import { HealthOverview } from "@/components/observability/health-overview";
 import { LogsViewer } from "@/components/observability/logs-viewer";
@@ -53,13 +53,32 @@ import {
   updateInstanceConfig,
   updateInstanceSecrets,
 } from "@/lib/api";
+import { getBrandConfig } from "@/lib/brand-config";
 import { toUserMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
+
+const ALL_INSTANCE_TABS = [
+  "overview",
+  "health",
+  "metrics",
+  "logs",
+  "plugins",
+  "channels",
+  "friends",
+  "sessions",
+  "snapshots",
+  "config",
+] as const;
 
 export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultTab = searchParams.get("tab") ?? "overview";
+  const brand = getBrandConfig();
+  const visibleTabs = useMemo(
+    () => ALL_INSTANCE_TABS.filter((t) => !brand.hiddenInstanceTabs.includes(t)),
+    [brand.hiddenInstanceTabs],
+  );
   const [instance, setInstance] = useState<InstanceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +100,7 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
   const [destroyOpen, setDestroyOpen] = useState(false);
   const [destroyConfirmText, setDestroyConfirmText] = useState("");
   const [destroying, setDestroying] = useState(false);
-  const { updateAvailable, error: imageStatusError } = useImageStatus(instanceId);
+  const { updateAvailable } = useImageStatus(instanceId);
   const [pulling, setPulling] = useState(false);
   const [confirmPull, setConfirmPull] = useState(false);
   const [togglingPlugin, setTogglingPlugin] = useState<string | null>(null);
@@ -429,7 +448,7 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
           )}
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <StatusBadge status={instance.status} />
-            {imageStatusError && <span className="text-xs text-destructive">{imageStatusError}</span>}
+            {/* imageStatusError silenced — non-critical, fails for non-GHCR registries */}
             {updateAvailable && (
               <Badge variant="outline" className="gap-1.5 bg-amber-500/15 text-amber-500 border-amber-500/25">
                 <span
@@ -495,18 +514,7 @@ export function InstanceDetailClient({ instanceId }: { instanceId: string }) {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-transparent border-b border-border rounded-none p-0 h-auto gap-0">
-          {[
-            "overview",
-            "health",
-            "metrics",
-            "logs",
-            "plugins",
-            "channels",
-            "friends",
-            "sessions",
-            "snapshots",
-            "config",
-          ].map((tab) => (
+          {visibleTabs.map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab}

@@ -318,7 +318,7 @@ export type Auth = ReturnType<typeof betterAuth>;
 /** Initialize Better Auth with the given config. Must be called before getAuth(). */
 export function initBetterAuth(config: BetterAuthConfig): void {
   _config = config;
-  const secretHash = config.secret ? config.secret.slice(0, 4) + "..." + config.secret.slice(-4) : "(none)";
+  const secretHash = config.secret ? `${config.secret.slice(0, 4)}...${config.secret.slice(-4)}` : "(none)";
   logger.info("initBetterAuth called", {
     baseURL: config.baseURL ?? "(undefined)",
     cookieDomain: config.cookieDomain ?? "(undefined)",
@@ -411,7 +411,7 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
   let baseURL = _config.baseURL;
   let cookieDomain = _config.cookieDomain;
   try {
-    const pc = await _productAuthManager["productConfigService"].getBySlug(slug);
+    const pc = await _productAuthManager.productConfigService.getBySlug(slug);
     if (pc?.product?.domain) {
       baseURL = `https://api.${pc.product.domain}`;
       cookieDomain = `.${pc.product.domain}`;
@@ -421,7 +421,7 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
   }
 
   // Log the config for this product instance (hash secret for safety)
-  const secretHash = _config.secret ? _config.secret.slice(0, 4) + "..." + _config.secret.slice(-4) : "(ephemeral)";
+  const secretHash = _config.secret ? `${_config.secret.slice(0, 4)}...${_config.secret.slice(-4)}` : "(ephemeral)";
   logger.info(`BetterAuth [${slug}]: creating instance`, {
     baseURL,
     cookieDomain,

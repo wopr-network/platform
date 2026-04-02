@@ -72,9 +72,8 @@ async function createWarmContainer(
       const auth = config.registryAuth;
       const [fromImage, tag] = containerImage.includes(":") ? containerImage.split(":") : [containerImage, "latest"];
       logger.info(
-        `Hot pool: pulling ${containerImage} (auth: ${auth ? auth.username + "@" + auth.serveraddress : "none"})`,
+        `Hot pool: pulling ${containerImage} (auth: ${auth ? `${auth.username}@${auth.serveraddress}` : "none"})`,
       );
-      // biome-ignore lint/complexity/noBannedTypes: dockerode createImage requires untyped call with auth as first arg
       const authArg = auth
         ? { username: auth.username, password: auth.password, serveraddress: auth.serveraddress }
         : {};

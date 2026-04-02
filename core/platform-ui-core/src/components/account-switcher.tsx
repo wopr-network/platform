@@ -2,6 +2,7 @@
 
 import { BuildingIcon, CheckIcon, ChevronsUpDownIcon, UserIcon } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,19 +14,7 @@ import {
 import type { TenantOption } from "@/lib/tenant-context";
 import { useTenant } from "@/lib/tenant-context";
 
-function TenantAvatar({ tenant, size = 20 }: { tenant: TenantOption; size?: number }) {
-  if (tenant.image) {
-    return (
-      <Image
-        src={tenant.image}
-        alt={tenant.name}
-        width={size}
-        height={size}
-        className="rounded-full object-cover"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
+function FallbackIcon({ tenant, size }: { tenant: TenantOption; size: number }) {
   const Icon = tenant.type === "org" ? BuildingIcon : UserIcon;
   return (
     <span
@@ -35,6 +24,25 @@ function TenantAvatar({ tenant, size = 20 }: { tenant: TenantOption; size?: numb
       <Icon className="size-3 text-muted-foreground" />
     </span>
   );
+}
+
+function TenantAvatar({ tenant, size = 20 }: { tenant: TenantOption; size?: number }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (tenant.image && !imgError) {
+    return (
+      <Image
+        src={tenant.image}
+        alt={tenant.name}
+        width={size}
+        height={size}
+        className="rounded-full object-cover"
+        style={{ width: size, height: size }}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+  return <FallbackIcon tenant={tenant} size={size} />;
 }
 
 export function AccountSwitcher() {

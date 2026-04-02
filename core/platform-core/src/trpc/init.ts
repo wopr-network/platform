@@ -156,7 +156,7 @@ const isAuthedWithTenant = t.middleware(async ({ ctx, next }) => {
     }
   }
 
-  return next({ ctx: { user: ctx.user, tenantId: ctx.tenantId } });
+  return next({ ctx: { user: ctx.user, tenantId: ctx.tenantId, productSlug: ctx.productSlug } });
 });
 
 /** Procedure that requires authentication + a tenant context. */
