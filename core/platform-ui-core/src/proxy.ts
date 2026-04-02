@@ -80,27 +80,7 @@ export function validateCsrfOrigin(request: NextRequest): boolean {
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Sidecar proxy: forward /_sidecar/* to the instance backend
-  if (pathname.startsWith("/_sidecar")) {
-    const instanceUrl = process.env.INSTANCE_INTERNAL_URL;
-    if (!instanceUrl) {
-      return NextResponse.json({ error: "No instance configured" }, { status: 502 });
-    }
-
-    const targetPath = pathname.replace(/^\/_sidecar/, "") || "/";
-    const targetUrl = new URL(targetPath + request.nextUrl.search, instanceUrl);
-
-    const proxyHeaders = new Headers(request.headers);
-    const tenantCookie = request.cookies.get(TENANT_COOKIE_NAME);
-    if (tenantCookie?.value) {
-      proxyHeaders.set("x-tenant-id", tenantCookie.value);
-    }
-    proxyHeaders.set("x-paperclip-deployment-mode", "hosted_proxy");
-
-    return NextResponse.rewrite(targetUrl, {
-      request: { headers: proxyHeaders },
-    });
-  }
+  // Sidecar proxy is handled by next.config.ts rewrites (/_sidecar/* → instance backend)
 
   const nonce = crypto.randomUUID();
   const cspHeaderValue = buildCsp(nonce, request.url, request.headers.get("host") ?? "");
