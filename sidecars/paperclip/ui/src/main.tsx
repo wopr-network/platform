@@ -23,7 +23,7 @@ initPluginBridge(React, ReactDOM);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js");
+    navigator.serviceWorker.register(`${(import.meta as unknown as { env: { BASE_URL?: string } }).env.BASE_URL || "/"}sw.js`);
   });
 }
 
@@ -40,7 +40,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={(import.meta as unknown as { env: { BASE_URL?: string } }).env.BASE_URL?.replace(/\/$/, "") || "/"}>
           <CompanyProvider>
             <ToastProvider>
               <LiveUpdatesProvider>
