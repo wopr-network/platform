@@ -1310,34 +1310,35 @@ function cleanDescription(raw: string, entryType: string, entryCount: number, am
  * Inference costs are GROUP BY day + SUM'd in the DB.
  * Credits (purchases, refunds, bonuses) are returned individually.
  */
+/** Map raw tRPC creditsDailySummary rows to CreditTransaction[]. Reusable by both vanilla and React Query callers. */
+export function mapTransactionRows(
+  rows: Array<{
+    id: string;
+    entryType: string;
+    description: string;
+    postedAt: string;
+    signedAmountNano: number;
+    entryCount: number;
+  }>,
+): CreditTransaction[] {
+  return rows.map((r) => {
+    let type = mapEntryType(r.entryType);
+    const amount = r.signedAmountNano / NANO_PER_DOLLAR;
+    if (
+      r.description.toLowerCase().includes("welcome bonus") ||
+      r.description.toLowerCase().includes("email verification")
+    ) {
+      type = "signup_credit";
+    }
+    const description = cleanDescription(r.description, r.entryType, r.entryCount, amount);
+    return { id: r.id, type, description, amount, createdAt: r.postedAt };
+  });
+}
+
 export async function getCreditHistory(_cursor?: string): Promise<CreditHistoryResponse> {
   const res = await trpcVanilla.billing.creditsDailySummary.query({});
   const rows = Array.isArray(res?.rows) ? res.rows : [];
-
-  const transactions: CreditTransaction[] = rows.map(
-    (r: {
-      id: string;
-      entryType: string;
-      description: string;
-      postedAt: string;
-      signedAmountNano: number;
-      entryCount: number;
-    }) => {
-      let type = mapEntryType(r.entryType);
-      const amount = r.signedAmountNano / NANO_PER_DOLLAR;
-      // Override type for welcome bonus / signup credits stored as "correction"
-      if (
-        r.description.toLowerCase().includes("welcome bonus") ||
-        r.description.toLowerCase().includes("email verification")
-      ) {
-        type = "signup_credit";
-      }
-      const description = cleanDescription(r.description, r.entryType, r.entryCount, amount);
-      return { id: r.id, type, description, amount, createdAt: r.postedAt };
-    },
-  );
-
-  return { transactions, nextCursor: null };
+  return { transactions: mapTransactionRows(rows), nextCursor: null };
 }
 
 export async function getCreditOptions(): Promise<CreditOption[]> {

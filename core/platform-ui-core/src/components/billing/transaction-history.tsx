@@ -11,14 +11,15 @@ import {
   SparklesIcon,
   WrenchIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CreditTransaction, CreditTransactionType } from "@/lib/api";
-import { getCreditHistory } from "@/lib/api";
+import { mapTransactionRows } from "@/lib/api";
 import { formatCreditStandard } from "@/lib/format-credit";
+import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
 
 const TYPE_CONFIG: Record<CreditTransactionType, { icon: typeof ArrowUpIcon; label: string }> = {
@@ -42,44 +43,12 @@ const staggerItem = {
 };
 
 export function TransactionHistory() {
-  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const loadInitial = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await getCreditHistory();
-      setTransactions(res.transactions);
-      setCursor(res.nextCursor);
-    } catch {
-      setError("Failed to load transactions.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadInitial();
-  }, [loadInitial]);
-
-  async function loadMore() {
-    if (!cursor) return;
-    setLoadingMore(true);
-    try {
-      const res = await getCreditHistory(cursor);
-      setTransactions((prev) => [...prev, ...res.transactions]);
-      setCursor(res.nextCursor);
-    } catch {
-      setError("Failed to load more transactions.");
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+  const { data: raw, isLoading: loading, error: queryError } = trpc.billing.creditsDailySummary.useQuery({});
+  const rows = Array.isArray((raw as { rows?: unknown[] })?.rows) ? (raw as { rows: unknown[] }).rows : [];
+  const transactions: CreditTransaction[] = mapTransactionRows(rows as Parameters<typeof mapTransactionRows>[0]);
+  const error = queryError ? "Failed to load transactions." : null;
 
   if (loading) {
     return (
@@ -214,13 +183,6 @@ export function TransactionHistory() {
               })}
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            {cursor && (
-              <div className="pt-2">
-                <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
-                  {loadingMore ? "Loading more..." : "Load more"}
-                </Button>
-              </div>
-            )}
           </>
         )}
       </CardContent>
