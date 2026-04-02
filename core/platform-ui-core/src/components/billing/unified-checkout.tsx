@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { CircleDollarSign, CreditCard } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,12 +21,11 @@ import { cn } from "@/lib/utils";
 import { isAllowedRedirectUrl } from "@/lib/validate-redirect-url";
 import { ConfirmationTracker } from "./confirmation-tracker";
 import { DepositView } from "./deposit-view";
-import { PaymentMethodPicker } from "./payment-method-picker";
 
 const PRESETS = [10, 25, 50, 100];
 const MIN_AMOUNT = 10;
 
-type Step = "amount" | "method" | "deposit" | "confirming";
+type Step = "amount" | "method" | "chain" | "deposit" | "confirming";
 type PaymentStatus = "waiting" | "partial" | "confirming" | "credited" | "expired" | "failed";
 
 const slide = {
@@ -65,7 +64,7 @@ function clearPendingCharge(referenceId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// UnifiedCheckout — single wizard replacing BuyCreditsPanel + CryptoCheckout
+// UnifiedCheckout — Amount → Method (Card + Coins) → Chain → Deposit → Confirm
 // ---------------------------------------------------------------------------
 
 export function UnifiedCheckout() {
@@ -76,6 +75,7 @@ export function UnifiedCheckout() {
   // Wizard state
   const [step, setStep] = useState<Step>("amount");
   const [amountUsd, setAmountUsd] = useState(0);
+  const [selectedCoin, setSelectedCoin] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutResult | null>(null);
   const [status, setStatus] = useState<PaymentStatus>("waiting");
   const [confirmations, setConfirmations] = useState(0);
@@ -91,6 +91,23 @@ export function UnifiedCheckout() {
   const [creditTiers, setCreditTiers] = useState<CreditOption[]>([]);
   const [cryptoMethods, setCryptoMethods] = useState<SupportedPaymentMethod[]>([]);
   const [dataReady, setDataReady] = useState(false);
+
+  // ── Group crypto methods by token ──────────────────────────────────────
+  const coinGroups = useMemo(() => {
+    const groups = new Map<string, SupportedPaymentMethod[]>();
+    for (const m of cryptoMethods) {
+      const existing = groups.get(m.token) ?? [];
+      existing.push(m);
+      groups.set(m.token, existing);
+    }
+    return groups;
+  }, [cryptoMethods]);
+
+  // Chains for the currently selected coin
+  const chainsForCoin = useMemo(
+    () => (selectedCoin ? (coinGroups.get(selectedCoin) ?? []) : []),
+    [selectedCoin, coinGroups],
+  );
 
   // ── Load Stripe tiers + crypto methods concurrently ────────────────────
   useEffect(() => {
@@ -180,13 +197,14 @@ export function UnifiedCheckout() {
   // ── Derived state ──────────────────────────────────────────────────────
   const activeAmount = custom ? Number(custom) : selected;
   const isValidAmount = activeAmount != null && activeAmount >= MIN_AMOUNT && Number.isFinite(activeAmount);
-  const hasMatchingTier = creditTiers.some((t) => t.amountCents === (activeAmount ?? 0) * 100);
+  const hasMatchingTier = creditTiers.some((t) => t.amountCents === amountUsd * 100);
 
   // ── Handlers ───────────────────────────────────────────────────────────
 
   const handleContinueToMethod = useCallback(() => {
     if (isValidAmount && activeAmount != null) {
       setAmountUsd(activeAmount);
+      setError(null);
       setStep("method");
     }
   }, [isValidAmount, activeAmount]);
@@ -210,7 +228,24 @@ export function UnifiedCheckout() {
     }
   }, [amountUsd, creditTiers]);
 
-  const handleCryptoMethod = useCallback(
+  const handleCoinSelect = useCallback(
+    (token: string) => {
+      const methods = coinGroups.get(token);
+      if (!methods || methods.length === 0) return;
+      setError(null);
+      if (methods.length === 1) {
+        // Single chain — go straight to checkout
+        handleCryptoCheckout(methods[0]);
+      } else {
+        // Multiple chains — show chain picker
+        setSelectedCoin(token);
+        setStep("chain");
+      }
+    },
+    [coinGroups],
+  );
+
+  const handleCryptoCheckout = useCallback(
     async (method: SupportedPaymentMethod) => {
       setLoading(true);
       setError(null);
@@ -239,7 +274,9 @@ export function UnifiedCheckout() {
     setConfirmations(0);
     setConfirmationsRequired(0);
     setSelected(null);
+    setSelectedCoin(null);
     setCustom("");
+    setError(null);
     router.replace(pathname);
   }, [checkout?.referenceId, pathname, router]);
 
@@ -300,7 +337,7 @@ export function UnifiedCheckout() {
               </motion.div>
             )}
 
-            {/* ── Step 2: Payment method ─────────────────────────────── */}
+            {/* ── Step 2: Method — Card + Coins ─────────────────────── */}
             {step === "method" && (
               <motion.div key="method" {...slide}>
                 <div className="space-y-4">
@@ -332,7 +369,7 @@ export function UnifiedCheckout() {
                         </div>
                       </button>
 
-                      {cryptoMethods.length > 0 && (
+                      {coinGroups.size > 0 && (
                         <div className="relative">
                           <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t" />
@@ -345,9 +382,39 @@ export function UnifiedCheckout() {
                     </>
                   )}
 
-                  {/* Crypto methods from pay.wopr.bot */}
-                  {cryptoMethods.length > 0 && (
-                    <PaymentMethodPicker methods={cryptoMethods} onSelect={handleCryptoMethod} />
+                  {/* Coin grid — one button per unique token */}
+                  {coinGroups.size > 0 && (
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {Array.from(coinGroups.entries()).map(([token, methods]) => {
+                        const first = methods[0];
+                        return (
+                          <button
+                            key={token}
+                            type="button"
+                            disabled={loading}
+                            onClick={() => handleCoinSelect(token)}
+                            className="flex flex-col items-center gap-1.5 rounded-lg border border-border p-3 transition-colors hover:bg-accent hover:border-primary"
+                          >
+                            {first.iconUrl && (
+                              // biome-ignore lint/performance/noImgElement: external dynamic URLs
+                              <img
+                                src={first.iconUrl}
+                                alt={token}
+                                className="h-8 w-8 rounded-full"
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            )}
+                            <span className="text-xs font-medium">{token}</span>
+                            {methods.length > 1 && (
+                              <span className="text-[10px] text-muted-foreground">{methods.length} chains</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
 
                   {loading && (
@@ -358,14 +425,75 @@ export function UnifiedCheckout() {
               </motion.div>
             )}
 
-            {/* ── Step 3: Deposit (crypto only) ──────────────────────── */}
+            {/* ── Step 3: Chain picker (multi-chain tokens) ─────────── */}
+            {step === "chain" && selectedCoin && (
+              <motion.div key="chain" {...slide}>
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCoin(null);
+                      setStep("method");
+                    }}
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    &larr; Back
+                  </button>
+
+                  <p className="text-center text-sm font-medium">
+                    ${amountUsd.toFixed(0)} in {selectedCoin}
+                  </p>
+                  <p className="text-center text-xs text-muted-foreground">Choose a network</p>
+
+                  <div className="space-y-2">
+                    {chainsForCoin.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleCryptoCheckout(m)}
+                        className="flex w-full items-center justify-between rounded-lg border border-border p-3 text-left transition-colors hover:bg-accent hover:border-primary"
+                      >
+                        <div className="flex items-center gap-3">
+                          {m.iconUrl && (
+                            // biome-ignore lint/performance/noImgElement: external dynamic URLs
+                            <img
+                              src={m.iconUrl}
+                              alt={m.chain}
+                              className="h-7 w-7 rounded-full"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          )}
+                          <div>
+                            <div className="text-sm font-medium">{m.chain}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {m.type === "erc20" ? "ERC-20" : "Native"}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {loading && (
+                    <p className="mt-2 text-center text-xs text-muted-foreground animate-pulse">Creating checkout...</p>
+                  )}
+                  {error && <p className="mt-2 text-center text-sm text-destructive">{error}</p>}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── Step 4: Deposit (crypto only) ──────────────────────── */}
             {step === "deposit" && checkout && (
               <motion.div key="deposit" {...slide}>
                 <DepositView checkout={checkout} status={status} onBack={() => setStep("method")} />
               </motion.div>
             )}
 
-            {/* ── Step 4: Confirmation (crypto only) ─────────────────── */}
+            {/* ── Step 5: Confirmation (crypto only) ─────────────────── */}
             {step === "confirming" && checkout && (
               <motion.div key="confirming" {...slide}>
                 <ConfirmationTracker
