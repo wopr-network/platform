@@ -109,6 +109,9 @@ export default async function middleware(request: NextRequest) {
     const responseHeaders = new Headers(upstream.headers);
     // Remove transfer-encoding since Next.js handles chunking
     responseHeaders.delete("transfer-encoding");
+    // Allow embedding in same-origin iframe — upstream may send DENY
+    responseHeaders.delete("x-frame-options");
+    responseHeaders.set("content-security-policy", "frame-ancestors 'self'");
 
     return new NextResponse(upstream.body, {
       status: upstream.status,
