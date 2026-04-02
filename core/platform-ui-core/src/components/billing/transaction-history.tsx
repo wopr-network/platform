@@ -45,7 +45,7 @@ const staggerItem = {
 export function TransactionHistory() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const { data: raw, isLoading: loading, error: queryError } = trpc.billing.creditsDailySummary.useQuery({});
+  const { data: raw, isLoading: loading, error: queryError, refetch } = trpc.billing.creditsDailySummary.useQuery({});
   const rows = Array.isArray((raw as { rows?: unknown[] })?.rows) ? (raw as { rows: unknown[] }).rows : [];
   const transactions: CreditTransaction[] = mapTransactionRows(rows as Parameters<typeof mapTransactionRows>[0]);
   const error = queryError ? "Failed to load transactions." : null;
@@ -85,7 +85,7 @@ export function TransactionHistory() {
         <CardContent>
           <div className="flex h-20 flex-col items-center justify-center gap-2 text-muted-foreground">
             <p>{error}</p>
-            <Button type="button" variant="link" size="sm" onClick={loadInitial} className="h-auto p-0">
+            <Button type="button" variant="link" size="sm" onClick={() => refetch()} className="h-auto p-0">
               Retry
             </Button>
           </div>
