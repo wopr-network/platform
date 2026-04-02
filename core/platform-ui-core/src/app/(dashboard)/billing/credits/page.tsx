@@ -11,12 +11,12 @@ import { TransactionHistory } from "@/components/billing/transaction-history";
 import { UnifiedCheckout } from "@/components/billing/unified-checkout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { CreditBalance as CreditBalanceData, DividendWalletStats } from "@/lib/api";
+import { useCreditBalance } from "@/hooks/use-credit-balance";
+import type { DividendWalletStats } from "@/lib/api";
 import { getDividendStats } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
 import { getBrandConfig } from "@/lib/brand-config";
 import { getOrganization } from "@/lib/org-api";
-import { trpc } from "@/lib/trpc";
 
 function CreditsContent() {
   const { data: session } = useSession();
@@ -51,26 +51,15 @@ function CreditsContent() {
   const [todayDividendCents, setTodayDividendCents] = useState(0);
 
   const {
-    data: rawBalance,
+    balance: balanceNum,
+    dailyBurn,
+    runway,
     isLoading: loading,
     error: balanceError,
     refetch,
-  } = trpc.billing.creditsBalance.useQuery({});
+  } = useCreditBalance();
 
-  const balance: CreditBalanceData | null = rawBalance
-    ? {
-        balance:
-          ((rawBalance as { balance_credits?: number; balance_cents?: number }).balance_credits ??
-            (rawBalance as { balance_cents?: number }).balance_cents ??
-            0) / 100,
-        dailyBurn:
-          ((rawBalance as { daily_burn_credits?: number; daily_burn_cents?: number }).daily_burn_credits ??
-            (rawBalance as { daily_burn_cents?: number }).daily_burn_cents ??
-            0) / 100,
-        runway: (rawBalance as { runway_days?: number | null }).runway_days ?? null,
-      }
-    : null;
-
+  const balance = balanceNum != null ? { balance: balanceNum, dailyBurn: dailyBurn ?? 0, runway } : null;
   const error = balanceError ? "Failed to load credit balance." : null;
 
   useEffect(() => {

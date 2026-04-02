@@ -20,8 +20,8 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
 import { AccountSwitcher } from "@/components/account-switcher";
+import { CreditBalanceBadge } from "@/components/billing/credit-balance-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,10 +31,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCreditBalance } from "@/lib/api";
 import { signOut, useSession } from "@/lib/auth-client";
 import { getBrandConfig, productName } from "@/lib/brand-config";
-import { formatCreditStandard } from "@/lib/format-credit";
 import { cn } from "@/lib/utils";
 
 function getNavItems() {
@@ -49,13 +47,6 @@ function isNavActive(href: string, pathname: string): boolean {
   if (href === "/billing/credits") return pathname.startsWith("/billing/credits");
   if (href === "/admin/tenants" || href === "/admin") return pathname.startsWith("/admin");
   return pathname.startsWith(href);
-}
-
-function balanceColorClass(balance: number): string {
-  if (balance === 0) return "text-red-500";
-  if (balance < 1) return "text-red-500";
-  if (balance <= 2) return "text-amber-500";
-  return "text-terminal";
 }
 
 function getInitials(name: string): string {
@@ -89,22 +80,8 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, isPending } = useSession();
-  const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
   const user = session?.user;
-
-  const loadBalance = useCallback(async () => {
-    try {
-      const data = await getCreditBalance();
-      setCreditBalance(data.balance);
-    } catch {
-      // Silently fail — balance is non-critical UI decoration
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user) loadBalance();
-  }, [user, loadBalance]);
 
   async function handleSignOut() {
     try {
@@ -151,11 +128,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                   {NavIcon && <NavIcon className="size-4 shrink-0 opacity-70" />}
                   {item.label}
                 </span>
-                {item.label === "Credits" && creditBalance !== null && (
-                  <span className={cn("text-xs font-mono", balanceColorClass(creditBalance))}>
-                    {formatCreditStandard(creditBalance)}
-                  </span>
-                )}
+                {item.label === "Credits" && <CreditBalanceBadge />}
               </Link>
             );
           })}
