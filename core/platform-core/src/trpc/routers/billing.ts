@@ -435,16 +435,19 @@ export function createBillingRouter(d: BillingRouterDeps) {
         if (!d.cryptoChargeRepo) {
           throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "Crypto payments not configured" });
         }
-        const charge = await d.cryptoChargeRepo.getByReferenceId(input.referenceId);
+        const charge = await d.cryptoChargeRepo.get(input.referenceId);
         if (!charge || charge.tenantId !== ctx.tenantId) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Charge not found" });
         }
         return {
+          chargeId: charge.id,
           status: charge.status,
-          credited: charge.creditedAt !== null,
-          amountUsdCents: charge.amountUsdCents,
-          token: charge.token,
-          chain: charge.chain,
+          credited: charge.credited,
+          amountExpectedCents: charge.amountExpectedCents,
+          amountReceivedCents: charge.amountReceivedCents,
+          confirmations: charge.confirmations,
+          confirmationsRequired: charge.confirmationsRequired,
+          txHash: charge.txHash,
         };
       }),
 

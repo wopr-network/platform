@@ -11,7 +11,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { CryptoWebhookPayload } from "../../billing/crypto/index.js";
 import { handleKeyServerWebhook } from "../../billing/crypto/key-server-webhook.js";
-
+import { logger } from "../../config/logger.js";
 import type { PlatformContainer } from "../container.js";
 
 // ---------------------------------------------------------------------------
@@ -75,11 +75,14 @@ export function createCryptoWebhookRoutes(container: PlatformContainer, config: 
   const app = new Hono();
 
   app.post("/", async (c) => {
+    logger.info("[crypto-webhook] Received POST");
     if (!assertSecret(c.req.header("authorization"), config)) {
+      logger.warn("[crypto-webhook] Auth failed — token mismatch");
       return c.json({ error: "Unauthorized" }, 401);
     }
 
     if (!container.crypto) {
+      logger.warn("[crypto-webhook] Crypto not configured (container.crypto is null)");
       return c.json({ error: "Crypto payments not configured" }, 501);
     }
 
@@ -89,11 +92,18 @@ export function createCryptoWebhookRoutes(container: PlatformContainer, config: 
       payload = cryptoWebhookSchema.parse(raw) as CryptoWebhookPayload;
     } catch (err) {
       if (err instanceof z.ZodError) {
+        logger.warn("[crypto-webhook] Invalid payload", err.issues);
         return c.json({ error: "Invalid payload", issues: err.issues }, 400);
       }
+      logger.warn("[crypto-webhook] Invalid JSON");
       return c.json({ error: "Invalid JSON" }, 400);
     }
 
+    logger.info("[crypto-webhook] Processing", {
+      chargeId: payload.chargeId,
+      status: payload.status,
+      confirmations: payload.confirmations,
+    });
     const result = await handleKeyServerWebhook(
       {
         chargeStore: container.crypto.chargeRepo,
@@ -103,6 +113,7 @@ export function createCryptoWebhookRoutes(container: PlatformContainer, config: 
       payload,
     );
 
+    logger.info("[crypto-webhook] Result", result);
     return c.json(result, 200);
   });
 
