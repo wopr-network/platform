@@ -1,17 +1,14 @@
 "use client";
 
-import { Clock } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { BuyCreditsPanel } from "@/components/billing/buy-credits-panel";
 import { CreditBalance } from "@/components/billing/credit-balance";
-import { CryptoCheckout } from "@/components/billing/crypto-checkout";
 import { DividendBanner } from "@/components/billing/dividend-banner";
 import { DividendEligibility } from "@/components/billing/dividend-eligibility";
 import { DividendPoolStats } from "@/components/billing/dividend-pool-stats";
 import { FirstDividendDialog } from "@/components/billing/first-dividend-dialog";
 import { LowBalanceBanner } from "@/components/billing/low-balance-banner";
 import { TransactionHistory } from "@/components/billing/transaction-history";
+import { UnifiedCheckout } from "@/components/billing/unified-checkout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CreditBalance as CreditBalanceData, DividendWalletStats } from "@/lib/api";
@@ -22,10 +19,6 @@ import { getOrganization } from "@/lib/org-api";
 import { trpc } from "@/lib/trpc";
 
 function CreditsContent() {
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const router = useRouter();
-  const cryptoPending = searchParams.get("crypto") === "pending";
   const { data: session } = useSession();
 
   const [_orgContext, setOrgContext] = useState<{
@@ -53,17 +46,9 @@ function CreditsContent() {
       .finally(() => setOrgChecked(true));
   }, [session?.user?.email, session?.user?.id]);
 
-  const [showCryptoPending, setShowCryptoPending] = useState(cryptoPending);
   const showDividends = getBrandConfig().dividendsEnabled;
   const [dividendStats, setDividendStats] = useState<DividendWalletStats | null>(null);
   const [todayDividendCents, setTodayDividendCents] = useState(0);
-
-  useEffect(() => {
-    if (cryptoPending) {
-      setShowCryptoPending(true);
-      router.replace(pathname);
-    }
-  }, [cryptoPending, pathname, router]);
 
   const {
     data: rawBalance,
@@ -160,15 +145,6 @@ function CreditsContent() {
 
       {showDividends && dividendStats && <DividendBanner todayAmountCents={todayDividendCents} stats={dividendStats} />}
 
-      {showCryptoPending && (
-        <div className="rounded-md border border-amber-500/25 bg-amber-500/5 p-4">
-          <p className="flex items-center gap-2 text-sm font-medium">
-            <Clock className="h-4 w-4 text-amber-500" />
-            Crypto payment pending — credits will appear once confirmed on-chain.
-          </p>
-        </div>
-      )}
-
       <CreditBalance data={balance} />
 
       {showDividends && dividendStats && (
@@ -186,8 +162,7 @@ function CreditsContent() {
         />
       )}
 
-      <BuyCreditsPanel />
-      <CryptoCheckout />
+      <UnifiedCheckout />
       <TransactionHistory />
 
       {showDividends && dividendStats && <FirstDividendDialog todayAmountCents={todayDividendCents} />}
