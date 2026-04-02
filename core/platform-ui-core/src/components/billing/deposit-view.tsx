@@ -64,12 +64,12 @@ export function DepositView({
           </p>
         </>
       )}
-      <div className="mx-auto w-fit rounded-lg border border-border bg-background p-3" aria-hidden="true">
+      <div className="mx-auto w-fit rounded-lg border border-border bg-white p-3" aria-hidden="true">
         <QRCodeSVG
           value={checkout.depositAddress}
           size={140}
-          bgColor="hsl(var(--background))"
-          fgColor="hsl(var(--foreground))"
+          bgColor="#ffffff"
+          fgColor="#000000"
         />
       </div>
       <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
