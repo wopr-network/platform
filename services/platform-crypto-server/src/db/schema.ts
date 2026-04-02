@@ -38,6 +38,8 @@ export const cryptoCharges = pgTable(
     txHash: text("tx_hash"),
     /** Amount received so far in USD cents (integer). Converted from crypto at time of receipt. */
     amountReceivedCents: integer("amount_received_cents").notNull().default(0),
+    /** Transaction hashes already counted toward receivedAmount — prevents double-counting on watcher re-polls. */
+    seenTxHashes: text("seen_tx_hashes").array().notNull().default(sql`'{}'::text[]`),
   },
   (table) => [
     index("idx_crypto_charges_tenant").on(table.tenantId),

@@ -24,6 +24,7 @@ export interface CryptoChargeRecord {
   confirmationsRequired: number;
   txHash: string | null;
   amountReceivedCents: number;
+  seenTxHashes: string[];
 }
 
 export interface CryptoDepositChargeInput {
@@ -122,6 +123,7 @@ export class DrizzleCryptoChargeRepository implements ICryptoChargeRepository {
       confirmationsRequired: row.confirmationsRequired,
       txHash: row.txHash ?? null,
       amountReceivedCents: row.amountReceivedCents,
+      seenTxHashes: row.seenTxHashes ?? [],
     };
   }
 

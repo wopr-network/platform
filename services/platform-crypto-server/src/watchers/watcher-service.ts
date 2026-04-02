@@ -180,19 +180,29 @@ export async function handlePayment(
 
   const { confirmations, confirmationsRequired, amountReceivedCents, txHash } = payload;
 
-  // Accumulate: add this payment to the running total (if nativeAmount > 0)
+  // Deduplicate: only accumulate native amount for NEW transactions.
+  // The watcher re-emits the same tx on each poll cycle (cursor doesn't advance
+  // past unconfirmed blocks). Without dedup, 0.5 LINK gets added every cycle.
+  const seen = new Set(charge.seenTxHashes ?? []);
+  const isNewTx = txHash != null && txHash.length > 0 && !seen.has(txHash);
+  const thisPayment = isNewTx ? BigInt(nativeAmount) : 0n;
+
   const prevReceived = BigInt(charge.receivedAmount ?? "0");
-  const thisPayment = BigInt(nativeAmount);
   const totalReceived = (prevReceived + thisPayment).toString();
   const expected = BigInt(charge.expectedAmount ?? "0");
   const isFull = expected > 0n && BigInt(totalReceived) >= expected;
   const isConfirmed = isFull && confirmations >= confirmationsRequired;
 
-  // Update received_amount in DB (only when there's a new payment)
-  if (thisPayment > 0n) {
+  // Persist new payment amount + mark tx as seen
+  if (isNewTx && txHash) {
+    seen.add(txHash);
     await db
       .update(cryptoCharges)
-      .set({ receivedAmount: totalReceived, filledAmount: totalReceived })
+      .set({
+        receivedAmount: totalReceived,
+        filledAmount: totalReceived,
+        seenTxHashes: Array.from(seen),
+      })
       .where(eq(cryptoCharges.referenceId, charge.referenceId));
   }
 
