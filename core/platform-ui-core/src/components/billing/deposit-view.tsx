@@ -343,10 +343,15 @@ export function DepositView({
             <span className="h-2 w-2 rounded-full bg-blue-500" />
             <span className="text-xs text-blue-500">
               {expectedAmount && receivedAmount && decimals != null && token ? (
-                <>
-                  Received {formatCrypto(receivedAmount, decimals)} of {formatCrypto(expectedAmount, decimals)} {token}{" "}
-                  &mdash; send {formatCrypto(String(BigInt(expectedAmount) - BigInt(receivedAmount)), decimals)} more
-                </>
+                BigInt(receivedAmount) >= BigInt(expectedAmount) ? (
+                  "Full amount received — confirming on chain"
+                ) : (
+                  <>
+                    Received {formatCrypto(receivedAmount, decimals)} of {formatCrypto(expectedAmount, decimals)}{" "}
+                    {token} &mdash; send{" "}
+                    {formatCrypto(String(BigInt(expectedAmount) - BigInt(receivedAmount)), decimals)} more
+                  </>
+                )
               ) : (
                 "Partial payment received"
               )}
