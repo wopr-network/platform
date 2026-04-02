@@ -13,7 +13,6 @@ import { DividendEligibility } from "@/components/billing/dividend-eligibility";
 import { DividendPoolStats } from "@/components/billing/dividend-pool-stats";
 import { FirstDividendDialog } from "@/components/billing/first-dividend-dialog";
 import { LowBalanceBanner } from "@/components/billing/low-balance-banner";
-import { OrgBillingPage } from "@/components/billing/org-billing-page";
 import { TransactionHistory } from "@/components/billing/transaction-history";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,7 +30,7 @@ function CreditsContent() {
   const cryptoPending = searchParams.get("crypto") === "pending";
   const { data: session } = useSession();
 
-  const [orgContext, setOrgContext] = useState<{
+  const [_orgContext, setOrgContext] = useState<{
     orgId: string;
     orgName: string;
     isAdmin: boolean;
@@ -114,9 +113,8 @@ function CreditsContent() {
     );
   }
 
-  if (orgContext) {
-    return <OrgBillingPage orgId={orgContext.orgId} orgName={orgContext.orgName} isAdmin={orgContext.isAdmin} />;
-  }
+  // Org billing view disabled — single-user mode for now.
+  // When org features are re-enabled, restore: OrgBillingPage render here.
 
   if (loading) {
     return (
