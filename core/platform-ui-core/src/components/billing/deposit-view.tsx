@@ -114,10 +114,18 @@ async function sendViaWallet(opts: WalletTxOpts): Promise<string | null> {
   if (!amount) return null;
 
   if (walletType === "metamask") {
-    const eth = (
-      window as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }
-    ).ethereum;
-    if (!eth) return null;
+    // Find the REAL MetaMask provider — TronLink and other extensions also inject window.ethereum
+    type EthProvider = {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      isMetaMask?: boolean;
+    };
+    const root = (window as { ethereum?: EthProvider & { providers?: EthProvider[] } }).ethereum;
+    if (!root) return null;
+    const eth: EthProvider = root.providers?.find((p) => p.isMetaMask) ?? root;
+    console.warn("[wallet] Using provider", {
+      isMetaMask: (eth as { isMetaMask?: boolean }).isMetaMask,
+      hasProviders: !!root.providers,
+    });
 
     // Check if already connected (non-prompting), only request if needed
     let accounts = (await eth.request({ method: "eth_accounts" })) as string[];
