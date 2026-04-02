@@ -104,7 +104,11 @@ export class StripePaymentProcessor implements IPaymentProcessor {
 
   async handleWebhook(payload: Buffer, signature: string): Promise<WebhookResult> {
     const event = this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
+    return this.handleVerifiedEvent(event);
+  }
 
+  /** Process an already-verified Stripe event (signature checked externally). */
+  async handleVerifiedEvent(event: Stripe.Event): Promise<WebhookResult> {
     if (!this.webhookHandler) {
       return { handled: false, eventType: event.type };
     }

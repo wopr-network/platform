@@ -1,28 +1,20 @@
-const STATIC_ORIGINS: string[] = ["https://app.wopr.bot", "https://wopr.network"];
+/**
+ * Dynamic origin allowlist. Product domains are registered at boot via
+ * `registerAllowedOrigins()` — no hardcoded domains or env vars needed.
+ */
+const _dynamicOrigins = new Set<string>();
 
-function parseExtraOrigins(): string[] {
-  const raw = process.env.EXTRA_ALLOWED_REDIRECT_ORIGINS;
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .filter((entry) => {
-      try {
-        new URL(entry);
-        return true;
-      } catch {
-        return false;
-      }
-    });
+/** Register additional allowed redirect origins (called at boot from product config). */
+export function registerAllowedOrigins(origins: string[]): void {
+  for (const o of origins) {
+    _dynamicOrigins.add(o);
+  }
 }
 
 function getAllowedOrigins(): string[] {
   return [
-    ...STATIC_ORIGINS,
+    ..._dynamicOrigins,
     ...(process.env.NODE_ENV !== "production" ? ["http://localhost:3000", "http://localhost:3001"] : []),
-    ...(process.env.PLATFORM_UI_URL ? [process.env.PLATFORM_UI_URL] : []),
-    ...(process.env.NODE_ENV !== "production" ? parseExtraOrigins() : []),
   ];
 }
 

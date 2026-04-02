@@ -1,4 +1,5 @@
 import type { DrizzleDb } from "../db/index.js";
+import { registerAllowedOrigins } from "../security/index.js";
 import { DrizzleProductConfigRepository } from "./drizzle-product-config-repository.js";
 import { PRODUCT_PRESETS } from "./presets.js";
 import type { ProductConfig } from "./repository-types.js";
@@ -116,6 +117,16 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
   }
 
   const corsOrigins = [...deriveCorsOrigins(config.product, config.domains), ...devOrigins];
+
+  // Register all product domains as allowed redirect origins for checkout etc.
+  const allConfigs = await service.listAll();
+  const redirectOrigins: string[] = [];
+  for (const pc of allConfigs) {
+    if (pc.product.domain) redirectOrigins.push(`https://${pc.product.domain}`);
+    if (pc.product.appDomain) redirectOrigins.push(`https://${pc.product.appDomain}`);
+    for (const d of pc.domains) redirectOrigins.push(`https://${d.host}`);
+  }
+  registerAllowedOrigins(redirectOrigins);
 
   return { service, config, corsOrigins, seeded };
 }

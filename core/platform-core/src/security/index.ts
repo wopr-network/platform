@@ -32,7 +32,7 @@ export type { KeyLeakMatch } from "./key-audit.js";
 export { scanForKeyLeaks } from "./key-audit.js";
 export { forwardSecretsToInstance, writeEncryptedSeed } from "./key-injection.js";
 export { PROVIDER_ENDPOINTS, validateProviderKey } from "./key-validation.js";
-export { assertSafeRedirectUrl } from "./redirect-allowlist.js";
+export { assertSafeRedirectUrl, registerAllowedOrigins } from "./redirect-allowlist.js";
 // Tenant keys
 export {
   ALL_CAPABILITIES,

@@ -64,7 +64,10 @@ export interface StripeServices {
   stripe: Stripe;
   webhookSecret: string;
   customerRepo: ITenantCustomerRepository;
-  processor: { handleWebhook(payload: Buffer, signature: string): Promise<unknown> };
+  processor: {
+    handleWebhook(payload: Buffer, signature: string): Promise<unknown>;
+    handleVerifiedEvent(event: Stripe.Event): Promise<unknown>;
+  };
 }
 
 export interface GatewayServices {
