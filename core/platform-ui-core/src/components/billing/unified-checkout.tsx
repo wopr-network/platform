@@ -1,9 +1,10 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { CircleDollarSign, CreditCard } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -71,6 +72,8 @@ export function UnifiedCheckout() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const didRefreshBalance = useRef(false);
 
   // Wizard state
   const [step, setStep] = useState<Step>("amount");
@@ -142,6 +145,7 @@ export function UnifiedCheckout() {
           setStatus("credited");
           setStep("confirming");
           clearPendingCharge(chargeRef);
+          queryClient.invalidateQueries({ queryKey: [["billing"]] });
         } else if (res.status === "expired" || res.status === "failed") {
           setStatus(res.status as PaymentStatus);
           clearPendingCharge(chargeRef);
@@ -177,6 +181,10 @@ export function UnifiedCheckout() {
           setStep("confirming");
           clearPendingCharge(checkout.referenceId);
           clearInterval(interval);
+          if (!didRefreshBalance.current) {
+            didRefreshBalance.current = true;
+            queryClient.invalidateQueries({ queryKey: [["billing"]] });
+          }
         } else if (res.status === "expired" || res.status === "failed") {
           setStatus(res.status as PaymentStatus);
           clearPendingCharge(checkout.referenceId);
