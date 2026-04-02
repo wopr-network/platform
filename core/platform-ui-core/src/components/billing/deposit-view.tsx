@@ -118,23 +118,28 @@ async function sendViaWallet(opts: WalletTxOpts): Promise<string | null> {
       window as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }
     ).ethereum;
     if (!eth) return null;
-    const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+
+    // Check if already connected (non-prompting), only request if needed
+    let accounts = (await eth.request({ method: "eth_accounts" })) as string[];
+    if (!accounts[0]) {
+      accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
+    }
     if (!accounts[0]) return null;
 
-    // ERC-20: call transfer() on the contract
+    // Build the single transaction object
+    const tx: Record<string, string> = { from: accounts[0] };
     if (tokenType === "erc20" && contractAddress) {
-      const data = encodeErc20Transfer(depositAddress, amount);
-      const txHash = (await eth.request({
-        method: "eth_sendTransaction",
-        params: [{ from: accounts[0], to: contractAddress, value: "0x0", data }],
-      })) as string;
-      return txHash;
+      tx.to = contractAddress;
+      tx.value = "0x0";
+      tx.data = encodeErc20Transfer(depositAddress, amount);
+    } else {
+      tx.to = depositAddress;
+      tx.value = `0x${BigInt(amount).toString(16)}`;
     }
 
-    // Native: send ETH/AVAX/etc. directly
     const txHash = (await eth.request({
       method: "eth_sendTransaction",
-      params: [{ from: accounts[0], to: depositAddress, value: `0x${BigInt(amount).toString(16)}` }],
+      params: [tx],
     })) as string;
     return txHash;
   }
@@ -204,7 +209,7 @@ export function DepositView({
         expectedAmount && receivedAmount
           ? String(BigInt(expectedAmount) - BigInt(receivedAmount))
           : (checkout.expectedAmount ?? expectedAmount);
-      console.warn("[wallet] Sending tx", {
+      console.warn("[wallet] Sending tx — instance", Math.random().toString(36).slice(2, 6), {
         walletType,
         tokenType: checkout.type,
         contractAddress: checkout.contractAddress,
