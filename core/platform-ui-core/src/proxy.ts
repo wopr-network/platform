@@ -47,7 +47,7 @@ function buildCsp(nonce: string, requestUrl?: string, requestHost?: string): str
     ...(NONCE_STYLES_ENABLED
       ? [`style-src-elem 'self' 'unsafe-inline' 'nonce-${nonce}'`, "style-src-attr 'unsafe-inline'"]
       : ["style-src 'self' 'unsafe-inline'"]),
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https:",
     "font-src 'self'",
     `connect-src 'self' https://api.stripe.com${api ? ` ${api}` : ""}`,
     "frame-src https://js.stripe.com",
