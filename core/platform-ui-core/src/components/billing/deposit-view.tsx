@@ -2,7 +2,7 @@
 
 import { Check, Copy, Wallet } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { CheckoutResult } from "@/lib/api";
 
@@ -172,6 +172,7 @@ export function DepositView({
   const [copied, setCopied] = useState(false);
   const [walletType, setWalletType] = useState<WalletType>(null);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [walletError, setWalletError] = useState<string | null>(null);
   const [txSent, setTxSent] = useState(false);
 
@@ -191,6 +192,8 @@ export function DepositView({
   }, [checkout.depositAddress]);
 
   const handleWalletPay = useCallback(async () => {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
     setSending(true);
     setWalletError(null);
     try {
@@ -217,6 +220,7 @@ export function DepositView({
         setWalletError(msg);
       }
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }, [
