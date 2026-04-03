@@ -125,6 +125,15 @@ export default function Home() {
                 500,000 lines of leaked source code. Here's what we found inside.
               </p>
             </a>
+
+            <a href="/proof" className="group block">
+              <p className="text-xl md:text-2xl font-bold text-signal-orange group-hover:opacity-80 transition-opacity">
+                Proof &rarr;
+              </p>
+              <p className="text-base md:text-lg text-off-white/40 mt-1">
+                One person. Two months. 1,903 PRs. Four products in production. Go look.
+              </p>
+            </a>
           </div>
         </section>
       </FadeIn>

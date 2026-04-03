@@ -10,6 +10,8 @@ const links = [
   { href: "/the-learning-loop", label: "The Learning Loop" },
   { href: "/vibe-coding-vs-engineering", label: "Vibe vs. Engineering" },
   { href: "/why-not-prompts", label: "Why Not Prompts" },
+  { href: "/proof", label: "Proof" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export function Nav() {
