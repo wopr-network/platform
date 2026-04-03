@@ -36,12 +36,16 @@ export function proxySSEStream(
   const { tenant, deps, capability, provider, costHeader } = opts;
 
   let accumulatedCost = 0;
+  let isFreeModel = true;
 
-  // If cost header is present and non-zero, use it.
-  // Zero cost (free models) falls through to token-based estimation using DB sell rates.
+  // If cost header is present and non-zero, use it (paid model).
+  // Zero cost (free models) falls through to floor-rate billing.
   if (costHeader) {
     const parsed = parseFloat(costHeader);
-    if (parsed > 0) accumulatedCost = parsed;
+    if (parsed > 0) {
+      accumulatedCost = parsed;
+      isFreeModel = false;
+    }
   }
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>({
@@ -57,14 +61,13 @@ export function proxySSEStream(
         if (line.startsWith("data: ")) {
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") {
-            // Stream complete — emit meter event
             if (accumulatedCost === 0) {
-              // No cost header, try to estimate from usage
-              logger.warn("SSE stream completed without cost header", {
+              logger.warn("SSE stream completed without cost", {
                 tenant: tenant.id,
                 capability,
                 provider,
                 model: opts.model ?? "unknown",
+                isFreeModel,
               });
             }
             break;
@@ -75,25 +78,33 @@ export function proxySSEStream(
               usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
             };
 
-            // Extract token usage from final chunk
+            // Extract token usage from final chunk — compute cost based on model type
             if (data.usage && accumulatedCost === 0) {
               const inputTokens = data.usage.prompt_tokens ?? 0;
               const outputTokens = data.usage.completion_tokens ?? 0;
-              if (!opts.rateLookupFn) {
-                logger.warn("SSE stream: no rateLookupFn provided — token cost will use default fallback rates", {
-                  model: opts.model ?? "unknown",
-                  capability,
-                  inputTokens,
-                  outputTokens,
-                });
+
+              if (isFreeModel && (tenant.floorInputRatePer1k || tenant.floorOutputRatePer1k)) {
+                // Free model: use floor rates directly (no margin will be applied)
+                const floorIn = tenant.floorInputRatePer1k ?? 0.00005;
+                const floorOut = tenant.floorOutputRatePer1k ?? 0.0002;
+                accumulatedCost = (inputTokens * floorIn + outputTokens * floorOut) / 1000;
+              } else {
+                // Paid model without cost header: estimate from DB sell rates
+                if (!opts.rateLookupFn) {
+                  logger.warn("SSE stream: no rateLookupFn provided — token cost will use default fallback rates", {
+                    model: opts.model ?? "unknown",
+                    capability,
+                    inputTokens,
+                    outputTokens,
+                  });
+                }
+                const rates = opts.rateLookupFn
+                  ? await resolveTokenRates(opts.rateLookupFn, capability, opts.model)
+                  : DEFAULT_TOKEN_RATES;
+                accumulatedCost = (inputTokens * rates.inputRatePer1K + outputTokens * rates.outputRatePer1K) / 1000;
               }
-              const rates = opts.rateLookupFn
-                ? await resolveTokenRates(opts.rateLookupFn, capability, opts.model)
-                : DEFAULT_TOKEN_RATES;
-              accumulatedCost = (inputTokens * rates.inputRatePer1K + outputTokens * rates.outputRatePer1K) / 1000;
             }
           } catch (err) {
-            // Log malformed SSE chunks for debugging
             logger.warn("Failed to parse SSE chunk JSON", {
               tenant: tenant.id,
               capability,
@@ -107,13 +118,10 @@ export function proxySSEStream(
     },
 
     async flush() {
-      // Wait for transform to complete (ensures all chunks are processed before metering)
-      // The TransformStream calls flush() after transform() completes, so this is safe.
-      // No additional async work needed — transform() already completed.
-
       // Stream ended — emit meter event with accumulated cost
       const cost = Credit.fromDollars(accumulatedCost);
-      const margin = tenant.margin ?? deps.defaultMargin;
+      // Free models: floor rate IS the final price (margin = 1). Paid models: apply product margin.
+      const margin = isFreeModel ? 1 : (tenant.margin ?? deps.defaultMargin);
       const charge = withMargin(cost, margin);
       deps.meter.emit({
         tenant: tenant.id,
@@ -126,7 +134,7 @@ export function proxySSEStream(
         timestamp: Date.now(),
       });
 
-      // Debit credits (fire-and-forget, same as non-streaming path)
+      // Debit credits (fire-and-forget)
       debitCredits(deps, tenant.id, accumulatedCost, margin, capability, provider);
 
       logger.info("Gateway proxy: SSE stream completed", {

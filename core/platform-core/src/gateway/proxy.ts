@@ -380,41 +380,60 @@ export function chatCompletions(deps: ProxyDeps) {
         const responseBody = await res.text();
         const costHeader = res.headers.get("x-openrouter-cost");
         const rawCost = costHeader ? parseFloat(costHeader) : 0;
-        // If upstream cost is zero (free model), use DB sell rates instead
-        const cost =
-          rawCost > 0 ? rawCost : await estimateTokenCost(responseBody, currentModel, deps.rateLookupFn);
+        const isFreeModel = rawCost === 0;
+
+        // Parse usage for both billing paths
+        let inputTokens = 0;
+        let outputTokens = 0;
+        let totalTokens = 0;
+        let responseModel: string | undefined;
+        try {
+          const parsed = JSON.parse(responseBody) as {
+            usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+            model?: string;
+          };
+          inputTokens = parsed.usage?.prompt_tokens ?? 0;
+          outputTokens = parsed.usage?.completion_tokens ?? 0;
+          totalTokens = parsed.usage?.total_tokens ?? inputTokens + outputTokens;
+          responseModel = parsed.model;
+        } catch {
+          // proceed without usage data
+        }
+
+        // Billing: free models use floor rates directly (no margin).
+        // Paid models use upstream cost × margin as before.
+        let cost: number;
+        let billingMargin: number;
+        if (isFreeModel && (tenant.floorInputRatePer1k || tenant.floorOutputRatePer1k)) {
+          const floorIn = tenant.floorInputRatePer1k ?? 0.00005;
+          const floorOut = tenant.floorOutputRatePer1k ?? 0.0002;
+          cost = (inputTokens * floorIn + outputTokens * floorOut) / 1000;
+          billingMargin = 1; // floor IS the final price, no margin
+        } else {
+          cost = rawCost > 0 ? rawCost : await estimateTokenCost(responseBody, currentModel, deps.rateLookupFn);
+          billingMargin = marginFor(tenant, deps);
+        }
 
         logger.info("Gateway proxy: chat/completions", {
           tenant: tenant.id,
           status: res.status,
           cost,
           model: currentModel,
+          isFreeModel,
         });
 
         if (res.ok) {
-          let usage: { units: number; unitType: string } | undefined;
-          let metadata: Record<string, unknown> | undefined;
-          try {
-            const parsed = JSON.parse(responseBody) as {
-              usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
-              model?: string;
-            };
-            const inputTokens = parsed.usage?.prompt_tokens ?? 0;
-            const outputTokens = parsed.usage?.completion_tokens ?? 0;
-            const totalTokens = parsed.usage?.total_tokens ?? inputTokens + outputTokens;
-            if (totalTokens > 0) {
-              usage = { units: totalTokens, unitType: "tokens" };
-              metadata = { inputTokens, outputTokens, model: parsed.model ?? currentModel };
-            }
-          } catch {
-            // proceed without usage data
-          }
+          const usage = totalTokens > 0 ? { units: totalTokens, unitType: "tokens" } : undefined;
+          const metadata =
+            totalTokens > 0
+              ? { inputTokens, outputTokens, model: responseModel ?? currentModel }
+              : undefined;
           emitMeterEventForTenant(deps, tenant, "chat-completions", "openrouter", Credit.fromDollars(cost), undefined, {
             usage,
             tier: "branded",
             metadata,
           });
-          debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "chat-completions", "openrouter");
+          debitCredits(deps, tenant.id, cost, billingMargin, "chat-completions", "openrouter");
         }
 
         let sanitizedBody = responseBody;

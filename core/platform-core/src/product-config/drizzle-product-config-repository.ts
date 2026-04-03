@@ -203,6 +203,8 @@ export class DrizzleProductConfigRepository implements IProductConfigRepository 
         "moonshotai/kimi-k2.5",
         "openrouter/auto",
       ],
+      floorInputRatePer1k: Number(row.floorInputRatePer1k) || 0.00005,
+      floorOutputRatePer1k: Number(row.floorOutputRatePer1k) || 0.0002,
     };
   }
 

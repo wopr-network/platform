@@ -63,6 +63,10 @@ export interface GatewayTenant {
   defaultModel?: string | null;
   /** Ordered model priority list from product config. Gateway tries models in order, skipping cooldowns. */
   modelPriority?: string[];
+  /** Floor rate per 1K input tokens for free models. Charged directly, no margin. */
+  floorInputRatePer1k?: number;
+  /** Floor rate per 1K output tokens for free models. Charged directly, no margin. */
+  floorOutputRatePer1k?: number;
   /** User-configured spending caps (null fields = no cap). */
   spendingCaps?: SpendingCaps;
   /** Billing mode — "metered" tenants are invoiced via Stripe, not prepaid credits. */

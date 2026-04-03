@@ -76,6 +76,10 @@ export interface ProductFeatures {
   hiddenInstanceTabs: string[];
   /** Ordered model priority list for the gateway. First healthy model wins. */
   modelPriority: string[];
+  /** Floor rate per 1K input tokens for free models. No margin applied. */
+  floorInputRatePer1k: number;
+  /** Floor rate per 1K output tokens for free models. No margin applied. */
+  floorOutputRatePer1k: number;
 }
 
 // ---------------------------------------------------------------------------

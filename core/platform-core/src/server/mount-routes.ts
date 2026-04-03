@@ -673,6 +673,9 @@ export async function mountRoutes(
             if (pc.features?.modelPriority?.length) {
               tenant.modelPriority = pc.features.modelPriority;
             }
+            // Floor rates for free models (charged directly, no margin)
+            tenant.floorInputRatePer1k = Number(pc.features?.floorInputRatePer1k) || 0.00005;
+            tenant.floorOutputRatePer1k = Number(pc.features?.floorOutputRatePer1k) || 0.0002;
           }
         }
         if (!tenant.modelPriority?.length) {

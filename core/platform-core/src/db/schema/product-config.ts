@@ -30,6 +30,10 @@ export const productFeatures = pgTable("product_features", {
       "moonshotai/kimi-k2.5",
       "openrouter/auto",
     ]),
+  /** Floor rate per 1K input tokens when upstream cost is zero (free models). No margin applied. */
+  floorInputRatePer1k: numeric("floor_input_rate_per_1k").notNull().default("0.00005"),
+  /** Floor rate per 1K output tokens when upstream cost is zero (free models). No margin applied. */
+  floorOutputRatePer1k: numeric("floor_output_rate_per_1k").notNull().default("0.0002"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
