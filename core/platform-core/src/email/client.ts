@@ -21,6 +21,8 @@ export interface SendTemplateEmailOpts {
   subject: string;
   html: string;
   text: string;
+  /** Per-send from address override (for multi-product branding). */
+  from?: string;
   /** Audit metadata: who triggered this email */
   userId?: string;
   /** Audit metadata: which template was used */
@@ -94,7 +96,7 @@ class ResendTransport implements EmailTransport {
 
   async send(opts: SendTemplateEmailOpts): Promise<EmailSendResult> {
     const { data, error } = await this.resend.emails.send({
-      from: this.from,
+      from: opts.from || this.from,
       replyTo: this.replyTo,
       to: opts.to,
       subject: opts.subject,

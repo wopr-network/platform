@@ -83,6 +83,8 @@ export interface BetterAuthConfig {
   // --- Branding ---
   /** Brand name used in email templates. Default: "WOPR" */
   brandName?: string;
+  /** Sender email address for this product. */
+  fromEmail?: string;
 
   // --- Lifecycle hooks ---
   /** Called after a new user signs up (e.g., create personal tenant). */
@@ -230,6 +232,7 @@ function authOptions(cfg: BetterAuthConfig): BetterAuthOptions {
           await emailClient.send({
             to: user.email,
             ...template,
+            from: cfg.fromEmail,
             userId: user.id,
             templateName: "password-reset",
           });
@@ -276,6 +279,7 @@ function authOptions(cfg: BetterAuthConfig): BetterAuthOptions {
               await emailClient.send({
                 to: user.email,
                 ...template,
+                from: cfg.fromEmail,
                 userId: user.id,
                 templateName: "verify-email",
               });
@@ -407,15 +411,19 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
   if (providers.github) socialProviders.github = providers.github;
   if (providers.google) socialProviders.google = providers.google;
 
-  // Look up the product's domain from the config service
+  // Look up the product's domain + branding from the config service
   let baseURL = _config.baseURL;
   let cookieDomain = _config.cookieDomain;
+  let brandName = _config.brandName;
+  let fromEmail: string | undefined;
   try {
     const pc = await _productAuthManager.productConfigService.getBySlug(slug);
     if (pc?.product?.domain) {
       baseURL = `https://api.${pc.product.domain}`;
       cookieDomain = `.${pc.product.domain}`;
     }
+    if (pc?.product?.brandName) brandName = pc.product.brandName;
+    if (pc?.product?.fromEmail) fromEmail = pc.product.fromEmail;
   } catch {
     // Use defaults
   }
@@ -436,6 +444,8 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
     baseURL,
     cookieDomain,
     socialProviders,
+    brandName,
+    fromEmail,
   };
 
   const auth = betterAuth(authOptions(productConfig));

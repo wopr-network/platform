@@ -226,8 +226,9 @@ async function main() {
         const serviceKeyRepo = container.gateway?.serviceKeyRepo;
         if (!serviceKeyRepo) return null;
         const tenant = await serviceKeyRepo.resolve(key);
-        if (tenant) tenant.type = "platform_service";
-        return tenant;
+        if (!tenant) return null;
+        tenant.type = "platform_service";
+        return { tenant, productConfig: container.productConfig };
       },
     });
     logger.info("Inference gateway mounted at /v1 (OpenRouter)");
