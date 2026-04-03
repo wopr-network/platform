@@ -29,15 +29,13 @@ export interface GatewayAuthEnv {
  * @param resolveServiceKey - Function that maps a service key to a tenant (or null)
  */
 export function serviceKeyAuth(
-  resolveServiceKey: (
-    key: string,
-  ) =>
+  resolveServiceKey: (key: string) =>
     | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
     | null
-    | Promise<
-        | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
-        | null
-      >,
+    | Promise<{
+        tenant: GatewayTenant;
+        productConfig: import("../product-config/repository-types.js").ProductConfig;
+      } | null>,
 ) {
   return async (c: Context<GatewayAuthEnv>, next: Next) => {
     const authHeader = c.req.header("Authorization");

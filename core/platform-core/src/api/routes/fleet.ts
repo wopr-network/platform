@@ -9,15 +9,21 @@ import { Credit } from "../../credits/index.js";
 import type { PlatformDiscoveryConfig } from "../../discovery/types.js";
 import { type IEmailVerifier, requireEmailVerified } from "../../email/index.js";
 import { CAPABILITY_ENV_MAP } from "../../fleet/capability-env-map.js";
+import { DrizzleBotProfileStore } from "../../fleet/drizzle-profile-store.js";
 import { FleetEventEmitter } from "../../fleet/fleet-event-emitter.js";
 import { BotNotFoundError, FleetManager } from "../../fleet/fleet-manager.js";
 import { ImagePoller } from "../../fleet/image-poller.js";
 import { findPlacement } from "../../fleet/placement.js";
 import { defaultTemplatesDir, loadProfileTemplates } from "../../fleet/profile-loader.js";
 import type { ProfileTemplate } from "../../fleet/profile-schema.js";
-import { DrizzleBotProfileStore } from "../../fleet/drizzle-profile-store.js";
 import type { IProfileStore } from "../../fleet/profile-store.js";
-import { getDb, getBotInstanceRepo, getCommandBus, getNodeRepo, getRecoveryOrchestrator } from "../../fleet/services.js";
+import {
+  getBotInstanceRepo,
+  getCommandBus,
+  getDb,
+  getNodeRepo,
+  getRecoveryOrchestrator,
+} from "../../fleet/services.js";
 import { createBotSchema, updateBotSchema } from "../../fleet/types.js";
 import { ContainerUpdater } from "../../fleet/updater.js";
 import type { IServiceKeyRepository } from "../../gateway/service-key-repository.js";

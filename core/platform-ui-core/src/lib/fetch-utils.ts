@@ -36,7 +36,11 @@ export function handleUnauthorized(): never {
         sessionCheckInFlight = false;
         if (data?.session) {
           // Session is valid — this 401 is NOT a session expiry
-          console.warn("[auth] session IS valid (userId:", data.session.userId, ") — 401 is from a missing endpoint or permission issue, NOT session expiry. Staying on page.");
+          console.warn(
+            "[auth] session IS valid (userId:",
+            data.session.userId,
+            ") — 401 is from a missing endpoint or permission issue, NOT session expiry. Staying on page.",
+          );
         } else {
           // Session truly expired — redirect to login
           console.warn("[auth] session is expired — redirecting to login");

@@ -435,9 +435,7 @@ export function chatCompletions(deps: ProxyDeps) {
         if (res.ok) {
           const usage = totalTokens > 0 ? { units: totalTokens, unitType: "tokens" } : undefined;
           const metadata =
-            totalTokens > 0
-              ? { inputTokens, outputTokens, model: responseModel ?? currentModel }
-              : undefined;
+            totalTokens > 0 ? { inputTokens, outputTokens, model: responseModel ?? currentModel } : undefined;
           emitMeterEventForTenant(deps, tenant, "chat-completions", "openrouter", Credit.fromDollars(cost), undefined, {
             usage,
             tier: "branded",
@@ -1264,18 +1262,10 @@ export function phoneOutbound(deps: ProxyDeps) {
       // Without webhookBaseUrl (e.g., local dev), bill 1 minute as a conservative estimate.
       if (!webhookBase) {
         const cost = 0.013; // 1 minute at wholesale rate
-        emitMeterEventForTenant(
-          deps,
-          tenant,
-          "phone-outbound",
-          "twilio",
-          Credit.fromDollars(cost),
-          productMargin(c),
-          {
-            usage: { units: 1, unitType: "minutes" },
-            tier: "branded",
-          },
-        );
+        emitMeterEventForTenant(deps, tenant, "phone-outbound", "twilio", Credit.fromDollars(cost), productMargin(c), {
+          usage: { units: 1, unitType: "minutes" },
+          tier: "branded",
+        });
         debitCredits(deps, tenant.id, cost, productMargin(c), "phone-outbound", "twilio");
       }
 

@@ -543,12 +543,10 @@ export default function NewPaperclipInstancePage() {
                         msg.content && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
                       ))}
                   </div>
-
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
-
 
           {error && (
             <div className="ml-12 rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">

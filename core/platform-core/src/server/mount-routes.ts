@@ -661,9 +661,7 @@ export async function mountRoutes(
         // Resolve product config from DB. Returns alongside tenant — handlers
         // read product-level fields (margin, model priority, floor rates) from
         // ProductConfig, not from the tenant object.
-        const pc = tenant.productSlug
-          ? await container.productConfigService.getBySlug(tenant.productSlug)
-          : null;
+        const pc = tenant.productSlug ? await container.productConfigService.getBySlug(tenant.productSlug) : null;
 
         // Fallback product config for tenants without a product slug (shouldn't happen in production)
         const productConfig: import("../product-config/repository-types.js").ProductConfig = pc ?? {
@@ -671,7 +669,9 @@ export async function mountRoutes(
           navItems: [],
           domains: [],
           features: null,
-          billing: { marginConfig: { default: fallbackMargin } } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
+          billing: {
+            marginConfig: { default: fallbackMargin },
+          } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
           fleet: null,
         };
 

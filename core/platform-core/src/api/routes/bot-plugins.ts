@@ -13,8 +13,8 @@ import type { IBotInstanceRepository } from "../../fleet/bot-instance-repository
 import { detectCapabilityConflicts } from "../../fleet/capability-conflict.js";
 import { lookupCapabilityEnv } from "../../fleet/capability-env-map.js";
 import { dispatchEnvUpdate } from "../../fleet/dispatch-env-update.js";
-import { BotNotFoundError } from "../../fleet/fleet-manager.js";
 import { DrizzleBotProfileStore } from "../../fleet/drizzle-profile-store.js";
+import { BotNotFoundError } from "../../fleet/fleet-manager.js";
 import type { IProfileStore } from "../../fleet/profile-store.js";
 import { getDb } from "../../fleet/services.js";
 import type { IMarketplacePluginRepository } from "../../marketplace/marketplace-plugin-repository.js";

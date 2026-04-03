@@ -119,15 +119,13 @@ export interface GatewayConfig {
   /** Optional cached rate lookup for model-specific token pricing (WOP-646) */
   rateLookupFn?: import("./rate-lookup.js").SellRateLookupFn;
   /** Function to resolve a service key to a tenant and its product config */
-  resolveServiceKey: (
-    key: string,
-  ) =>
+  resolveServiceKey: (key: string) =>
     | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
     | null
-    | Promise<
-        | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
-        | null
-      >;
+    | Promise<{
+        tenant: GatewayTenant;
+        productConfig: import("../product-config/repository-types.js").ProductConfig;
+      } | null>;
   /** Base URL for Twilio webhook signature verification (e.g., https://api.wopr.network/v1). Required for Twilio/Telnyx webhook endpoints. */
   webhookBaseUrl?: string;
   /** Resolve a tenant from an inbound webhook request (e.g., from a tenantId URL path param). Required when webhookBaseUrl is set. */
