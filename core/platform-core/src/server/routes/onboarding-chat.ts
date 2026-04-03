@@ -59,15 +59,27 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
   const app = new Hono();
 
   app.post("/", async (c) => {
+    const { logger } = await import("../../config/logger.js");
+
     // Validate input
     let input: z.infer<typeof InputSchema>;
     try {
       const raw = await c.req.json();
+      logger.info("Onboarding chat request", {
+        state: raw.state,
+        phase: raw.phase,
+        messageCount: raw.messages?.length,
+        artifacts: raw.artifacts ? Object.keys(raw.artifacts) : [],
+        // Log empty messages for debugging
+        emptyMessages: raw.messages?.filter((m: { content?: string }) => !m.content?.length).length ?? 0,
+      });
       input = InputSchema.parse(raw);
     } catch (err) {
       if (err instanceof z.ZodError) {
+        logger.warn("Onboarding chat validation failed", { issues: err.issues });
         return c.json({ error: "Invalid request", issues: err.issues }, 400);
       }
+      logger.warn("Onboarding chat invalid JSON");
       return c.json({ error: "Invalid JSON" }, 400);
     }
 

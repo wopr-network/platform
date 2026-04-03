@@ -151,6 +151,14 @@ export async function parseStateMachineStream(
     }
   }
 
+  console.log("[onboarding] stream parsed", {
+    ready: gate.ready,
+    hasArtifact: !!gate.artifact,
+    artifactKeys: gate.artifact ? Object.keys(gate.artifact) : [],
+    visibleContentLength: visibleContent.length,
+    jsonExtracted,
+  });
+
   return { visibleContent, gate };
 }
 
@@ -167,15 +175,29 @@ export function sendStateMachineChat(
   abort: AbortController;
   response: Promise<ReadableStream<Uint8Array>>;
 } {
+  // Filter out messages with empty content — server rejects them
+  const cleanMessages = messages.filter((m) => m.content.length > 0);
+
+  console.log("[onboarding] sending", {
+    state,
+    phase,
+    messageCount: cleanMessages.length,
+    artifacts: artifacts ? Object.keys(artifacts).filter((k) => !!(artifacts as Record<string, unknown>)[k]) : [],
+    emptyFiltered: messages.length - cleanMessages.length,
+  });
+
   const abort = new AbortController();
   const response = fetch(`${API_BASE_URL}/onboarding-chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     signal: abort.signal,
-    body: JSON.stringify({ messages, state, phase, artifacts }),
+    body: JSON.stringify({ messages: cleanMessages, state, phase, artifacts }),
   }).then((res) => {
-    if (!res.ok) throw new Error(`Onboarding chat failed: ${res.status}`);
+    if (!res.ok) {
+      console.error("[onboarding] server error", { status: res.status, state, phase });
+      throw new Error(`Onboarding chat failed: ${res.status}`);
+    }
     if (!res.body) throw new Error("No response body");
     return res.body;
   });
