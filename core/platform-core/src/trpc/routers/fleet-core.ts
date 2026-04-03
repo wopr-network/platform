@@ -266,7 +266,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
     createInstance: protectedProcedure
       .input(
         z.object({
-          name: z.string().min(1).max(63),
+          name: z.string().min(1).max(255),
           description: z.string().optional().default(""),
           orgId: z.string().min(1).optional(),
           env: z.record(z.string(), z.string()).optional(),

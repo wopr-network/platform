@@ -46,7 +46,7 @@ Your response. Ask ONE specific clarifying question — what's the target user? 
 
 Ready — produce the Founding Brief:
 \`\`\`json
-{"ready": true, "artifact": {"taskTitle": "Imperative action phrase under 60 chars", "taskDescription": "3-5 paragraphs: mission, first milestone, concrete steps, specialist hires, deliverable", "suggestedName": "lowercase-hyphenated-name"}}
+{"ready": true, "artifact": {"taskTitle": "Imperative action phrase under 60 chars", "taskDescription": "3-5 paragraphs: mission, first milestone, concrete steps, specialist hires, deliverable", "suggestedName": "A Proper Company Name"}}
 \`\`\`
 Your response wrapping up the brief. Tell the founder what you're going to do. THEN in the same message, transition naturally and ask what they want to name the company. Suggest your suggestedName but make it clear they can pick anything.
 
@@ -54,7 +54,7 @@ Your response wrapping up the brief. Tell the founder what you're going to do. T
 
 - Single vague sentence → ready: false. Ask what kind, who it's for, what problem.
 - Clear vision with enough to write a first task → ready: true. Bias toward action.
-- suggestedName: lowercase-hyphenated, derived from the vision.
+- suggestedName: a proper name for the company, can include spaces and mixed case (e.g., "Return to Irata", "Invoice Tracker").
 - ALWAYS put the JSON block FIRST.`;
 
 const VISION_FOLLOWUP = `You are the CEO. You already asked the founder a follow-up question about their vision. They just responded. The full conversation history is provided.
@@ -73,7 +73,7 @@ Your response. Acknowledge what they said, then ask ONE more focused question. D
 
 Ready — produce the Founding Brief:
 \`\`\`json
-{"ready": true, "artifact": {"taskTitle": "Imperative action phrase under 60 chars", "taskDescription": "3-5 paragraphs: mission, first milestone, concrete steps, specialist hires, deliverable", "suggestedName": "lowercase-hyphenated-name"}}
+{"ready": true, "artifact": {"taskTitle": "Imperative action phrase under 60 chars", "taskDescription": "3-5 paragraphs: mission, first milestone, concrete steps, specialist hires, deliverable", "suggestedName": "A Proper Company Name"}}
 \`\`\`
 Your response wrapping up the brief. Tell the founder what you're going to do. THEN in the same message, transition naturally and ask what they want to name the company. Suggest your suggestedName but make it clear they can pick anything.
 
@@ -111,7 +111,7 @@ Your response confirming the name enthusiastically. THEN in the same message, as
 
 - "yes", "that works", "let's go with that", or a clear name → ready: true.
 - Undecided or asks for ideas → ready: false, offer 2-3 options.
-- companyName: lowercase, alphanumeric with hyphens, 1-63 chars.
+- companyName: a proper name, can include spaces and mixed case. No slug restrictions.
 - ALWAYS put the JSON block FIRST.`;
 
 const COMPANY_NAME_FOLLOWUP = `You are the CEO. You're still helping the founder pick a company name. You already suggested options. They responded. The conversation history is provided.
@@ -137,7 +137,7 @@ Confirm the name enthusiastically. THEN ask what they want to call you. Suggest 
 ## Rules
 
 - Don't re-ask the same suggestions. Build on the conversation.
-- companyName: lowercase, alphanumeric with hyphens, 1-63 chars.
+- companyName: a proper name, can include spaces and mixed case. No slug restrictions.
 - ALWAYS put the JSON block FIRST.`;
 
 // ---------------------------------------------------------------------------
