@@ -531,19 +531,6 @@ export default function NewPaperclipInstancePage() {
                       ))}
                   </div>
 
-                  {msg.brief && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="rounded-lg border border-indigo-500/20 bg-zinc-900/80 p-5"
-                    >
-                      <p className="mb-2 text-[10px] uppercase tracking-widest text-indigo-400">Founding Brief</p>
-                      <p className="mb-1 text-sm font-semibold text-zinc-100">{msg.brief.taskTitle}</p>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">
-                        {msg.brief.taskDescription}
-                      </p>
-                    </motion.div>
-                  )}
                 </div>
               </motion.div>
             ))}
