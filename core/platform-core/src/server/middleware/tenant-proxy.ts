@@ -152,13 +152,20 @@ export function createTenantProxyMiddleware(
     const host = c.req.header("host");
     if (!host) return next();
 
-    // Try each product domain to extract the subdomain
+    // Two proxy modes:
+    // 1. Subdomain: alice.runpaperclip.com → proxy to alice's container
+    // 2. Path: runpaperclip.com/_sidecar/* → proxy to the user's instance
+    const url = new URL(c.req.url);
+    const isSidecarProxy = url.pathname.startsWith("/_sidecar");
     let subdomain: string | null = null;
-    for (const domain of platformDomains) {
-      subdomain = extractTenantSubdomain(host, domain);
-      if (subdomain) break;
+
+    if (!isSidecarProxy) {
+      for (const domain of platformDomains) {
+        subdomain = extractTenantSubdomain(host, domain);
+        if (subdomain) break;
+      }
     }
-    if (!subdomain) return next();
+    if (!subdomain && !isSidecarProxy) return next();
 
     // --- Fail-closed checks ---
 
@@ -173,22 +180,39 @@ export function createTenantProxyMiddleware(
       return c.json({ error: "Authentication required" }, 401);
     }
 
-    // Verify tenant ownership -- user must belong to the org that owns this subdomain
+    // Verify tenant ownership -- user must belong to the org that owns this subdomain/instance
     const profiles = await container.fleet.profileStore.list();
-    const profile = profiles.find((p) => p.name === subdomain);
+    let profile: (typeof profiles)[number] | undefined;
+
+    if (isSidecarProxy) {
+      // /_sidecar/ mode: find the user's instance by checking tenant access
+      for (const p of profiles) {
+        const { validateTenantAccess } = await import("../../auth/index.js");
+        const hasAccess = await validateTenantAccess(user.id, p.tenantId, container.orgMemberRepo);
+        if (hasAccess) {
+          profile = p;
+          subdomain = p.name;
+          break;
+        }
+      }
+    } else {
+      profile = profiles.find((p) => p.name === subdomain);
+    }
+
     if (!profile) {
       return c.json({ error: "Tenant not found" }, 404);
     }
-    const { validateTenantAccess } = await import("../../auth/index.js");
-    const hasAccess = await validateTenantAccess(user.id, profile.tenantId, container.orgMemberRepo);
-    if (!hasAccess) {
-      return c.json({ error: "Forbidden: not a member of this tenant" }, 403);
+    if (!isSidecarProxy) {
+      const { validateTenantAccess } = await import("../../auth/index.js");
+      const hasAccess = await validateTenantAccess(user.id, profile.tenantId, container.orgMemberRepo);
+      if (!hasAccess) {
+        return c.json({ error: "Forbidden: not a member of this tenant" }, 403);
+      }
     }
 
     // Resolve fleet container URL (route table or profile fallback)
-    const upstream = resolveContainerUrl(container, subdomain, profile);
+    const upstream = resolveContainerUrl(container, subdomain!, profile);
     const { logger } = await import("../../config/logger.js");
-    const url = new URL(c.req.url);
     logger.info("Tenant proxy", {
       subdomain,
       upstream,
@@ -204,8 +228,10 @@ export function createTenantProxyMiddleware(
       return c.json({ error: "Container unavailable" }, 503);
     }
 
-    const targetUrl = `${upstream}${url.pathname}${url.search}`;
-    const upstreamHeaders = buildUpstreamHeaders(c.req.raw.headers, user, subdomain);
+    // Strip /_sidecar prefix when proxying via path mode
+    const proxyPath = isSidecarProxy ? url.pathname.replace(/^\/_sidecar/, "") || "/" : url.pathname;
+    const targetUrl = `${upstream}${proxyPath}${url.search}`;
+    const upstreamHeaders = buildUpstreamHeaders(c.req.raw.headers, user, subdomain!);
 
     let response: Response;
     try {
@@ -225,9 +251,15 @@ export function createTenantProxyMiddleware(
       path: url.pathname,
       upstreamStatus: response.status,
     });
+    const responseHeaders = new Headers(response.headers);
+    if (isSidecarProxy) {
+      // Allow embedding in same-origin iframe
+      responseHeaders.delete("x-frame-options");
+      responseHeaders.set("content-security-policy", "frame-ancestors 'self'");
+    }
     return new Response(response.body, {
       status: response.status,
-      headers: response.headers,
+      headers: responseHeaders,
     });
   };
 }

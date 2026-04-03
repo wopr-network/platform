@@ -80,48 +80,13 @@ export function validateCsrfOrigin(request: NextRequest): boolean {
 export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Sidecar proxy: forward /_sidecar/{instance-name}/* to the instance backend
-  // URL format: /_sidecar/{name}/rest/of/path → http://paperclip-{name}:3100/rest/of/path
-  // The client (SidecarFrame) includes the instance name in the iframe src.
-  if (pathname.startsWith("/_sidecar/")) {
-    const withoutPrefix = pathname.slice("/_sidecar/".length); // "mule-reborn/dashboard" or "mule-reborn"
-    const slashIdx = withoutPrefix.indexOf("/");
-    const instanceName = slashIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, slashIdx);
-    const targetPath = slashIdx === -1 ? "/" : withoutPrefix.slice(slashIdx);
-
-    if (!instanceName) {
-      return NextResponse.json({ error: "No instance specified" }, { status: 400 });
-    }
-
-    const instanceUrl = `http://paperclip-${instanceName}:3100`;
-    const targetUrl = `${instanceUrl}${targetPath || "/"}${request.nextUrl.search}`;
-
-    const proxyHeaders = new Headers(request.headers);
-    proxyHeaders.delete("host");
-    if (tenantId) {
-      proxyHeaders.set("x-tenant-id", tenantId);
-    }
-    proxyHeaders.set("x-paperclip-deployment-mode", "hosted_proxy");
-
-    const upstream = await fetch(targetUrl, {
-      method: request.method,
-      headers: proxyHeaders,
-      body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
-      redirect: "manual",
-    });
-
-    const responseHeaders = new Headers(upstream.headers);
-    // Remove transfer-encoding since Next.js handles chunking
-    responseHeaders.delete("transfer-encoding");
-    // Allow embedding in same-origin iframe — upstream may send DENY
-    responseHeaders.delete("x-frame-options");
-    responseHeaders.set("content-security-policy", "frame-ancestors 'self'");
-
-    return new NextResponse(upstream.body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers: responseHeaders,
-    });
+  // Sidecar proxy: rewrite /_sidecar/* to the core API.
+  // The core's tenant-proxy middleware resolves the user's instance
+  // from their session, finds the container URL, and proxies upstream.
+  if (pathname.startsWith("/_sidecar")) {
+    const apiOrigin = process.env.INTERNAL_API_URL || "http://core:3001";
+    const target = new URL(`${apiOrigin}${pathname}${request.nextUrl.search}`);
+    return NextResponse.rewrite(target);
   }
 
   const nonce = crypto.randomUUID();

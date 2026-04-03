@@ -13,25 +13,18 @@ import NewPaperclipInstancePage from "./instances/new/page";
 export function UnifiedLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const routeType = getRouteType(pathname);
-  const [instanceName, setInstanceName] = useState<string | null | undefined>(undefined); // undefined = loading
+  const [hasInstance, setHasInstance] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     listInstances()
-      .then((instances) => {
-        if (!cancelled) {
-          const running = instances.find((i) => i.status === "running") ?? instances[0];
-          setInstanceName(running?.name ?? null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setInstanceName(null);
-      });
+      .then((instances) => { if (!cancelled) setHasInstance(instances.length > 0); })
+      .catch(() => { if (!cancelled) setHasInstance(false); });
     return () => { cancelled = true; };
   }, []);
 
   // Loading state
-  if (instanceName === undefined) {
+  if (hasInstance === null) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background">
         <div className="animate-pulse text-sm text-muted-foreground">Loading...</div>
@@ -40,7 +33,7 @@ export function UnifiedLayout({ children }: { children: React.ReactNode }) {
   }
 
   // No instance — full-screen CEO onboarding chat, no sidebar
-  if (!instanceName) {
+  if (!hasInstance) {
     return (
       <div className="h-dvh bg-background text-foreground">
         <NewPaperclipInstancePage />
@@ -61,7 +54,7 @@ export function UnifiedLayout({ children }: { children: React.ReactNode }) {
         {/* Content area: iframe OR native page */}
         <div className="flex flex-1 flex-col min-w-0">
           {/* Sidecar iframe — always mounted via /_sidecar/ proxy (hidden when native route) */}
-          <SidecarFrame instanceName={instanceName} />
+          <SidecarFrame />
 
           {/* Native page content — hidden when iframe route */}
           <div className="flex-1 overflow-auto" style={{ display: routeType === "native" ? "block" : "none" }}>
