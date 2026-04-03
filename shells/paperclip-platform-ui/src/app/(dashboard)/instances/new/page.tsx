@@ -410,10 +410,10 @@ export default function NewPaperclipInstancePage() {
       // Set initial empty message
       setMessages([{ id: introId, role: "assistant", content: "" }]);
 
-      // Typewriter effect — runs outside the effect lifecycle via setTimeout chain
+      // Typewriter effect — 3 chars per tick for speed
       let idx = 0;
       function typeNext() {
-        idx++;
+        idx += 3;
         if (idx > intro.length) {
           setMessages([{ id: introId, role: "assistant", content: intro }]);
           setCtx((prev) => ({
