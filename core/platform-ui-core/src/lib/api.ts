@@ -808,8 +808,8 @@ export interface Organization {
 // --- Settings API ---
 
 export async function getProfile(): Promise<UserProfile> {
-  // NOTE: add tRPC procedure
-  return apiFetch<UserProfile>("/settings/profile");
+  const data = await trpcVanilla.profile.getProfile.query(undefined);
+  return data as UserProfile;
 }
 
 export async function updateProfile(data: Partial<Pick<UserProfile, "name" | "email">>): Promise<UserProfile> {
