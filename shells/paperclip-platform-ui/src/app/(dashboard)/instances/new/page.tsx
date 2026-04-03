@@ -549,36 +549,6 @@ export default function NewPaperclipInstancePage() {
             ))}
           </AnimatePresence>
 
-          {/* Launch state: prominent button in the conversation flow */}
-          <AnimatePresence>
-            {ctx.state === "LAUNCH" && hasAllArtifacts && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="flex justify-center py-4"
-              >
-                <Button
-                  onClick={handleFoundCompany}
-                  disabled={launching}
-                  size="lg"
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-8 py-6 text-base"
-                >
-                  {launching ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Founding {ctx.artifacts.companyName}...
-                    </>
-                  ) : (
-                    <>
-                      Found {ctx.artifacts.companyName} with CEO {ctx.artifacts.ceoName}
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </>
-                  )}
-                </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {error && (
             <div className="ml-12 rounded-md border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -633,6 +603,35 @@ export default function NewPaperclipInstancePage() {
                   <Send className="h-4 w-4" />
                 </Button>
               </motion.form>
+            )}
+          </AnimatePresence>
+
+          {/* Launch button — appears below input when all artifacts collected */}
+          <AnimatePresence>
+            {ctx.state === "LAUNCH" && hasAllArtifacts && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              >
+                <Button
+                  onClick={handleFoundCompany}
+                  disabled={launching}
+                  className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-sm"
+                >
+                  {launching ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Founding {ctx.artifacts.companyName}...
+                    </>
+                  ) : (
+                    <>
+                      Found {ctx.artifacts.companyName} with CEO {ctx.artifacts.ceoName}
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </>
+                  )}
+                </Button>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
