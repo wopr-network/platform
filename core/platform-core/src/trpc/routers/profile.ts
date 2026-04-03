@@ -61,7 +61,7 @@ export function createProfileRouter(d: ProfileRouterDeps) {
       .input(
         z.object({
           name: z.string().min(1).max(128).optional(),
-          image: z.string().url().max(2048).nullable().optional(),
+          image: z.string().max(3_000_000).nullable().optional(),
         }),
       )
       .mutation(async ({ input, ctx }: { input: { name?: string; image?: string | null }; ctx: ProtectedCtx }) => {
@@ -122,7 +122,7 @@ export const profileRouter = router({
     .input(
       z.object({
         name: z.string().min(1).max(128).optional(),
-        image: z.string().url().max(2048).nullable().optional(),
+        image: z.string().max(3_000_000).nullable().optional(),
       }),
     )
     .mutation(async ({ input, ctx }: { input: { name?: string; image?: string | null }; ctx: ProtectedCtx }) => {

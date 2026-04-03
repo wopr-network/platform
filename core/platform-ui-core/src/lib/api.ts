@@ -819,38 +819,37 @@ export async function getProfile(): Promise<UserProfile> {
 }
 
 export async function updateProfile(data: Partial<Pick<UserProfile, "name" | "email">>): Promise<UserProfile> {
-  // NOTE: add tRPC procedure
-  return apiFetch<UserProfile>("/settings/profile", {
-    method: "PATCH",
-    body: JSON.stringify(data),
+  const result = await trpcVanilla.profile.updateProfile.mutate({
+    ...(data.name !== undefined && { name: data.name }),
   });
+  return {
+    id: result.id,
+    name: result.name,
+    email: result.email,
+    avatarUrl: result.image ?? null,
+    oauthConnections: [],
+  };
 }
 
 export async function uploadAvatar(file: File): Promise<UserProfile> {
-  const tenantId = getActiveTenantId();
-  const form = new FormData();
-  form.append("avatar", file);
-  const res = await fetch(`${API_BASE_URL}/settings/profile/avatar`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      ...(tenantId ? { "x-tenant-id": tenantId } : {}),
-    },
-    body: form,
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
   });
-  if (res.status === 401) {
-    handleUnauthorized();
-  }
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, res.statusText, (body as { error?: string }).error ?? undefined);
-  }
-  return res.json() as Promise<UserProfile>;
+  const result = await trpcVanilla.profile.updateProfile.mutate({ image: dataUrl });
+  return {
+    id: result.id,
+    name: result.name,
+    email: result.email,
+    avatarUrl: result.image ?? null,
+    oauthConnections: [],
+  };
 }
 
 export async function changePassword(data: { currentPassword: string; newPassword: string }): Promise<void> {
-  // NOTE: add tRPC procedure
-  await apiFetch("/settings/profile/password", { method: "POST", body: JSON.stringify(data) });
+  await trpcVanilla.profile.changePassword.mutate(data);
 }
 
 export async function deleteAccount(): Promise<void> {
