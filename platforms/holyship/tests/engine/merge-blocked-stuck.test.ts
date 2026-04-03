@@ -134,13 +134,11 @@ function makeMockRepos(flow: Flow, entity: Entity) {
     get: vi.fn().mockImplementation(async () => ({ ...entity, artifacts: { ...currentArtifacts } })),
     findByFlowAndState: vi.fn().mockResolvedValue([]),
     hasAnyInFlowAndState: vi.fn().mockResolvedValue(false),
-    transition: vi
-      .fn()
-      .mockImplementation(async (_id: string, toState: string) => ({
-        ...entity,
-        state: toState,
-        artifacts: { ...currentArtifacts },
-      })),
+    transition: vi.fn().mockImplementation(async (_id: string, toState: string) => ({
+      ...entity,
+      state: toState,
+      artifacts: { ...currentArtifacts },
+    })),
     updateArtifacts: vi.fn().mockImplementation(async (_id: string, arts: Record<string, unknown>) => {
       currentArtifacts = { ...currentArtifacts, ...arts };
     }),

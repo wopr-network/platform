@@ -83,9 +83,12 @@ describe("checkPrStatus", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        merged: false, state: "open", mergeable_state: "clean",
+        merged: false,
+        state: "open",
+        mergeable_state: "clean",
         html_url: "https://github.com/wopr-network/test-repo/pull/7",
-        number: 7, head: { sha: "abc123def456" },
+        number: 7,
+        head: { sha: "abc123def456" },
       }),
     });
 
@@ -102,9 +105,12 @@ describe("checkPrStatus", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        merged: true, state: "closed", mergeable_state: "unknown",
+        merged: true,
+        state: "closed",
+        mergeable_state: "unknown",
         html_url: "https://github.com/wopr-network/test-repo/pull/7",
-        number: 7, head: { sha: "abc123" },
+        number: 7,
+        head: { sha: "abc123" },
       }),
     });
 
@@ -118,9 +124,12 @@ describe("checkPrStatus", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        merged: false, state: "open", mergeable_state: "blocked",
+        merged: false,
+        state: "open",
+        mergeable_state: "blocked",
         html_url: "https://github.com/wopr-network/test-repo/pull/7",
-        number: 7, head: { sha: "abc123" },
+        number: 7,
+        head: { sha: "abc123" },
       }),
     });
 
@@ -143,14 +152,24 @@ describe("checkPrStatus", () => {
 describe("checkPrForBranch", () => {
   const ctx = { token: "test-token", owner: "wopr-network", repo: "test-repo" };
 
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("returns 'exists' with artifacts when matching PR found", async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
-        { html_url: "https://github.com/wopr-network/test-repo/pull/5", number: 5, head: { ref: "feature/unrelated", sha: "aaa" } },
-        { html_url: "https://github.com/wopr-network/test-repo/pull/7", number: 7, head: { ref: "agent/entity-abc/wop-42", sha: "bbb123" } },
+        {
+          html_url: "https://github.com/wopr-network/test-repo/pull/5",
+          number: 5,
+          head: { ref: "feature/unrelated", sha: "aaa" },
+        },
+        {
+          html_url: "https://github.com/wopr-network/test-repo/pull/7",
+          number: 7,
+          head: { ref: "agent/entity-abc/wop-42", sha: "bbb123" },
+        },
       ],
     });
     const result = await checkPrForBranch(ctx, { branchPattern: "agent/entity-abc/" });
@@ -164,7 +183,11 @@ describe("checkPrForBranch", () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => [
-        { html_url: "https://github.com/wopr-network/test-repo/pull/5", number: 5, head: { ref: "feature/unrelated", sha: "aaa" } },
+        {
+          html_url: "https://github.com/wopr-network/test-repo/pull/5",
+          number: 5,
+          head: { ref: "feature/unrelated", sha: "aaa" },
+        },
       ],
     });
     const result = await checkPrForBranch(ctx, { branchPattern: "agent/entity-abc/" });
@@ -175,14 +198,18 @@ describe("checkPrForBranch", () => {
 describe("checkPrReviewStatus", () => {
   const ctx = { token: "test-token", owner: "wopr-network", repo: "test-repo" };
 
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("returns 'clean' when no blocking reviews or bot comments", async () => {
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [{ state: "APPROVED", user: { login: "human" }, body: "LGTM" }],
+      ok: true,
+      json: async () => [{ state: "APPROVED", user: { login: "human" }, body: "LGTM" }],
     });
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [{ user: { login: "human-commenter" }, body: "Nice work" }],
+      ok: true,
+      json: async () => [{ user: { login: "human-commenter" }, body: "Nice work" }],
     });
     const result = await checkPrReviewStatus(ctx, { pullNumber: 7 });
     expect(result.outcome).toBe("clean");
@@ -190,10 +217,12 @@ describe("checkPrReviewStatus", () => {
 
   it("returns 'has_issues' with findings when changes requested", async () => {
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [{ state: "CHANGES_REQUESTED", user: { login: "reviewer" }, body: "Fix the null check" }],
+      ok: true,
+      json: async () => [{ state: "CHANGES_REQUESTED", user: { login: "reviewer" }, body: "Fix the null check" }],
     });
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [],
+      ok: true,
+      json: async () => [],
     });
     const result = await checkPrReviewStatus(ctx, { pullNumber: 7 });
     expect(result.outcome).toBe("has_issues");
@@ -202,10 +231,12 @@ describe("checkPrReviewStatus", () => {
 
   it("returns 'has_issues' when bot comments exist", async () => {
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [],
+      ok: true,
+      json: async () => [],
     });
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [{ user: { login: "coderabbitai[bot]" }, body: "Security: SQL injection risk" }],
+      ok: true,
+      json: async () => [{ user: { login: "coderabbitai[bot]" }, body: "Security: SQL injection risk" }],
     });
     const result = await checkPrReviewStatus(ctx, { pullNumber: 7 });
     expect(result.outcome).toBe("has_issues");
@@ -216,11 +247,14 @@ describe("checkPrReviewStatus", () => {
 describe("checkPrHeadChanged", () => {
   const ctx = { token: "test-token", owner: "wopr-network", repo: "test-repo" };
 
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("returns 'changed' with new SHA when head differs", async () => {
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => ({ head: { sha: "new-sha-456" } }),
+      ok: true,
+      json: async () => ({ head: { sha: "new-sha-456" } }),
     });
     const result = await checkPrHeadChanged(ctx, { pullNumber: 7, lastKnownSha: "old-sha-123" });
     expect(result.outcome).toBe("changed");
@@ -229,7 +263,8 @@ describe("checkPrHeadChanged", () => {
 
   it("returns 'unchanged' when SHA matches", async () => {
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => ({ head: { sha: "same-sha" } }),
+      ok: true,
+      json: async () => ({ head: { sha: "same-sha" } }),
     });
     const result = await checkPrHeadChanged(ctx, { pullNumber: 7, lastKnownSha: "same-sha" });
     expect(result.outcome).toBe("unchanged");
@@ -239,11 +274,14 @@ describe("checkPrHeadChanged", () => {
 describe("checkFilesChangedSince", () => {
   const ctx = { token: "test-token", owner: "wopr-network", repo: "test-repo" };
 
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("returns 'changed' when matching files found", async () => {
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [
+      ok: true,
+      json: async () => [
         { filename: "src/main.ts", status: "modified" },
         { filename: "docs/api.md", status: "added" },
         { filename: "README.md", status: "modified" },
@@ -256,7 +294,8 @@ describe("checkFilesChangedSince", () => {
 
   it("returns 'unchanged' when no matching files", async () => {
     mockFetch.mockResolvedValueOnce({
-      ok: true, json: async () => [
+      ok: true,
+      json: async () => [
         { filename: "src/main.ts", status: "modified" },
         { filename: "src/utils.ts", status: "added" },
       ],

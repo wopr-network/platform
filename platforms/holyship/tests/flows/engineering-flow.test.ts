@@ -4,13 +4,7 @@ import { createScopedRepos } from "../../src/repositories/scoped-repos.js";
 import { Engine } from "../../src/engine/engine.js";
 import { EventEmitter } from "../../src/engine/event-emitter.js";
 import { provisionEngineeringFlow } from "../../src/flows/provision.js";
-import {
-  ENGINEERING_FLOW,
-  STATES,
-  GATES,
-  TRANSITIONS,
-  GATE_WIRING,
-} from "../../src/flows/engineering.js";
+import { ENGINEERING_FLOW, STATES, GATES, TRANSITIONS, GATE_WIRING } from "../../src/flows/engineering.js";
 import type { PGlite } from "@electric-sql/pglite";
 
 describe("Engineering flow definition", () => {
@@ -36,7 +30,15 @@ describe("Engineering flow definition", () => {
   it("defines 7 gates", () => {
     expect(GATES).toHaveLength(7);
     const names = GATES.map((g) => g.name);
-    expect(names).toEqual(["spec-posted", "ci-green", "pr-mergeable", "pr-exists", "review-status", "pr-updated", "docs-committed"]);
+    expect(names).toEqual([
+      "spec-posted",
+      "ci-green",
+      "pr-mergeable",
+      "pr-exists",
+      "review-status",
+      "pr-updated",
+      "docs-committed",
+    ]);
   });
 
   it("defines 12 transitions covering full flow graph", () => {
@@ -146,21 +148,15 @@ describe("Engineering flow provisioning", () => {
     expect(flow).not.toBeNull();
 
     // spec→code should be gated by spec-posted
-    const specToCode = flow!.transitions.find(
-      (t) => t.fromState === "spec" && t.trigger === "spec_ready",
-    );
+    const specToCode = flow!.transitions.find((t) => t.fromState === "spec" && t.trigger === "spec_ready");
     expect(specToCode?.gateId).toBeTruthy();
 
     // code→review should be gated by ci-green
-    const codeToReview = flow!.transitions.find(
-      (t) => t.fromState === "code" && t.trigger === "pr_created",
-    );
+    const codeToReview = flow!.transitions.find((t) => t.fromState === "code" && t.trigger === "pr_created");
     expect(codeToReview?.gateId).toBeTruthy();
 
     // merge→done should be gated by pr-mergeable
-    const mergeToDone = flow!.transitions.find(
-      (t) => t.fromState === "merge" && t.trigger === "merged",
-    );
+    const mergeToDone = flow!.transitions.find((t) => t.fromState === "merge" && t.trigger === "merged");
     expect(mergeToDone?.gateId).toBeTruthy();
   });
 });
