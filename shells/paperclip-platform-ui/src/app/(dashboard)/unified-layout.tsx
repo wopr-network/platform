@@ -18,9 +18,15 @@ export function UnifiedLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     listInstances()
-      .then((instances) => { if (!cancelled) setHasInstance(instances.length > 0); })
-      .catch(() => { if (!cancelled) setHasInstance(false); });
-    return () => { cancelled = true; };
+      .then((instances) => {
+        if (!cancelled) setHasInstance(instances.length > 0);
+      })
+      .catch(() => {
+        if (!cancelled) setHasInstance(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Loading state
