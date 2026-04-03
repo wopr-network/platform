@@ -809,7 +809,13 @@ export interface Organization {
 
 export async function getProfile(): Promise<UserProfile> {
   const data = await trpcVanilla.profile.getProfile.query(undefined);
-  return data as UserProfile;
+  return {
+    id: data.id,
+    name: data.name,
+    email: data.email,
+    avatarUrl: data.image ?? null,
+    oauthConnections: [],
+  };
 }
 
 export async function updateProfile(data: Partial<Pick<UserProfile, "name" | "email">>): Promise<UserProfile> {
