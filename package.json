@@ -17,9 +17,9 @@
     "version-packages": "changeset version"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.9",
+    "@biomejs/biome": "2.4.10",
     "@changesets/cli": "^2.29.4",
-    "turbo": "^2.5.4",
+    "turbo": "^2.9.3",
     "typescript": "~5.9.3",
     "vitest": "^4.0.18",
     "tsx": "^4.19.4"

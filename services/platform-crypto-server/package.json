@@ -24,19 +24,19 @@
     "start": "node dist/entry.js"
   },
   "dependencies": {
-    "@hono/node-server": "^1.14.0",
+    "@hono/node-server": "^1.19.12",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^1.2.4",
     "@scure/bip32": "^2.0.1",
-    "@wopr-network/crypto-plugins": "^1.0.1",
+    "@wopr-network/crypto-plugins": "^1.4.1",
     "drizzle-orm": "^0.44.2",
-    "hono": "^4.7.10",
+    "hono": "^4.12.10",
     "pg": "^8.16.0",
     "viem": "^2.30.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.8",
+    "@biomejs/biome": "^2.4.10",
     "@scure/bip39": "^2.0.1",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.15.4",

@@ -40,9 +40,9 @@
     "hono": "^4.0.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.6",
+    "@biomejs/biome": "^2.4.10",
     "@types/node": "^25.4.0",
-    "hono": "^4.12.7",
+    "hono": "^4.12.10",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   }
