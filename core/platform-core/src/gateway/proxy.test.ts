@@ -1,6 +1,7 @@
 import { Credit } from "@wopr-network/platform-core/credits";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
+import { ModelHealthCache } from "./model-health-cache.js";
 import type { ProxyDeps } from "./proxy.js";
 import {
   audioSpeech,
@@ -26,6 +27,7 @@ function makeDeps(overrides: Partial<ProxyDeps> = {}): ProxyDeps {
     fetchFn: vi.fn() as ProxyDeps["fetchFn"],
     defaultMargin: 1.3,
     topUpUrl: "https://example.com/topup",
+    modelHealthCache: new ModelHealthCache(),
     metrics: { recordGatewayRequest: vi.fn(), recordGatewayError: vi.fn() } as never,
     ...overrides,
   };

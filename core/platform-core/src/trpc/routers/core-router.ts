@@ -14,7 +14,7 @@ import { type BillingRouterDeps, createBillingRouter } from "./billing.js";
 import { createFleetCoreRouter, type FleetCoreRouterDeps } from "./fleet-core.js";
 import { createInferenceAdminRouter, type InferenceAdminRouterDeps } from "./inference-admin.js";
 import { createMarketplaceRouter, type MarketplaceRouterDeps } from "./marketplace.js";
-import { createModelSelectionRouter, type ModelSelectionRouterDeps } from "./model-selection.js";
+
 import { createNodesRouter, type NodesRouterDeps } from "./nodes.js";
 import { createOrgRouter, type OrgRouterDeps } from "./org.js";
 import { createOrgKeysRouter, type OrgKeysRouterDeps } from "./org-keys.js";
@@ -41,7 +41,7 @@ export interface CoreRouterDeps {
   twoFactor?: TwoFactorRouterDeps;
   orgKeys?: OrgKeysRouterDeps;
   marketplace?: MarketplaceRouterDeps;
-  modelSelection?: ModelSelectionRouterDeps;
+
   inferenceAdmin?: InferenceAdminRouterDeps;
   addons?: AddonRouterDeps;
   nodes?: NodesRouterDeps;
@@ -82,7 +82,7 @@ export function createCoreRouter(deps: CoreRouterDeps) {
     ...(deps.twoFactor ? { twoFactor: createTwoFactorRouter(deps.twoFactor) } : {}),
     ...(deps.orgKeys ? { orgKeys: createOrgKeysRouter(deps.orgKeys) } : {}),
     ...(deps.marketplace ? { marketplace: createMarketplaceRouter(deps.marketplace) } : {}),
-    ...(deps.modelSelection ? { modelSelection: createModelSelectionRouter(deps.modelSelection) } : {}),
+
     ...(deps.inferenceAdmin ? { inferenceAdmin: createInferenceAdminRouter(deps.inferenceAdmin) } : {}),
     ...(deps.addons ? { addons: createAddonRouter(deps.addons) } : {}),
     ...(deps.nodes ? { nodes: createNodesRouter(deps.nodes) } : {}),

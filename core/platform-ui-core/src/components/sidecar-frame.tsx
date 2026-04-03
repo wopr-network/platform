@@ -8,11 +8,11 @@ import { getRouteType } from "@/lib/sidecar-routes";
 
 export function SidecarFrame() {
   // iframe loads /_sidecar/ — core API's tenant-proxy resolves the user's instance
-  const { ready, setIframeRef, navigate } = useSidecarBridge();
+  const { setIframeRef, navigate } = useSidecarBridge();
   const pathname = usePathname();
   const iframeElRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoaded, setIframeLoaded] = useState(false);
-  const initialPathSent = useRef(false);
+
   const routeType = getRouteType(pathname);
   const isVisible = routeType === "iframe";
 

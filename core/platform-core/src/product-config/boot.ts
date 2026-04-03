@@ -51,7 +51,7 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     }
 
     // Auto-seed from preset
-    const { navItems, fleet, marginDefault, defaultModel, infra, hiddenInstanceTabs, ...productData } = preset;
+    const { navItems, fleet, marginDefault, modelPriority, infra, hiddenInstanceTabs, ...productData } = preset;
     const product = await repo.upsertProduct(slug, {
       ...productData,
       uiService: infra.uiService,
@@ -70,15 +70,9 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     await repo.upsertFleetConfig(product.id, fleet);
     await repo.upsertFeatures(product.id, {
       ...(hiddenInstanceTabs ? { hiddenInstanceTabs } : {}),
+      modelPriority,
     });
     await repo.upsertBillingConfig(product.id, { marginConfig: { default: marginDefault } });
-
-    // Seed default model for gateway
-    await db.execute(
-      `INSERT INTO tenant_model_selection (tenant_id, default_model, updated_at)
-       VALUES ('__platform__', '${defaultModel}', now())
-       ON CONFLICT (tenant_id) DO NOTHING`,
-    );
 
     // Re-fetch to get the complete config
     config = await service.getBySlug(slug);
@@ -93,7 +87,7 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     if (presetSlug === slug) continue; // already seeded above
     const existing = await service.getBySlug(presetSlug);
     if (existing) continue; // already in DB
-    const { navItems, fleet, marginDefault, defaultModel, infra, hiddenInstanceTabs, ...productData } = preset;
+    const { navItems, fleet, marginDefault, modelPriority, infra, hiddenInstanceTabs, ...productData } = preset;
     const product = await repo.upsertProduct(presetSlug, {
       ...productData,
       uiService: infra.uiService,
@@ -112,6 +106,7 @@ export async function platformBoot(opts: PlatformBootOptions): Promise<PlatformB
     await repo.upsertFleetConfig(product.id, fleet);
     await repo.upsertFeatures(product.id, {
       ...(hiddenInstanceTabs ? { hiddenInstanceTabs } : {}),
+      modelPriority,
     });
     await repo.upsertBillingConfig(product.id, { marginConfig: { default: marginDefault } });
   }

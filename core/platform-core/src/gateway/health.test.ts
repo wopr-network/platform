@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { gatewayHealthHandler } from "./health.js";
+import { ModelHealthCache } from "./model-health-cache.js";
 import type { ProxyDeps } from "./proxy.js";
 import type { ProviderConfig } from "./types.js";
 
@@ -24,6 +25,7 @@ function buildHealthDeps(overrides: Partial<ProxyDeps> = {}): ProxyDeps {
     topUpUrl: "/dashboard/credits",
     providers: {},
     defaultMargin: 1.3,
+    modelHealthCache: new ModelHealthCache(),
     fetchFn: vi.fn(),
     ...overrides,
   };

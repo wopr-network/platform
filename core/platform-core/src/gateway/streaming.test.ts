@@ -1,6 +1,7 @@
 import { Credit } from "@wopr-network/platform-core/credits";
 import { describe, expect, it, vi } from "vitest";
 import { withMargin } from "../monetization/adapters/types.js";
+import { ModelHealthCache } from "./model-health-cache.js";
 import type { ProxyDeps } from "./proxy.js";
 import { DEFAULT_TOKEN_RATES } from "./rate-lookup.js";
 import { proxySSEStream } from "./streaming.js";
@@ -24,6 +25,7 @@ function makeDeps(overrides?: Partial<ProxyDeps>): ProxyDeps {
     topUpUrl: "/credits",
     defaultMargin: 1.3,
     providers: {},
+    modelHealthCache: new ModelHealthCache(),
     fetchFn: vi.fn(),
     ...overrides,
   };
