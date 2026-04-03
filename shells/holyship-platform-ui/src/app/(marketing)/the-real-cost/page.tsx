@@ -1,12 +1,20 @@
-"use client";
-
+import type { Metadata } from "next";
 import { FadeIn } from "@/components/landing";
 import { CostCurve } from "@/components/landing/cost-curve";
+
+export const metadata: Metadata = {
+  title: "The Real Cost — You've Been Paying to Be the Floor",
+  description:
+    "2.8 correction cycles per issue. Three days with humans, hours with Holy Ship. Same bugs, same corrections, radically different price. The math on why the floor matters.",
+};
 
 export default function TheRealCostPage() {
   return (
     <>
       <section className="pt-10 md:pt-16 pb-12 flex flex-col justify-center items-center text-center px-6 md:px-16 lg:px-24">
+        <p className="text-lg md:text-xl text-off-white/40 mb-6">
+          You've been paying to be the floor. Here's the math.
+        </p>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-off-white max-w-4xl">
           The real cost.
         </h1>
@@ -49,29 +57,23 @@ export default function TheRealCostPage() {
 
           <div className="space-y-5 text-xl md:text-2xl leading-relaxed text-off-white/90 max-w-3xl mx-auto">
             <p>
-              Across real codebases, AI agents average 2.8 review/fix cycles for every 1 spec/code cycle. That's not a
-              bug in our system — that's the measured reality of AI writing code against complex, production codebases.
-              Every tool has this number. Most don't measure it. None of them tell you about it.
+              AI agents average 2.8 review/fix cycles for every 1 spec/code cycle. Every tool has this number. Most
+              don't measure it. None of them tell you about it.
             </p>
 
             <p>
-              The first draft is never right. The second draft is closer. The third draft passes. That's not failure —
-              that's how software gets written. By humans too. The difference is whether those correction cycles happen
-              inside a pipeline that costs you compute, or inside a Slack thread that costs you engineers. And whether
-              they take hours or weeks.
-            </p>
-
-            <p>
-              A human review/fix cycle is a calendar day. Best case. Reviewer has context-switching overhead. Developer
-              has to remember what they wrote. Back and forth in comments. Three cycles means three days — if nobody's
-              on vacation, if nobody's blocked, if nobody's in a different timezone.
+              The first draft is never right. That's not failure — that's how software gets written. The question is
+              whether those cycles happen inside a pipeline that costs you compute, or inside a Slack thread that costs
+              you engineers.
             </p>
 
             <p className="text-2xl md:text-3xl font-bold text-off-white">
-              The same three cycles inside Holy Ship take hours. Not business hours — wall clock hours. The agent
-              writes, the gate evaluates, the agent corrects, the gate evaluates again. No context switching. No waiting
-              for review. No Slack thread. No standup to discuss it. Hours to done, with mathematical proof of
-              correctness. Not days to done with engineering hope.
+              A human correction cycle is a calendar day. Three cycles is three days. Holy Ship does the same three
+              cycles in hours.
+            </p>
+            <p className="text-off-white/40">
+              No context switching. No waiting for review. No Slack thread. No standup. Hours to done with proof. Not
+              days to done with hope.
             </p>
           </div>
         </section>
@@ -83,14 +85,13 @@ export default function TheRealCostPage() {
 
           <div className="space-y-5 text-xl md:text-2xl leading-relaxed text-off-white/90 max-w-3xl mx-auto">
             <p>
-              If the spec is wrong and nobody catches it, the coder builds the wrong thing. The reviewer approves the
-              wrong thing. The tests validate the wrong thing. It ships. It breaks billing. Three engineers spend two
-              days finding the root cause. The fix takes six minutes.
+              Spec is wrong. Nobody catches it. Coder builds the wrong thing. Reviewer approves the wrong thing. Tests
+              validate the wrong thing. It ships. It breaks billing. Three engineers. Two days. The fix takes six minutes.
             </p>
 
-            <p>
-              A defect caught in requirements costs you one review. The same defect caught in production costs you an
-              incident, a postmortem, three engineers, and a customer apology.
+            <p className="text-2xl md:text-3xl font-bold text-off-white">
+              A defect caught in requirements costs one review. The same defect caught in production costs an incident,
+              a postmortem, three engineers, and a customer apology.
             </p>
 
             <p>
@@ -172,9 +173,12 @@ export default function TheRealCostPage() {
               $14,000 per minute of downtime.
             </p>
 
-            <p>Same bugs. Same corrections. Radically different price.</p>
-
-            <p className="text-2xl md:text-3xl font-bold text-off-white">You went home. It just worked. Holy Ship.</p>
+            <p className="text-2xl md:text-3xl font-bold text-off-white">
+              Same bugs. Same corrections. Radically different price.
+            </p>
+            <p className="text-off-white/40">
+              Compute costs pennies. Engineers cost salaries. Downtime costs $14,000 a minute. Pick which one catches your bugs.
+            </p>
           </div>
         </section>
       </FadeIn>

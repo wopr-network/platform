@@ -1,11 +1,19 @@
-"use client";
+import type { Metadata } from "next";
+import { FadeIn, Recognition } from "@/components/landing";
 
-import { FadeIn } from "@/components/landing";
+export const metadata: Metadata = {
+  title: "How It Works — The Engine Behind the Floor",
+  description:
+    "Not an IDE plugin. Not a copilot. An entire engineering pipeline with deterministic gates that prove code correct before it ships. The AI creates. The pipeline verifies.",
+};
 
 export default function HowItWorksPage() {
   return (
     <>
-      <section className="pt-10 md:pt-16 pb-12 flex flex-col justify-center items-center text-center px-6 md:px-16 lg:px-24">
+      <section className="pt-10 md:pt-16 pb-4 flex flex-col justify-center items-center text-center px-6 md:px-16 lg:px-24">
+        <p className="text-lg md:text-xl text-off-white/40 mb-6">
+          The AI brings the peaks. The pipeline eliminates the valleys.
+        </p>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-off-white max-w-4xl">
           Holy Ship is not an IDE plugin.{" "}
           <span className="text-off-white/50">
@@ -19,6 +27,10 @@ export default function HowItWorksPage() {
           Holy Ship is an entire engineering organization that ships code reliably.
         </p>
       </section>
+
+      <FadeIn>
+        <Recognition />
+      </FadeIn>
 
       <FadeIn>
         <section className="px-6 md:px-16 lg:px-24 py-12 md:py-16 mx-auto text-center">
@@ -70,7 +82,12 @@ export default function HowItWorksPage() {
               "looks good" — passes every check, every test, every standard your codebase demands.
             </p>
 
-            <p>The AI brings the creativity. The pipeline brings the correctness. That's the difference.</p>
+            <p className="text-2xl md:text-3xl font-bold text-off-white">
+              The AI brings the creativity. The pipeline brings the correctness.
+            </p>
+            <p className="text-off-white/40">
+              That's not a philosophy. That's a separation of concerns. The same one that makes compilers work.
+            </p>
           </div>
         </section>
       </FadeIn>
@@ -97,20 +114,16 @@ export default function HowItWorksPage() {
             </p>
 
             <p>
-              Not because the AI said so. The AI lies — that's the whole problem. Every model will confidently tell you
-              the code is correct while it's quietly dropping edge cases. Every agent will report "all tests pass" while
-              it's trivializing assertions to get green. You can't trust the AI's word. You never could.
-            </p>
-
-            <p>
-              So we don't. Every verification is mathematical. Not an AI's opinion of correctness — actual proof. Math
-              doesn't have bad days. Math doesn't cut corners. Math doesn't tell you what you want to hear. Math doesn't
-              lie.
+              The AI lies — that's the whole problem. Every model will confidently tell you the code is correct while
+              it's quietly dropping edge cases. Every agent will report "all tests pass" while it's trivializing
+              assertions to get green.
             </p>
 
             <p className="text-2xl md:text-3xl font-bold text-off-white">
-              When code ships from Holy Ship, it ships because it was proven correct. Not reviewed — proven. That's the
-              difference.
+              Math doesn't cut corners. Math doesn't tell you what you want to hear. Math doesn't lie.
+            </p>
+            <p className="text-off-white/40">
+              Not reviewed — proven. The same way a compiler proves a type is valid. There is no opinion. Only pass or fail.
             </p>
           </div>
         </section>
@@ -136,6 +149,9 @@ export default function HowItWorksPage() {
 
             <p className="text-2xl md:text-3xl font-bold text-off-white">
               Every mistake costs you once. Then the system inoculates itself so that mistake never happens again.
+            </p>
+            <p className="text-off-white/40">
+              Issue #1 costs three correction cycles. Issue #100 costs one. The floor rises. Your bill drops. The AI didn't get smarter — the engineering around it did.
             </p>
           </div>
         </section>

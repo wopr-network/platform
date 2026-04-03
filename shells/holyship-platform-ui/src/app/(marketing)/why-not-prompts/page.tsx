@@ -85,6 +85,7 @@ export default function WhyNotPromptsPage() {
           "If the context window fills up or the session crashes, the entire pipeline state is gone.",
         ]}
         punchline="An engine doesn't forget."
+        punchline2="It remembers everything. Recalls it intelligently. Your context window stays cheap because the engine already knows."
       />
 
       {/* Section 3: The Mailbox */}
@@ -97,6 +98,7 @@ export default function WhyNotPromptsPage() {
           "This is how programs communicated in 1985.",
         ]}
         punchline="An engine has event-sourced state with CAS guarantees."
+        punchline2="Messages don't get lost. Workers don't collide. Every state transition is atomic, recoverable, and free."
       />
 
       {/* Section 4: The Scratchpad */}
@@ -109,6 +111,7 @@ export default function WhyNotPromptsPage() {
           "The path is hardcoded into the system prompt. If two sessions run simultaneously, they collide.",
         ]}
         punchline="An engine has versioned, event-sourced artifacts that survive anything."
+        punchline2="Context is indexed and sandboxed for free. Only what matters reaches the window you're paying for. The floor rises — your token bill drops."
       />
 
       {/* Section 5: The Recovery */}
@@ -132,6 +135,7 @@ export default function WhyNotPromptsPage() {
           "Continues.",
         ]}
         punchline="Their state lives in a conversation. Ours lives in a database."
+        punchline2="Crash mid-task? The entity is still there. Another worker picks it up. Zero tokens wasted. Zero progress lost."
       />
 
       {/* Section 6: The Feature Flags */}
@@ -144,6 +148,7 @@ export default function WhyNotPromptsPage() {
           "You don't control the tool. The tool controls what you're allowed to use.",
         ]}
         punchline="An engine doesn't need permission from its vendor to run."
+        punchline2="Your pipeline. Your infrastructure. Your rules. No kill switches. No bird codenames. No one else's roadmap."
       />
 
       {/* Section 7: The Architecture */}

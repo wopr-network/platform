@@ -135,7 +135,7 @@ export function CostCurve() {
           fontFamily="'JetBrains Mono', monospace"
           textAnchor="start"
         >
-          Trad.
+          Traditional
         </text>
 
         {/* Holy Ship curve — rises WITH traditional at first, then peaks and trends DOWN */}

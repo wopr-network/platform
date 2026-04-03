@@ -1,11 +1,19 @@
-"use client";
-
+import type { Metadata } from "next";
 import { FadeIn } from "@/components/landing";
+
+export const metadata: Metadata = {
+  title: "The Learning Loop — Every Gate Failure Makes a Prompt Smarter",
+  description:
+    "Templated prompts pull from an ever-evolving knowledge base. Every gate failure teaches the system. Issue #100 costs a fraction of issue #1. The floor rises automatically.",
+};
 
 export default function TheLearningLoopPage() {
   return (
     <>
       <section className="pt-10 md:pt-16 pb-12 flex flex-col justify-center items-center text-center px-6 md:px-16 lg:px-24">
+        <p className="text-lg md:text-xl text-off-white/40 mb-6">
+          The floor rises. Every issue. Automatically.
+        </p>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-off-white max-w-4xl">
           The learning loop.
         </h1>
@@ -42,26 +50,76 @@ export default function TheLearningLoopPage() {
 
       <FadeIn>
         <section className="px-6 md:px-16 lg:px-24 py-12 md:py-16 mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-signal-orange mb-12">The mechanism.</h2>
+
+          <div className="space-y-5 text-xl md:text-2xl leading-relaxed text-off-white/90 max-w-3xl mx-auto">
+            <p>
+              Every prompt in Holy Ship is a template. Not a static file — a template that pulls from a living knowledge
+              base. Your API conventions, your error handling patterns, your naming rules, your past mistakes — all
+              indexed, all searchable, all injected into the prompt at the moment the agent needs them.
+            </p>
+
+            <p>
+              The template is the skeleton. The knowledge base is the brain. Together they produce a prompt that is
+              specific to your codebase, your domain, and the exact task being done right now.
+            </p>
+
+            <p className="text-2xl md:text-3xl font-bold text-off-white">
+              Template + knowledge base = a prompt that evolves without anyone touching it.
+            </p>
+          </div>
+        </section>
+      </FadeIn>
+
+      <FadeIn>
+        <section className="px-6 md:px-16 lg:px-24 py-12 md:py-16 mx-auto text-center">
+          <h2 className="text-3xl md:text-4xl font-bold text-signal-orange mb-12">Gate fails. Prompt gets better.</h2>
+
+          <div className="space-y-5 text-xl md:text-2xl leading-relaxed text-off-white/90 max-w-3xl mx-auto">
+            <p>
+              The agent writes code. The gate rejects it — tests fail, lint catches a pattern violation, the review
+              finds a security issue. That rejection isn't just feedback to the agent. It's feedback to the system.
+            </p>
+
+            <p>
+              The failure gets recorded. The knowledge base learns: "this codebase throws on missing data, never
+              defaults." Next time any agent touches that pattern, the prompt already knows. The gate doesn't need to
+              catch it again. The agent gets it right the first time.
+            </p>
+
+            <p className="text-2xl md:text-3xl font-bold text-off-white">
+              Every gate failure is a prompt getting smarter.
+            </p>
+            <p className="text-off-white/40">
+              The gate didn't just protect the codebase. It taught the system. That's the loop. That's why the
+              floor rises.
+            </p>
+          </div>
+        </section>
+      </FadeIn>
+
+      <FadeIn>
+        <section className="px-6 md:px-16 lg:px-24 py-12 md:py-16 mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-signal-orange mb-12">What updates.</h2>
 
           <div className="space-y-5 text-xl md:text-2xl leading-relaxed text-off-white/90 max-w-3xl mx-auto">
             <p>
-              When a spec gets rejected, the spec template learns what was missing. When a test fails, the code template
-              learns what was assumed. When a review catches a pattern violation, the review criteria get sharper. When
-              a production incident traces back to a missed edge case, that edge case gets encoded into the pipeline
-              permanently.
+              Spec rejected? The spec template learns what was missing. Tests fail? The code template learns what was
+              assumed. Review catches a violation? The review criteria get sharper. Production incident? That edge case
+              gets encoded into the pipeline permanently.
             </p>
 
             <p>
-              Every layer of the pipeline has its own prompt chain. Spec generation. Architecture validation.
-              Implementation. Testing strategy. Review criteria. Documentation standards. Each one evolves independently
-              based on what actually happened — not what someone guessed would happen.
+              Every layer has its own prompt chain. Spec. Architecture. Implementation. Testing. Review. Documentation.
+              Each one evolves independently based on what actually happened — not what someone guessed would happen.
             </p>
 
-            <p>
-              This isn't fine-tuning a model. The models are the same ones everyone uses. This is fine-tuning the
-              engineering process around the model — the instructions, the context, the domain knowledge, the
-              guardrails. The part that actually determines whether the output is correct.
+            <p className="text-2xl md:text-3xl font-bold text-off-white">
+              We don't fine-tune the model. We fine-tune the engineering around it.
+            </p>
+            <p className="text-off-white/40">
+              Same models everyone uses. Different instructions, different context, different guardrails. The part that
+              actually determines whether the output is correct.
             </p>
           </div>
         </section>
@@ -89,8 +147,10 @@ export default function TheLearningLoopPage() {
             </p>
 
             <p className="text-2xl md:text-3xl font-bold text-off-white">
-              The cost curve doesn't flatten. It trends down. Every issue you ship makes the next one cheaper, faster,
-              and more correct.
+              The cost curve doesn't flatten. It trends down.
+            </p>
+            <p className="text-off-white/40">
+              Three cycles. Two cycles. One cycle. Same models. Smarter engineering. Cheaper tokens. Higher floor.
             </p>
           </div>
         </section>
@@ -108,20 +168,18 @@ export default function TheLearningLoopPage() {
             </p>
 
             <p>
-              Every tool with static prompts is running on stale knowledge. They're generating code against a mental
-              model of your codebase that no longer exists. They don't know about the migration you ran last Tuesday.
-              They don't know about the pattern your team adopted last sprint. They don't know about the edge case that
-              took down production on Friday.
-            </p>
-
-            <p>
-              Holy Ship knows. Because Friday's incident updated the prompt chain. Tuesday's migration updated the
-              context. Last sprint's pattern is already encoded in the review criteria.
+              Every tool with static prompts is running on stale knowledge. They don't know about the migration you ran
+              last Tuesday. They don't know about the pattern your team adopted last sprint. They don't know about the
+              edge case that took down production on Friday.
             </p>
 
             <p className="text-2xl md:text-3xl font-bold text-off-white">
-              The system doesn't just keep up with your codebase. It learns from your codebase. Every day it works for
-              you, it gets better at working for you.
+              Their prompts rot. Ours evolve.
+            </p>
+            <p className="text-off-white/40">
+              Friday's incident is already in the knowledge base. Tuesday's migration is already in the context.
+              The prompt that fires tomorrow is smarter than the prompt that fired today. Automatically. Without anyone
+              touching it.
             </p>
           </div>
         </section>
@@ -145,8 +203,11 @@ export default function TheLearningLoopPage() {
             </p>
 
             <p className="text-2xl md:text-3xl font-bold text-off-white">
-              Every mistake inoculates the system. You pay for it once. Then it never happens again. That's not a
-              feature — that's a compounding advantage that grows every single day.
+              Every mistake inoculates the system. You pay for it once. Then it never happens again.
+            </p>
+            <p className="text-off-white/40">
+              Developers leave. The lesson leaves with them. The pipeline doesn't leave. The pipeline doesn't forget.
+              The pipeline doesn't take PTO.
             </p>
           </div>
         </section>

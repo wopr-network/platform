@@ -34,6 +34,12 @@ export const metadata: Metadata = {
     url: SITE_URL,
     images: [{ url: "/og", width: 1200, height: 630, alt: brand.productName }],
   },
+  twitter: {
+    card: "summary_large_image",
+    title: `${brand.productName} — Guaranteed Code Shipping`,
+    description: brand.tagline,
+    images: ["/og"],
+  },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

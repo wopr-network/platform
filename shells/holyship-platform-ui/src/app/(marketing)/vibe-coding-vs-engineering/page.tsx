@@ -1,85 +1,90 @@
-"use client";
-
+import type { Metadata } from "next";
 import { FadeIn } from "@/components/landing";
+
+export const metadata: Metadata = {
+  title: "Vibe Coding vs. Engineering — Hope vs. Proof",
+  description:
+    "Every step of the AI coding workflow, side by side. One side hopes the peaks hold. The other guarantees the valleys can't kill you. 13 steps compared.",
+};
 
 const steps = [
   {
     title: "The spec.",
     vibe: "Skip it. Just start coding. The AI will figure out what you meant.",
     engineered:
-      "Spec written and reviewed before a single line of code. Requirements validated. Edge cases identified. The agent knows exactly what to build because we told it exactly what to build.",
+      "Spec written and reviewed before a line of code exists. The agent knows what to build because we told it. Not because it guessed.",
   },
   {
     title: "The architecture.",
     vibe: "The AI knows best. Let it make decisions about your codebase it's never seen before.",
     engineered:
-      "Architecture validated against your codebase's actual patterns. Not what the model was trained on — what your repo actually does. Your conventions. Your abstractions. Your opinions.",
+      "Validated against your repo's actual patterns. Not the model's training data. Your conventions. Your opinions. Your code.",
   },
   {
     title: "The prompts.",
     vibe: "Static files on disk. Written once by an engineer who left. Rotting silently. Working fine on the demo. Falling apart on your code.",
     engineered:
-      "Alive. Constantly evolving. Shaped by every failure and every success across your codebase. The spec template learns from spec rejections. The code template learns from test failures. The review criteria learn from every bug that ever cost you money.",
+      "Alive. Every spec rejection sharpens the spec template. Every test failure sharpens the code template. Every bug sharpens the review. They never stop evolving.",
   },
   {
     title: "The context.",
     vibe: "Entire tool call output dumped into the context window you're paying for. Thousands of tokens of noise. Expensive. Slow. The model drowns in irrelevant information.",
     engineered:
-      "All context sandboxed and indexed for free. Only the relevant parts make it to the context window you pay for. The agent gets exactly the knowledge it needs — nothing more, nothing less.",
+      "Sandboxed and indexed for free. Only what matters reaches the window you pay for. Cheaper tokens. Faster responses. No drowning.",
   },
   {
     title: "The prompt engineering.",
     vibe: "One-size-fits-all system prompt. Same instructions whether you're building a REST API or a billing pipeline. Hope the model figures out the difference.",
     engineered:
-      "Dynamic. Per-task. Shaped by the history of your codebase, the domain you're working in, and the specific patterns this repo uses. Every prompt is tailored to the work being done right now.",
+      "Dynamic. Per-task. Shaped by your codebase's history, your domain, your patterns. Every prompt is built for the work being done right now.",
   },
   {
     title: "The implementation.",
     vibe: "Generate and pray. Cross your fingers. Read every line yourself because you don't trust it. You're the QA department now.",
     engineered:
-      "Deterministic checks against repo-specific gates at every step. The code doesn't proceed until it passes. Not because someone reviewed it — because it was proven correct.",
+      "Gates at every step. Code doesn't proceed until it passes. Not because someone reviewed it — because it was proven correct.",
   },
   {
     title: "The testing.",
     vibe: "AI says tests pass. It ran three of them. The assertions assert nothing. It wrote tests that test the mock, not the code. Green means nothing.",
     engineered:
-      "Every test runs. Assertions verified. Coverage measured. The agent doesn't get to decide which tests matter. The pipeline runs all of them. The gate doesn't open until they all pass.",
+      "Every test runs. Assertions verified. Coverage measured. The agent doesn't choose which tests matter. The gate doesn't open until they all pass.",
   },
   {
     title: "The review.",
     vibe: "LGTM. Looks good to me. Ship it. Nobody actually read the diff. The AI reviewed its own code and found it excellent.",
     engineered:
-      "Deterministic evaluation against your codebase's own standards. Not an opinion — a measurement. Lint rules, type checks, pattern conformance, security scanning. The reviewer doesn't have feelings. It has criteria.",
+      "Not an opinion — a measurement. Lint, types, patterns, security. The reviewer doesn't have feelings. It has criteria.",
   },
   {
     title: "The human.",
     vibe: "Babysitting the AI. Watching it code. Correcting it. Reviewing everything. You're a manager who does all the work. Congratulations on your new junior developer that never learns.",
     engineered:
-      "Humans at decision points, not supervision duty. You approve the spec. You approve the architecture. The pipeline handles everything between approval and merged PR. You make decisions. The system does work.",
+      "You approve the spec. You approve the architecture. Then you go home. The pipeline handles everything between approval and merged PR.",
   },
   {
     title: "The documentation.",
     vibe: "We'll do it later. We never do it later. The code is the documentation. The code is not the documentation.",
     engineered:
-      "Updated as part of the pipeline. Not optional. Not a follow-up ticket. The docs ship with the code because the gate won't open until they do.",
+      "Ships with the code. The gate won't open until it does. Not optional. Not a follow-up ticket. Done.",
   },
   {
     title: "The domain knowledge.",
     vibe: "In someone's head. Hope they don't leave. Hope they remember. Hope the next developer asks the right questions. They won't.",
     engineered:
-      "Encoded, versioned, evolving. Every successful pattern gets captured. Every failed approach gets recorded. The knowledge doesn't live in a person — it lives in the system. People leave. The system stays.",
+      "In the system. Encoded, versioned, evolving. People leave. The system stays. The knowledge compounds.",
   },
   {
     title: "The learning cycle.",
     vibe: "Doesn't exist. Every issue starts from zero. The AI makes the same mistakes on issue #100 that it made on issue #1. You correct it again. And again. And again.",
     engineered:
-      "Dedicated learning cycles after every issue. Every gate failure updates the prompt chain. Every mistake inoculates the system. The hundredth issue is cheaper, faster, and more correct than the first.",
+      "Every gate failure updates the prompt chain. Every mistake inoculates the system. Issue #100 costs a fraction of issue #1.",
   },
   {
     title: "The next issue.",
     vibe: "Start from scratch. Same static prompts. Same generic context. Same mistakes. Same corrections. Same babysitting. Groundhog Day with a terminal.",
     engineered:
-      "The system is smarter than last time. The prompts evolved. The context is sharper. The domain knowledge is deeper. Every issue you shipped made this one cheaper. The curve goes down.",
+      "Smarter prompts. Sharper context. Deeper knowledge. Cheaper tokens. Higher floor. The curve goes down.",
   },
 ];
 
@@ -87,6 +92,9 @@ export default function VibeCodingVsEngineeringPage() {
   return (
     <>
       <section className="pt-10 md:pt-16 pb-12 flex flex-col justify-center items-center text-center px-6 md:px-16 lg:px-24">
+        <p className="text-lg md:text-xl text-off-white/40 mb-6">
+          One side hopes the peaks hold. The other guarantees the valleys can't kill you.
+        </p>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-off-white max-w-4xl">
           Vibe coding vs. <span className="text-signal-orange">engineering.</span>
         </h1>

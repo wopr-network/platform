@@ -5,6 +5,7 @@ export { CostCurve } from "./cost-curve";
 export { FadeIn } from "./fade-in";
 export { LandingFooter } from "./footer";
 export { Hero } from "./hero";
+export { JaggedIntelligence } from "./jagged-intelligence";
 export { Nav } from "./nav";
 export { Recognition } from "./recognition";
 export { Story } from "./story";
