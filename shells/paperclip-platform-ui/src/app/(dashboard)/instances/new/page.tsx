@@ -432,10 +432,11 @@ export default function NewPaperclipInstancePage() {
       return;
     }
 
-    // All other entry prompts: fire LLM
+    // All other entry prompts: fire LLM after a brief delay (avoids 429 rate limits on free models)
     setPendingEntry(false);
 
     (async () => {
+      await new Promise((r) => setTimeout(r, 2000));
       const gate = await fireLLM(ctx.history, ctx.state, "entry", ctx.artifacts);
       if (!gate) return; // error occurred
 
