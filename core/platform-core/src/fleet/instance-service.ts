@@ -169,7 +169,7 @@ export class InstanceService {
           apiKey: gatewayKey,
           budgetCents: balance.toCentsRounded(),
           adminUser: { id: userId, email: userEmail, name },
-          agents: [{ name: "CEO", role: "ceo", title: "Chief Executive Officer" }],
+          agents: [{ name: (params.extra?.ceoName as string) || "CEO", role: "ceo", title: "Chief Executive Officer" }],
           extra: {
             instanceConfig: {
               deploymentMode: "hosted_proxy",
