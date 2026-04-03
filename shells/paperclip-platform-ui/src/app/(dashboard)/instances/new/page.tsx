@@ -595,7 +595,6 @@ export default function NewPaperclipInstancePage() {
                   }
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  disabled={streaming}
                   className="animate-[pulse_1.5s_ease-in-out_0.4s_1] focus:animate-none"
                   autoFocus
                 />
