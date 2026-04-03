@@ -2,10 +2,7 @@ import type { Request, RequestHandler } from "express";
 import { logger } from "./logger.js";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-const DEFAULT_DEV_ORIGINS = [
-  "http://localhost:3100",
-  "http://127.0.0.1:3100",
-];
+const DEFAULT_DEV_ORIGINS = ["http://localhost:3100", "http://127.0.0.1:3100"];
 
 function parseOrigin(value: string | undefined) {
   if (!value) return null;
@@ -66,14 +63,17 @@ export function boardMutationGuard(): RequestHandler {
     }
 
     if (!isTrustedBoardMutationRequest(req)) {
-      logger.warn({
-        method: req.method,
-        url: req.originalUrl,
-        origin: req.header("origin") ?? "(none)",
-        referer: req.header("referer") ?? "(none)",
-        host: req.header("host") ?? "(none)",
-        actorSource: req.actor.source,
-      }, "Board mutation blocked — untrusted origin");
+      logger.warn(
+        {
+          method: req.method,
+          url: req.originalUrl,
+          origin: req.header("origin") ?? "(none)",
+          referer: req.header("referer") ?? "(none)",
+          host: req.header("host") ?? "(none)",
+          actorSource: req.actor.source,
+        },
+        "Board mutation blocked — untrusted origin",
+      );
       res.status(403).json({ error: "Board mutation requires trusted browser origin" });
       return;
     }

@@ -74,7 +74,9 @@ export function executionWorkspaceRoutes(db: Db) {
 
   router.post("/execution-workspaces/:id/runtime-services/:action", async (req, res) => {
     const id = req.params.id as string;
-    const action = String(req.params.action ?? "").trim().toLowerCase();
+    const action = String(req.params.action ?? "")
+      .trim()
+      .toLowerCase();
     if (action !== "start" && action !== "stop" && action !== "restart") {
       res.status(404).json({ error: "Runtime service action not found" });
       return;
@@ -89,7 +91,9 @@ export function executionWorkspaceRoutes(db: Db) {
 
     const workspaceCwd = existing.cwd;
     if (!workspaceCwd) {
-      res.status(422).json({ error: "Execution workspace needs a local path before Paperclip can manage local runtime services" });
+      res
+        .status(422)
+        .json({ error: "Execution workspace needs a local path before Paperclip can manage local runtime services" });
       return;
     }
 
@@ -112,13 +116,17 @@ export function executionWorkspaceRoutes(db: Db) {
           )
           .then((rows) => rows[0] ?? null)
       : null;
-    const projectWorkspaceRuntime = readProjectWorkspaceRuntimeConfig(
-      (projectWorkspace?.metadata as Record<string, unknown> | null) ?? null,
-    )?.workspaceRuntime ?? null;
+    const projectWorkspaceRuntime =
+      readProjectWorkspaceRuntimeConfig((projectWorkspace?.metadata as Record<string, unknown> | null) ?? null)
+        ?.workspaceRuntime ?? null;
     const effectiveRuntimeConfig = existing.config?.workspaceRuntime ?? projectWorkspaceRuntime ?? null;
 
     if ((action === "start" || action === "restart") && !effectiveRuntimeConfig) {
-      res.status(422).json({ error: "Execution workspace has no runtime service configuration or inherited project workspace default" });
+      res
+        .status(422)
+        .json({
+          error: "Execution workspace has no runtime service configuration or inherited project workspace default",
+        });
       return;
     }
 
@@ -262,17 +270,21 @@ export function executionWorkspaceRoutes(db: Db) {
         : {}),
     };
     if (req.body.metadata !== undefined || req.body.config !== undefined) {
-      const requestedMetadata = req.body.metadata === undefined
-        ? (existing.metadata as Record<string, unknown> | null)
-        : (req.body.metadata as Record<string, unknown> | null);
-      patch.metadata = req.body.config === undefined
-        ? requestedMetadata
-        : mergeExecutionWorkspaceConfig(requestedMetadata, req.body.config ?? null);
+      const requestedMetadata =
+        req.body.metadata === undefined
+          ? (existing.metadata as Record<string, unknown> | null)
+          : (req.body.metadata as Record<string, unknown> | null);
+      patch.metadata =
+        req.body.config === undefined
+          ? requestedMetadata
+          : mergeExecutionWorkspaceConfig(requestedMetadata, req.body.config ?? null);
     }
     let workspace = existing;
     let cleanupWarnings: string[] = [];
     const configForCleanup = readExecutionWorkspaceConfig(
-      ((patch.metadata as Record<string, unknown> | null | undefined) ?? (existing.metadata as Record<string, unknown> | null)) ?? null,
+      (patch.metadata as Record<string, unknown> | null | undefined) ??
+        (existing.metadata as Record<string, unknown> | null) ??
+        null,
     );
 
     if (req.body.status === "archived" && existing.status !== "archived") {
@@ -310,12 +322,7 @@ export function executionWorkspaceRoutes(db: Db) {
             executionWorkspaceId: null,
             updatedAt: new Date(),
           })
-          .where(
-            and(
-              eq(issues.companyId, existing.companyId),
-              eq(issues.executionWorkspaceId, existing.id),
-            ),
-          );
+          .where(and(eq(issues.companyId, existing.companyId), eq(issues.executionWorkspaceId, existing.id)));
       }
 
       try {
@@ -331,7 +338,7 @@ export function executionWorkspaceRoutes(db: Db) {
                 cleanupCommand: projectWorkspaces.cleanupCommand,
               })
               .from(projectWorkspaces)
-            .where(
+              .where(
                 and(
                   eq(projectWorkspaces.id, existing.projectWorkspaceId),
                   eq(projectWorkspaces.companyId, existing.companyId),
@@ -351,7 +358,8 @@ export function executionWorkspaceRoutes(db: Db) {
         const cleanupResult = await cleanupExecutionWorkspaceArtifacts({
           workspace: existing,
           projectWorkspace,
-          teardownCommand: configForCleanup?.teardownCommand ?? projectPolicy?.workspaceStrategy?.teardownCommand ?? null,
+          teardownCommand:
+            configForCleanup?.teardownCommand ?? projectPolicy?.workspaceStrategy?.teardownCommand ?? null,
           cleanupCommand: configForCleanup?.cleanupCommand ?? null,
           recorder: workspaceOperationsSvc.createRecorder({
             companyId: existing.companyId,

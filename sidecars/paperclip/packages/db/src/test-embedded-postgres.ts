@@ -101,9 +101,7 @@ export async function getEmbeddedPostgresTestSupport(): Promise<EmbeddedPostgres
   return await embeddedPostgresSupportPromise;
 }
 
-export async function startEmbeddedPostgresTestDatabase(
-  tempDirPrefix: string,
-): Promise<EmbeddedPostgresTestDatabase> {
+export async function startEmbeddedPostgresTestDatabase(tempDirPrefix: string): Promise<EmbeddedPostgresTestDatabase> {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), tempDirPrefix));
   const port = await getAvailablePort();
   const EmbeddedPostgres = await getEmbeddedPostgresCtor();
@@ -137,8 +135,6 @@ export async function startEmbeddedPostgresTestDatabase(
   } catch (error) {
     await instance.stop().catch(() => {});
     fs.rmSync(dataDir, { recursive: true, force: true });
-    throw new Error(
-      `Failed to start embedded PostgreSQL test database: ${formatEmbeddedPostgresError(error)}`,
-    );
+    throw new Error(`Failed to start embedded PostgreSQL test database: ${formatEmbeddedPostgresError(error)}`);
   }
 }

@@ -25,7 +25,6 @@ interface PluginRecord {
   updatedAt: string;
 }
 
-
 // ---------------------------------------------------------------------------
 // Option types
 // ---------------------------------------------------------------------------
@@ -73,12 +72,7 @@ function formatPlugin(p: PluginRecord): string {
           ? pc.dim(p.status)
           : pc.yellow(p.status);
 
-  const parts = [
-    `key=${pc.bold(p.pluginKey)}`,
-    `status=${statusColor}`,
-    `version=${p.version}`,
-    `id=${pc.dim(p.id)}`,
-  ];
+  const parts = [`key=${pc.bold(p.pluginKey)}`, `status=${statusColor}`, `version=${p.version}`, `id=${pc.dim(p.id)}`];
 
   if (p.lastError) {
     parts.push(`error=${pc.red(p.lastError.slice(0, 80))}`);
@@ -205,8 +199,7 @@ export function registerPluginCommands(program: Command): void {
     plugin
       .command("uninstall <pluginKey>")
       .description(
-        "Uninstall a plugin by its plugin key or database ID.\n" +
-          "  Use --force to hard-purge all state and config.",
+        "Uninstall a plugin by its plugin key or database ID.\n" + "  Use --force to hard-purge all state and config.",
       )
       .option("--force", "Purge all plugin state and config (hard delete)", false)
       .action(async (pluginKey: string, opts: PluginUninstallOptions) => {
@@ -217,11 +210,7 @@ export function registerPluginCommands(program: Command): void {
 
           if (!ctx.json) {
             console.log(
-              pc.dim(
-                purge
-                  ? `Uninstalling and purging plugin: ${pluginKey}`
-                  : `Uninstalling plugin: ${pluginKey}`,
-              ),
+              pc.dim(purge ? `Uninstalling and purging plugin: ${pluginKey}` : `Uninstalling plugin: ${pluginKey}`),
             );
           }
 
@@ -251,9 +240,7 @@ export function registerPluginCommands(program: Command): void {
       .action(async (pluginKey: string, opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
-          const result = await ctx.api.post<PluginRecord>(
-            `/api/plugins/${encodeURIComponent(pluginKey)}/enable`,
-          );
+          const result = await ctx.api.post<PluginRecord>(`/api/plugins/${encodeURIComponent(pluginKey)}/enable`);
 
           if (ctx.json) {
             printOutput(result, { json: true });
@@ -277,9 +264,7 @@ export function registerPluginCommands(program: Command): void {
       .action(async (pluginKey: string, opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
-          const result = await ctx.api.post<PluginRecord>(
-            `/api/plugins/${encodeURIComponent(pluginKey)}/disable`,
-          );
+          const result = await ctx.api.post<PluginRecord>(`/api/plugins/${encodeURIComponent(pluginKey)}/disable`);
 
           if (ctx.json) {
             printOutput(result, { json: true });
@@ -303,9 +288,7 @@ export function registerPluginCommands(program: Command): void {
       .action(async (pluginKey: string, opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
-          const result = await ctx.api.get<PluginRecord>(
-            `/api/plugins/${encodeURIComponent(pluginKey)}`,
-          );
+          const result = await ctx.api.get<PluginRecord>(`/api/plugins/${encodeURIComponent(pluginKey)}`);
 
           if (ctx.json) {
             printOutput(result, { json: true });
@@ -337,16 +320,17 @@ export function registerPluginCommands(program: Command): void {
       .action(async (opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
-          const examples = await ctx.api.get<
-            Array<{
-              packageName: string;
-              pluginKey: string;
-              displayName: string;
-              description: string;
-              localPath: string;
-              tag: string;
-            }>
-          >("/api/plugins/examples");
+          const examples =
+            await ctx.api.get<
+              Array<{
+                packageName: string;
+                pluginKey: string;
+                displayName: string;
+                description: string;
+                localPath: string;
+                tag: string;
+              }>
+            >("/api/plugins/examples");
 
           if (ctx.json) {
             printOutput(examples, { json: true });

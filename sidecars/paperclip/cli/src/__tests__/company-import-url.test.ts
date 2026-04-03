@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  isGithubShorthand,
-  isGithubUrl,
-  isHttpUrl,
-  normalizeGithubImportSource,
-} from "../commands/client/company.js";
+import { isGithubShorthand, isGithubUrl, isHttpUrl, normalizeGithubImportSource } from "../commands/client/company.js";
 
 describe("isHttpUrl", () => {
   it("matches http URLs", () => {
@@ -63,12 +58,7 @@ describe("normalizeGithubImportSource", () => {
 
   it("applies --ref to existing GitHub tree URLs without losing the package path", () => {
     expect(
-      normalizeGithubImportSource(
-        "https://github.com/paperclipai/companies/tree/main/gstack",
-        "release/2026-03-23",
-      ),
-    ).toBe(
-      "https://github.com/paperclipai/companies?ref=release%2F2026-03-23&path=gstack",
-    );
+      normalizeGithubImportSource("https://github.com/paperclipai/companies/tree/main/gstack", "release/2026-03-23"),
+    ).toBe("https://github.com/paperclipai/companies?ref=release%2F2026-03-23&path=gstack");
   });
 });

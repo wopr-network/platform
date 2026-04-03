@@ -44,11 +44,7 @@ export function createEmbeddedPostgresLogBuffer(limit = DEFAULT_RECENT_LOG_LIMIT
   return {
     append(message: unknown) {
       const text =
-        typeof message === "string"
-          ? message
-          : message instanceof Error
-            ? message.message
-            : String(message ?? "");
+        typeof message === "string" ? message : message instanceof Error ? message.message : String(message ?? "");
 
       for (const rawLine of text.split(/\r?\n/)) {
         const line = rawLine.trim();

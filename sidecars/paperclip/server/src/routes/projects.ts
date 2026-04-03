@@ -11,7 +11,10 @@ import { validate } from "../middleware/validate.js";
 import { projectService, logActivity, workspaceOperationService } from "../services/index.js";
 import { conflict } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
-import { startRuntimeServicesForWorkspaceControl, stopRuntimeServicesForProjectWorkspace } from "../services/workspace-runtime.js";
+import {
+  startRuntimeServicesForWorkspaceControl,
+  stopRuntimeServicesForProjectWorkspace,
+} from "../services/workspace-runtime.js";
 
 export function projectRoutes(db: Db) {
   const router = Router();
@@ -21,9 +24,7 @@ export function projectRoutes(db: Db) {
   async function resolveCompanyIdForProjectReference(req: Request) {
     const companyIdQuery = req.query.companyId;
     const requestedCompanyId =
-      typeof companyIdQuery === "string" && companyIdQuery.trim().length > 0
-        ? companyIdQuery.trim()
-        : null;
+      typeof companyIdQuery === "string" && companyIdQuery.trim().length > 0 ? companyIdQuery.trim() : null;
     if (requestedCompanyId) {
       assertCompanyAccess(req, requestedCompanyId);
       return requestedCompanyId;
@@ -189,52 +190,50 @@ export function projectRoutes(db: Db) {
     res.status(201).json(workspace);
   });
 
-  router.patch(
-    "/projects/:id/workspaces/:workspaceId",
-    validate(updateProjectWorkspaceSchema),
-    async (req, res) => {
-      const id = req.params.id as string;
-      const workspaceId = req.params.workspaceId as string;
-      const existing = await svc.getById(id);
-      if (!existing) {
-        res.status(404).json({ error: "Project not found" });
-        return;
-      }
-      assertCompanyAccess(req, existing.companyId);
-      const workspaceExists = (await svc.listWorkspaces(id)).some((workspace) => workspace.id === workspaceId);
-      if (!workspaceExists) {
-        res.status(404).json({ error: "Project workspace not found" });
-        return;
-      }
-      const workspace = await svc.updateWorkspace(id, workspaceId, req.body);
-      if (!workspace) {
-        res.status(422).json({ error: "Invalid project workspace payload" });
-        return;
-      }
+  router.patch("/projects/:id/workspaces/:workspaceId", validate(updateProjectWorkspaceSchema), async (req, res) => {
+    const id = req.params.id as string;
+    const workspaceId = req.params.workspaceId as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    const workspaceExists = (await svc.listWorkspaces(id)).some((workspace) => workspace.id === workspaceId);
+    if (!workspaceExists) {
+      res.status(404).json({ error: "Project workspace not found" });
+      return;
+    }
+    const workspace = await svc.updateWorkspace(id, workspaceId, req.body);
+    if (!workspace) {
+      res.status(422).json({ error: "Invalid project workspace payload" });
+      return;
+    }
 
-      const actor = getActorInfo(req);
-      await logActivity(db, {
-        companyId: existing.companyId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
-        agentId: actor.agentId,
-        action: "project.workspace_updated",
-        entityType: "project",
-        entityId: id,
-        details: {
-          workspaceId: workspace.id,
-          changedKeys: Object.keys(req.body).sort(),
-        },
-      });
+    const actor = getActorInfo(req);
+    await logActivity(db, {
+      companyId: existing.companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      action: "project.workspace_updated",
+      entityType: "project",
+      entityId: id,
+      details: {
+        workspaceId: workspace.id,
+        changedKeys: Object.keys(req.body).sort(),
+      },
+    });
 
-      res.json(workspace);
-    },
-  );
+    res.json(workspace);
+  });
 
   router.post("/projects/:id/workspaces/:workspaceId/runtime-services/:action", async (req, res) => {
     const id = req.params.id as string;
     const workspaceId = req.params.workspaceId as string;
-    const action = String(req.params.action ?? "").trim().toLowerCase();
+    const action = String(req.params.action ?? "")
+      .trim()
+      .toLowerCase();
     if (action !== "start" && action !== "stop" && action !== "restart") {
       res.status(404).json({ error: "Runtime service action not found" });
       return;
@@ -255,7 +254,9 @@ export function projectRoutes(db: Db) {
 
     const workspaceCwd = workspace.cwd;
     if (!workspaceCwd) {
-      res.status(422).json({ error: "Project workspace needs a local path before Paperclip can manage local runtime services" });
+      res
+        .status(422)
+        .json({ error: "Project workspace needs a local path before Paperclip can manage local runtime services" });
       return;
     }
 
@@ -348,7 +349,8 @@ export function projectRoutes(db: Db) {
       },
     });
 
-    const updatedWorkspace = (await svc.listWorkspaces(project.id)).find((entry) => entry.id === workspace.id) ?? workspace;
+    const updatedWorkspace =
+      (await svc.listWorkspaces(project.id)).find((entry) => entry.id === workspace.id) ?? workspace;
 
     await logActivity(db, {
       companyId: project.companyId,

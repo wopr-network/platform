@@ -20,14 +20,9 @@ export function resolveNextIssueGoalId(input: {
   projectGoalId?: MaybeId;
   defaultGoalId: MaybeId;
 }): string | null {
-  const projectId =
-    input.projectId !== undefined ? input.projectId : input.currentProjectId;
+  const projectId = input.projectId !== undefined ? input.projectId : input.currentProjectId;
   const projectGoalId =
-    input.projectGoalId !== undefined
-      ? input.projectGoalId
-      : projectId
-        ? input.currentProjectGoalId
-        : null;
+    input.projectGoalId !== undefined ? input.projectGoalId : projectId ? input.currentProjectGoalId : null;
 
   const resolveFallbackGoalId = (targetProjectId: MaybeId, targetProjectGoalId: MaybeId) => {
     if (targetProjectId) return targetProjectGoalId ?? null;
@@ -38,10 +33,7 @@ export function resolveNextIssueGoalId(input: {
     return input.goalId ?? resolveFallbackGoalId(projectId, projectGoalId);
   }
 
-  const currentFallbackGoalId = resolveFallbackGoalId(
-    input.currentProjectId,
-    input.currentProjectGoalId,
-  );
+  const currentFallbackGoalId = resolveFallbackGoalId(input.currentProjectId, input.currentProjectGoalId);
   const nextFallbackGoalId = resolveFallbackGoalId(projectId, projectGoalId);
 
   if (!input.currentGoalId) {

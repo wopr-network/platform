@@ -131,14 +131,7 @@ function resolvePathWithinRoot(rootPath: string, relativePath: string): string {
 }
 
 function resolveManagedInstructionsRoot(agent: AgentLike): string {
-  return path.resolve(
-    resolvePaperclipInstanceRoot(),
-    "companies",
-    agent.companyId,
-    "agents",
-    agent.id,
-    "instructions",
-  );
+  return path.resolve(resolvePaperclipInstanceRoot(), "companies", agent.companyId, "agents", agent.id, "instructions");
 }
 
 function resolveLegacyInstructionsPath(candidatePath: string, config: Record<string, unknown>): string {
@@ -163,10 +156,10 @@ function shouldIgnoreInstructionsEntry(entry: { name: string; isDirectory(): boo
   }
   if (!entry.isFile()) return false;
   return (
-    IGNORED_INSTRUCTIONS_FILE_NAMES.has(entry.name)
-    || entry.name.startsWith("._")
-    || entry.name.endsWith(".pyc")
-    || entry.name.endsWith(".pyo")
+    IGNORED_INSTRUCTIONS_FILE_NAMES.has(entry.name) ||
+    entry.name.startsWith("._") ||
+    entry.name.endsWith(".pyc") ||
+    entry.name.endsWith(".pyo")
   );
 }
 
@@ -194,7 +187,11 @@ async function listFilesRecursive(rootPath: string): Promise<string[]> {
   return output.sort((left, right) => left.localeCompare(right));
 }
 
-async function readFileSummary(rootPath: string, relativePath: string, entryFile: string): Promise<AgentInstructionsFileSummary> {
+async function readFileSummary(
+  rootPath: string,
+  relativePath: string,
+  entryFile: string,
+): Promise<AgentInstructionsFileSummary> {
   const absolutePath = resolvePathWithinRoot(rootPath, relativePath);
   const stat = await fs.stat(absolutePath);
   return {
@@ -247,12 +244,15 @@ function deriveBundleState(agent: AgentLike): BundleState {
       const resolvedLegacyPath = resolveLegacyInstructionsPath(legacyInstructionsPath, config);
       rootPath = path.dirname(resolvedLegacyPath);
       entryFile = path.basename(resolvedLegacyPath);
-      mode = resolvedLegacyPath.startsWith(`${resolveManagedInstructionsRoot(agent)}${path.sep}`)
-        || resolvedLegacyPath === path.join(resolveManagedInstructionsRoot(agent), entryFile)
-        ? "managed"
-        : "external";
+      mode =
+        resolvedLegacyPath.startsWith(`${resolveManagedInstructionsRoot(agent)}${path.sep}`) ||
+        resolvedLegacyPath === path.join(resolveManagedInstructionsRoot(agent), entryFile)
+          ? "managed"
+          : "external";
       if (!path.isAbsolute(legacyInstructionsPath)) {
-        warnings.push("Using legacy relative instructionsFilePath; migrate this agent to a managed or absolute external bundle.");
+        warnings.push(
+          "Using legacy relative instructionsFilePath; migrate this agent to a managed or absolute external bundle.",
+        );
       }
     } catch (err) {
       warnings.push(err instanceof Error ? err.message : String(err));
@@ -329,7 +329,11 @@ async function recoverManagedBundleState(agent: AgentLike, state: BundleState): 
   };
 }
 
-function toBundle(agent: AgentLike, state: BundleState, files: AgentInstructionsFileSummary[]): AgentInstructionsBundle {
+function toBundle(
+  agent: AgentLike,
+  state: BundleState,
+  files: AgentInstructionsFileSummary[],
+): AgentInstructionsBundle {
   const nextFiles = [...files];
   if (state.legacyPromptTemplateActive && !nextFiles.some((file) => file.path === LEGACY_PROMPT_TEMPLATE_PATH)) {
     const legacyPromptTemplate = asString(state.config[PROMPT_KEY]) ?? "";
@@ -392,11 +396,11 @@ function buildPersistedBundleConfig(
   const currentRootPath = current.rootPath ? path.resolve(current.rootPath) : null;
   const derivedRootPath = derived.rootPath ? path.resolve(derived.rootPath) : null;
   const configMatchesRecoveredState =
-    derived.mode === current.mode
-    && derivedRootPath !== null
-    && currentRootPath !== null
-    && derivedRootPath === currentRootPath
-    && derived.entryFile === current.entryFile;
+    derived.mode === current.mode &&
+    derivedRootPath !== null &&
+    currentRootPath !== null &&
+    derivedRootPath === currentRootPath &&
+    derived.entryFile === current.entryFile;
 
   if (configMatchesRecoveredState && !options?.clearLegacyPromptTemplate) {
     return current.config;
@@ -444,10 +448,11 @@ export function syncInstructionsBundleConfigFromFilePath(
   const resolvedPath = resolveLegacyInstructionsPath(instructionsFilePath, adapterConfig);
   const rootPath = path.dirname(resolvedPath);
   const entryFile = path.basename(resolvedPath);
-  const mode: BundleMode = resolvedPath.startsWith(`${resolveManagedInstructionsRoot(agent)}${path.sep}`)
-    || resolvedPath === path.join(resolveManagedInstructionsRoot(agent), entryFile)
-    ? "managed"
-    : "external";
+  const mode: BundleMode =
+    resolvedPath.startsWith(`${resolveManagedInstructionsRoot(agent)}${path.sep}`) ||
+    resolvedPath === path.join(resolveManagedInstructionsRoot(agent), entryFile)
+      ? "managed"
+      : "external";
   return applyBundleConfig(next, { mode, rootPath, entryFile });
 }
 
@@ -457,13 +462,19 @@ export function agentInstructionsService() {
     if (!state.rootPath) return toBundle(agent, state, []);
     const stat = await statIfExists(state.rootPath);
     if (!stat?.isDirectory()) {
-      return toBundle(agent, {
-        ...state,
-        warnings: [...state.warnings, `Instructions root does not exist: ${state.rootPath}`],
-      }, []);
+      return toBundle(
+        agent,
+        {
+          ...state,
+          warnings: [...state.warnings, `Instructions root does not exist: ${state.rootPath}`],
+        },
+        [],
+      );
     }
     const files = await listFilesRecursive(state.rootPath);
-    const summaries = await Promise.all(files.map((relativePath) => readFileSummary(state.rootPath!, relativePath, state.entryFile)));
+    const summaries = await Promise.all(
+      files.map((relativePath) => readFileSummary(state.rootPath!, relativePath, state.entryFile)),
+    );
     return toBundle(agent, state, summaries);
   }
 
@@ -625,14 +636,14 @@ export function agentInstructionsService() {
     await fs.mkdir(path.dirname(absolutePath), { recursive: true });
     await fs.writeFile(absolutePath, content, "utf8");
     const nextAgent = { ...agent, adapterConfig: prepared.adapterConfig };
-    const [bundle, file] = await Promise.all([
-      getBundle(nextAgent),
-      readFile(nextAgent, relativePath),
-    ]);
+    const [bundle, file] = await Promise.all([getBundle(nextAgent), readFile(nextAgent, relativePath)]);
     return { bundle, file, adapterConfig: prepared.adapterConfig };
   }
 
-  async function deleteFile(agent: AgentLike, relativePath: string): Promise<{
+  async function deleteFile(
+    agent: AgentLike,
+    relativePath: string,
+  ): Promise<{
     bundle: AgentInstructionsBundle;
     adapterConfig: Record<string, unknown>;
   }> {
@@ -663,11 +674,15 @@ export function agentInstructionsService() {
       const stat = await statIfExists(state.rootPath);
       if (stat?.isDirectory()) {
         const relativePaths = await listFilesRecursive(state.rootPath);
-        const files = Object.fromEntries(await Promise.all(relativePaths.map(async (relativePath) => {
-          const absolutePath = resolvePathWithinRoot(state.rootPath!, relativePath);
-          const content = await fs.readFile(absolutePath, "utf8");
-          return [relativePath, content] as const;
-        })));
+        const files = Object.fromEntries(
+          await Promise.all(
+            relativePaths.map(async (relativePath) => {
+              const absolutePath = resolvePathWithinRoot(state.rootPath!, relativePath);
+              const content = await fs.readFile(absolutePath, "utf8");
+              return [relativePath, content] as const;
+            }),
+          ),
+        );
         if (Object.keys(files).length > 0) {
           return { files, entryFile: state.entryFile, warnings: state.warnings };
         }
@@ -699,10 +714,9 @@ export function agentInstructionsService() {
     }
     await fs.mkdir(rootPath, { recursive: true });
 
-    const normalizedEntries = Object.entries(files).map(([relativePath, content]) => [
-      normalizeRelativeFilePath(relativePath),
-      content,
-    ] as const);
+    const normalizedEntries = Object.entries(files).map(
+      ([relativePath, content]) => [normalizeRelativeFilePath(relativePath), content] as const,
+    );
     for (const [relativePath, content] of normalizedEntries) {
       const absolutePath = resolvePathWithinRoot(rootPath, relativePath);
       await fs.mkdir(path.dirname(absolutePath), { recursive: true });

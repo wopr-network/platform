@@ -262,21 +262,15 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const inboxArchivedByUserFilterRaw = req.query.inboxArchivedByUserId as string | undefined;
     const unreadForUserFilterRaw = req.query.unreadForUserId as string | undefined;
     const assigneeUserId =
-      assigneeUserFilterRaw === "me" && req.actor.type === "board"
-        ? req.actor.userId
-        : assigneeUserFilterRaw;
+      assigneeUserFilterRaw === "me" && req.actor.type === "board" ? req.actor.userId : assigneeUserFilterRaw;
     const touchedByUserId =
-      touchedByUserFilterRaw === "me" && req.actor.type === "board"
-        ? req.actor.userId
-        : touchedByUserFilterRaw;
+      touchedByUserFilterRaw === "me" && req.actor.type === "board" ? req.actor.userId : touchedByUserFilterRaw;
     const inboxArchivedByUserId =
       inboxArchivedByUserFilterRaw === "me" && req.actor.type === "board"
         ? req.actor.userId
         : inboxArchivedByUserFilterRaw;
     const unreadForUserId =
-      unreadForUserFilterRaw === "me" && req.actor.type === "board"
-        ? req.actor.userId
-        : unreadForUserFilterRaw;
+      unreadForUserFilterRaw === "me" && req.actor.type === "board" ? req.actor.userId : unreadForUserFilterRaw;
 
     if (assigneeUserFilterRaw === "me" && (!assigneeUserId || req.actor.type !== "board")) {
       res.status(403).json({ error: "assigneeUserId=me requires board authentication" });
@@ -384,9 +378,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
       svc.findMentionedProjectIds(issue.id),
       documentsSvc.getIssueDocumentPayload(issue),
     ]);
-    const mentionedProjects = mentionedProjectIds.length > 0
-      ? await projectsSvc.listByIds(issue.companyId, mentionedProjectIds)
-      : [];
+    const mentionedProjects =
+      mentionedProjectIds.length > 0 ? await projectsSvc.listByIds(issue.companyId, mentionedProjectIds) : [];
     const currentExecutionWorkspace = issue.executionWorkspaceId
       ? await executionWorkspacesSvc.getById(issue.executionWorkspaceId)
       : null;
@@ -465,10 +458,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
           }
         : null,
       commentCursor,
-      wakeComment:
-        wakeComment && wakeComment.issueId === issue.id
-          ? wakeComment
-          : null,
+      wakeComment: wakeComment && wakeComment.issueId === issue.id ? wakeComment : null,
     });
   });
 
@@ -504,7 +494,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
-    const keyParsed = issueDocumentKeySchema.safeParse(String(req.params.key ?? "").trim().toLowerCase());
+    const keyParsed = issueDocumentKeySchema.safeParse(
+      String(req.params.key ?? "")
+        .trim()
+        .toLowerCase(),
+    );
     if (!keyParsed.success) {
       res.status(400).json({ error: "Invalid document key", details: keyParsed.error.issues });
       return;
@@ -525,7 +519,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
-    const keyParsed = issueDocumentKeySchema.safeParse(String(req.params.key ?? "").trim().toLowerCase());
+    const keyParsed = issueDocumentKeySchema.safeParse(
+      String(req.params.key ?? "")
+        .trim()
+        .toLowerCase(),
+    );
     if (!keyParsed.success) {
       res.status(400).json({ error: "Invalid document key", details: keyParsed.error.issues });
       return;
@@ -574,7 +572,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
       return;
     }
     assertCompanyAccess(req, issue.companyId);
-    const keyParsed = issueDocumentKeySchema.safeParse(String(req.params.key ?? "").trim().toLowerCase());
+    const keyParsed = issueDocumentKeySchema.safeParse(
+      String(req.params.key ?? "")
+        .trim()
+        .toLowerCase(),
+    );
     if (!keyParsed.success) {
       res.status(400).json({ error: "Invalid document key", details: keyParsed.error.issues });
       return;
@@ -595,7 +597,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
         return;
       }
       assertCompanyAccess(req, issue.companyId);
-      const keyParsed = issueDocumentKeySchema.safeParse(String(req.params.key ?? "").trim().toLowerCase());
+      const keyParsed = issueDocumentKeySchema.safeParse(
+        String(req.params.key ?? "")
+          .trim()
+          .toLowerCase(),
+      );
       if (!keyParsed.success) {
         res.status(400).json({ error: "Invalid document key", details: keyParsed.error.issues });
         return;
@@ -646,7 +652,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
       res.status(403).json({ error: "Board authentication required" });
       return;
     }
-    const keyParsed = issueDocumentKeySchema.safeParse(String(req.params.key ?? "").trim().toLowerCase());
+    const keyParsed = issueDocumentKeySchema.safeParse(
+      String(req.params.key ?? "")
+        .trim()
+        .toLowerCase(),
+    );
     if (!keyParsed.success) {
       res.status(400).json({ error: "Invalid document key", details: keyParsed.error.issues });
       return;
@@ -1085,10 +1095,8 @@ export function issueRoutes(db: Db, storage: StorageService) {
             issueId: id,
             companyId: existing.companyId,
             assigneePatch: {
-              assigneeAgentId:
-                req.body.assigneeAgentId === undefined ? "__omitted__" : req.body.assigneeAgentId,
-              assigneeUserId:
-                req.body.assigneeUserId === undefined ? "__omitted__" : req.body.assigneeUserId,
+              assigneeAgentId: req.body.assigneeAgentId === undefined ? "__omitted__" : req.body.assigneeAgentId,
+              assigneeUserId: req.body.assigneeUserId === undefined ? "__omitted__" : req.body.assigneeUserId,
             },
             currentAssignee: {
               assigneeAgentId: existing.assigneeAgentId,
@@ -1109,25 +1117,27 @@ export function issueRoutes(db: Db, storage: StorageService) {
     await routinesSvc.syncRunStatusForIssue(issue.id);
 
     if (actor.runId) {
-      await heartbeat.reportRunActivity(actor.runId).catch((err) =>
-        logger.warn({ err, runId: actor.runId }, "failed to clear detached run warning after issue activity"));
+      await heartbeat
+        .reportRunActivity(actor.runId)
+        .catch((err) =>
+          logger.warn({ err, runId: actor.runId }, "failed to clear detached run warning after issue activity"),
+        );
     }
 
     // Build activity details with previous values for changed fields
     const previous: Record<string, unknown> = {};
     for (const key of Object.keys(updateFields)) {
-      if (key in existing && (existing as Record<string, unknown>)[key] !== (updateFields as Record<string, unknown>)[key]) {
+      if (
+        key in existing &&
+        (existing as Record<string, unknown>)[key] !== (updateFields as Record<string, unknown>)[key]
+      ) {
         previous[key] = (existing as Record<string, unknown>)[key];
       }
     }
 
     const hasFieldChanges = Object.keys(previous).length > 0;
     const reopened =
-      commentBody &&
-      reopenRequested === true &&
-      isClosed &&
-      previous.status !== undefined &&
-      issue.status === "todo";
+      commentBody && reopenRequested === true && isClosed && previous.status !== undefined && issue.status === "todo";
     const reopenFromStatus = reopened ? existing.status : null;
     await logActivity(db, {
       companyId: issue.companyId,
@@ -1174,14 +1184,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
           ...(hasFieldChanges ? { updated: true } : {}),
         },
       });
-
     }
 
     const assigneeChanged = assigneeWillChange;
     const statusChangedFromBacklog =
-      existing.status === "backlog" &&
-      issue.status !== "backlog" &&
-      req.body.status !== undefined;
+      existing.status === "backlog" && issue.status !== "backlog" && req.body.status !== undefined;
 
     // Merge all wakeups from this update into one enqueue per agent to avoid duplicate runs.
     void (async () => {
@@ -1287,7 +1294,10 @@ export function issueRoutes(db: Db, storage: StorageService) {
       try {
         await storage.deleteObject(attachment.companyId, attachment.objectKey);
       } catch (err) {
-        logger.warn({ err, issueId: id, attachmentId: attachment.id }, "failed to delete attachment object during issue delete");
+        logger.warn(
+          { err, issueId: id, attachmentId: attachment.id },
+          "failed to delete attachment object during issue delete",
+        );
       }
     }
 
@@ -1353,7 +1363,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     if (
       shouldWakeAssigneeOnCheckout({
         actorType: req.actor.type,
-        actorAgentId: req.actor.type === "agent" ? req.actor.agentId ?? null : null,
+        actorAgentId: req.actor.type === "agent" ? (req.actor.agentId ?? null) : null,
         checkoutAgentId: req.body.agentId,
         checkoutRunId,
       })
@@ -1386,11 +1396,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     const actorRunId = requireAgentRunId(req, res);
     if (req.actor.type === "agent" && !actorRunId) return;
 
-    const released = await svc.release(
-      id,
-      req.actor.type === "agent" ? req.actor.agentId : undefined,
-      actorRunId,
-    );
+    const released = await svc.release(id, req.actor.type === "agent" ? req.actor.agentId : undefined, actorRunId);
     if (!released) {
       res.status(404).json({ error: "Issue not found" });
       return;
@@ -1426,13 +1432,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
           ? req.query.afterCommentId.trim()
           : null;
     const order =
-      typeof req.query.order === "string" && req.query.order.trim().toLowerCase() === "asc"
-        ? "asc"
-        : "desc";
+      typeof req.query.order === "string" && req.query.order.trim().toLowerCase() === "asc" ? "asc" : "desc";
     const limitRaw =
-      typeof req.query.limit === "string" && req.query.limit.trim().length > 0
-        ? Number(req.query.limit)
-        : null;
+      typeof req.query.limit === "string" && req.query.limit.trim().length > 0 ? Number(req.query.limit) : null;
     const limit =
       limitRaw && Number.isFinite(limitRaw) && limitRaw > 0
         ? Math.min(Math.floor(limitRaw), MAX_ISSUE_COMMENT_LIMIT)
@@ -1542,8 +1544,11 @@ export function issueRoutes(db: Db, storage: StorageService) {
     });
 
     if (actor.runId) {
-      await heartbeat.reportRunActivity(actor.runId).catch((err) =>
-        logger.warn({ err, runId: actor.runId }, "failed to clear detached run warning after issue comment"));
+      await heartbeat
+        .reportRunActivity(actor.runId)
+        .catch((err) =>
+          logger.warn({ err, runId: actor.runId }, "failed to clear detached run warning after issue comment"),
+        );
     }
 
     await logActivity(db, {
@@ -1653,7 +1658,9 @@ export function issueRoutes(db: Db, storage: StorageService) {
       for (const [agentId, wakeup] of wakeups.entries()) {
         heartbeat
           .wakeup(agentId, wakeup)
-          .catch((err) => logger.warn({ err, issueId: currentIssue.id, agentId }, "failed to wake agent on issue comment"));
+          .catch((err) =>
+            logger.warn({ err, issueId: currentIssue.id, agentId }, "failed to wake agent on issue comment"),
+          );
       }
     })();
 
@@ -1777,7 +1784,7 @@ export function issueRoutes(db: Db, storage: StorageService) {
     res.setHeader("Content-Length", String(attachment.byteSize || object.contentLength || 0));
     res.setHeader("Cache-Control", "private, max-age=60");
     const filename = attachment.originalFilename ?? "attachment";
-    res.setHeader("Content-Disposition", `inline; filename=\"${filename.replaceAll("\"", "")}\"`);
+    res.setHeader("Content-Disposition", `inline; filename=\"${filename.replaceAll('"', "")}\"`);
 
     object.stream.on("error", (err) => {
       next(err);

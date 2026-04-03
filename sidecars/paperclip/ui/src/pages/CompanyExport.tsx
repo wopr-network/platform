@@ -28,11 +28,7 @@ import { useAgentOrder } from "../hooks/useAgentOrder";
 import { useProjectOrder } from "../hooks/useProjectOrder";
 import { buildPortableSidebarOrder } from "../lib/company-portability-sidebar";
 import { getPortableFileDataUrl, getPortableFileText, isPortableImageFile } from "../lib/portable-files";
-import {
-  Download,
-  Package,
-  Search,
-} from "lucide-react";
+import { Download, Package, Search } from "lucide-react";
 import {
   type FileTreeNode,
   type FrontmatterData,
@@ -87,7 +83,7 @@ function filterPaperclipYaml(yaml: string, checkedFiles: Set<string>): string {
   const sidebarSections = new Set(["agents", "projects"]);
 
   let currentSection: string | null = null; // top-level key (e.g. "agents")
-  let currentEntry: string | null = null;   // slug under that section
+  let currentEntry: string | null = null; // slug under that section
   let includeEntry = true;
   let currentSidebarList: string | null = null;
   let currentSidebarHeaderLine: string | null = null;
@@ -214,14 +210,10 @@ function filterTree(nodes: FileTreeNode[], query: string): FileTreeNode[] {
   return nodes
     .map((node) => {
       if (node.kind === "file") {
-        return node.name.toLowerCase().includes(lower) || node.path.toLowerCase().includes(lower)
-          ? node
-          : null;
+        return node.name.toLowerCase().includes(lower) || node.path.toLowerCase().includes(lower) ? node : null;
       }
       const filteredChildren = filterTree(node.children, query);
-      return filteredChildren.length > 0
-        ? { ...node, children: filteredChildren }
-        : null;
+      return filteredChildren.length > 0 ? { ...node, children: filteredChildren } : null;
     })
     .filter((n): n is FileTreeNode => n !== null);
 }
@@ -249,20 +241,22 @@ function collectMatchedParentDirs(nodes: FileTreeNode[], query: string): Set<str
 
 /** Sort tree: checked files first, then unchecked */
 function sortByChecked(nodes: FileTreeNode[], checkedFiles: Set<string>): FileTreeNode[] {
-  return nodes.map((node) => {
-    if (node.kind === "dir") {
-      return { ...node, children: sortByChecked(node.children, checkedFiles) };
-    }
-    return node;
-  }).sort((a, b) => {
-    if (a.kind !== b.kind) return a.kind === "file" ? -1 : 1;
-    if (a.kind === "file" && b.kind === "file") {
-      const aChecked = checkedFiles.has(a.path);
-      const bChecked = checkedFiles.has(b.path);
-      if (aChecked !== bChecked) return aChecked ? -1 : 1;
-    }
-    return a.name.localeCompare(b.name);
-  });
+  return nodes
+    .map((node) => {
+      if (node.kind === "dir") {
+        return { ...node, children: sortByChecked(node.children, checkedFiles) };
+      }
+      return node;
+    })
+    .sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "file" ? -1 : 1;
+      if (a.kind === "file" && b.kind === "file") {
+        const aChecked = checkedFiles.has(a.path);
+        const bChecked = checkedFiles.has(b.path);
+        if (aChecked !== bChecked) return aChecked ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
 }
 
 const TASKS_PAGE_SIZE = 10;
@@ -294,11 +288,11 @@ function paginateTaskNodes(
       for (const child of node.children) {
         const childFiles = collectAllPaths([child], "file");
         const isChecked = [...childFiles].some((p) => checkedFiles.has(p));
-        const isSearchMatch = searchQuery && (
-          child.name.toLowerCase().includes(lower) ||
-          child.path.toLowerCase().includes(lower) ||
-          [...childFiles].some((p) => p.toLowerCase().includes(lower))
-        );
+        const isSearchMatch =
+          searchQuery &&
+          (child.name.toLowerCase().includes(lower) ||
+            child.path.toLowerCase().includes(lower) ||
+            [...childFiles].some((p) => p.toLowerCase().includes(lower)));
         if (isChecked || isSearchMatch) {
           pinned.push(child);
         } else {
@@ -344,21 +338,13 @@ function downloadZip(
 
 // ── Frontmatter card (export-specific: skill click support) ──────────
 
-function FrontmatterCard({
-  data,
-  onSkillClick,
-}: {
-  data: FrontmatterData;
-  onSkillClick?: (skill: string) => void;
-}) {
+function FrontmatterCard({ data, onSkillClick }: { data: FrontmatterData; onSkillClick?: (skill: string) => void }) {
   return (
     <div className="rounded-md border border-border bg-accent/20 px-4 py-3 mb-4">
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
         {Object.entries(data).map(([key, value]) => (
           <div key={key} className="contents">
-            <dt className="text-muted-foreground whitespace-nowrap py-0.5">
-              {FRONTMATTER_FIELD_LABELS[key] ?? key}
-            </dt>
+            <dt className="text-muted-foreground whitespace-nowrap py-0.5">{FRONTMATTER_FIELD_LABELS[key] ?? key}</dt>
             <dd className="py-0.5">
               {Array.isArray(value) ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -368,7 +354,9 @@ function FrontmatterCard({
                       type="button"
                       className={cn(
                         "inline-flex items-center rounded-md border border-border bg-background px-2 py-0.5 text-xs",
-                        key === "skills" && onSkillClick && "cursor-pointer hover:bg-accent/50 hover:border-foreground/30 transition-colors",
+                        key === "skills" &&
+                          onSkillClick &&
+                          "cursor-pointer hover:bg-accent/50 hover:border-foreground/30 transition-colors",
                       )}
                       onClick={() => key === "skills" && onSkillClick?.(item)}
                     >
@@ -390,8 +378,15 @@ function FrontmatterCard({
 // ── Client-side README generation ────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
-  ceo: "CEO", cto: "CTO", cmo: "CMO", cfo: "CFO", coo: "COO",
-  vp: "VP", manager: "Manager", engineer: "Engineer", agent: "Agent",
+  ceo: "CEO",
+  cto: "CTO",
+  cmo: "CMO",
+  cfo: "CFO",
+  coo: "COO",
+  vp: "VP",
+  manager: "Manager",
+  engineer: "Engineer",
+  agent: "Agent",
 };
 
 /**
@@ -411,7 +406,9 @@ function generateReadmeFromSelection(
   const tasks = manifest.issues.filter((t) => slugs.tasks.has(t.slug));
   const skills = manifest.skills.filter((s) => {
     // Skill files live under skills/{key}/...
-    return [...checkedFiles].some((f) => f.startsWith(`skills/${s.key}/`) || f.startsWith(`skills/`) && f.includes(`/${s.slug}/`));
+    return [...checkedFiles].some(
+      (f) => f.startsWith(`skills/${s.key}/`) || (f.startsWith(`skills/`) && f.includes(`/${s.slug}/`)),
+    );
   });
 
   const lines: string[] = [];
@@ -499,9 +496,7 @@ function ExportPreviewPane({
   onSkillClick?: (skill: string) => void;
 }) {
   if (!selectedFile || content === null) {
-    return (
-      <EmptyState icon={Package} message="Select a file to preview its contents." />
-    );
+    return <EmptyState icon={Package} message="Select a file to preview its contents." />;
   }
 
   const textContent = getPortableFileText(content);
@@ -607,14 +602,8 @@ export function CompanyExport() {
   const savedExpandedRef = useRef<Set<string> | null>(null);
   const initialFileFromUrl = useRef(filePathFromLocation(location.pathname));
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
-  const visibleAgents = useMemo(
-    () => agents.filter((agent: Agent) => agent.status !== "terminated"),
-    [agents],
-  );
-  const visibleProjects = useMemo(
-    () => projects.filter((project: Project) => !project.archivedAt),
-    [projects],
-  );
+  const visibleAgents = useMemo(() => agents.filter((agent: Agent) => agent.status !== "terminated"), [agents]);
+  const visibleProjects = useMemo(() => projects.filter((project: Project) => !project.archivedAt), [projects]);
   const { orderedAgents } = useAgentOrder({
     agents: visibleAgents,
     companyId: selectedCompanyId,
@@ -626,18 +615,16 @@ export function CompanyExport() {
     userId: currentUserId,
   });
   const sidebarOrder = useMemo(
-    () => buildPortableSidebarOrder({
-      agents: visibleAgents,
-      orderedAgents,
-      projects: visibleProjects,
-      orderedProjects,
-    }),
+    () =>
+      buildPortableSidebarOrder({
+        agents: visibleAgents,
+        orderedAgents,
+        projects: visibleProjects,
+        orderedProjects,
+      }),
     [orderedAgents, orderedProjects, visibleAgents, visibleProjects],
   );
-  const sidebarOrderKey = useMemo(
-    () => JSON.stringify(sidebarOrder ?? null),
-    [sidebarOrder],
-  );
+  const sidebarOrderKey = useMemo(() => JSON.stringify(sidebarOrder ?? null), [sidebarOrder]);
 
   // Navigate-aware file selection: updates state + URL without page reload.
   // `replace` = true skips history entry (used for initial load); false = pushes (used for clicks).
@@ -671,10 +658,7 @@ export function CompanyExport() {
   }, [location.pathname, exportData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    setBreadcrumbs([
-      { label: "Org Chart", href: "/org" },
-      { label: "Export" },
-    ]);
+    setBreadcrumbs([{ label: "Org Chart", href: "/org" }, { label: "Export" }]);
   }, [setBreadcrumbs]);
 
   const exportPreviewMutation = useMutation({
@@ -686,11 +670,7 @@ export function CompanyExport() {
     onSuccess: (result) => {
       setExportData(result);
       setCheckedFiles((prev) =>
-        buildInitialExportCheckedFiles(
-          Object.keys(result.files),
-          result.manifest.issues,
-          prev,
-        ),
+        buildInitialExportCheckedFiles(Object.keys(result.files), result.manifest.issues, prev),
       );
       // Expand top-level dirs (except tasks — collapsed by default)
       const tree = buildFileTree(result.files);
@@ -707,9 +687,7 @@ export function CompanyExport() {
         setExpandedDirs(new Set([...topDirs, ...ancestors]));
       } else {
         // Default to README.md if present, otherwise fall back to first file
-        const defaultFile = "README.md" in result.files
-          ? "README.md"
-          : Object.keys(result.files)[0];
+        const defaultFile = "README.md" in result.files ? "README.md" : Object.keys(result.files)[0];
         if (defaultFile) {
           selectFile(defaultFile, true);
         }
@@ -758,10 +736,7 @@ export function CompanyExport() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompanyId, isSessionFetched, areAgentsFetched, areProjectsFetched, sidebarOrderKey]);
 
-  const tree = useMemo(
-    () => (exportData ? buildFileTree(exportData.files) : []),
-    [exportData],
-  );
+  const tree = useMemo(() => (exportData ? buildFileTree(exportData.files) : []), [exportData]);
 
   const { displayTree, totalTaskChildren, visibleTaskChildren } = useMemo(() => {
     let result = tree;
@@ -886,9 +861,7 @@ export function CompanyExport() {
 
   function handleSkillClick(skillKey: string) {
     if (!exportData) return;
-    const manifestSkill = exportData.manifest.skills.find(
-      (skill) => skill.key === skillKey || skill.slug === skillKey,
-    );
+    const manifestSkill = exportData.manifest.skills.find((skill) => skill.key === skillKey || skill.slug === skillKey);
     const skillPath = manifestSkill?.path ?? `skills/${skillKey}/SKILL.md`;
     if (!(skillPath in exportData.files)) return;
     selectFile(skillPath);
@@ -934,9 +907,7 @@ export function CompanyExport() {
       <div className="sticky top-0 z-10 border-b border-border bg-background px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-4 text-sm">
-            <span className="font-medium">
-              {selectedCompany?.name ?? "Company"} export
-            </span>
+            <span className="font-medium">{selectedCompany?.name ?? "Company"} export</span>
             <span className="text-muted-foreground">
               {selectedCount} / {totalFiles} file{totalFiles === 1 ? "" : "s"} selected
             </span>
@@ -946,11 +917,7 @@ export function CompanyExport() {
               </span>
             )}
           </div>
-          <Button
-            size="sm"
-            onClick={handleDownload}
-            disabled={selectedCount === 0 || downloadMutation.isPending}
-          >
+          <Button size="sm" onClick={handleDownload} disabled={selectedCount === 0 || downloadMutation.isPending}>
             <Download className="mr-1.5 h-3.5 w-3.5" />
             {downloadMutation.isPending
               ? "Building export..."
@@ -963,7 +930,9 @@ export function CompanyExport() {
       {warnings.length > 0 && (
         <div className="mx-5 mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3">
           {warnings.map((w) => (
-            <div key={w} className="text-xs text-amber-500">{w}</div>
+            <div key={w} className="text-xs text-amber-500">
+              {w}
+            </div>
           ))}
         </div>
       )}
@@ -1010,7 +979,12 @@ export function CompanyExport() {
           </div>
         </aside>
         <div className="min-w-0 overflow-y-auto pl-6">
-          <ExportPreviewPane selectedFile={selectedFile} content={previewContent} allFiles={effectiveFiles} onSkillClick={handleSkillClick} />
+          <ExportPreviewPane
+            selectedFile={selectedFile}
+            content={previewContent}
+            allFiles={effectiveFiles}
+            onSkillClick={handleSkillClick}
+          />
         </div>
       </div>
     </div>

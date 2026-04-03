@@ -144,8 +144,7 @@ function buildTree(entries: CompanySkillFileInventoryEntry[]) {
 
 function sourceMeta(sourceBadge: CompanySkillSourceBadge, sourceLabel: string | null) {
   const normalizedLabel = sourceLabel?.toLowerCase() ?? "";
-  const isSkillsShManaged =
-    normalizedLabel.includes("skills.sh") || normalizedLabel.includes("vercel-labs/skills");
+  const isSkillsShManaged = normalizedLabel.includes("skills.sh") || normalizedLabel.includes("vercel-labs/skills");
 
   switch (sourceBadge) {
     case "skills_sh":
@@ -187,7 +186,10 @@ function fileIcon(kind: CompanySkillFileInventoryEntry["kind"]) {
 }
 
 function encodeSkillFilePath(filePath: string) {
-  return filePath.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+  return filePath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
 }
 
 function decodeSkillFilePath(filePath: string | undefined) {
@@ -408,11 +410,7 @@ function SkillList({
   });
 
   if (filteredSkills.length === 0) {
-    return (
-      <div className="px-4 py-6 text-sm text-muted-foreground">
-        No skills match this filter.
-      </div>
-    );
+    return <div className="px-4 py-6 text-sm text-muted-foreground">No skills match this filter.</div>;
   }
 
   return (
@@ -531,18 +529,13 @@ function SkillPane({
     if (loading) {
       return <PageSkeleton variant="detail" />;
     }
-    return (
-      <EmptyState
-        icon={Boxes}
-        message="Select a skill to inspect its files."
-      />
-    );
+    return <EmptyState icon={Boxes} message="Select a skill to inspect its files." />;
   }
 
   const source = sourceMeta(detail.sourceBadge, detail.sourceLabel);
   const SourceIcon = source.icon;
   const usedBy = detail.usedByAgents;
-  const body = file?.markdown ? stripFrontmatter(file.content) : file?.content ?? "";
+  const body = file?.markdown ? stripFrontmatter(file.content) : (file?.content ?? "");
   const currentPin = shortRef(detail.sourceRef);
   const latestPin = shortRef(updateStatus?.latestRef);
 
@@ -555,9 +548,7 @@ function SkillPane({
               <SourceIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
               {detail.name}
             </h1>
-            {detail.description && (
-              <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{detail.description}</p>
-            )}
+            {detail.description && <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{detail.description}</p>}
           </div>
           {detail.editable ? (
             <button
@@ -606,15 +597,13 @@ function SkillPane({
                   onClick={onCheckUpdates}
                   disabled={checkUpdatesPending || updateStatusLoading}
                 >
-                  <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", (checkUpdatesPending || updateStatusLoading) && "animate-spin")} />
+                  <RefreshCw
+                    className={cn("mr-1.5 h-3.5 w-3.5", (checkUpdatesPending || updateStatusLoading) && "animate-spin")}
+                  />
                   Check for updates
                 </Button>
                 {updateStatus?.supported && updateStatus.hasUpdate && (
-                  <Button
-                    size="sm"
-                    onClick={onInstallUpdate}
-                    disabled={installUpdatePending}
-                  >
+                  <Button size="sm" onClick={onInstallUpdate} disabled={installUpdatePending}>
                     <RefreshCw className={cn("mr-1.5 h-3.5 w-3.5", installUpdatePending && "animate-spin")} />
                     Install update{latestPin ? ` ${latestPin}` : ""}
                   </Button>
@@ -666,7 +655,11 @@ function SkillPane({
             {file?.markdown && !editMode && (
               <div className="flex items-center border border-border">
                 <button
-                  className={cn("px-3 py-1.5 text-sm", viewMode === "preview" && "text-foreground", viewMode !== "preview" && "text-muted-foreground")}
+                  className={cn(
+                    "px-3 py-1.5 text-sm",
+                    viewMode === "preview" && "text-foreground",
+                    viewMode !== "preview" && "text-muted-foreground",
+                  )}
                   onClick={() => setViewMode("preview")}
                 >
                   <span className="flex items-center gap-1.5">
@@ -675,7 +668,11 @@ function SkillPane({
                   </span>
                 </button>
                 <button
-                  className={cn("border-l border-border px-3 py-1.5 text-sm", viewMode === "code" && "text-foreground", viewMode !== "code" && "text-muted-foreground")}
+                  className={cn(
+                    "border-l border-border px-3 py-1.5 text-sm",
+                    viewMode === "code" && "text-foreground",
+                    viewMode !== "code" && "text-muted-foreground",
+                  )}
                   onClick={() => setViewMode("code")}
                 >
                   <span className="flex items-center gap-1.5">
@@ -707,12 +704,7 @@ function SkillPane({
           <div className="text-sm text-muted-foreground">Select a file to inspect.</div>
         ) : editMode && file.editable ? (
           file.markdown ? (
-            <MarkdownEditor
-              value={draft}
-              onChange={setDraft}
-              bordered={false}
-              className="min-h-[520px]"
-            />
+            <MarkdownEditor value={draft} onChange={setDraft} bordered={false} className="min-h-[520px]" />
           ) : (
             <Textarea
               value={draft}
@@ -756,10 +748,7 @@ export function CompanySkills() {
   const selectedPath = parsedRoute.filePath;
 
   useEffect(() => {
-    setBreadcrumbs([
-      { label: "Skills", href: "/skills" },
-      ...(routeSkillId ? [{ label: "Detail" }] : []),
-    ]);
+    setBreadcrumbs([{ label: "Skills", href: "/skills" }, ...(routeSkillId ? [{ label: "Detail" }] : [])]);
   }, [routeSkillId, setBreadcrumbs]);
 
   const skillsQuery = useQuery({
@@ -794,9 +783,9 @@ export function CompanySkills() {
     queryKey: queryKeys.companySkills.updateStatus(selectedCompanyId ?? "", selectedSkillId ?? ""),
     queryFn: () => companySkillsApi.updateStatus(selectedCompanyId!, selectedSkillId!),
     enabled: Boolean(
-      selectedCompanyId
-      && selectedSkillId
-      && (detailQuery.data?.sourceType === "github" || displayedDetail?.sourceType === "github"),
+      selectedCompanyId &&
+        selectedSkillId &&
+        (detailQuery.data?.sourceType === "github" || displayedDetail?.sourceType === "github"),
     ),
     staleTime: 60_000,
   });
@@ -933,17 +922,22 @@ export function CompanySkills() {
   });
 
   const saveFile = useMutation({
-    mutationFn: () => companySkillsApi.updateFile(
-      selectedCompanyId!,
-      selectedSkillId!,
-      selectedPath,
-      activeFile?.markdown ? mergeFrontmatter(activeFile.content, draft) : draft,
-    ),
+    mutationFn: () =>
+      companySkillsApi.updateFile(
+        selectedCompanyId!,
+        selectedSkillId!,
+        selectedPath,
+        activeFile?.markdown ? mergeFrontmatter(activeFile.content, draft) : draft,
+      ),
     onSuccess: async (result) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.list(selectedCompanyId!) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.detail(selectedCompanyId!, selectedSkillId!) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.file(selectedCompanyId!, selectedSkillId!, selectedPath) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.companySkills.detail(selectedCompanyId!, selectedSkillId!),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.companySkills.file(selectedCompanyId!, selectedSkillId!, selectedPath),
+        }),
       ]);
       setDraft(result.markdown ? splitFrontmatter(result.content).body : result.content);
       setEditMode(false);
@@ -967,9 +961,15 @@ export function CompanySkills() {
     onSuccess: async (skill) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.list(selectedCompanyId!) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.detail(selectedCompanyId!, selectedSkillId!) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.updateStatus(selectedCompanyId!, selectedSkillId!) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.companySkills.file(selectedCompanyId!, selectedSkillId!, selectedPath) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.companySkills.detail(selectedCompanyId!, selectedSkillId!),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.companySkills.updateStatus(selectedCompanyId!, selectedSkillId!),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.companySkills.file(selectedCompanyId!, selectedSkillId!, selectedPath),
+        }),
       ]);
       navigate(skillRoute(skill.id, selectedPath));
       pushToast({
@@ -1019,9 +1019,7 @@ export function CompanySkills() {
             >
               <span>
                 <span className="block font-medium">Browse skills.sh</span>
-                <span className="mt-1 block text-muted-foreground">
-                  Find install commands and paste one here.
-                </span>
+                <span className="mt-1 block text-muted-foreground">Find install commands and paste one here.</span>
               </span>
               <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             </a>
@@ -1050,9 +1048,7 @@ export function CompanySkills() {
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h1 className="text-base font-semibold">Skills</h1>
-                <p className="text-xs text-muted-foreground">
-                  {skillsQuery.data?.length ?? 0} available
-                </p>
+                <p className="text-xs text-muted-foreground">{skillsQuery.data?.length ?? 0} available</p>
               </div>
               <div className="flex items-center gap-1">
                 <Button
@@ -1087,20 +1083,11 @@ export function CompanySkills() {
                 placeholder="Paste path, GitHub URL, or skills.sh command"
                 className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleAddSkillSource}
-                disabled={importSkill.isPending}
-              >
+              <Button size="sm" variant="ghost" onClick={handleAddSkillSource} disabled={importSkill.isPending}>
                 {importSkill.isPending ? <RefreshCw className="h-4 w-4 animate-spin" /> : "Add"}
               </Button>
             </div>
-            {scanStatusMessage && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                {scanStatusMessage}
-              </p>
-            )}
+            {scanStatusMessage && <p className="mt-3 text-xs text-muted-foreground">{scanStatusMessage}</p>}
           </div>
 
           {createOpen && (
@@ -1124,7 +1111,7 @@ export function CompanySkills() {
               expandedDirs={expandedDirs}
               selectedPaths={selectedSkillId ? { [selectedSkillId]: selectedPath } : {}}
               onToggleSkill={(currentSkillId) =>
-                setExpandedSkillId((current) => current === currentSkillId ? null : currentSkillId)
+                setExpandedSkillId((current) => (current === currentSkillId ? null : currentSkillId))
               }
               onToggleDir={(currentSkillId, path) => {
                 setExpandedDirs((current) => {

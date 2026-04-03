@@ -31,5 +31,6 @@ export const executionWorkspacesApi = {
       `/execution-workspaces/${id}/runtime-services/${action}`,
       {},
     ),
-  update: (id: string, data: Record<string, unknown>) => api.patch<ExecutionWorkspace>(`/execution-workspaces/${id}`, data),
+  update: (id: string, data: Record<string, unknown>) =>
+    api.patch<ExecutionWorkspace>(`/execution-workspaces/${id}`, data),
 };

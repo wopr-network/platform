@@ -64,11 +64,9 @@ export function approvalRoutes(db: Db) {
     const { issueIds: _issueIds, ...approvalInput } = req.body;
     const normalizedPayload =
       approvalInput.type === "hire_agent"
-        ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(
-            companyId,
-            approvalInput.payload,
-            { strictMode: strictSecretsMode },
-          )
+        ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(companyId, approvalInput.payload, {
+            strictMode: strictSecretsMode,
+          })
         : approvalInput.payload;
 
     const actor = getActorInfo(req);
@@ -76,8 +74,7 @@ export function approvalRoutes(db: Db) {
       ...approvalInput,
       payload: normalizedPayload,
       requestedByUserId: actor.actorType === "user" ? actor.actorId : null,
-      requestedByAgentId:
-        approvalInput.requestedByAgentId ?? (actor.actorType === "agent" ? actor.actorId : null),
+      requestedByAgentId: approvalInput.requestedByAgentId ?? (actor.actorType === "agent" ? actor.actorId : null),
       status: "pending",
       decisionNote: null,
       decidedByUserId: null,
@@ -121,11 +118,7 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/approve", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
-    const { approval, applied } = await svc.approve(
-      id,
-      req.body.decidedByUserId ?? "board",
-      req.body.decisionNote,
-    );
+    const { approval, applied } = await svc.approve(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
 
     if (applied) {
       const linkedIssues = await issueApprovalsSvc.listIssuesForApproval(approval.id);
@@ -216,11 +209,7 @@ export function approvalRoutes(db: Db) {
   router.post("/approvals/:id/reject", validate(resolveApprovalSchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
-    const { approval, applied } = await svc.reject(
-      id,
-      req.body.decidedByUserId ?? "board",
-      req.body.decisionNote,
-    );
+    const { approval, applied } = await svc.reject(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
 
     if (applied) {
       await logActivity(db, {
@@ -237,31 +226,23 @@ export function approvalRoutes(db: Db) {
     res.json(redactApprovalPayload(approval));
   });
 
-  router.post(
-    "/approvals/:id/request-revision",
-    validate(requestApprovalRevisionSchema),
-    async (req, res) => {
-      assertBoard(req);
-      const id = req.params.id as string;
-      const approval = await svc.requestRevision(
-        id,
-        req.body.decidedByUserId ?? "board",
-        req.body.decisionNote,
-      );
+  router.post("/approvals/:id/request-revision", validate(requestApprovalRevisionSchema), async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const approval = await svc.requestRevision(id, req.body.decidedByUserId ?? "board", req.body.decisionNote);
 
-      await logActivity(db, {
-        companyId: approval.companyId,
-        actorType: "user",
-        actorId: req.actor.userId ?? "board",
-        action: "approval.revision_requested",
-        entityType: "approval",
-        entityId: approval.id,
-        details: { type: approval.type },
-      });
+    await logActivity(db, {
+      companyId: approval.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "approval.revision_requested",
+      entityType: "approval",
+      entityId: approval.id,
+      details: { type: approval.type },
+    });
 
-      res.json(redactApprovalPayload(approval));
-    },
-  );
+    res.json(redactApprovalPayload(approval));
+  });
 
   router.post("/approvals/:id/resubmit", validate(resubmitApprovalSchema), async (req, res) => {
     const id = req.params.id as string;
@@ -279,11 +260,9 @@ export function approvalRoutes(db: Db) {
 
     const normalizedPayload = req.body.payload
       ? existing.type === "hire_agent"
-        ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(
-            existing.companyId,
-            req.body.payload,
-            { strictMode: strictSecretsMode },
-          )
+        ? await secretsSvc.normalizeHireApprovalPayloadForPersistence(existing.companyId, req.body.payload, {
+            strictMode: strictSecretsMode,
+          })
         : req.body.payload
       : undefined;
     const approval = await svc.resubmit(id, normalizedPayload);

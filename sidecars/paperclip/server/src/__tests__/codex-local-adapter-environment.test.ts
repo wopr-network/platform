@@ -39,10 +39,7 @@ describe("codex_local environment diagnostics", () => {
   });
 
   it("emits codex_native_auth_present when ~/.codex/auth.json exists and OPENAI_API_KEY is unset", async () => {
-    const root = path.join(
-      os.tmpdir(),
-      `paperclip-codex-auth-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    );
+    const root = path.join(os.tmpdir(), `paperclip-codex-auth-${Date.now()}-${Math.random().toString(16).slice(2)}`);
     const codexHome = path.join(root, ".codex");
     const cwd = path.join(root, "workspace");
 
@@ -71,10 +68,7 @@ describe("codex_local environment diagnostics", () => {
   });
 
   it("emits codex_openai_api_key_missing when neither env var nor native auth exists", async () => {
-    const root = path.join(
-      os.tmpdir(),
-      `paperclip-codex-noauth-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    );
+    const root = path.join(os.tmpdir(), `paperclip-codex-noauth-${Date.now()}-${Math.random().toString(16).slice(2)}`);
     const codexHome = path.join(root, ".codex");
     const cwd = path.join(root, "workspace");
 
@@ -109,9 +103,9 @@ describe("codex_local environment diagnostics", () => {
     const fakeCodex = path.join(binDir, "codex.cmd");
     const script = [
       "@echo off",
-      "echo {\"type\":\"thread.started\",\"thread_id\":\"test-thread\"}",
-      "echo {\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"hello\"}}",
-      "echo {\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"cached_input_tokens\":0,\"output_tokens\":1}}",
+      'echo {"type":"thread.started","thread_id":"test-thread"}',
+      'echo {"type":"item.completed","item":{"type":"agent_message","text":"hello"}}',
+      'echo {"type":"turn.completed","usage":{"input_tokens":1,"cached_input_tokens":0,"output_tokens":1}}',
       "exit /b 0",
       "",
     ].join("\r\n");

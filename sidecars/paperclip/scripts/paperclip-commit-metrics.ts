@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-const DEFAULT_QUERY = "\"Co-Authored-By: Paperclip <noreply@paperclip.ing>\"";
+const DEFAULT_QUERY = '"Co-Authored-By: Paperclip <noreply@paperclip.ing>"';
 const DEFAULT_CACHE_FILE = path.resolve("data/paperclip-commit-metrics-cache.json");
 const DEFAULT_SEARCH_START = "2008-01-01T00:00:00Z";
 const SEARCH_WINDOW_LIMIT = 900;
@@ -349,7 +349,11 @@ async function loadCache(cacheFile: string, options: CliOptions): Promise<CacheF
   try {
     const raw = await fs.readFile(cacheFile, "utf8");
     const parsed = JSON.parse(raw) as CacheFile;
-    if (parsed.version !== 1 || parsed.queryKey !== buildQueryKey(options) || parsed.searchField !== options.searchField) {
+    if (
+      parsed.version !== 1 ||
+      parsed.queryKey !== buildQueryKey(options) ||
+      parsed.searchField !== options.searchField
+    ) {
       return createEmptyCache(options);
     }
     return parsed;
@@ -629,9 +633,7 @@ async function enrichCommitStats(
 }
 
 async function fetchCommitStats(client: GitHubClient, repositoryFullName: string, sha: string): Promise<CommitStats> {
-  const response = await client.getJson<{ stats?: CommitStats }>(
-    `/repos/${repositoryFullName}/commits/${sha}`,
-  );
+  const response = await client.getJson<{ stats?: CommitStats }>(`/repos/${repositoryFullName}/commits/${sha}`);
   return {
     additions: response.stats?.additions ?? 0,
     deletions: response.stats?.deletions ?? 0,
@@ -723,7 +725,9 @@ function printSummary(summary: Summary) {
     `Line stat coverage: ${summary.lineStats.coveredCommits}/${summary.totals.commits}` +
       (summary.lineStats.complete ? " (complete)" : " (partial; rerun to hydrate more commits)"),
   );
-  console.log(`Stats fetched this run: ${summary.statsFetch.fetchedThisRun}${summary.statsFetch.skipped ? " (skipped)" : ""}`);
+  console.log(
+    `Stats fetched this run: ${summary.statsFetch.fetchedThisRun}${summary.statsFetch.skipped ? " (skipped)" : ""}`,
+  );
   console.log(`Cache: ${summary.cacheFile}`);
 
   if (summary.repos.sample.length > 0) {
@@ -817,8 +821,8 @@ function buildExportRow(cache: CacheFile, sha: string) {
 }
 
 function escapeCsv(value: string): string {
-  if (value.includes(",") || value.includes("\"") || value.includes("\n")) {
-    return `"${value.replaceAll("\"", "\"\"")}"`;
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replaceAll('"', '""')}"`;
   }
   return value;
 }

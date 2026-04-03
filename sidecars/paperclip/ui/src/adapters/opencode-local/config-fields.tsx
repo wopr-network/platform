@@ -1,10 +1,5 @@
 import type { AdapterConfigFieldsProps } from "../types";
-import {
-  Field,
-  ToggleField,
-  DraftInput,
-  help,
-} from "../../components/agent-config-primitives";
+import { Field, ToggleField, DraftInput, help } from "../../components/agent-config-primitives";
 import { ChoosePathButton } from "../../components/PathInstructionsModal";
 
 const inputClass =
@@ -29,12 +24,8 @@ export function OpenCodeLocalConfigFields({
             <DraftInput
               value={
                 isCreate
-                  ? values!.instructionsFilePath ?? ""
-                  : eff(
-                      "adapterConfig",
-                      "instructionsFilePath",
-                      String(config.instructionsFilePath ?? ""),
-                    )
+                  ? (values!.instructionsFilePath ?? "")
+                  : eff("adapterConfig", "instructionsFilePath", String(config.instructionsFilePath ?? ""))
               }
               onCommit={(v) =>
                 isCreate
@@ -55,16 +46,10 @@ export function OpenCodeLocalConfigFields({
         checked={
           isCreate
             ? values!.dangerouslySkipPermissions
-            : eff(
-                "adapterConfig",
-                "dangerouslySkipPermissions",
-                config.dangerouslySkipPermissions !== false,
-              )
+            : eff("adapterConfig", "dangerouslySkipPermissions", config.dangerouslySkipPermissions !== false)
         }
         onChange={(v) =>
-          isCreate
-            ? set!({ dangerouslySkipPermissions: v })
-            : mark("adapterConfig", "dangerouslySkipPermissions", v)
+          isCreate ? set!({ dangerouslySkipPermissions: v }) : mark("adapterConfig", "dangerouslySkipPermissions", v)
         }
       />
     </>

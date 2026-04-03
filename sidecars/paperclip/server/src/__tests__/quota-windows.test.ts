@@ -73,8 +73,8 @@ describe("secondsToWindowLabel", () => {
   });
 
   it("labels windows under 6 hours as '5h'", () => {
-    expect(secondsToWindowLabel(3600, "fallback")).toBe("5h");   // 1h
-    expect(secondsToWindowLabel(18000, "fallback")).toBe("5h");  // 5h exactly
+    expect(secondsToWindowLabel(3600, "fallback")).toBe("5h"); // 1h
+    expect(secondsToWindowLabel(18000, "fallback")).toBe("5h"); // 5h exactly
   });
 
   it("labels windows up to 24 hours as '24h'", () => {
@@ -83,7 +83,7 @@ describe("secondsToWindowLabel", () => {
   });
 
   it("labels windows up to 7 days as '7d'", () => {
-    expect(secondsToWindowLabel(86401, "fallback")).toBe("7d");   // just over 24h
+    expect(secondsToWindowLabel(86401, "fallback")).toBe("7d"); // just over 24h
     expect(secondsToWindowLabel(604800, "fallback")).toBe("7d"); // 7d exactly
   });
 
@@ -224,9 +224,7 @@ describe("readClaudeToken", () => {
   it("returns null for malformed JSON", async () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-claude-${Date.now()}`);
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "credentials.json"), "not-json"),
-      ),
+      fs.mkdir(tmpDir, { recursive: true }).then(() => fs.writeFile(path.join(tmpDir, "credentials.json"), "not-json")),
     );
     process.env.CLAUDE_CONFIG_DIR = tmpDir;
     const token = await readClaudeToken();
@@ -237,9 +235,9 @@ describe("readClaudeToken", () => {
   it("returns null when claudeAiOauth key is missing", async () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-claude-${Date.now()}`);
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "credentials.json"), JSON.stringify({ other: "data" })),
-      ),
+      fs
+        .mkdir(tmpDir, { recursive: true })
+        .then(() => fs.writeFile(path.join(tmpDir, "credentials.json"), JSON.stringify({ other: "data" }))),
     );
     process.env.CLAUDE_CONFIG_DIR = tmpDir;
     const token = await readClaudeToken();
@@ -251,9 +249,9 @@ describe("readClaudeToken", () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-claude-${Date.now()}`);
     const creds = { claudeAiOauth: { accessToken: "" } };
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "credentials.json"), JSON.stringify(creds)),
-      ),
+      fs
+        .mkdir(tmpDir, { recursive: true })
+        .then(() => fs.writeFile(path.join(tmpDir, "credentials.json"), JSON.stringify(creds))),
     );
     process.env.CLAUDE_CONFIG_DIR = tmpDir;
     const token = await readClaudeToken();
@@ -265,9 +263,9 @@ describe("readClaudeToken", () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-claude-${Date.now()}`);
     const creds = { claudeAiOauth: { accessToken: "my-test-token" } };
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "credentials.json"), JSON.stringify(creds)),
-      ),
+      fs
+        .mkdir(tmpDir, { recursive: true })
+        .then(() => fs.writeFile(path.join(tmpDir, "credentials.json"), JSON.stringify(creds))),
     );
     process.env.CLAUDE_CONFIG_DIR = tmpDir;
     const token = await readClaudeToken();
@@ -279,9 +277,9 @@ describe("readClaudeToken", () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-claude-${Date.now()}`);
     const creds = { claudeAiOauth: { accessToken: "dotfile-token" } };
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, ".credentials.json"), JSON.stringify(creds)),
-      ),
+      fs
+        .mkdir(tmpDir, { recursive: true })
+        .then(() => fs.writeFile(path.join(tmpDir, ".credentials.json"), JSON.stringify(creds))),
     );
     process.env.CLAUDE_CONFIG_DIR = tmpDir;
     const token = await readClaudeToken();
@@ -373,9 +371,7 @@ describe("readCodexAuthInfo", () => {
   it("returns null for malformed JSON", async () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-codex-${Date.now()}`);
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "auth.json"), "{bad json"),
-      ),
+      fs.mkdir(tmpDir, { recursive: true }).then(() => fs.writeFile(path.join(tmpDir, "auth.json"), "{bad json")),
     );
     process.env.CODEX_HOME = tmpDir;
     const result = await readCodexAuthInfo();
@@ -386,9 +382,9 @@ describe("readCodexAuthInfo", () => {
   it("returns null when accessToken is absent", async () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-codex-${Date.now()}`);
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "auth.json"), JSON.stringify({ accountId: "acc-1" })),
-      ),
+      fs
+        .mkdir(tmpDir, { recursive: true })
+        .then(() => fs.writeFile(path.join(tmpDir, "auth.json"), JSON.stringify({ accountId: "acc-1" }))),
     );
     process.env.CODEX_HOME = tmpDir;
     const result = await readCodexAuthInfo();
@@ -400,9 +396,9 @@ describe("readCodexAuthInfo", () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-codex-${Date.now()}`);
     const auth = { accessToken: "codex-token", accountId: "acc-123" };
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "auth.json"), JSON.stringify(auth)),
-      ),
+      fs
+        .mkdir(tmpDir, { recursive: true })
+        .then(() => fs.writeFile(path.join(tmpDir, "auth.json"), JSON.stringify(auth))),
     );
     process.env.CODEX_HOME = tmpDir;
     const result = await readCodexAuthInfo();
@@ -436,9 +432,9 @@ describe("readCodexAuthInfo", () => {
       last_refresh: "2026-03-14T12:00:00Z",
     };
     await import("node:fs/promises").then((fs) =>
-      fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "auth.json"), JSON.stringify(auth)),
-      ),
+      fs
+        .mkdir(tmpDir, { recursive: true })
+        .then(() => fs.writeFile(path.join(tmpDir, "auth.json"), JSON.stringify(auth))),
     );
     process.env.CODEX_HOME = tmpDir;
     const result = await readCodexAuthInfo();
@@ -469,12 +465,15 @@ describe("readCodexToken", () => {
     const tmpDir = path.join(os.tmpdir(), `paperclip-test-codex-${Date.now()}`);
     await import("node:fs/promises").then((fs) =>
       fs.mkdir(tmpDir, { recursive: true }).then(() =>
-        fs.writeFile(path.join(tmpDir, "auth.json"), JSON.stringify({
-          tokens: {
-            access_token: "nested-token",
-            account_id: "acc-nested",
-          },
-        })),
+        fs.writeFile(
+          path.join(tmpDir, "auth.json"),
+          JSON.stringify({
+            tokens: {
+              access_token: "nested-token",
+              account_id: "acc-nested",
+            },
+          }),
+        ),
       ),
     );
     process.env.CODEX_HOME = tmpDir;

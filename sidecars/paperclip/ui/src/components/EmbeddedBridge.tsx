@@ -47,12 +47,7 @@ export type PlatformMessage =
   | { type: "navigate"; path: string }
   | {
       type: "command";
-      action:
-        | "openNewIssue"
-        | "openCommandPalette"
-        | "openNewAgent"
-        | "openNewProject"
-        | "openNewGoal";
+      action: "openNewIssue" | "openCommandPalette" | "openNewAgent" | "openNewProject" | "openNewGoal";
     }
   | { type: "toast"; level: "success" | "error" | "info"; message: string };
 
@@ -75,8 +70,7 @@ export function EmbeddedBridge() {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedCompany, selectedCompanyId } = useCompany();
-  const { openNewIssue, openNewProject, openNewGoal, openNewAgent } =
-    useDialog();
+  const { openNewIssue, openNewProject, openNewGoal, openNewAgent } = useDialog();
   const readySent = useRef(false);
   const inboxBadge = useInboxBadge(selectedCompanyId);
 
@@ -122,18 +116,11 @@ export function EmbeddedBridge() {
 
     const liveCountByAgent = new Map<string, number>();
     for (const run of liveRuns ?? []) {
-      liveCountByAgent.set(
-        run.agentId,
-        (liveCountByAgent.get(run.agentId) ?? 0) + 1,
-      );
+      liveCountByAgent.set(run.agentId, (liveCountByAgent.get(run.agentId) ?? 0) + 1);
     }
 
-    const visibleAgents = (agents ?? []).filter(
-      (a: Agent) => a.status !== "terminated",
-    );
-    const visibleProjects = (projects ?? []).filter(
-      (p: Project) => !p.archivedAt,
-    );
+    const visibleAgents = (agents ?? []).filter((a: Agent) => a.status !== "terminated");
+    const visibleProjects = (projects ?? []).filter((p: Project) => !p.archivedAt);
 
     postToParent({
       type: "sidebarData",
@@ -186,9 +173,7 @@ export function EmbeddedBridge() {
             openNewGoal();
             break;
           case "openCommandPalette":
-            document.dispatchEvent(
-              new KeyboardEvent("keydown", { key: "k", metaKey: true }),
-            );
+            document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
             break;
         }
       }

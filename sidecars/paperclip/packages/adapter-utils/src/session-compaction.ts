@@ -117,10 +117,11 @@ export function getAdapterSessionManagement(adapterType: string | null | undefin
 export function readSessionCompactionOverride(runtimeConfig: unknown): Partial<SessionCompactionPolicy> {
   const runtime = isRecord(runtimeConfig) ? runtimeConfig : {};
   const heartbeat = isRecord(runtime.heartbeat) ? runtime.heartbeat : {};
-  const compaction = isRecord(
-    heartbeat.sessionCompaction ?? heartbeat.sessionRotation ?? runtime.sessionCompaction,
-  )
-    ? (heartbeat.sessionCompaction ?? heartbeat.sessionRotation ?? runtime.sessionCompaction) as Record<string, unknown>
+  const compaction = isRecord(heartbeat.sessionCompaction ?? heartbeat.sessionRotation ?? runtime.sessionCompaction)
+    ? ((heartbeat.sessionCompaction ?? heartbeat.sessionRotation ?? runtime.sessionCompaction) as Record<
+        string,
+        unknown
+      >)
     : {};
 
   const explicit: Partial<SessionCompactionPolicy> = {};
@@ -159,17 +160,12 @@ export function resolveSessionCompactionPolicy(
     },
     adapterSessionManagement,
     explicitOverride,
-    source: hasExplicitOverride
-      ? "agent_override"
-      : adapterSessionManagement
-        ? "adapter_default"
-        : "legacy_fallback",
+    source: hasExplicitOverride ? "agent_override" : adapterSessionManagement ? "adapter_default" : "legacy_fallback",
   };
 }
 
-export function hasSessionCompactionThresholds(policy: Pick<
-  SessionCompactionPolicy,
-  "maxSessionRuns" | "maxRawInputTokens" | "maxSessionAgeHours"
->) {
+export function hasSessionCompactionThresholds(
+  policy: Pick<SessionCompactionPolicy, "maxSessionRuns" | "maxRawInputTokens" | "maxSessionAgeHours">,
+) {
   return policy.maxSessionRuns > 0 || policy.maxRawInputTokens > 0 || policy.maxSessionAgeHours > 0;
 }

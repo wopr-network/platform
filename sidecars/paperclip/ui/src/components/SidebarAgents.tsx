@@ -14,11 +14,7 @@ import { cn, agentRouteRef, agentUrl } from "../lib/utils";
 import { useAgentOrder } from "../hooks/useAgentOrder";
 import { AgentIcon } from "./AgentIconPicker";
 import { BudgetSidebarMarker } from "./BudgetSidebarMarker";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { Agent } from "@paperclipai/shared";
 export function SidebarAgents() {
   const [open, setOpen] = useState(true);
@@ -60,9 +56,7 @@ export function SidebarAgents() {
   }, [liveRuns]);
 
   const visibleAgents = useMemo(() => {
-    const filtered = (agents ?? []).filter(
-      (a: Agent) => a.status !== "terminated"
-    );
+    const filtered = (agents ?? []).filter((a: Agent) => a.status !== "terminated");
     return filtered;
   }, [agents]);
   const currentUserId = session?.user?.id ?? session?.session?.userId ?? null;
@@ -76,7 +70,6 @@ export function SidebarAgents() {
   const activeAgentId = agentMatch?.[1] ?? null;
   const activeTab = agentMatch?.[2] ?? null;
 
-
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="group">
@@ -85,7 +78,7 @@ export function SidebarAgents() {
             <ChevronRight
               className={cn(
                 "h-3 w-3 text-muted-foreground/60 transition-transform opacity-0 group-hover:opacity-100",
-                open && "rotate-90"
+                open && "rotate-90",
               )}
             />
             <span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
@@ -120,16 +113,14 @@ export function SidebarAgents() {
                   "flex items-center gap-2.5 px-3 py-1.5 text-[13px] font-medium transition-colors",
                   activeAgentId === agentRouteRef(agent)
                     ? "bg-accent text-foreground"
-                    : "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
+                    : "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
                 )}
               >
                 <AgentIcon icon={agent.icon} className="shrink-0 h-3.5 w-3.5 text-muted-foreground" />
                 <span className="flex-1 truncate">{agent.name}</span>
                 {(agent.pauseReason === "budget" || runCount > 0) && (
                   <span className="ml-auto flex items-center gap-1.5 shrink-0">
-                    {agent.pauseReason === "budget" ? (
-                      <BudgetSidebarMarker title="Agent paused by budget" />
-                    ) : null}
+                    {agent.pauseReason === "budget" ? <BudgetSidebarMarker title="Agent paused by budget" /> : null}
                     {runCount > 0 ? (
                       <span className="relative flex h-2 w-2">
                         <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
@@ -137,9 +128,7 @@ export function SidebarAgents() {
                       </span>
                     ) : null}
                     {runCount > 0 ? (
-                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">
-                        {runCount} live
-                      </span>
+                      <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{runCount} live</span>
                     ) : null}
                   </span>
                 )}

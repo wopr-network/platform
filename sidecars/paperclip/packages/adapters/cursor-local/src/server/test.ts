@@ -80,7 +80,8 @@ export async function readCursorAuthInfo(cursorHome?: string): Promise<CursorAut
   if (typeof authInfo !== "object" || authInfo === null) return null;
   const info = authInfo as Record<string, unknown>;
   const email = typeof info.email === "string" && info.email.trim().length > 0 ? info.email.trim() : null;
-  const displayName = typeof info.displayName === "string" && info.displayName.trim().length > 0 ? info.displayName.trim() : null;
+  const displayName =
+    typeof info.displayName === "string" && info.displayName.trim().length > 0 ? info.displayName.trim() : null;
   const userId = typeof info.userId === "number" ? info.userId : null;
   if (!email && !displayName && userId == null) return null;
   return { email, displayName, userId };
@@ -89,9 +90,7 @@ export async function readCursorAuthInfo(cursorHome?: string): Promise<CursorAut
 const CURSOR_AUTH_REQUIRED_RE =
   /(?:authentication\s+required|not\s+authenticated|not\s+logged\s+in|unauthorized|invalid(?:\s+or\s+missing)?\s+api(?:[_\s-]?key)?|cursor[_\s-]?api[_\s-]?key|run\s+'?agent\s+login'?\s+first|api(?:[_\s-]?key)?(?:\s+is)?\s+required)/i;
 
-export async function testEnvironment(
-  ctx: AdapterEnvironmentTestContext,
-): Promise<AdapterEnvironmentTestResult> {
+export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promise<AdapterEnvironmentTestResult> {
   const checks: AdapterEnvironmentCheck[] = [];
   const config = parseObject(ctx.config);
   const command = asString(config.command, "agent");
@@ -167,8 +166,9 @@ export async function testEnvironment(
     }
   }
 
-  const canRunProbe =
-    checks.every((check) => check.code !== "cursor_cwd_invalid" && check.code !== "cursor_command_unresolvable");
+  const canRunProbe = checks.every(
+    (check) => check.code !== "cursor_cwd_invalid" && check.code !== "cursor_command_unresolvable",
+  );
   if (canRunProbe) {
     if (!commandLooksLike(command, "agent")) {
       checks.push({
@@ -213,7 +213,7 @@ export async function testEnvironment(
           code: "cursor_hello_probe_timed_out",
           level: "warn",
           message: "Cursor hello probe timed out.",
-          hint: "Retry the probe. If this persists, verify `agent -p --mode ask --output-format json \"Respond with hello.\"` manually.",
+          hint: 'Retry the probe. If this persists, verify `agent -p --mode ask --output-format json "Respond with hello."` manually.',
         });
       } else if ((probe.exitCode ?? 1) === 0) {
         const summary = parsed.summary.trim();
@@ -228,7 +228,7 @@ export async function testEnvironment(
           ...(hasHello
             ? {}
             : {
-                hint: "Try `agent -p --mode ask --output-format json \"Respond with hello.\"` manually to inspect full output.",
+                hint: 'Try `agent -p --mode ask --output-format json "Respond with hello."` manually to inspect full output.',
               }),
         });
       } else if (CURSOR_AUTH_REQUIRED_RE.test(authEvidence)) {
@@ -245,7 +245,7 @@ export async function testEnvironment(
           level: "error",
           message: "Cursor hello probe failed.",
           ...(detail ? { detail } : {}),
-          hint: "Run `agent -p --mode ask --output-format json \"Respond with hello.\"` manually in this working directory to debug.",
+          hint: 'Run `agent -p --mode ask --output-format json "Respond with hello."` manually in this working directory to debug.',
         });
       }
     }

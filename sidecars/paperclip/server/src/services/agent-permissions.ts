@@ -8,10 +8,7 @@ export function defaultPermissionsForRole(role: string): NormalizedAgentPermissi
   };
 }
 
-export function normalizeAgentPermissions(
-  permissions: unknown,
-  role: string,
-): NormalizedAgentPermissions {
+export function normalizeAgentPermissions(permissions: unknown, role: string): NormalizedAgentPermissions {
   const defaults = defaultPermissionsForRole(role);
   if (typeof permissions !== "object" || permissions === null || Array.isArray(permissions)) {
     return defaults;
@@ -19,9 +16,6 @@ export function normalizeAgentPermissions(
 
   const record = permissions as Record<string, unknown>;
   return {
-    canCreateAgents:
-      typeof record.canCreateAgents === "boolean"
-        ? record.canCreateAgents
-        : defaults.canCreateAgents,
+    canCreateAgents: typeof record.canCreateAgents === "boolean" ? record.canCreateAgents : defaults.canCreateAgents,
   };
 }

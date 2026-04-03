@@ -154,17 +154,10 @@ describe("execution workspace policy helpers", () => {
   });
 
   it("disables project execution workspace policy when the instance flag is off", () => {
-    expect(
-      gateProjectExecutionWorkspacePolicy(
-        { enabled: true, defaultMode: "isolated_workspace" },
-        false,
-      ),
-    ).toBeNull();
-    expect(
-      gateProjectExecutionWorkspacePolicy(
-        { enabled: true, defaultMode: "isolated_workspace" },
-        true,
-      ),
-    ).toEqual({ enabled: true, defaultMode: "isolated_workspace" });
+    expect(gateProjectExecutionWorkspacePolicy({ enabled: true, defaultMode: "isolated_workspace" }, false)).toBeNull();
+    expect(gateProjectExecutionWorkspacePolicy({ enabled: true, defaultMode: "isolated_workspace" }, true)).toEqual({
+      enabled: true,
+      defaultMode: "isolated_workspace",
+    });
   });
 });

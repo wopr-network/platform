@@ -6,8 +6,12 @@ export const issueInboxArchives = pgTable(
   "issue_inbox_archives",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id").notNull().references(() => companies.id),
-    issueId: uuid("issue_id").notNull().references(() => issues.id),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id),
     userId: text("user_id").notNull(),
     archivedAt: timestamp("archived_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

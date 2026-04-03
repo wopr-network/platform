@@ -9,7 +9,9 @@ import { FailedRunInboxRow, InboxIssueMetaLeading } from "./Inbox";
 
 vi.mock("@/lib/router", () => ({
   Link: ({ children, className, ...props }: ComponentProps<"a">) => (
-    <a className={className} {...props}>{children}</a>
+    <a className={className} {...props}>
+      {children}
+    </a>
   ),
   useLocation: () => ({ pathname: "/", search: "", hash: "" }),
   useNavigate: () => () => {},

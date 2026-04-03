@@ -108,8 +108,7 @@ export function SwipeToArchive({
 
   const handleTouchEnd = () => {
     if (disabled || isCollapsing) return;
-    const shouldCommit =
-      widthRef.current > 0 && Math.abs(offsetX) >= widthRef.current * COMMIT_THRESHOLD;
+    const shouldCommit = widthRef.current > 0 && Math.abs(offsetX) >= widthRef.current * COMMIT_THRESHOLD;
     if (shouldCommit) {
       commitArchive();
       return;
@@ -151,10 +150,7 @@ export function SwipeToArchive({
       </div>
       <div
         data-inbox-row-surface
-        className={cn(
-          "relative will-change-transform",
-          selected ? "bg-zinc-100 dark:bg-zinc-800" : "bg-card",
-        )}
+        className={cn("relative will-change-transform", selected ? "bg-zinc-100 dark:bg-zinc-800" : "bg-card")}
         style={{
           transform: `translate3d(${offsetX}px, 0, 0)`,
           transition: isDragging ? "none" : "transform 180ms ease-out",

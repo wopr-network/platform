@@ -343,9 +343,7 @@ describe("deriveTaskKeyWithHeartbeatFallback", () => {
   });
 
   it("prefers explicit key over heartbeat fallback even on timer wakes", () => {
-    expect(
-      deriveTaskKeyWithHeartbeatFallback({ wakeSource: "timer", taskKey: "issue-789" }, null),
-    ).toBe("issue-789");
+    expect(deriveTaskKeyWithHeartbeatFallback({ wakeSource: "timer", taskKey: "issue-789" }, null)).toBe("issue-789");
   });
 
   it("returns null for non-timer wakes with no explicit key", () => {
@@ -425,31 +423,29 @@ describe("prioritizeProjectWorkspaceCandidatesForRun", () => {
       { id: "workspace-3", cwd: "/tmp/three" },
     ];
 
-    expect(
-      prioritizeProjectWorkspaceCandidatesForRun(rows, "workspace-2").map((row) => row.id),
-    ).toEqual(["workspace-2", "workspace-1", "workspace-3"]);
+    expect(prioritizeProjectWorkspaceCandidatesForRun(rows, "workspace-2").map((row) => row.id)).toEqual([
+      "workspace-2",
+      "workspace-1",
+      "workspace-3",
+    ]);
   });
 
   it("keeps the original order when no preferred workspace is selected", () => {
-    const rows = [
-      { id: "workspace-1" },
-      { id: "workspace-2" },
-    ];
+    const rows = [{ id: "workspace-1" }, { id: "workspace-2" }];
 
-    expect(
-      prioritizeProjectWorkspaceCandidatesForRun(rows, null).map((row) => row.id),
-    ).toEqual(["workspace-1", "workspace-2"]);
+    expect(prioritizeProjectWorkspaceCandidatesForRun(rows, null).map((row) => row.id)).toEqual([
+      "workspace-1",
+      "workspace-2",
+    ]);
   });
 
   it("keeps the original order when the selected workspace is missing", () => {
-    const rows = [
-      { id: "workspace-1" },
-      { id: "workspace-2" },
-    ];
+    const rows = [{ id: "workspace-1" }, { id: "workspace-2" }];
 
-    expect(
-      prioritizeProjectWorkspaceCandidatesForRun(rows, "workspace-9").map((row) => row.id),
-    ).toEqual(["workspace-1", "workspace-2"]);
+    expect(prioritizeProjectWorkspaceCandidatesForRun(rows, "workspace-9").map((row) => row.id)).toEqual([
+      "workspace-1",
+      "workspace-2",
+    ]);
   });
 });
 

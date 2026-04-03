@@ -21,11 +21,7 @@ async function makeConfigHome(initialConfig?: Record<string, unknown>) {
   const configDir = path.join(root, "opencode");
   await fs.mkdir(configDir, { recursive: true });
   if (initialConfig) {
-    await fs.writeFile(
-      path.join(configDir, "opencode.json"),
-      `${JSON.stringify(initialConfig, null, 2)}\n`,
-      "utf8",
-    );
+    await fs.writeFile(path.join(configDir, "opencode.json"), `${JSON.stringify(initialConfig, null, 2)}\n`, "utf8");
   }
   return root;
 }
@@ -47,10 +43,7 @@ describe("prepareOpenCodeRuntimeConfig", () => {
 
     expect(prepared.env.XDG_CONFIG_HOME).not.toBe(configHome);
     const runtimeConfig = JSON.parse(
-      await fs.readFile(
-        path.join(prepared.env.XDG_CONFIG_HOME, "opencode", "opencode.json"),
-        "utf8",
-      ),
+      await fs.readFile(path.join(prepared.env.XDG_CONFIG_HOME, "opencode", "opencode.json"), "utf8"),
     ) as Record<string, unknown>;
     expect(runtimeConfig).toMatchObject({
       theme: "system",

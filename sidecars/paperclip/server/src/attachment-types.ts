@@ -61,14 +61,11 @@ export function matchesContentType(contentType: string, allowedPatterns: string[
 
 // ---------- Module-level singletons read once at startup ----------
 
-const allowedPatterns: string[] = parseAllowedTypes(
-  process.env.PAPERCLIP_ALLOWED_ATTACHMENT_TYPES,
-);
+const allowedPatterns: string[] = parseAllowedTypes(process.env.PAPERCLIP_ALLOWED_ATTACHMENT_TYPES);
 
 /** Convenience wrapper using the process-level allowed list. */
 export function isAllowedContentType(contentType: string): boolean {
   return matchesContentType(contentType, allowedPatterns);
 }
 
-export const MAX_ATTACHMENT_BYTES =
-  Number(process.env.PAPERCLIP_ATTACHMENT_MAX_BYTES) || 10 * 1024 * 1024;
+export const MAX_ATTACHMENT_BYTES = Number(process.env.PAPERCLIP_ATTACHMENT_MAX_BYTES) || 10 * 1024 * 1024;

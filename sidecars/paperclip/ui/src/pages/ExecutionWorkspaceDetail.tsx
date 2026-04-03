@@ -108,7 +108,9 @@ function buildWorkspacePatch(initialState: WorkspaceFormState, nextState: Worksp
   maybeAssign("branchName");
   maybeAssign("providerRef");
 
-  const maybeAssignConfigText = (key: keyof Pick<WorkspaceFormState, "provisionCommand" | "teardownCommand" | "cleanupCommand">) => {
+  const maybeAssignConfigText = (
+    key: keyof Pick<WorkspaceFormState, "provisionCommand" | "teardownCommand" | "cleanupCommand">,
+  ) => {
     if (initialState[key] === nextState[key]) return;
     configPatch[key] = normalizeText(nextState[key]);
   };
@@ -117,7 +119,10 @@ function buildWorkspacePatch(initialState: WorkspaceFormState, nextState: Worksp
   maybeAssignConfigText("teardownCommand");
   maybeAssignConfigText("cleanupCommand");
 
-  if (initialState.inheritRuntime !== nextState.inheritRuntime || initialState.workspaceRuntime !== nextState.workspaceRuntime) {
+  if (
+    initialState.inheritRuntime !== nextState.inheritRuntime ||
+    initialState.workspaceRuntime !== nextState.workspaceRuntime
+  ) {
     const parsed = parseWorkspaceRuntimeJson(nextState.workspaceRuntime);
     if (!parsed.ok) throw new Error(parsed.error);
     configPatch.workspaceRuntime = nextState.inheritRuntime ? null : parsed.value;
@@ -150,15 +155,7 @@ function validateForm(form: WorkspaceFormState) {
   return null;
 }
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="space-y-1.5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
@@ -181,7 +178,12 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 
 function StatusPill({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground", className)}>
+    <div
+      className={cn(
+        "inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -200,14 +202,12 @@ function MonoValue({ value, copy }: { value: string; copy?: boolean }) {
   );
 }
 
-function WorkspaceLink({
-  project,
-  workspace,
-}: {
-  project: Project;
-  workspace: ProjectWorkspace;
-}) {
-  return <Link to={projectWorkspaceUrl(project, workspace.id)} className="hover:underline">{workspace.name}</Link>;
+function WorkspaceLink({ project, workspace }: { project: Project; workspace: ProjectWorkspace }) {
+  return (
+    <Link to={projectWorkspaceUrl(project, workspace.id)} className="hover:underline">
+      {workspace.name}
+    </Link>
+  );
 }
 
 export function ExecutionWorkspaceDetail() {
@@ -228,14 +228,18 @@ export function ExecutionWorkspaceDetail() {
   const workspace = workspaceQuery.data ?? null;
 
   const projectQuery = useQuery({
-    queryKey: workspace ? [...queryKeys.projects.detail(workspace.projectId), workspace.companyId] : ["projects", "detail", "__pending__"],
+    queryKey: workspace
+      ? [...queryKeys.projects.detail(workspace.projectId), workspace.companyId]
+      : ["projects", "detail", "__pending__"],
     queryFn: () => projectsApi.get(workspace!.projectId, workspace!.companyId),
     enabled: Boolean(workspace?.projectId),
   });
   const project = projectQuery.data ?? null;
 
   const sourceIssueQuery = useQuery({
-    queryKey: workspace?.sourceIssueId ? queryKeys.issues.detail(workspace.sourceIssueId) : ["issues", "detail", "__none__"],
+    queryKey: workspace?.sourceIssueId
+      ? queryKeys.issues.detail(workspace.sourceIssueId)
+      : ["issues", "detail", "__none__"],
     queryFn: () => issuesApi.get(workspace!.sourceIssueId!),
     enabled: Boolean(workspace?.sourceIssueId),
   });
@@ -264,16 +268,15 @@ export function ExecutionWorkspaceDetail() {
   );
   const inheritedRuntimeConfig = linkedProjectWorkspace?.runtimeConfig?.workspaceRuntime ?? null;
   const effectiveRuntimeConfig = workspace?.config?.workspaceRuntime ?? inheritedRuntimeConfig;
-  const runtimeConfigSource =
-    workspace?.config?.workspaceRuntime
-      ? "execution_workspace"
-      : inheritedRuntimeConfig
-        ? "project_workspace"
-        : "none";
+  const runtimeConfigSource = workspace?.config?.workspaceRuntime
+    ? "execution_workspace"
+    : inheritedRuntimeConfig
+      ? "project_workspace"
+      : "none";
 
   const initialState = useMemo(() => (workspace ? formStateFromWorkspace(workspace) : null), [workspace]);
   const isDirty = Boolean(form && initialState && JSON.stringify(form) !== JSON.stringify(initialState));
-  const projectRef = project ? projectRouteRef(project) : workspace?.projectId ?? "";
+  const projectRef = project ? projectRouteRef(project) : (workspace?.projectId ?? "");
 
   useEffect(() => {
     if (!workspace?.companyId || workspace.companyId === selectedCompanyId) return;
@@ -326,7 +329,9 @@ export function ExecutionWorkspaceDetail() {
       executionWorkspacesApi.controlRuntimeServices(workspace!.id, action),
     onSuccess: (result, action) => {
       queryClient.setQueryData(queryKeys.executionWorkspaces.detail(result.workspace.id), result.workspace);
-      queryClient.invalidateQueries({ queryKey: queryKeys.executionWorkspaces.workspaceOperations(result.workspace.id) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.executionWorkspaces.workspaceOperations(result.workspace.id),
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(result.workspace.projectId) });
       setErrorMessage(null);
       setRuntimeActionMessage(
@@ -384,7 +389,13 @@ export function ExecutionWorkspaceDetail() {
           </Button>
           <StatusPill>{workspace.mode}</StatusPill>
           <StatusPill>{workspace.providerType}</StatusPill>
-          <StatusPill className={workspace.status === "active" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : undefined}>
+          <StatusPill
+            className={
+              workspace.status === "active"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : undefined
+            }
+          >
             {workspace.status}
           </StatusPill>
         </div>
@@ -399,9 +410,9 @@ export function ExecutionWorkspaceDetail() {
                   </div>
                   <h1 className="text-2xl font-semibold">{workspace.name}</h1>
                   <p className="max-w-2xl text-sm text-muted-foreground">
-                    Configure the concrete runtime workspace that Paperclip reuses for this issue flow. These settings stay
-                    attached to the execution workspace so future runs can keep local paths, repo refs, provisioning, teardown,
-                    and runtime-service behavior in sync with the actual workspace being reused.
+                    Configure the concrete runtime workspace that Paperclip reuses for this issue flow. These settings
+                    stay attached to the execution workspace so future runs can keep local paths, repo refs,
+                    provisioning, teardown, and runtime-service behavior in sync with the actual workspace being reused.
                   </p>
                 </div>
                 <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto">
@@ -423,7 +434,9 @@ export function ExecutionWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
                     value={form.name}
-                    onChange={(event) => setForm((current) => current ? { ...current, name: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, name: event.target.value } : current))
+                    }
                     placeholder="Execution workspace name"
                   />
                 </Field>
@@ -431,7 +444,9 @@ export function ExecutionWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.branchName}
-                    onChange={(event) => setForm((current) => current ? { ...current, branchName: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, branchName: event.target.value } : current))
+                    }
                     placeholder="PAP-946-workspace"
                   />
                 </Field>
@@ -442,7 +457,9 @@ export function ExecutionWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.cwd}
-                    onChange={(event) => setForm((current) => current ? { ...current, cwd: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, cwd: event.target.value } : current))
+                    }
                     placeholder="/absolute/path/to/workspace"
                   />
                 </Field>
@@ -450,7 +467,9 @@ export function ExecutionWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.providerRef}
-                    onChange={(event) => setForm((current) => current ? { ...current, providerRef: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, providerRef: event.target.value } : current))
+                    }
                     placeholder="/path/to/worktree or provider ref"
                   />
                 </Field>
@@ -461,7 +480,9 @@ export function ExecutionWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
                     value={form.repoUrl}
-                    onChange={(event) => setForm((current) => current ? { ...current, repoUrl: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, repoUrl: event.target.value } : current))
+                    }
                     placeholder="https://github.com/org/repo"
                   />
                 </Field>
@@ -469,7 +490,9 @@ export function ExecutionWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.baseRef}
-                    onChange={(event) => setForm((current) => current ? { ...current, baseRef: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, baseRef: event.target.value } : current))
+                    }
                     placeholder="origin/main"
                   />
                 </Field>
@@ -480,7 +503,9 @@ export function ExecutionWorkspaceDetail() {
                   <textarea
                     className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.provisionCommand}
-                    onChange={(event) => setForm((current) => current ? { ...current, provisionCommand: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, provisionCommand: event.target.value } : current))
+                    }
                     placeholder="bash ./scripts/provision-worktree.sh"
                   />
                 </Field>
@@ -488,7 +513,9 @@ export function ExecutionWorkspaceDetail() {
                   <textarea
                     className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.teardownCommand}
-                    onChange={(event) => setForm((current) => current ? { ...current, teardownCommand: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, teardownCommand: event.target.value } : current))
+                    }
                     placeholder="bash ./scripts/teardown-worktree.sh"
                   />
                 </Field>
@@ -499,7 +526,9 @@ export function ExecutionWorkspaceDetail() {
                   <textarea
                     className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.cleanupCommand}
-                    onChange={(event) => setForm((current) => current ? { ...current, cleanupCommand: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, cleanupCommand: event.target.value } : current))
+                    }
                     placeholder="pkill -f vite || true"
                   />
                 </Field>
@@ -524,11 +553,15 @@ export function ExecutionWorkspaceDetail() {
                       size="sm"
                       disabled={!linkedProjectWorkspace?.runtimeConfig?.workspaceRuntime}
                       onClick={() =>
-                        setForm((current) => current ? {
-                          ...current,
-                          inheritRuntime: true,
-                          workspaceRuntime: "",
-                        } : current)
+                        setForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                inheritRuntime: true,
+                                workspaceRuntime: "",
+                              }
+                            : current,
+                        )
                       }
                     >
                       Reset to inherit
@@ -536,14 +569,17 @@ export function ExecutionWorkspaceDetail() {
                   </div>
                 </div>
 
-                <Field label="Runtime services JSON" hint="Concrete workspace runtime settings for this execution workspace. Leave this inheriting unless you need a one-off override. If you are missing the right commands, ask your CEO to set them up for you.">
+                <Field
+                  label="Runtime services JSON"
+                  hint="Concrete workspace runtime settings for this execution workspace. Leave this inheriting unless you need a one-off override. If you are missing the right commands, ask your CEO to set them up for you."
+                >
                   <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                     <input
                       id="inherit-runtime-config"
                       type="checkbox"
                       checked={form.inheritRuntime}
                       onChange={(event) =>
-                        setForm((current) => current ? { ...current, inheritRuntime: event.target.checked } : current)
+                        setForm((current) => (current ? { ...current, inheritRuntime: event.target.checked } : current))
                       }
                     />
                     <label htmlFor="inherit-runtime-config">Inherit project workspace runtime config</label>
@@ -551,15 +587,23 @@ export function ExecutionWorkspaceDetail() {
                   <textarea
                     className="min-h-48 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none disabled:cursor-not-allowed disabled:opacity-60"
                     value={form.workspaceRuntime}
-                    onChange={(event) => setForm((current) => current ? { ...current, workspaceRuntime: event.target.value } : current)}
+                    onChange={(event) =>
+                      setForm((current) => (current ? { ...current, workspaceRuntime: event.target.value } : current))
+                    }
                     disabled={form.inheritRuntime}
-                    placeholder={'{\n  "services": [\n    {\n      "name": "web",\n      "command": "pnpm dev",\n      "port": 3100\n    }\n  ]\n}'}
+                    placeholder={
+                      '{\n  "services": [\n    {\n      "name": "web",\n      "command": "pnpm dev",\n      "port": 3100\n    }\n  ]\n}'
+                    }
                   />
                 </Field>
               </div>
 
               <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                <Button className="w-full sm:w-auto" disabled={!isDirty || updateWorkspace.isPending} onClick={saveChanges}>
+                <Button
+                  className="w-full sm:w-auto"
+                  disabled={!isDirty || updateWorkspace.isPending}
+                  onClick={saveChanges}
+                >
                   {updateWorkspace.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Save changes
                 </Button>
@@ -576,8 +620,12 @@ export function ExecutionWorkspaceDetail() {
                   Reset
                 </Button>
                 {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-                {!errorMessage && runtimeActionMessage ? <p className="text-sm text-muted-foreground">{runtimeActionMessage}</p> : null}
-                {!errorMessage && !isDirty ? <p className="text-sm text-muted-foreground">No unsaved changes.</p> : null}
+                {!errorMessage && runtimeActionMessage ? (
+                  <p className="text-sm text-muted-foreground">{runtimeActionMessage}</p>
+                ) : null}
+                {!errorMessage && !isDirty ? (
+                  <p className="text-sm text-muted-foreground">No unsaved changes.</p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -585,12 +633,20 @@ export function ExecutionWorkspaceDetail() {
           <div className="space-y-6">
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="space-y-1">
-                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Linked objects</div>
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Linked objects
+                </div>
                 <h2 className="text-lg font-semibold">Workspace context</h2>
               </div>
               <Separator className="my-4" />
               <DetailRow label="Project">
-                {project ? <Link to={`/projects/${projectRef}`} className="hover:underline">{project.name}</Link> : <MonoValue value={workspace.projectId} />}
+                {project ? (
+                  <Link to={`/projects/${projectRef}`} className="hover:underline">
+                    {project.name}
+                  </Link>
+                ) : (
+                  <MonoValue value={workspace.projectId} />
+                )}
               </DetailRow>
               <DetailRow label="Project workspace">
                 {project && linkedProjectWorkspace ? (
@@ -630,7 +686,9 @@ export function ExecutionWorkspaceDetail() {
 
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="space-y-1">
-                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Paths and refs</div>
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Paths and refs
+                </div>
                 <h2 className="text-lg font-semibold">Concrete location</h2>
               </div>
               <Separator className="my-4" />
@@ -643,11 +701,20 @@ export function ExecutionWorkspaceDetail() {
               <DetailRow label="Repo URL">
                 {workspace.repoUrl && isSafeExternalUrl(workspace.repoUrl) ? (
                   <div className="inline-flex max-w-full items-start gap-2">
-                    <a href={workspace.repoUrl} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 break-all hover:underline">
+                    <a
+                      href={workspace.repoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-w-0 items-center gap-1 break-all hover:underline"
+                    >
                       {workspace.repoUrl}
                       <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                     </a>
-                    <CopyText text={workspace.repoUrl} className="shrink-0 text-muted-foreground hover:text-foreground" copiedLabel="Copied">
+                    <CopyText
+                      text={workspace.repoUrl}
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      copiedLabel="Copied"
+                    >
                       <Copy className="h-3.5 w-3.5" />
                     </CopyText>
                   </div>
@@ -675,10 +742,13 @@ export function ExecutionWorkspaceDetail() {
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-1">
-                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Runtime services</div>
+                  <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                    Runtime services
+                  </div>
                   <h2 className="text-lg font-semibold">Attached services</h2>
                   <p className="text-sm text-muted-foreground">
-                    Source: {runtimeConfigSource === "execution_workspace"
+                    Source:{" "}
+                    {runtimeConfigSource === "execution_workspace"
                       ? "execution workspace override"
                       : runtimeConfigSource === "project_workspace"
                         ? "project workspace default"
@@ -724,10 +794,17 @@ export function ExecutionWorkspaceDetail() {
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="space-y-1">
                           <div className="text-sm font-medium">{service.serviceName}</div>
-                          <div className="text-xs text-muted-foreground">{service.status} · {service.lifecycle}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {service.status} · {service.lifecycle}
+                          </div>
                           <div className="space-y-1 text-xs text-muted-foreground">
                             {service.url ? (
-                              <a href={service.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline">
+                              <a
+                                href={service.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 hover:underline"
+                              >
                                 {service.url}
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </a>
@@ -753,7 +830,9 @@ export function ExecutionWorkspaceDetail() {
 
             <div className="rounded-2xl border border-border bg-card p-5">
               <div className="space-y-1">
-                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Recent operations</div>
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                  Recent operations
+                </div>
                 <h2 className="text-lg font-semibold">Runtime and cleanup logs</h2>
               </div>
               <Separator className="my-4" />
@@ -777,9 +856,13 @@ export function ExecutionWorkspaceDetail() {
                             {operation.finishedAt ? ` → ${formatDateTime(operation.finishedAt)}` : ""}
                           </div>
                           {operation.stderrExcerpt ? (
-                            <div className="whitespace-pre-wrap break-words text-xs text-destructive">{operation.stderrExcerpt}</div>
+                            <div className="whitespace-pre-wrap break-words text-xs text-destructive">
+                              {operation.stderrExcerpt}
+                            </div>
                           ) : operation.stdoutExcerpt ? (
-                            <div className="whitespace-pre-wrap break-words text-xs text-muted-foreground">{operation.stdoutExcerpt}</div>
+                            <div className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                              {operation.stdoutExcerpt}
+                            </div>
                           ) : null}
                         </div>
                         <StatusPill className="self-start">{operation.status}</StatusPill>
@@ -800,7 +883,8 @@ export function ExecutionWorkspaceDetail() {
               <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Linked issues</div>
               <h2 className="text-lg font-semibold">Issues using this workspace</h2>
               <p className="text-sm text-muted-foreground">
-                Any issue attached to this execution workspace appears here so you can review the full session context before reusing or closing it.
+                Any issue attached to this execution workspace appears here so you can review the full session context
+                before reusing or closing it.
               </p>
             </div>
             <StatusPill>{linkedIssues.length} linked</StatusPill>
@@ -852,10 +936,14 @@ export function ExecutionWorkspaceDetail() {
         onClosed={(nextWorkspace) => {
           queryClient.setQueryData(queryKeys.executionWorkspaces.detail(nextWorkspace.id), nextWorkspace);
           queryClient.invalidateQueries({ queryKey: queryKeys.executionWorkspaces.closeReadiness(nextWorkspace.id) });
-          queryClient.invalidateQueries({ queryKey: queryKeys.executionWorkspaces.workspaceOperations(nextWorkspace.id) });
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.executionWorkspaces.workspaceOperations(nextWorkspace.id),
+          });
           if (project) {
             queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(project.id) });
-            queryClient.invalidateQueries({ queryKey: queryKeys.executionWorkspaces.list(project.companyId, { projectId: project.id }) });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.executionWorkspaces.list(project.companyId, { projectId: project.id }),
+            });
           }
           if (sourceIssue) {
             queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(sourceIssue.id) });

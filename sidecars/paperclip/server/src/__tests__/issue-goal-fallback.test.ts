@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  resolveIssueGoalId,
-  resolveNextIssueGoalId,
-} from "../services/issue-goal-fallback.ts";
+import { resolveIssueGoalId, resolveNextIssueGoalId } from "../services/issue-goal-fallback.ts";
 
 describe("issue goal fallback", () => {
   it("assigns the company goal when creating an issue without project or goal", () => {

@@ -155,11 +155,13 @@ describe("issue document revision routes", () => {
         }),
       }),
     );
-    expect(res.body).toEqual(expect.objectContaining({
-      key: "plan",
-      title: "Plan v1",
-      latestRevisionNumber: 3,
-    }));
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        key: "plan",
+        title: "Plan v1",
+        latestRevisionNumber: 3,
+      }),
+    );
   });
 
   it("rejects invalid document keys before attempting restore", async () => {

@@ -35,10 +35,12 @@ describe("agent instructions service", () => {
     if (originalPaperclipInstanceId === undefined) delete process.env.PAPERCLIP_INSTANCE_ID;
     else process.env.PAPERCLIP_INSTANCE_ID = originalPaperclipInstanceId;
 
-    await Promise.all([...cleanupDirs].map(async (dir) => {
-      await fs.rm(dir, { recursive: true, force: true });
-      cleanupDirs.delete(dir);
-    }));
+    await Promise.all(
+      [...cleanupDirs].map(async (dir) => {
+        await fs.rm(dir, { recursive: true, force: true });
+        cleanupDirs.delete(dir);
+      }),
+    );
   });
 
   it("copies the existing bundle into the managed root when switching to managed mode", async () => {
@@ -77,8 +79,12 @@ describe("agent instructions service", () => {
       ),
     );
     expect(result.bundle.files.map((file) => file.path)).toEqual(["AGENTS.md", "docs/TOOLS.md"]);
-    await expect(fs.readFile(path.join(result.bundle.managedRootPath, "AGENTS.md"), "utf8")).resolves.toBe("# External Agent\n");
-    await expect(fs.readFile(path.join(result.bundle.managedRootPath, "docs", "TOOLS.md"), "utf8")).resolves.toBe("## Tools\n");
+    await expect(fs.readFile(path.join(result.bundle.managedRootPath, "AGENTS.md"), "utf8")).resolves.toBe(
+      "# External Agent\n",
+    );
+    await expect(fs.readFile(path.join(result.bundle.managedRootPath, "docs", "TOOLS.md"), "utf8")).resolves.toBe(
+      "## Tools\n",
+    );
   });
 
   it("creates the target entry file when switching to a new external root", async () => {
@@ -135,11 +141,7 @@ describe("agent instructions service", () => {
     await fs.mkdir(path.join(externalRoot, "node_modules", "pkg"), { recursive: true });
     await fs.writeFile(path.join(externalRoot, "node_modules", "pkg", "index.js"), "export {};\n", "utf8");
     await fs.mkdir(path.join(externalRoot, "python", "__pycache__"), { recursive: true });
-    await fs.writeFile(
-      path.join(externalRoot, "python", "__pycache__", "module.cpython-313.pyc"),
-      "compiled",
-      "utf8",
-    );
+    await fs.writeFile(path.join(externalRoot, "python", "__pycache__", "module.cpython-313.pyc"), "compiled", "utf8");
     await fs.mkdir(path.join(externalRoot, ".pytest_cache"), { recursive: true });
     await fs.writeFile(path.join(externalRoot, ".pytest_cache", "README.md"), "cache", "utf8");
 

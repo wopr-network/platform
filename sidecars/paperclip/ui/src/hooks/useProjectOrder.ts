@@ -75,10 +75,7 @@ export function useProjectOrder({ projects, companyId, userId }: UseProjectOrder
     };
   }, [projects, storageKey]);
 
-  const orderedProjects = useMemo(
-    () => sortProjectsByStoredOrder(projects, orderedIds),
-    [projects, orderedIds],
-  );
+  const orderedProjects = useMemo(() => sortProjectsByStoredOrder(projects, orderedIds), [projects, orderedIds]);
 
   const persistOrder = useCallback(
     (ids: string[]) => {
@@ -102,4 +99,3 @@ export function useProjectOrder({ projects, companyId, userId }: UseProjectOrder
     persistOrder,
   };
 }
-

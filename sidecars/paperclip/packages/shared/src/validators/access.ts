@@ -19,9 +19,7 @@ export const createOpenClawInvitePromptSchema = z.object({
   agentMessage: z.string().max(4000).optional().nullable(),
 });
 
-export type CreateOpenClawInvitePrompt = z.infer<
-  typeof createOpenClawInvitePromptSchema
->;
+export type CreateOpenClawInvitePrompt = z.infer<typeof createOpenClawInvitePromptSchema>;
 
 export const acceptInviteSchema = z.object({
   requestType: z.enum(JOIN_REQUEST_TYPES),
@@ -52,10 +50,7 @@ export const claimJoinRequestApiKeySchema = z.object({
 
 export type ClaimJoinRequestApiKey = z.infer<typeof claimJoinRequestApiKeySchema>;
 
-export const boardCliAuthAccessLevelSchema = z.enum([
-  "board",
-  "instance_admin_required",
-]);
+export const boardCliAuthAccessLevelSchema = z.enum(["board", "instance_admin_required"]);
 
 export type BoardCliAuthAccessLevel = z.infer<typeof boardCliAuthAccessLevelSchema>;
 

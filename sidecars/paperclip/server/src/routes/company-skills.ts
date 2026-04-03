@@ -95,33 +95,29 @@ export function companySkillRoutes(db: Db) {
     res.json(result);
   });
 
-  router.post(
-    "/companies/:companyId/skills",
-    validate(companySkillCreateSchema),
-    async (req, res) => {
-      const companyId = req.params.companyId as string;
-      await assertCanMutateCompanySkills(req, companyId);
-      const result = await svc.createLocalSkill(companyId, req.body);
+  router.post("/companies/:companyId/skills", validate(companySkillCreateSchema), async (req, res) => {
+    const companyId = req.params.companyId as string;
+    await assertCanMutateCompanySkills(req, companyId);
+    const result = await svc.createLocalSkill(companyId, req.body);
 
-      const actor = getActorInfo(req);
-      await logActivity(db, {
-        companyId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
-        agentId: actor.agentId,
-        runId: actor.runId,
-        action: "company.skill_created",
-        entityType: "company_skill",
-        entityId: result.id,
-        details: {
-          slug: result.slug,
-          name: result.name,
-        },
-      });
+    const actor = getActorInfo(req);
+    await logActivity(db, {
+      companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "company.skill_created",
+      entityType: "company_skill",
+      entityId: result.id,
+      details: {
+        slug: result.slug,
+        name: result.name,
+      },
+    });
 
-      res.status(201).json(result);
-    },
-  );
+    res.status(201).json(result);
+  });
 
   router.patch(
     "/companies/:companyId/skills/:skillId/files",
@@ -157,36 +153,32 @@ export function companySkillRoutes(db: Db) {
     },
   );
 
-  router.post(
-    "/companies/:companyId/skills/import",
-    validate(companySkillImportSchema),
-    async (req, res) => {
-      const companyId = req.params.companyId as string;
-      await assertCanMutateCompanySkills(req, companyId);
-      const source = String(req.body.source ?? "");
-      const result = await svc.importFromSource(companyId, source);
+  router.post("/companies/:companyId/skills/import", validate(companySkillImportSchema), async (req, res) => {
+    const companyId = req.params.companyId as string;
+    await assertCanMutateCompanySkills(req, companyId);
+    const source = String(req.body.source ?? "");
+    const result = await svc.importFromSource(companyId, source);
 
-      const actor = getActorInfo(req);
-      await logActivity(db, {
-        companyId,
-        actorType: actor.actorType,
-        actorId: actor.actorId,
-        agentId: actor.agentId,
-        runId: actor.runId,
-        action: "company.skills_imported",
-        entityType: "company",
-        entityId: companyId,
-        details: {
-          source,
-          importedCount: result.imported.length,
-          importedSlugs: result.imported.map((skill) => skill.slug),
-          warningCount: result.warnings.length,
-        },
-      });
+    const actor = getActorInfo(req);
+    await logActivity(db, {
+      companyId,
+      actorType: actor.actorType,
+      actorId: actor.actorId,
+      agentId: actor.agentId,
+      runId: actor.runId,
+      action: "company.skills_imported",
+      entityType: "company",
+      entityId: companyId,
+      details: {
+        source,
+        importedCount: result.imported.length,
+        importedSlugs: result.imported.map((skill) => skill.slug),
+        warningCount: result.warnings.length,
+      },
+    });
 
-      res.status(201).json(result);
-    },
-  );
+    res.status(201).json(result);
+  });
 
   router.post(
     "/companies/:companyId/skills/scan-projects",

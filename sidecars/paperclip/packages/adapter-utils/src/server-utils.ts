@@ -1,10 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { constants as fsConstants, promises as fs, type Dirent } from "node:fs";
 import path from "node:path";
-import type {
-  AdapterSkillEntry,
-  AdapterSkillSnapshot,
-} from "./types.js";
+import type { AdapterSkillEntry, AdapterSkillSnapshot } from "./types.js";
 
 export interface RunProcessResult {
   exitCode: number | null;
@@ -28,20 +25,14 @@ interface SpawnTarget {
 
 type ChildProcessWithEvents = ChildProcess & {
   on(event: "error", listener: (err: Error) => void): ChildProcess;
-  on(
-    event: "close",
-    listener: (code: number | null, signal: NodeJS.Signals | null) => void,
-  ): ChildProcess;
+  on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): ChildProcess;
 };
 
 export const runningProcesses = new Map<string, RunningProcess>();
 export const MAX_CAPTURE_BYTES = 4 * 1024 * 1024;
 export const MAX_EXCERPT_BYTES = 32 * 1024;
 const SENSITIVE_ENV_KEY = /(key|token|secret|password|passwd|authorization|cookie)/i;
-const PAPERCLIP_SKILL_ROOT_RELATIVE_CANDIDATES = [
-  "../../skills",
-  "../../../../../skills",
-];
+const PAPERCLIP_SKILL_ROOT_RELATIVE_CANDIDATES = ["../../skills", "../../../../../skills"];
 
 export interface PaperclipSkillEntry {
   key: string;
@@ -84,10 +75,9 @@ function skillLocationLabel(value: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function buildManagedSkillOrigin(entry: { required?: boolean }): Pick<
-  AdapterSkillEntry,
-  "origin" | "originLabel" | "readOnly"
-> {
+function buildManagedSkillOrigin(entry: {
+  required?: boolean;
+}): Pick<AdapterSkillEntry, "origin" | "originLabel" | "readOnly"> {
   if (entry.required) {
     return {
       origin: "paperclip_required",
@@ -183,10 +173,7 @@ export function renderTemplate(template: string, data: Record<string, unknown>) 
   return template.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, path) => resolvePathValue(data, path));
 }
 
-export function joinPromptSections(
-  sections: Array<string | null | undefined>,
-  separator = "\n\n",
-) {
+export function joinPromptSections(sections: Array<string | null | undefined>, separator = "\n\n") {
   return sections
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter(Boolean)
@@ -239,9 +226,7 @@ export function buildPaperclipEnv(agent: { id: string; companyId: string }): Rec
     PAPERCLIP_AGENT_ID: agent.id,
     PAPERCLIP_COMPANY_ID: agent.companyId,
   };
-  const runtimeHost = resolveHostForUrl(
-    process.env.PAPERCLIP_LISTEN_HOST ?? process.env.HOST ?? "localhost",
-  );
+  const runtimeHost = resolveHostForUrl(process.env.PAPERCLIP_LISTEN_HOST ?? process.env.HOST ?? "localhost");
   const runtimePort = process.env.PAPERCLIP_LISTEN_PORT ?? process.env.PORT ?? "3100";
   const apiUrl = process.env.PAPERCLIP_API_URL ?? `http://${runtimeHost}:${runtimePort}`;
   vars.PAPERCLIP_API_URL = apiUrl;
@@ -337,10 +322,7 @@ export function ensurePathInEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return { ...env, PATH: defaultPathForPlatform() };
 }
 
-export async function ensureAbsoluteDirectory(
-  cwd: string,
-  opts: { createIfMissing?: boolean } = {},
-) {
+export async function ensureAbsoluteDirectory(cwd: string, opts: { createIfMissing?: boolean } = {}) {
   if (!path.isAbsolute(cwd)) {
     throw new Error(`Working directory must be an absolute path: "${cwd}"`);
   }
@@ -387,7 +369,10 @@ export async function resolvePaperclipSkillsDir(
   for (const root of candidates) {
     if (seenRoots.has(root)) continue;
     seenRoots.add(root);
-    const isDirectory = await fs.stat(root).then((stats) => stats.isDirectory()).catch(() => false);
+    const isDirectory = await fs
+      .stat(root)
+      .then((stats) => stats.isDirectory())
+      .catch(() => false);
     if (isDirectory) return root;
   }
 
@@ -428,9 +413,7 @@ export async function readInstalledSkillTargets(skillsHome: string): Promise<Map
   return out;
 }
 
-export function buildPersistentSkillSnapshot(
-  options: PersistentSkillSnapshotOptions,
-): AdapterSkillSnapshot {
+export function buildPersistentSkillSnapshot(options: PersistentSkillSnapshotOptions): AdapterSkillSnapshot {
   const {
     adapterType,
     availableEntries,
@@ -563,10 +546,7 @@ export async function readPaperclipRuntimeSkillEntries(
   return listPaperclipSkillEntries(moduleDir, additionalCandidates);
 }
 
-export async function readPaperclipSkillMarkdown(
-  moduleDir: string,
-  skillKey: string,
-): Promise<string | null> {
+export async function readPaperclipSkillMarkdown(moduleDir: string, skillKey: string): Promise<string | null> {
   const normalized = skillKey.trim().toLowerCase();
   if (!normalized) return null;
 
@@ -613,13 +593,13 @@ function canonicalizeDesiredPaperclipSkillReference(
   const exactKey = availableEntries.find((entry) => entry.key.trim().toLowerCase() === normalizedReference);
   if (exactKey) return exactKey.key;
 
-  const byRuntimeName = availableEntries.filter((entry) =>
-    typeof entry.runtimeName === "string" && entry.runtimeName.trim().toLowerCase() === normalizedReference,
+  const byRuntimeName = availableEntries.filter(
+    (entry) => typeof entry.runtimeName === "string" && entry.runtimeName.trim().toLowerCase() === normalizedReference,
   );
   if (byRuntimeName.length === 1) return byRuntimeName[0]!.key;
 
-  const slugMatches = availableEntries.filter((entry) =>
-    entry.key.trim().toLowerCase().split("/").pop() === normalizedReference,
+  const slugMatches = availableEntries.filter(
+    (entry) => entry.key.trim().toLowerCase().split("/").pop() === normalizedReference,
   );
   if (slugMatches.length === 1) return slugMatches[0]!.key;
 
@@ -631,9 +611,7 @@ export function resolvePaperclipDesiredSkillNames(
   availableEntries: Array<{ key: string; runtimeName?: string | null; required?: boolean }>,
 ): string[] {
   const preference = readPaperclipSkillSyncPreference(config);
-  const requiredSkills = availableEntries
-    .filter((entry) => entry.required)
-    .map((entry) => entry.key);
+  const requiredSkills = availableEntries.filter((entry) => entry.required).map((entry) => entry.key);
   if (!preference.explicit) {
     return Array.from(new Set(requiredSkills));
   }
@@ -650,16 +628,8 @@ export function writePaperclipSkillSyncPreference(
   const next = { ...config };
   const raw = next.paperclipSkillSync;
   const current =
-    typeof raw === "object" && raw !== null && !Array.isArray(raw)
-      ? { ...(raw as Record<string, unknown>) }
-      : {};
-  current.desiredSkills = Array.from(
-    new Set(
-      desiredSkills
-        .map((value) => value.trim())
-        .filter(Boolean),
-    ),
-  );
+    typeof raw === "object" && raw !== null && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {};
+  current.desiredSkills = Array.from(new Set(desiredSkills.map((value) => value.trim()).filter(Boolean)));
   next.paperclipSkillSync = current;
   return next;
 }
@@ -688,7 +658,10 @@ export async function ensurePaperclipSkillSymlink(
     return "skipped";
   }
 
-  const linkedPathExists = await fs.stat(resolvedLinkedPath).then(() => true).catch(() => false);
+  const linkedPathExists = await fs
+    .stat(resolvedLinkedPath)
+    .then(() => true)
+    .catch(() => false);
   if (linkedPathExists) {
     return "skipped";
   }
@@ -719,10 +692,7 @@ export async function removeMaintainerOnlySkillSymlinks(
       const resolvedLinkedPath = path.isAbsolute(linkedPath)
         ? linkedPath
         : path.resolve(path.dirname(target), linkedPath);
-      if (
-        !isMaintainerOnlySkillTarget(linkedPath) &&
-        !isMaintainerOnlySkillTarget(resolvedLinkedPath)
-      ) {
+      if (!isMaintainerOnlySkillTarget(linkedPath) && !isMaintainerOnlySkillTarget(resolvedLinkedPath)) {
         continue;
       }
 

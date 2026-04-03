@@ -45,8 +45,7 @@ export function mergeProjectWorkspaceRuntimeConfig(
   const nextConfig: ProjectWorkspaceRuntimeConfig = {
     workspaceRuntime:
       patch.workspaceRuntime !== undefined ? cloneRecord(patch.workspaceRuntime) : current.workspaceRuntime,
-    desiredState:
-      patch.desiredState !== undefined ? readDesiredState(patch.desiredState) : current.desiredState,
+    desiredState: patch.desiredState !== undefined ? readDesiredState(patch.desiredState) : current.desiredState,
   };
 
   if (nextConfig.workspaceRuntime === null && nextConfig.desiredState === null) {

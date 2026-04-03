@@ -1,10 +1,4 @@
-import type {
-  Approval,
-  DashboardSummary,
-  HeartbeatRun,
-  Issue,
-  JoinRequest,
-} from "@paperclipai/shared";
+import type { Approval, DashboardSummary, HeartbeatRun, Issue, JoinRequest } from "@paperclipai/shared";
 
 export const RECENT_ISSUES_LIMIT = 100;
 export const FAILED_RUN_STATUSES = new Set(["failed", "timed_out"]);
@@ -102,10 +96,7 @@ export function isMineInboxTab(tab: InboxTab): boolean {
   return tab === "mine";
 }
 
-export function resolveInboxSelectionIndex(
-  previousIndex: number,
-  itemCount: number,
-): number {
+export function resolveInboxSelectionIndex(previousIndex: number, itemCount: number): number {
   if (itemCount === 0) return -1;
   if (previousIndex < 0) return -1;
   return Math.min(previousIndex, itemCount - 1);
@@ -118,15 +109,11 @@ export function getInboxKeyboardSelectionIndex(
 ): number {
   if (itemCount === 0) return -1;
   if (previousIndex < 0) return 0;
-  return direction === "next"
-    ? Math.min(previousIndex + 1, itemCount - 1)
-    : Math.max(previousIndex - 1, 0);
+  return direction === "next" ? Math.min(previousIndex + 1, itemCount - 1) : Math.max(previousIndex - 1, 0);
 }
 
 export function getLatestFailedRunsByAgent(runs: HeartbeatRun[]): HeartbeatRun[] {
-  const sorted = [...runs].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  const sorted = [...runs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const latestByAgent = new Map<string, HeartbeatRun>();
 
   for (const run of sorted) {
@@ -169,11 +156,7 @@ export function getUnreadTouchedIssues(issues: Issue[]): Issue[] {
   return issues.filter((issue) => issue.isUnreadForMe);
 }
 
-export function getApprovalsForTab(
-  approvals: Approval[],
-  tab: InboxTab,
-  filter: InboxApprovalFilter,
-): Approval[] {
+export function getApprovalsForTab(approvals: Approval[], tab: InboxTab, filter: InboxApprovalFilter): Approval[] {
   const sortedApprovals = [...approvals].sort(
     (a, b) => normalizeTimestamp(b.updatedAt) - normalizeTimestamp(a.updatedAt),
   );
@@ -281,28 +264,16 @@ export function computeInboxBadgeData({
   dismissed: Set<string>;
 }): InboxBadgeData {
   const actionableApprovals = approvals.filter(
-    (approval) =>
-      ACTIONABLE_APPROVAL_STATUSES.has(approval.status) &&
-      !dismissed.has(`approval:${approval.id}`),
+    (approval) => ACTIONABLE_APPROVAL_STATUSES.has(approval.status) && !dismissed.has(`approval:${approval.id}`),
   ).length;
-  const failedRuns = getLatestFailedRunsByAgent(heartbeatRuns).filter(
-    (run) => !dismissed.has(`run:${run.id}`),
-  ).length;
-  const visibleJoinRequests = joinRequests.filter(
-    (jr) => !dismissed.has(`join:${jr.id}`),
-  ).length;
+  const failedRuns = getLatestFailedRunsByAgent(heartbeatRuns).filter((run) => !dismissed.has(`run:${run.id}`)).length;
+  const visibleJoinRequests = joinRequests.filter((jr) => !dismissed.has(`join:${jr.id}`)).length;
   const visibleMineIssues = mineIssues.length;
   const agentErrorCount = dashboard?.agents.error ?? 0;
   const monthBudgetCents = dashboard?.costs.monthBudgetCents ?? 0;
   const monthUtilizationPercent = dashboard?.costs.monthUtilizationPercent ?? 0;
-  const showAggregateAgentError =
-    agentErrorCount > 0 &&
-    failedRuns === 0 &&
-    !dismissed.has("alert:agent-errors");
-  const showBudgetAlert =
-    monthBudgetCents > 0 &&
-    monthUtilizationPercent >= 80 &&
-    !dismissed.has("alert:budget");
+  const showAggregateAgentError = agentErrorCount > 0 && failedRuns === 0 && !dismissed.has("alert:agent-errors");
+  const showBudgetAlert = monthBudgetCents > 0 && monthUtilizationPercent >= 80 && !dismissed.has("alert:budget");
   const alerts = Number(showAggregateAgentError) + Number(showBudgetAlert);
 
   return {

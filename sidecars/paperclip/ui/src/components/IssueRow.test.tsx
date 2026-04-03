@@ -8,7 +8,9 @@ import { IssueRow } from "./IssueRow";
 
 vi.mock("@/lib/router", () => ({
   Link: ({ children, className, ...props }: React.ComponentProps<"a">) => (
-    <a className={className} {...props}>{children}</a>
+    <a className={className} {...props}>
+      {children}
+    </a>
   ),
 }));
 

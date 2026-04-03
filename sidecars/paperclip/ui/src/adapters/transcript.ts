@@ -47,14 +47,20 @@ export function buildTranscript(
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
-      appendTranscriptEntries(entries, parser(trimmed, chunk.ts).map((entry) => redactTranscriptEntryPaths(entry, redactionOptions)));
+      appendTranscriptEntries(
+        entries,
+        parser(trimmed, chunk.ts).map((entry) => redactTranscriptEntryPaths(entry, redactionOptions)),
+      );
     }
   }
 
   const trailing = stdoutBuffer.trim();
   if (trailing) {
     const ts = chunks.length > 0 ? chunks[chunks.length - 1]!.ts : new Date().toISOString();
-    appendTranscriptEntries(entries, parser(trailing, ts).map((entry) => redactTranscriptEntryPaths(entry, redactionOptions)));
+    appendTranscriptEntries(
+      entries,
+      parser(trailing, ts).map((entry) => redactTranscriptEntryPaths(entry, redactionOptions)),
+    );
   }
 
   return entries;

@@ -23,9 +23,7 @@ const uiAdapters: UIAdapterModule[] = [
   httpUIAdapter,
 ];
 
-const adaptersByType = new Map<string, UIAdapterModule>(
-  uiAdapters.map((a) => [a.type, a]),
-);
+const adaptersByType = new Map<string, UIAdapterModule>(uiAdapters.map((a) => [a.type, a]));
 
 export function getUIAdapter(type: string): UIAdapterModule {
   return adaptersByType.get(type) ?? processUIAdapter;

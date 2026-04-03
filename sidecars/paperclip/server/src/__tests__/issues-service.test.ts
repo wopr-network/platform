@@ -13,10 +13,7 @@ import {
   projectWorkspaces,
   projects,
 } from "@paperclipai/db";
-import {
-  getEmbeddedPostgresTestSupport,
-  startEmbeddedPostgresTestDatabase,
-} from "./helpers/embedded-postgres.js";
+import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 import { instanceSettingsService } from "../services/instance-settings.ts";
 import { issueService } from "../services/issues.ts";
 
@@ -166,12 +163,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
     const result = await svc.list(companyId, { participantAgentId: agentId });
     const resultIds = new Set(result.map((issue) => issue.id));
 
-    expect(resultIds).toEqual(new Set([
-      assignedIssueId,
-      createdIssueId,
-      commentedIssueId,
-      activityIssueId,
-    ]));
+    expect(resultIds).toEqual(new Set([assignedIssueId, createdIssueId, commentedIssueId, activityIssueId]));
     expect(resultIds.has(excludedIssueId)).toBe(false);
   });
 
@@ -357,18 +349,8 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
       },
     ]);
 
-    await svc.archiveInbox(
-      companyId,
-      archivedIssueId,
-      userId,
-      new Date("2026-03-26T12:30:00.000Z"),
-    );
-    await svc.archiveInbox(
-      companyId,
-      resurfacedIssueId,
-      userId,
-      new Date("2026-03-26T13:00:00.000Z"),
-    );
+    await svc.archiveInbox(companyId, archivedIssueId, userId, new Date("2026-03-26T12:30:00.000Z"));
+    await svc.archiveInbox(companyId, resurfacedIssueId, userId, new Date("2026-03-26T13:00:00.000Z"));
 
     await db.insert(issueComments).values({
       companyId,
@@ -384,10 +366,7 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
       inboxArchivedByUserId: userId,
     });
 
-    expect(archivedFiltered.map((issue) => issue.id)).toEqual([
-      resurfacedIssueId,
-      visibleIssueId,
-    ]);
+    expect(archivedFiltered.map((issue) => issue.id)).toEqual([resurfacedIssueId, visibleIssueId]);
 
     await svc.unarchiveInbox(companyId, archivedIssueId, userId);
 
@@ -396,11 +375,9 @@ describeEmbeddedPostgres("issueService.list participantAgentId", () => {
       inboxArchivedByUserId: userId,
     });
 
-    expect(new Set(afterUnarchive.map((issue) => issue.id))).toEqual(new Set([
-      visibleIssueId,
-      archivedIssueId,
-      resurfacedIssueId,
-    ]));
+    expect(new Set(afterUnarchive.map((issue) => issue.id))).toEqual(
+      new Set([visibleIssueId, archivedIssueId, resurfacedIssueId]),
+    );
   });
 });
 

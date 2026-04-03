@@ -20,7 +20,12 @@ export const llmConfigSchema = z.object({
 
 export const databaseBackupConfigSchema = z.object({
   enabled: z.boolean().default(true),
-  intervalMinutes: z.number().int().min(1).max(7 * 24 * 60).default(60),
+  intervalMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(7 * 24 * 60)
+    .default(60),
   retentionDays: z.number().int().min(1).max(3650).default(30),
   dir: z.string().default("~/.paperclip/instances/default/data/backups"),
 });

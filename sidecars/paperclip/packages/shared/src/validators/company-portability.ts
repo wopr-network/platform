@@ -73,10 +73,14 @@ export const portabilitySkillManifestEntrySchema = z.object({
   trustLevel: z.string().nullable(),
   compatibility: z.string().nullable(),
   metadata: z.record(z.unknown()).nullable(),
-  fileInventory: z.array(z.object({
-    path: z.string().min(1),
-    kind: z.string().min(1),
-  })).default([]),
+  fileInventory: z
+    .array(
+      z.object({
+        path: z.string().min(1),
+        kind: z.string().min(1),
+      }),
+    )
+    .default([]),
 });
 
 export const portabilityProjectManifestEntrySchema = z.object({
@@ -90,19 +94,23 @@ export const portabilityProjectManifestEntrySchema = z.object({
   color: z.string().nullable(),
   status: z.string().nullable(),
   executionWorkspacePolicy: z.record(z.unknown()).nullable(),
-  workspaces: z.array(z.object({
-    key: z.string().min(1),
-    name: z.string().min(1),
-    sourceType: z.string().nullable(),
-    repoUrl: z.string().nullable(),
-    repoRef: z.string().nullable(),
-    defaultRef: z.string().nullable(),
-    visibility: z.string().nullable(),
-    setupCommand: z.string().nullable(),
-    cleanupCommand: z.string().nullable(),
-    metadata: z.record(z.unknown()).nullable(),
-    isPrimary: z.boolean(),
-  })).default([]),
+  workspaces: z
+    .array(
+      z.object({
+        key: z.string().min(1),
+        name: z.string().min(1),
+        sourceType: z.string().nullable(),
+        repoUrl: z.string().nullable(),
+        repoRef: z.string().nullable(),
+        defaultRef: z.string().nullable(),
+        visibility: z.string().nullable(),
+        setupCommand: z.string().nullable(),
+        cleanupCommand: z.string().nullable(),
+        metadata: z.record(z.unknown()).nullable(),
+        isPrimary: z.boolean(),
+      }),
+    )
+    .default([]),
   metadata: z.record(z.unknown()).nullable(),
 });
 
@@ -191,10 +199,7 @@ export const portabilityTargetSchema = z.discriminatedUnion("mode", [
   }),
 ]);
 
-export const portabilityAgentSelectionSchema = z.union([
-  z.literal("all"),
-  z.array(z.string().min(1)),
-]);
+export const portabilityAgentSelectionSchema = z.union([z.literal("all"), z.array(z.string().min(1))]);
 
 export const portabilityCollisionStrategySchema = z.enum(["rename", "skip", "replace"]);
 

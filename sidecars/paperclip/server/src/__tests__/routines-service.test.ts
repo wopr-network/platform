@@ -15,10 +15,7 @@ import {
   routines,
   routineTriggers,
 } from "@paperclipai/db";
-import {
-  getEmbeddedPostgresTestSupport,
-  startEmbeddedPostgresTestDatabase,
-} from "./helpers/embedded-postgres.js";
+import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 import { issueService } from "../services/issues.ts";
 import { routineService } from "../services/routines.ts";
 
@@ -308,10 +305,7 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
     expect(run.linkedIssueId).toBe(previousIssue.id);
     expect(run.coalescedIntoRunId).toBe(previousRunId);
 
-    const routineIssues = await db
-      .select({ id: issues.id })
-      .from(issues)
-      .where(eq(issues.originId, routine.id));
+    const routineIssues = await db.select({ id: issues.id }).from(issues).where(eq(issues.originId, routine.id));
 
     expect(routineIssues).toHaveLength(1);
     expect(routineIssues[0]?.id).toBe(previousIssue.id);
@@ -357,10 +351,7 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
     expect(second.linkedIssueId).toBeTruthy();
     expect(first.linkedIssueId).toBe(second.linkedIssueId);
 
-    const routineIssues = await db
-      .select({ id: issues.id })
-      .from(issues)
-      .where(eq(issues.originId, routine.id));
+    const routineIssues = await db.select({ id: issues.id }).from(issues).where(eq(issues.originId, routine.id));
 
     expect(routineIssues).toHaveLength(1);
   });
@@ -378,10 +369,7 @@ describeEmbeddedPostgres("routine service live-execution coalescing", () => {
     expect(run.failureReason).toContain("queue unavailable");
     expect(run.linkedIssueId).toBeNull();
 
-    const routineIssues = await db
-      .select({ id: issues.id })
-      .from(issues)
-      .where(eq(issues.originId, routine.id));
+    const routineIssues = await db.select({ id: issues.id }).from(issues).where(eq(issues.originId, routine.id));
 
     expect(routineIssues).toHaveLength(0);
   });

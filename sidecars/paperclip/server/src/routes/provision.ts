@@ -197,7 +197,7 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
               '  curl -s -X POST $PAPERCLIP_API_URL/api/companies/{{agent.companyId}}/issues -H \'x-paperclip-user-id: {{agent.id}}\' -H \'Content-Type: application/json\' -d \'{"title":"...","description":"...","status":"todo"}\'',
               "",
               "To update an issue status:",
-              '  curl -s -X PATCH $PAPERCLIP_API_URL/api/issues/ISSUE_ID -H \'x-paperclip-user-id: {{agent.id}}\' -H \'Content-Type: application/json\' -d \'{"status":"in_progress"}\'',
+              "  curl -s -X PATCH $PAPERCLIP_API_URL/api/issues/ISSUE_ID -H 'x-paperclip-user-id: {{agent.id}}' -H 'Content-Type: application/json' -d '{\"status\":\"in_progress\"}'",
               "",
               "IMPORTANT: Always authenticate with -H 'x-paperclip-user-id: {{agent.id}}' (NOT the gateway key).",
               "",
@@ -365,7 +365,9 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
  */
 function requireProvisionSecret(req: Request, res: Response, next: NextFunction) {
   const secret = process.env.WOPR_PROVISION_SECRET;
-  console.log(`[provision] auth check: secret=${secret ? "set(" + secret.slice(0, 8) + "...)" : "MISSING"}, header=${req.headers.authorization ? "present" : "MISSING"}`);
+  console.log(
+    `[provision] auth check: secret=${secret ? "set(" + secret.slice(0, 8) + "...)" : "MISSING"}, header=${req.headers.authorization ? "present" : "MISSING"}`,
+  );
   if (!secret) {
     console.error("[provision] WOPR_PROVISION_SECRET not configured");
     res.status(500).json({ error: "WOPR_PROVISION_SECRET not configured" });
@@ -373,7 +375,9 @@ function requireProvisionSecret(req: Request, res: Response, next: NextFunction)
   }
   const header = req.headers.authorization;
   if (!header || header !== `Bearer ${secret}`) {
-    console.error(`[provision] auth failed: header=${header?.slice(0, 20)}..., expected=Bearer ${secret.slice(0, 8)}...`);
+    console.error(
+      `[provision] auth failed: header=${header?.slice(0, 20)}..., expected=Bearer ${secret.slice(0, 8)}...`,
+    );
     res.status(401).json({ error: "Unauthorized" });
     return;
   }

@@ -12,25 +12,13 @@ import {
 } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
 import type { Issue } from "@paperclipai/shared";
 
-const boardStatuses = [
-  "backlog",
-  "todo",
-  "in_progress",
-  "in_review",
-  "blocked",
-  "done",
-  "cancelled",
-];
+const boardStatuses = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"];
 
 function statusLabel(status: string): string {
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -70,9 +58,7 @@ function KanbanColumn({
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {statusLabel(status)}
         </span>
-        <span className="text-xs text-muted-foreground/60 ml-auto tabular-nums">
-          {issues.length}
-        </span>
+        <span className="text-xs text-muted-foreground/60 ml-auto tabular-nums">{issues.length}</span>
       </div>
       <div
         ref={setNodeRef}
@@ -80,17 +66,9 @@ function KanbanColumn({
           isOver ? "bg-accent/40" : "bg-muted/20"
         }`}
       >
-        <SortableContext
-          items={issues.map((i) => i.id)}
-          strategy={verticalListSortingStrategy}
-        >
+        <SortableContext items={issues.map((i) => i.id)} strategy={verticalListSortingStrategy}>
           {issues.map((issue) => (
-            <KanbanCard
-              key={issue.id}
-              issue={issue}
-              agents={agents}
-              isLive={liveIssueIds?.has(issue.id)}
-            />
+            <KanbanCard key={issue.id} issue={issue} agents={agents} isLive={liveIssueIds?.has(issue.id)} />
           ))}
         </SortableContext>
       </div>
@@ -111,14 +89,10 @@ function KanbanCard({
   isLive?: boolean;
   isOverlay?: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: issue.id, data: { issue } });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: issue.id,
+    data: { issue },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -162,16 +136,15 @@ function KanbanCard({
         <p className="text-sm leading-snug line-clamp-2 mb-2">{issue.title}</p>
         <div className="flex items-center gap-2">
           <PriorityIcon priority={issue.priority} />
-          {issue.assigneeAgentId && (() => {
-            const name = agentName(issue.assigneeAgentId);
-            return name ? (
-              <Identity name={name} size="xs" />
-            ) : (
-              <span className="text-xs text-muted-foreground font-mono">
-                {issue.assigneeAgentId.slice(0, 8)}
-              </span>
-            );
-          })()}
+          {issue.assigneeAgentId &&
+            (() => {
+              const name = agentName(issue.assigneeAgentId);
+              return name ? (
+                <Identity name={name} size="xs" />
+              ) : (
+                <span className="text-xs text-muted-foreground font-mono">{issue.assigneeAgentId.slice(0, 8)}</span>
+              );
+            })()}
         </div>
       </Link>
     </div>
@@ -180,17 +153,10 @@ function KanbanCard({
 
 /* ── Main Board ── */
 
-export function KanbanBoard({
-  issues,
-  agents,
-  liveIssueIds,
-  onUpdateIssue,
-}: KanbanBoardProps) {
+export function KanbanBoard({ issues, agents, liveIssueIds, onUpdateIssue }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const columnIssues = useMemo(() => {
     const grouped: Record<string, Issue[]> = {};
@@ -205,10 +171,7 @@ export function KanbanBoard({
     return grouped;
   }, [issues]);
 
-  const activeIssue = useMemo(
-    () => (activeId ? issues.find((i) => i.id === activeId) : null),
-    [activeId, issues]
-  );
+  const activeIssue = useMemo(() => (activeId ? issues.find((i) => i.id === activeId) : null), [activeId, issues]);
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(event.active.id as string);
@@ -247,12 +210,7 @@ export function KanbanBoard({
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
       <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2">
         {boardStatuses.map((status) => (
           <KanbanColumn
@@ -264,11 +222,7 @@ export function KanbanBoard({
           />
         ))}
       </div>
-      <DragOverlay>
-        {activeIssue ? (
-          <KanbanCard issue={activeIssue} agents={agents} isOverlay />
-        ) : null}
-      </DragOverlay>
+      <DragOverlay>{activeIssue ? <KanbanCard issue={activeIssue} agents={agents} isOverlay /> : null}</DragOverlay>
     </DndContext>
   );
 }

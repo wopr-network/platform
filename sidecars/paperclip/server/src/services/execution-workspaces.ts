@@ -70,7 +70,9 @@ async function inspectGitCloseReadiness(workspace: ExecutionWorkspace): Promise<
   }
 
   if (!(await pathExists(workspacePath))) {
-    warnings.push(`Workspace path "${workspacePath}" does not exist, so Paperclip cannot inspect git status before close.`);
+    warnings.push(
+      `Workspace path "${workspacePath}" does not exist, so Paperclip cannot inspect git status before close.`,
+    );
     return {
       git: {
         repoRoot: null,
@@ -135,7 +137,9 @@ async function inspectGitCloseReadiness(workspace: ExecutionWorkspace): Promise<
 
   if (repoRoot && baseRef) {
     try {
-      const counts = (await runGit(["rev-list", "--left-right", "--count", `${baseRef}...HEAD`], workspacePath)).stdout.trim();
+      const counts = (
+        await runGit(["rev-list", "--left-right", "--count", `${baseRef}...HEAD`], workspacePath)
+      ).stdout.trim();
       const [behindRaw, aheadRaw] = counts.split(/\s+/);
       behindCount = behindRaw ? Number.parseInt(behindRaw, 10) : 0;
       aheadCount = aheadRaw ? Number.parseInt(aheadRaw, 10) : 0;
@@ -178,7 +182,9 @@ async function inspectGitCloseReadiness(workspace: ExecutionWorkspace): Promise<
   };
 }
 
-export function readExecutionWorkspaceConfig(metadata: Record<string, unknown> | null | undefined): ExecutionWorkspaceConfig | null {
+export function readExecutionWorkspaceConfig(
+  metadata: Record<string, unknown> | null | undefined,
+): ExecutionWorkspaceConfig | null {
   const raw = isRecord(metadata?.config) ? metadata.config : null;
   if (!raw) return null;
 
@@ -218,10 +224,14 @@ export function mergeExecutionWorkspaceConfig(
   }
 
   const nextConfig: ExecutionWorkspaceConfig = {
-    provisionCommand: patch.provisionCommand !== undefined ? readNullableString(patch.provisionCommand) : current.provisionCommand,
-    teardownCommand: patch.teardownCommand !== undefined ? readNullableString(patch.teardownCommand) : current.teardownCommand,
-    cleanupCommand: patch.cleanupCommand !== undefined ? readNullableString(patch.cleanupCommand) : current.cleanupCommand,
-    workspaceRuntime: patch.workspaceRuntime !== undefined ? cloneRecord(patch.workspaceRuntime) : current.workspaceRuntime,
+    provisionCommand:
+      patch.provisionCommand !== undefined ? readNullableString(patch.provisionCommand) : current.provisionCommand,
+    teardownCommand:
+      patch.teardownCommand !== undefined ? readNullableString(patch.teardownCommand) : current.teardownCommand,
+    cleanupCommand:
+      patch.cleanupCommand !== undefined ? readNullableString(patch.cleanupCommand) : current.cleanupCommand,
+    workspaceRuntime:
+      patch.workspaceRuntime !== undefined ? cloneRecord(patch.workspaceRuntime) : current.workspaceRuntime,
     desiredState:
       patch.desiredState !== undefined
         ? patch.desiredState === "running" || patch.desiredState === "stopped"
@@ -319,13 +329,16 @@ function toExecutionWorkspace(
 
 export function executionWorkspaceService(db: Db) {
   return {
-    list: async (companyId: string, filters?: {
-      projectId?: string;
-      projectWorkspaceId?: string;
-      issueId?: string;
-      status?: string;
-      reuseEligible?: boolean;
-    }) => {
+    list: async (
+      companyId: string,
+      filters?: {
+        projectId?: string;
+        projectWorkspaceId?: string;
+        issueId?: string;
+        status?: string;
+        reuseEligible?: boolean;
+      },
+    ) => {
       const conditions = [eq(executionWorkspaces.companyId, companyId)];
       if (filters?.projectId) conditions.push(eq(executionWorkspaces.projectId, filters.projectId));
       if (filters?.projectWorkspaceId) {
@@ -333,7 +346,10 @@ export function executionWorkspaceService(db: Db) {
       }
       if (filters?.issueId) conditions.push(eq(executionWorkspaces.sourceIssueId, filters.issueId));
       if (filters?.status) {
-        const statuses = filters.status.split(",").map((value) => value.trim()).filter(Boolean);
+        const statuses = filters.status
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
         if (statuses.length === 1) conditions.push(eq(executionWorkspaces.status, statuses[0]!));
         else if (statuses.length > 1) conditions.push(inArray(executionWorkspaces.status, statuses));
       }
@@ -439,15 +455,16 @@ export function executionWorkspaceService(db: Db) {
       const warnings = [...gitWarnings];
       const blockingReasons: string[] = [];
       const isSharedWorkspace = executionWorkspace.mode === "shared_workspace";
-      const workspacePath = readNullableString(executionWorkspace.providerRef) ?? readNullableString(executionWorkspace.cwd);
+      const workspacePath =
+        readNullableString(executionWorkspace.providerRef) ?? readNullableString(executionWorkspace.cwd);
       const resolvedWorkspacePath = workspacePath ? path.resolve(workspacePath) : null;
       const resolvedPrimaryWorkspacePath = projectWorkspace?.cwd ? path.resolve(projectWorkspace.cwd) : null;
       const isProjectPrimaryWorkspace =
-        workspace.projectWorkspaceId != null
-        && workspace.projectWorkspaceId === primaryProjectWorkspace?.id
-        && resolvedWorkspacePath != null
-        && resolvedPrimaryWorkspacePath != null
-        && resolvedWorkspacePath === resolvedPrimaryWorkspacePath;
+        workspace.projectWorkspaceId != null &&
+        workspace.projectWorkspaceId === primaryProjectWorkspace?.id &&
+        resolvedWorkspacePath != null &&
+        resolvedPrimaryWorkspacePath != null &&
+        resolvedWorkspacePath === resolvedPrimaryWorkspacePath;
 
       const linkedIssueSummaries = linkedIssues.map((issue) => ({
         ...issue,
@@ -461,14 +478,18 @@ export function executionWorkspaceService(db: Db) {
             ? "This workspace is still linked to an open issue."
             : `This workspace is still linked to ${blockingIssues.length} open issues.`;
         if (isSharedWorkspace) {
-          warnings.push(`${linkedIssueMessage} Archiving it will detach this shared workspace session from those issues, but keep the underlying project workspace available.`);
+          warnings.push(
+            `${linkedIssueMessage} Archiving it will detach this shared workspace session from those issues, but keep the underlying project workspace available.`,
+          );
         } else {
           blockingReasons.push(linkedIssueMessage);
         }
       }
 
       if (isSharedWorkspace) {
-        warnings.push("This shared workspace session points at project workspace infrastructure. Archiving it only removes the session record.");
+        warnings.push(
+          "This shared workspace session points at project workspace infrastructure. Archiving it only removes the session record.",
+        );
       }
 
       if (runtimeServices.some((service) => service.status !== "stopped")) {
@@ -512,7 +533,8 @@ export function executionWorkspaceService(db: Db) {
         {
           kind: "archive_record",
           label: "Archive workspace record",
-          description: "Keep the execution workspace history and issue linkage, but remove it from active workspace lists.",
+          description:
+            "Keep the execution workspace history and issue linkage, but remove it from active workspace lists.",
           command: null,
         },
       ];
@@ -580,13 +602,13 @@ export function executionWorkspaceService(db: Db) {
         const resolvedWorkspacePath = path.resolve(workspacePath);
         const resolvedProjectWorkspacePath = projectWorkspace?.cwd ? path.resolve(projectWorkspace.cwd) : null;
         const containsProjectWorkspace = resolvedProjectWorkspacePath
-          ? (
-              resolvedWorkspacePath === resolvedProjectWorkspacePath ||
-              resolvedProjectWorkspacePath.startsWith(`${resolvedWorkspacePath}${path.sep}`)
-            )
+          ? resolvedWorkspacePath === resolvedProjectWorkspacePath ||
+            resolvedProjectWorkspacePath.startsWith(`${resolvedWorkspacePath}${path.sep}`)
           : false;
         if (containsProjectWorkspace) {
-          warnings.push(`Paperclip will archive this workspace but keep "${workspacePath}" because it contains the project workspace.`);
+          warnings.push(
+            `Paperclip will archive this workspace but keep "${workspacePath}" because it contains the project workspace.`,
+          );
         } else {
           plannedActions.push({
             kind: "remove_local_directory",
@@ -597,12 +619,7 @@ export function executionWorkspaceService(db: Db) {
         }
       }
 
-      const state =
-        blockingReasons.length > 0
-          ? "blocked"
-          : warnings.length > 0
-            ? "ready_with_warnings"
-            : "ready";
+      const state = blockingReasons.length > 0 ? "blocked" : warnings.length > 0 ? "ready_with_warnings" : "ready";
 
       return {
         workspaceId: workspace.id,

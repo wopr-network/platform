@@ -68,17 +68,25 @@ export class PaperclipApiClient {
   }
 
   post<T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T | null> {
-    return this.request<T>(path, {
-      method: "POST",
-      body: body === undefined ? undefined : JSON.stringify(body),
-    }, opts);
+    return this.request<T>(
+      path,
+      {
+        method: "POST",
+        body: body === undefined ? undefined : JSON.stringify(body),
+      },
+      opts,
+    );
   }
 
   patch<T>(path: string, body?: unknown, opts?: RequestOptions): Promise<T | null> {
-    return this.request<T>(path, {
-      method: "PATCH",
-      body: body === undefined ? undefined : JSON.stringify(body),
-    }, opts);
+    return this.request<T>(
+      path,
+      {
+        method: "PATCH",
+        body: body === undefined ? undefined : JSON.stringify(body),
+      },
+      opts,
+    );
   }
 
   delete<T>(path: string, opts?: RequestOptions): Promise<T | null> {
@@ -204,11 +212,7 @@ function buildConnectionErrorMessage(input: {
   causeMessage?: string;
 }): string {
   const healthUrl = buildHealthCheckUrl(input.url);
-  const lines = [
-    "Could not reach the Paperclip API.",
-    "",
-    `Request: ${input.method} ${input.url}`,
-  ];
+  const lines = ["Could not reach the Paperclip API.", "", `Request: ${input.method} ${input.url}`];
   if (input.causeMessage) {
     lines.push(`Cause: ${input.causeMessage}`);
   }
@@ -249,7 +253,5 @@ function toStringRecord(headers: HeadersInit | undefined): Record<string, string
   if (headers instanceof Headers) {
     return Object.fromEntries(headers.entries());
   }
-  return Object.fromEntries(
-    Object.entries(headers).map(([key, value]) => [key, String(value)]),
-  );
+  return Object.fromEntries(Object.entries(headers).map(([key, value]) => [key, String(value)]));
 }

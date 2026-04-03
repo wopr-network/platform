@@ -28,11 +28,7 @@ export function BreadcrumbProvider({ children }: { children: ReactNode }) {
     }
   }, [breadcrumbs]);
 
-  return (
-    <BreadcrumbContext.Provider value={{ breadcrumbs, setBreadcrumbs }}>
-      {children}
-    </BreadcrumbContext.Provider>
-  );
+  return <BreadcrumbContext.Provider value={{ breadcrumbs, setBreadcrumbs }}>{children}</BreadcrumbContext.Provider>;
 }
 
 export function useBreadcrumbs() {

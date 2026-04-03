@@ -54,7 +54,7 @@ function createApp(actor: any) {
       );
       app.use(errorHandler);
       return app;
-    })
+    }),
   );
 }
 
@@ -74,13 +74,11 @@ describe("cli auth routes", () => {
     });
 
     const app = await createApp({ type: "none", source: "none" });
-    const res = await request(app)
-      .post("/api/cli-auth/challenges")
-      .send({
-        command: "paperclipai company import",
-        clientName: "paperclipai cli",
-        requestedAccess: "board",
-      });
+    const res = await request(app).post("/api/cli-auth/challenges").send({
+      command: "paperclipai company import",
+      clientName: "paperclipai cli",
+      requestedAccess: "board",
+    });
 
     expect(res.status).toBe(201);
     expect(res.body).toMatchObject({

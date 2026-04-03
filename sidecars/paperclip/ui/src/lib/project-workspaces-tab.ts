@@ -36,10 +36,12 @@ function maxDate(...values: Array<Date | string | null | undefined>): Date {
 }
 
 function primaryWorkspaceId(project: ProjectWorkspaceLike): string | null {
-  return project.primaryWorkspace?.id
-    ?? project.workspaces.find((workspace) => workspace.isPrimary)?.id
-    ?? project.workspaces[0]?.id
-    ?? null;
+  return (
+    project.primaryWorkspace?.id ??
+    project.workspaces.find((workspace) => workspace.isPrimary)?.id ??
+    project.workspaces[0]?.id ??
+    null
+  );
 }
 
 function isDefaultSharedExecutionWorkspace(input: {
@@ -71,11 +73,14 @@ export function buildProjectWorkspaceSummaries(input: {
       const executionWorkspace = executionWorkspacesById.get(issue.executionWorkspaceId);
       if (!executionWorkspace) continue;
       if (executionWorkspace.status === "archived") continue;
-      if (isDefaultSharedExecutionWorkspace({
-        executionWorkspace,
-        issue,
-        primaryWorkspaceId: primaryId,
-      })) continue;
+      if (
+        isDefaultSharedExecutionWorkspace({
+          executionWorkspace,
+          issue,
+          primaryWorkspaceId: primaryId,
+        })
+      )
+        continue;
 
       const existing = summaries.get(`execution:${executionWorkspace.id}`);
       const nextIssues = [...(existing?.issues ?? []), issue].sort(
@@ -99,11 +104,13 @@ export function buildProjectWorkspaceSummaries(input: {
         executionWorkspaceId: executionWorkspace.id,
         executionWorkspaceStatus: executionWorkspace.status,
         serviceCount: executionWorkspace.runtimeServices?.length ?? 0,
-        runningServiceCount: executionWorkspace.runtimeServices?.filter((service) => service.status === "running").length ?? 0,
+        runningServiceCount:
+          executionWorkspace.runtimeServices?.filter((service) => service.status === "running").length ?? 0,
         primaryServiceUrl: executionWorkspace.runtimeServices?.find((service) => service.url)?.url ?? null,
         hasRuntimeConfig: Boolean(
-          executionWorkspace.config?.workspaceRuntime
-          ?? projectWorkspacesById.get(executionWorkspace.projectWorkspaceId ?? issue.projectWorkspaceId ?? "")?.runtimeConfig?.workspaceRuntime,
+          executionWorkspace.config?.workspaceRuntime ??
+            projectWorkspacesById.get(executionWorkspace.projectWorkspaceId ?? issue.projectWorkspaceId ?? "")
+              ?.runtimeConfig?.workspaceRuntime,
         ),
         issues: nextIssues,
       });
@@ -131,7 +138,8 @@ export function buildProjectWorkspaceSummaries(input: {
       executionWorkspaceId: null,
       executionWorkspaceStatus: null,
       serviceCount: projectWorkspace.runtimeServices?.length ?? 0,
-      runningServiceCount: projectWorkspace.runtimeServices?.filter((service) => service.status === "running").length ?? 0,
+      runningServiceCount:
+        projectWorkspace.runtimeServices?.filter((service) => service.status === "running").length ?? 0,
       primaryServiceUrl: projectWorkspace.runtimeServices?.find((service) => service.url)?.url ?? null,
       hasRuntimeConfig: Boolean(projectWorkspace.runtimeConfig?.workspaceRuntime),
       issues: nextIssues,
@@ -142,9 +150,9 @@ export function buildProjectWorkspaceSummaries(input: {
     const key = `project:${projectWorkspace.id}`;
     if (summaries.has(key)) continue;
     const shouldSurfaceWorkspace =
-      projectWorkspace.isPrimary
-      || Boolean(projectWorkspace.runtimeConfig?.workspaceRuntime)
-      || (projectWorkspace.runtimeServices?.length ?? 0) > 0;
+      projectWorkspace.isPrimary ||
+      Boolean(projectWorkspace.runtimeConfig?.workspaceRuntime) ||
+      (projectWorkspace.runtimeServices?.length ?? 0) > 0;
     if (!shouldSurfaceWorkspace) continue;
     summaries.set(key, {
       key,
@@ -158,7 +166,8 @@ export function buildProjectWorkspaceSummaries(input: {
       executionWorkspaceId: null,
       executionWorkspaceStatus: null,
       serviceCount: projectWorkspace.runtimeServices?.length ?? 0,
-      runningServiceCount: projectWorkspace.runtimeServices?.filter((service) => service.status === "running").length ?? 0,
+      runningServiceCount:
+        projectWorkspace.runtimeServices?.filter((service) => service.status === "running").length ?? 0,
       primaryServiceUrl: projectWorkspace.runtimeServices?.find((service) => service.url)?.url ?? null,
       hasRuntimeConfig: Boolean(projectWorkspace.runtimeConfig?.workspaceRuntime),
       issues: [],

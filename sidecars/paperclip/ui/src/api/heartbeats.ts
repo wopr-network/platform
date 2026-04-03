@@ -50,12 +50,9 @@ export const heartbeatsApi = {
       `/workspace-operations/${operationId}/log?offset=${encodeURIComponent(String(offset))}&limitBytes=${encodeURIComponent(String(limitBytes))}`,
     ),
   cancel: (runId: string) => api.post<void>(`/heartbeat-runs/${runId}/cancel`, {}),
-  liveRunsForIssue: (issueId: string) =>
-    api.get<LiveRunForIssue[]>(`/issues/${issueId}/live-runs`),
-  activeRunForIssue: (issueId: string) =>
-    api.get<ActiveRunForIssue | null>(`/issues/${issueId}/active-run`),
+  liveRunsForIssue: (issueId: string) => api.get<LiveRunForIssue[]>(`/issues/${issueId}/live-runs`),
+  activeRunForIssue: (issueId: string) => api.get<ActiveRunForIssue | null>(`/issues/${issueId}/active-run`),
   liveRunsForCompany: (companyId: string, minCount?: number) =>
     api.get<LiveRunForIssue[]>(`/companies/${companyId}/live-runs${minCount ? `?minCount=${minCount}` : ""}`),
-  listInstanceSchedulerAgents: () =>
-    api.get<InstanceSchedulerHeartbeatAgent[]>("/instance/scheduler-heartbeats"),
+  listInstanceSchedulerAgents: () => api.get<InstanceSchedulerHeartbeatAgent[]>("/instance/scheduler-heartbeats"),
 };

@@ -137,7 +137,10 @@ function parseInclude(
   fallback: CompanyPortabilityInclude = DEFAULT_EXPORT_INCLUDE,
 ): CompanyPortabilityInclude {
   if (!input || !input.trim()) return { ...fallback };
-  const values = input.split(",").map((part) => part.trim().toLowerCase()).filter(Boolean);
+  const values = input
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
   const include = {
     company: values.includes("company"),
     agents: values.includes("agents"),
@@ -155,14 +158,24 @@ function parseAgents(input: string | undefined): "all" | string[] {
   if (!input || !input.trim()) return "all";
   const normalized = input.trim().toLowerCase();
   if (normalized === "all") return "all";
-  const values = input.split(",").map((part) => part.trim()).filter(Boolean);
+  const values = input
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
   if (values.length === 0) return "all";
   return Array.from(new Set(values));
 }
 
 function parseCsvValues(input: string | undefined): string[] {
   if (!input || !input.trim()) return [];
-  return Array.from(new Set(input.split(",").map((part) => part.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(
+      input
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function isInteractiveTerminal(): boolean {
@@ -188,7 +201,9 @@ function shouldIncludePortableFile(filePath: string): boolean {
 function findPortableExtensionPath(files: Record<string, CompanyPortabilityFileEntry>): string | null {
   if (files[".paperclip.yaml"] !== undefined) return ".paperclip.yaml";
   if (files[".paperclip.yml"] !== undefined) return ".paperclip.yml";
-  return Object.keys(files).find((entry) => entry.endsWith("/.paperclip.yaml") || entry.endsWith("/.paperclip.yml")) ?? null;
+  return (
+    Object.keys(files).find((entry) => entry.endsWith("/.paperclip.yaml") || entry.endsWith("/.paperclip.yml")) ?? null
+  );
 }
 
 function collectFilesUnderDirectory(
@@ -199,7 +214,9 @@ function collectFilesUnderDirectory(
   const normalizedDirectory = normalizePortablePath(directory).replace(/\/+$/, "");
   if (!normalizedDirectory) return [];
   const prefix = `${normalizedDirectory}/`;
-  const excluded = (opts?.excludePrefixes ?? []).map((entry) => normalizePortablePath(entry).replace(/\/+$/, "")).filter(Boolean);
+  const excluded = (opts?.excludePrefixes ?? [])
+    .map((entry) => normalizePortablePath(entry).replace(/\/+$/, ""))
+    .filter(Boolean);
   return Object.keys(files)
     .map(normalizePortablePath)
     .filter((filePath) => filePath.startsWith(prefix))
@@ -302,7 +319,11 @@ function countTotal(catalog: ImportSelectionCatalog, group: ImportSelectableGrou
   return catalog[group].length;
 }
 
-function summarizeGroupSelection(catalog: ImportSelectionCatalog, state: ImportSelectionState, group: ImportSelectableGroup): string {
+function summarizeGroupSelection(
+  catalog: ImportSelectionCatalog,
+  state: ImportSelectionState,
+  group: ImportSelectableGroup,
+): string {
   return `${countSelected(state, group)}/${countTotal(catalog, group)} selected`;
 }
 
@@ -367,12 +388,11 @@ export function buildDefaultImportAdapterOverrides(
   return Object.keys(overrides).length > 0 ? overrides : undefined;
 }
 
-function buildDefaultImportAdapterMessages(
-  overrides: Record<string, { adapterType: string }> | undefined,
-): string[] {
+function buildDefaultImportAdapterMessages(overrides: Record<string, { adapterType: string }> | undefined): string[] {
   if (!overrides) return [];
-  const adapterTypes = Array.from(new Set(Object.values(overrides).map((override) => override.adapterType)))
-    .map((adapterType) => adapterType.replace(/_/g, "-"));
+  const adapterTypes = Array.from(new Set(Object.values(overrides).map((override) => override.adapterType))).map(
+    (adapterType) => adapterType.replace(/_/g, "-"),
+  );
   const agentCount = Object.keys(overrides).length;
   return [
     `Using ${adapterTypes.join(", ")} adapter${adapterTypes.length === 1 ? "" : "s"} for ${agentCount} imported ${pluralize(agentCount, "agent")} without an explicit adapter.`,
@@ -471,13 +491,15 @@ async function promptForImportSelection(preview: CompanyPortabilityPreviewResult
 }
 
 function summarizeInclude(include: CompanyPortabilityInclude): string {
-  const labels = IMPORT_INCLUDE_OPTIONS
-    .filter((option) => include[option.value])
-    .map((option) => option.label.toLowerCase());
+  const labels = IMPORT_INCLUDE_OPTIONS.filter((option) => include[option.value]).map((option) =>
+    option.label.toLowerCase(),
+  );
   return labels.length > 0 ? labels.join(", ") : "nothing selected";
 }
 
-function formatSourceLabel(source: { type: "inline"; rootPath?: string | null } | { type: "github"; url: string }): string {
+function formatSourceLabel(
+  source: { type: "inline"; rootPath?: string | null } | { type: "github"; url: string },
+): string {
   if (source.type === "github") {
     return `GitHub: ${source.url}`;
   }
@@ -485,7 +507,9 @@ function formatSourceLabel(source: { type: "inline"; rootPath?: string | null } 
 }
 
 function formatTargetLabel(
-  target: { mode: "existing_company"; companyId?: string | null } | { mode: "new_company"; newCompanyName?: string | null },
+  target:
+    | { mode: "existing_company"; companyId?: string | null }
+    | { mode: "new_company"; newCompanyName?: string | null },
   preview?: CompanyPortabilityPreviewResult,
 ): string {
   if (target.mode === "existing_company") {
@@ -500,10 +524,7 @@ function pluralize(count: number, singular: string, plural = `${singular}s`): st
   return count === 1 ? singular : plural;
 }
 
-function summarizePlanCounts(
-  plans: Array<{ action: "create" | "update" | "skip" }>,
-  noun: string,
-): string {
+function summarizePlanCounts(plans: Array<{ action: "create" | "update" | "skip" }>, noun: string): string {
   if (plans.length === 0) return `0 ${pluralize(0, noun)} selected`;
   const createCount = plans.filter((plan) => plan.action === "create").length;
   const updateCount = plans.filter((plan) => plan.action === "update").length;
@@ -613,12 +634,16 @@ export function renderCompanyImportPreview(
 
   lines.push("");
   lines.push(pc.bold("Plan"));
-  lines.push(`- company: ${actionChip(preview.plan.companyAction === "none" ? "unchanged" : preview.plan.companyAction)}`);
+  lines.push(
+    `- company: ${actionChip(preview.plan.companyAction === "none" ? "unchanged" : preview.plan.companyAction)}`,
+  );
   lines.push(`- agents: ${summarizePlanCounts(preview.plan.agentPlans, "agent")}`);
   lines.push(`- projects: ${summarizePlanCounts(preview.plan.projectPlans, "project")}`);
   lines.push(`- tasks: ${summarizePlanCounts(preview.plan.issuePlans, "task")}`);
   if (preview.include.skills) {
-    lines.push(`- skills: ${preview.manifest.skills.length} ${pluralize(preview.manifest.skills.length, "skill")} packaged`);
+    lines.push(
+      `- skills: ${preview.manifest.skills.length} ${pluralize(preview.manifest.skills.length, "skill")} packaged`,
+    );
   }
 
   appendPreviewExamples(
@@ -723,9 +748,7 @@ export function resolveCompanyImportApiPath(input: {
     if (!companyId) {
       throw new Error("Existing-company imports require a companyId to resolve the API route.");
     }
-    return input.dryRun
-      ? `/api/companies/${companyId}/imports/preview`
-      : `/api/companies/${companyId}/imports/apply`;
+    return input.dryRun ? `/api/companies/${companyId}/imports/preview` : `/api/companies/${companyId}/imports/apply`;
   }
 
   return input.dryRun ? "/api/companies/import/preview" : "/api/companies/import";
@@ -949,7 +972,9 @@ async function confirmOverwriteExportDirectory(outDir: string): Promise<void> {
   if (entries.length === 0) return;
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error(`Export output directory ${root} already contains files. Re-run interactively or choose an empty directory.`);
+    throw new Error(
+      `Export output directory ${root} already contains files. Re-run interactively or choose an empty directory.`,
+    );
   }
 
   const confirmed = await p.confirm({
@@ -1002,9 +1027,7 @@ export function resolveCompanyForDeletion(
   if (idMatch) return idMatch;
   if (prefixMatch) return prefixMatch;
 
-  throw new Error(
-    `No company found for selector '${selector}'. Use company ID or issue prefix (for example PAP).`,
-  );
+  throw new Error(`No company found for selector '${selector}'. Use company ID or issue prefix (for example PAP).`);
 }
 
 export function assertDeleteConfirmation(company: Company, opts: CompanyDeleteOptions): void {
@@ -1014,9 +1037,7 @@ export function assertDeleteConfirmation(company: Company, opts: CompanyDeleteOp
 
   const confirm = opts.confirm?.trim();
   if (!confirm) {
-    throw new Error(
-      "Deletion requires --confirm <value> where value matches the company ID or issue prefix.",
-    );
+    throw new Error("Deletion requires --confirm <value> where value matches the company ID or issue prefix.");
   }
 
   const confirmsById = confirm === company.id;
@@ -1033,9 +1054,7 @@ function assertDeleteFlags(opts: CompanyDeleteOptions): void {
     throw new Error("Deletion requires --yes.");
   }
   if (!opts.confirm?.trim()) {
-    throw new Error(
-      "Deletion requires --confirm <value> where value matches the company ID or issue prefix.",
-    );
+    throw new Error("Deletion requires --confirm <value> where value matches the company ID or issue prefix.");
   }
 }
 
@@ -1099,7 +1118,11 @@ export function registerCompanyCommands(program: Command): void {
       .description("Export a company into a portable markdown package")
       .argument("<companyId>", "Company ID")
       .requiredOption("--out <path>", "Output directory")
-      .option("--include <values>", "Comma-separated include set: company,agents,projects,issues,tasks,skills", "company,agents")
+      .option(
+        "--include <values>",
+        "Comma-separated include set: company,agents,projects,issues,tasks,skills",
+        "company,agents",
+      )
       .option("--skills <values>", "Comma-separated skill slugs/keys to export")
       .option("--projects <values>", "Comma-separated project shortnames/ids to export")
       .option("--issues <values>", "Comma-separated issue identifiers/ids to export")
@@ -1109,17 +1132,14 @@ export function registerCompanyCommands(program: Command): void {
         try {
           const ctx = resolveCommandContext(opts);
           const include = parseInclude(opts.include);
-          const exported = await ctx.api.post<CompanyPortabilityExportResult>(
-            `/api/companies/${companyId}/export`,
-            {
-              include,
-              skills: parseCsvValues(opts.skills),
-              projects: parseCsvValues(opts.projects),
-              issues: parseCsvValues(opts.issues),
-              projectIssues: parseCsvValues(opts.projectIssues),
-              expandReferencedSkills: Boolean(opts.expandReferencedSkills),
-            },
-          );
+          const exported = await ctx.api.post<CompanyPortabilityExportResult>(`/api/companies/${companyId}/export`, {
+            include,
+            skills: parseCsvValues(opts.skills),
+            projects: parseCsvValues(opts.projects),
+            issues: parseCsvValues(opts.issues),
+            projectIssues: parseCsvValues(opts.projectIssues),
+            expandReferencedSkills: Boolean(opts.expandReferencedSkills),
+          });
           if (!exported) {
             throw new Error("Export request returned no data");
           }
@@ -1207,14 +1227,14 @@ export function registerCompanyCommands(program: Command): void {
             | { type: "inline"; rootPath?: string | null; files: Record<string, CompanyPortabilityFileEntry> }
             | { type: "github"; url: string };
 
-          const treatAsLocalPath = !isHttpUrl(from) && await pathExists(from);
+          const treatAsLocalPath = !isHttpUrl(from) && (await pathExists(from));
           const isGithubSource = isGithubUrl(from) || (isGithubShorthand(from) && !treatAsLocalPath);
 
           if (isHttpUrl(from) || isGithubSource) {
             if (!isGithubUrl(from) && !isGithubShorthand(from)) {
               throw new Error(
                 "Only GitHub URLs and local paths are supported for import. " +
-                "Generic HTTP URLs are not supported. Use a GitHub URL (https://github.com/...) or a local directory path.",
+                  "Generic HTTP URLs are not supported. Use a GitHub URL (https://github.com/...) or a local directory path.",
               );
             }
             sourcePayload = { type: "github", url: normalizeGithubImportSource(from, opts.ref) };
@@ -1374,16 +1394,9 @@ export function registerCompanyCommands(program: Command): void {
       .command("delete")
       .description("Delete a company by ID or shortname/prefix (destructive)")
       .argument("<selector>", "Company ID or issue prefix (for example PAP)")
-      .option(
-        "--by <mode>",
-        "Selector mode: auto | id | prefix",
-        "auto",
-      )
+      .option("--by <mode>", "Selector mode: auto | id | prefix", "auto")
       .option("--yes", "Required safety flag to confirm destructive action", false)
-      .option(
-        "--confirm <value>",
-        "Required safety value: target company ID or shortname/prefix",
-      )
+      .option("--confirm <value>", "Required safety value: target company ID or shortname/prefix")
       .action(async (selector: string, opts: CompanyDeleteOptions) => {
         try {
           const by = (opts.by ?? "auto").trim().toLowerCase() as CompanyDeleteSelectorMode;
@@ -1422,7 +1435,11 @@ export function registerCompanyCommands(program: Command): void {
               const companies = (await ctx.api.get<Company[]>("/api/companies")) ?? [];
               target = resolveCompanyForDeletion(companies, normalizedSelector, by);
             } catch (error) {
-              if (error instanceof ApiRequestError && error.status === 403 && error.message.includes("Board access required")) {
+              if (
+                error instanceof ApiRequestError &&
+                error.status === 403 &&
+                error.message.includes("Board access required")
+              ) {
                 throw new Error(
                   "Board access is required to resolve companies across the instance. Use a company ID/prefix for your current company, or run with board authentication.",
                 );

@@ -186,18 +186,21 @@ function applyMention(markdown: string, query: string, option: MentionOption): s
 
 /* ---- Component ---- */
 
-export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor({
-  value,
-  onChange,
-  placeholder,
-  className,
-  contentClassName,
-  onBlur,
-  imageUploadHandler,
-  bordered = true,
-  mentions,
-  onSubmit,
-}: MarkdownEditorProps, forwardedRef) {
+export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor(
+  {
+    value,
+    onChange,
+    placeholder,
+    className,
+    contentClassName,
+    onBlur,
+    imageUploadHandler,
+    bordered = true,
+    mentions,
+    onSubmit,
+  }: MarkdownEditorProps,
+  forwardedRef,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const ref = useRef<MDXEditorMethods>(null);
   const latestValueRef = useRef(value);
@@ -234,11 +237,15 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     return mentions.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 8);
   }, [mentionState?.query, mentions]);
 
-  useImperativeHandle(forwardedRef, () => ({
-    focus: () => {
-      ref.current?.focus(undefined, { defaultSelection: "rootEnd" });
-    },
-  }), []);
+  useImperativeHandle(
+    forwardedRef,
+    () => ({
+      focus: () => {
+        ref.current?.focus(undefined, { defaultSelection: "rootEnd" });
+      },
+    }),
+    [],
+  );
 
   // Whether the image plugin should be included (boolean is stable across renders
   // as long as the handler presence doesn't toggle)
@@ -405,12 +412,10 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           decorateProjectMentions();
           editable.focus();
 
-          const mentionHref = option.kind === "project" && option.projectId
-            ? buildProjectMentionHref(option.projectId, option.projectColor ?? null)
-            : buildAgentMentionHref(
-                option.agentId ?? option.id.replace(/^agent:/, ""),
-                option.agentIcon ?? null,
-              );
+          const mentionHref =
+            option.kind === "project" && option.projectId
+              ? buildProjectMentionHref(option.projectId, option.projectColor ?? null)
+              : buildAgentMentionHref(option.agentId ?? option.id.replace(/^agent:/, ""), option.agentIcon ?? null);
           const matchingMentions = Array.from(editable.querySelectorAll("a"))
             .filter((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement)
             .filter((link) => {
@@ -418,17 +423,18 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
               return href === mentionHref && link.textContent === `@${option.name}`;
             });
           const containerRect = containerRef.current?.getBoundingClientRect();
-          const target = matchingMentions.sort((a, b) => {
-            const rectA = a.getBoundingClientRect();
-            const rectB = b.getBoundingClientRect();
-            const leftA = containerRect ? rectA.left - containerRect.left : rectA.left;
-            const topA = containerRect ? rectA.top - containerRect.top : rectA.top;
-            const leftB = containerRect ? rectB.left - containerRect.left : rectB.left;
-            const topB = containerRect ? rectB.top - containerRect.top : rectB.top;
-            const distA = Math.hypot(leftA - state.left, topA - state.top);
-            const distB = Math.hypot(leftB - state.left, topB - state.top);
-            return distA - distB;
-          })[0] ?? null;
+          const target =
+            matchingMentions.sort((a, b) => {
+              const rectA = a.getBoundingClientRect();
+              const rectB = b.getBoundingClientRect();
+              const leftA = containerRect ? rectA.left - containerRect.left : rectA.left;
+              const topA = containerRect ? rectA.top - containerRect.top : rectA.top;
+              const leftB = containerRect ? rectB.left - containerRect.left : rectB.left;
+              const topB = containerRect ? rectB.top - containerRect.top : rectB.top;
+              const distA = Math.hypot(leftA - state.left, topA - state.top);
+              const distB = Math.hypot(leftB - state.left, topB - state.top);
+              return distA - distB;
+            })[0] ?? null;
           if (!target) return;
 
           const selection = window.getSelection();
@@ -561,7 +567,8 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       />
 
       {/* Mention dropdown — rendered via portal so it isn't clipped by overflow containers */}
-      {mentionActive && filteredMentions.length > 0 &&
+      {mentionActive &&
+        filteredMentions.length > 0 &&
         createPortal(
           <div
             className="fixed z-[9999] min-w-[180px] max-w-[calc(100vw-16px)] max-h-[200px] overflow-y-auto rounded-md border border-border bg-popover shadow-md"
@@ -589,16 +596,11 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                     style={{ backgroundColor: option.projectColor ?? "#64748b" }}
                   />
                 ) : (
-                  <AgentIcon
-                    icon={option.agentIcon}
-                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
-                  />
+                  <AgentIcon icon={option.agentIcon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 )}
                 <span>{option.name}</span>
                 {option.kind === "project" && option.projectId && (
-                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
-                    Project
-                  </span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Project</span>
                 )}
               </button>
             ))}
@@ -616,9 +618,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           Drop image to upload
         </div>
       )}
-      {uploadError && (
-        <p className="px-3 pb-2 text-xs text-destructive">{uploadError}</p>
-      )}
+      {uploadError && <p className="px-3 pb-2 text-xs text-destructive">{uploadError}</p>}
     </div>
   );
 });

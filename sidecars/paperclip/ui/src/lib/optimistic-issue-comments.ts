@@ -85,10 +85,7 @@ export function mergeIssueComments(
   return sortIssueComments(merged);
 }
 
-export function upsertIssueComment(
-  comments: IssueComment[] | undefined,
-  nextComment: IssueComment,
-): IssueComment[] {
+export function upsertIssueComment(comments: IssueComment[] | undefined, nextComment: IssueComment): IssueComment[] {
   const current = comments ?? [];
   const existingIndex = current.findIndex((comment) => comment.id === nextComment.id);
   if (existingIndex === -1) {

@@ -78,9 +78,7 @@ describe("approval routes idempotent retries", () => {
       applied: false,
     });
 
-    const res = await request(createApp())
-      .post("/api/approvals/approval-1/approve")
-      .send({});
+    const res = await request(createApp()).post("/api/approvals/approval-1/approve").send({});
 
     expect(res.status).toBe(200);
     expect(mockIssueApprovalService.listIssuesForApproval).not.toHaveBeenCalled();
@@ -100,9 +98,7 @@ describe("approval routes idempotent retries", () => {
       applied: false,
     });
 
-    const res = await request(createApp())
-      .post("/api/approvals/approval-1/reject")
-      .send({});
+    const res = await request(createApp()).post("/api/approvals/approval-1/reject").send({});
 
     expect(res.status).toBe(200);
     expect(mockLogActivity).not.toHaveBeenCalled();

@@ -22,18 +22,27 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2 } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
 
-function defaultProjectWorkspaceIdForProject(project: {
-  workspaces?: Array<{ id: string; isPrimary: boolean }>;
-  executionWorkspacePolicy?: { defaultProjectWorkspaceId?: string | null } | null;
-} | null | undefined) {
+function defaultProjectWorkspaceIdForProject(
+  project:
+    | {
+        workspaces?: Array<{ id: string; isPrimary: boolean }>;
+        executionWorkspacePolicy?: { defaultProjectWorkspaceId?: string | null } | null;
+      }
+    | null
+    | undefined,
+) {
   if (!project) return null;
-  return project.executionWorkspacePolicy?.defaultProjectWorkspaceId
-    ?? project.workspaces?.find((workspace) => workspace.isPrimary)?.id
-    ?? project.workspaces?.[0]?.id
-    ?? null;
+  return (
+    project.executionWorkspacePolicy?.defaultProjectWorkspaceId ??
+    project.workspaces?.find((workspace) => workspace.isPrimary)?.id ??
+    project.workspaces?.[0]?.id ??
+    null
+  );
 }
 
-function defaultExecutionWorkspaceModeForProject(project: { executionWorkspacePolicy?: { enabled?: boolean; defaultMode?: string | null } | null } | null | undefined) {
+function defaultExecutionWorkspaceModeForProject(
+  project: { executionWorkspacePolicy?: { enabled?: boolean; defaultMode?: string | null } | null } | null | undefined,
+) {
   const defaultMode = project?.executionWorkspacePolicy?.enabled ? project.executionWorkspacePolicy.defaultMode : null;
   if (defaultMode === "isolated_workspace" || defaultMode === "operator_branch") return defaultMode;
   if (defaultMode === "adapter_default") return "agent_default";
@@ -94,9 +103,7 @@ function PropertyPicker({
           {extra}
         </PropertyRow>
         {open && (
-          <div className={cn("rounded-md border border-border bg-popover p-1 mb-2", popoverClassName)}>
-            {children}
-          </div>
+          <div className={cn("rounded-md border border-border bg-popover p-1 mb-2", popoverClassName)}>{children}</div>
         )}
       </div>
     );
@@ -183,9 +190,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
   const toggleLabel = (labelId: string) => {
     const ids = issue.labelIds ?? [];
-    const next = ids.includes(labelId)
-      ? ids.filter((id) => id !== labelId)
-      : [...ids, labelId];
+    const next = ids.includes(labelId) ? ids.filter((id) => id !== labelId) : [...ids, labelId];
     onUpdate({ labelIds: next });
   };
 
@@ -201,7 +206,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     return project?.name ?? id.slice(0, 8);
   };
   const currentProject = issue.projectId
-    ? orderedProjects.find((project) => project.id === issue.projectId) ?? null
+    ? (orderedProjects.find((project) => project.id === issue.projectId) ?? null)
     : null;
   const projectLink = (id: string | null) => {
     if (!id) return null;
@@ -211,42 +216,45 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
 
   const recentAssigneeIds = useMemo(() => getRecentAssigneeIds(), [assigneeOpen]);
   const sortedAgents = useMemo(
-    () => sortAgentsByRecency((agents ?? []).filter((a) => a.status !== "terminated"), recentAssigneeIds),
+    () =>
+      sortAgentsByRecency(
+        (agents ?? []).filter((a) => a.status !== "terminated"),
+        recentAssigneeIds,
+      ),
     [agents, recentAssigneeIds],
   );
 
-  const assignee = issue.assigneeAgentId
-    ? agents?.find((a) => a.id === issue.assigneeAgentId)
-    : null;
+  const assignee = issue.assigneeAgentId ? agents?.find((a) => a.id === issue.assigneeAgentId) : null;
   const userLabel = (userId: string | null | undefined) => formatAssigneeUserLabel(userId, currentUserId);
   const assigneeUserLabel = userLabel(issue.assigneeUserId);
   const creatorUserLabel = userLabel(issue.createdByUserId);
 
-  const labelsTrigger = (issue.labels ?? []).length > 0 ? (
-    <div className="flex items-center gap-1 flex-wrap">
-      {(issue.labels ?? []).slice(0, 3).map((label) => (
-        <span
-          key={label.id}
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border"
-          style={{
-            borderColor: label.color,
-            backgroundColor: `${label.color}22`,
-            color: pickTextColorForPillBg(label.color, 0.13),
-          }}
-        >
-          {label.name}
-        </span>
-      ))}
-      {(issue.labels ?? []).length > 3 && (
-        <span className="text-xs text-muted-foreground">+{(issue.labels ?? []).length - 3}</span>
-      )}
-    </div>
-  ) : (
-    <>
-      <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">No labels</span>
-    </>
-  );
+  const labelsTrigger =
+    (issue.labels ?? []).length > 0 ? (
+      <div className="flex items-center gap-1 flex-wrap">
+        {(issue.labels ?? []).slice(0, 3).map((label) => (
+          <span
+            key={label.id}
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border"
+            style={{
+              borderColor: label.color,
+              backgroundColor: `${label.color}22`,
+              color: pickTextColorForPillBg(label.color, 0.13),
+            }}
+          >
+            {label.name}
+          </span>
+        ))}
+        {(issue.labels ?? []).length > 3 && (
+          <span className="text-xs text-muted-foreground">+{(issue.labels ?? []).length - 3}</span>
+        )}
+      </div>
+    ) : (
+      <>
+        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">No labels</span>
+      </>
+    );
 
   const labelsContent = (
     <>
@@ -270,7 +278,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                 <button
                   className={cn(
                     "flex items-center gap-2 flex-1 px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-left",
-                    selected && "bg-accent"
+                    selected && "bg-accent",
                   )}
                   onClick={() => toggleLabel(label.id)}
                 >
@@ -348,9 +356,12 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         <button
           className={cn(
             "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-            !issue.assigneeAgentId && !issue.assigneeUserId && "bg-accent"
+            !issue.assigneeAgentId && !issue.assigneeUserId && "bg-accent",
           )}
-          onClick={() => { onUpdate({ assigneeAgentId: null, assigneeUserId: null }); setAssigneeOpen(false); }}
+          onClick={() => {
+            onUpdate({ assigneeAgentId: null, assigneeUserId: null });
+            setAssigneeOpen(false);
+          }}
         >
           No assignee
         </button>
@@ -391,18 +402,22 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             return a.name.toLowerCase().includes(q);
           })
           .map((a) => (
-          <button
-            key={a.id}
-            className={cn(
-              "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-              a.id === issue.assigneeAgentId && "bg-accent"
-            )}
-            onClick={() => { trackRecentAssignee(a.id); onUpdate({ assigneeAgentId: a.id, assigneeUserId: null }); setAssigneeOpen(false); }}
-          >
-            <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
-            {a.name}
-          </button>
-        ))}
+            <button
+              key={a.id}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                a.id === issue.assigneeAgentId && "bg-accent",
+              )}
+              onClick={() => {
+                trackRecentAssignee(a.id);
+                onUpdate({ assigneeAgentId: a.id, assigneeUserId: null });
+                setAssigneeOpen(false);
+              }}
+            >
+              <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
+              {a.name}
+            </button>
+          ))}
       </div>
     </>
   );
@@ -435,7 +450,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         <button
           className={cn(
             "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
-            !issue.projectId && "bg-accent"
+            !issue.projectId && "bg-accent",
           )}
           onClick={() => {
             onUpdate({
@@ -457,33 +472,28 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             return p.name.toLowerCase().includes(q);
           })
           .map((p) => (
-          <button
-            key={p.id}
-            className={cn(
-              "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
-              p.id === issue.projectId && "bg-accent"
-            )}
-            onClick={() => {
-              const defaultMode = defaultExecutionWorkspaceModeForProject(p);
-              onUpdate({
-                projectId: p.id,
-                projectWorkspaceId: defaultProjectWorkspaceIdForProject(p),
-                executionWorkspaceId: null,
-                executionWorkspacePreference: defaultMode,
-                executionWorkspaceSettings: p.executionWorkspacePolicy?.enabled
-                  ? { mode: defaultMode }
-                  : null,
-              });
-              setProjectOpen(false);
-            }}
-          >
-            <span
-              className="shrink-0 h-3 w-3 rounded-sm"
-              style={{ backgroundColor: p.color ?? "#6366f1" }}
-            />
-            {p.name}
-          </button>
-        ))}
+            <button
+              key={p.id}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
+                p.id === issue.projectId && "bg-accent",
+              )}
+              onClick={() => {
+                const defaultMode = defaultExecutionWorkspaceModeForProject(p);
+                onUpdate({
+                  projectId: p.id,
+                  projectWorkspaceId: defaultProjectWorkspaceIdForProject(p),
+                  executionWorkspaceId: null,
+                  executionWorkspacePreference: defaultMode,
+                  executionWorkspaceSettings: p.executionWorkspacePolicy?.enabled ? { mode: defaultMode } : null,
+                });
+                setProjectOpen(false);
+              }}
+            >
+              <span className="shrink-0 h-3 w-3 rounded-sm" style={{ backgroundColor: p.color ?? "#6366f1" }} />
+              {p.name}
+            </button>
+          ))}
       </div>
     </>
   );
@@ -492,26 +502,21 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     <div className="space-y-4">
       <div className="space-y-1">
         <PropertyRow label="Status">
-          <StatusIcon
-            status={issue.status}
-            onChange={(status) => onUpdate({ status })}
-            showLabel
-          />
+          <StatusIcon status={issue.status} onChange={(status) => onUpdate({ status })} showLabel />
         </PropertyRow>
 
         <PropertyRow label="Priority">
-          <PriorityIcon
-            priority={issue.priority}
-            onChange={(priority) => onUpdate({ priority })}
-            showLabel
-          />
+          <PriorityIcon priority={issue.priority} onChange={(priority) => onUpdate({ priority })} showLabel />
         </PropertyRow>
 
         <PropertyPicker
           inline={inline}
           label="Labels"
           open={labelsOpen}
-          onOpenChange={(open) => { setLabelsOpen(open); if (!open) setLabelSearch(""); }}
+          onOpenChange={(open) => {
+            setLabelsOpen(open);
+            if (!open) setLabelSearch("");
+          }}
           triggerContent={labelsTrigger}
           triggerClassName="min-w-0 max-w-full"
           popoverClassName="w-64"
@@ -523,18 +528,23 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           inline={inline}
           label="Assignee"
           open={assigneeOpen}
-          onOpenChange={(open) => { setAssigneeOpen(open); if (!open) setAssigneeSearch(""); }}
+          onOpenChange={(open) => {
+            setAssigneeOpen(open);
+            if (!open) setAssigneeSearch("");
+          }}
           triggerContent={assigneeTrigger}
           popoverClassName="w-52"
-          extra={issue.assigneeAgentId ? (
-            <Link
-              to={`/agents/${issue.assigneeAgentId}`}
-              className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          ) : undefined}
+          extra={
+            issue.assigneeAgentId ? (
+              <Link
+                to={`/agents/${issue.assigneeAgentId}`}
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            ) : undefined
+          }
         >
           {assigneeContent}
         </PropertyPicker>
@@ -543,19 +553,24 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           inline={inline}
           label="Project"
           open={projectOpen}
-          onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
+          onOpenChange={(open) => {
+            setProjectOpen(open);
+            if (!open) setProjectSearch("");
+          }}
           triggerContent={projectTrigger}
           triggerClassName="min-w-0 max-w-full"
           popoverClassName="w-fit min-w-[11rem]"
-          extra={issue.projectId ? (
-            <Link
-              to={projectLink(issue.projectId)!}
-              className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          ) : undefined}
+          extra={
+            issue.projectId ? (
+              <Link
+                to={projectLink(issue.projectId)!}
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            ) : undefined
+          }
         >
           {projectContent}
         </PropertyPicker>
@@ -584,10 +599,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         {(issue.createdByAgentId || issue.createdByUserId) && (
           <PropertyRow label="Created by">
             {issue.createdByAgentId ? (
-              <Link
-                to={`/agents/${issue.createdByAgentId}`}
-                className="hover:underline"
-              >
+              <Link to={`/agents/${issue.createdByAgentId}`} className="hover:underline">
                 <Identity name={agentName(issue.createdByAgentId) ?? issue.createdByAgentId.slice(0, 8)} size="sm" />
               </Link>
             ) : (

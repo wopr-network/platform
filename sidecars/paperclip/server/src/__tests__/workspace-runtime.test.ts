@@ -31,10 +31,7 @@ import {
 import { resolvePaperclipConfigPath } from "../paths.ts";
 import type { WorkspaceOperation } from "@paperclipai/shared";
 import type { WorkspaceOperationRecorder } from "../services/workspace-operations.ts";
-import {
-  getEmbeddedPostgresTestSupport,
-  startEmbeddedPostgresTestDatabase,
-} from "./helpers/embedded-postgres.js";
+import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 
 const execFileAsync = promisify(execFile);
 const leasedRunIds = new Set<string>();
@@ -369,9 +366,7 @@ describe("realizeExecutionWorkspace", () => {
     await expect(fs.readFile(path.join(workspace.cwd, ".paperclip-provision-base"), "utf8")).resolves.toBe(
       `${repoRoot}\n`,
     );
-    await expect(fs.readFile(path.join(workspace.cwd, ".paperclip-provision-created"), "utf8")).resolves.toBe(
-      "true\n",
-    );
+    await expect(fs.readFile(path.join(workspace.cwd, ".paperclip-provision-created"), "utf8")).resolves.toBe("true\n");
 
     const reused = await realizeExecutionWorkspace({
       base: {
@@ -480,7 +475,11 @@ describe("realizeExecutionWorkspace", () => {
       ) + "\n",
       "utf8",
     );
-    await fs.writeFile(sharedEnvPath, 'DATABASE_URL="postgres://worktree:test@db.example.com:6543/paperclip"\n', "utf8");
+    await fs.writeFile(
+      sharedEnvPath,
+      'DATABASE_URL="postgres://worktree:test@db.example.com:6543/paperclip"\n',
+      "utf8",
+    );
 
     await fs.mkdir(path.join(repoRoot, "scripts"), { recursive: true });
     await fs.copyFile(
@@ -525,11 +524,7 @@ describe("realizeExecutionWorkspace", () => {
       const configContents = JSON.parse(await fs.readFile(configPath, "utf8"));
       const configStats = await fs.lstat(configPath);
       const expectedInstanceId = "pap-885-show-worktree-banner";
-      const expectedInstanceRoot = path.join(
-        isolatedWorktreeHome,
-        "instances",
-        expectedInstanceId,
-      );
+      const expectedInstanceRoot = path.join(isolatedWorktreeHome, "instances", expectedInstanceId);
 
       expect(configStats.isSymbolicLink()).toBe(false);
       expect(configContents.database.embeddedPostgresDataDir).toBe(path.join(expectedInstanceRoot, "db"));
@@ -543,9 +538,7 @@ describe("realizeExecutionWorkspace", () => {
       expect(envContents).toContain(`PAPERCLIP_INSTANCE_ID=${JSON.stringify(expectedInstanceId)}`);
       expect(envContents).toContain(`PAPERCLIP_CONFIG=${JSON.stringify(configPath)}`);
       expect(envContents).toContain("PAPERCLIP_IN_WORKTREE=true");
-      expect(envContents).toContain(
-        `PAPERCLIP_WORKTREE_NAME=${JSON.stringify("PAP-885-show-worktree-banner")}`,
-      );
+      expect(envContents).toContain(`PAPERCLIP_WORKTREE_NAME=${JSON.stringify("PAP-885-show-worktree-banner")}`);
 
       process.chdir(workspace.cwd);
       expect(resolvePaperclipConfigPath()).toBe(configPath);
@@ -561,11 +554,7 @@ describe("realizeExecutionWorkspace", () => {
     await fs.mkdir(path.join(repoRoot, "scripts"), { recursive: true });
     await fs.writeFile(
       path.join(repoRoot, "scripts", "provision.sh"),
-      [
-        "#!/usr/bin/env bash",
-        "set -euo pipefail",
-        "printf 'provisioned\\n'",
-      ].join("\n"),
+      ["#!/usr/bin/env bash", "set -euo pipefail", "printf 'provisioned\\n'"].join("\n"),
       "utf8",
     );
     await runGit(repoRoot, ["add", "scripts/provision.sh"]);
@@ -600,10 +589,7 @@ describe("realizeExecutionWorkspace", () => {
       recorder,
     });
 
-    expect(operations.map((operation) => operation.phase)).toEqual([
-      "worktree_prepare",
-      "workspace_provision",
-    ]);
+    expect(operations.map((operation) => operation.phase)).toEqual(["worktree_prepare", "workspace_provision"]);
     expect(operations[0]?.command).toContain("git worktree add");
     expect(operations[0]?.metadata).toMatchObject({
       branchName: "PAP-540-record-workspace-operations",
@@ -955,7 +941,12 @@ describe("ensureRuntimeServicesForRun", () => {
 
   it("does not reuse project-scoped shared services across different workspace launch contexts", async () => {
     const primaryWorkspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-runtime-primary-"));
-    const worktreeWorkspaceRoot = path.join(primaryWorkspaceRoot, ".paperclip", "worktrees", "PAP-874-chat-speed-issues");
+    const worktreeWorkspaceRoot = path.join(
+      primaryWorkspaceRoot,
+      ".paperclip",
+      "worktrees",
+      "PAP-874-chat-speed-issues",
+    );
     await fs.mkdir(worktreeWorkspaceRoot, { recursive: true });
 
     const primaryWorkspace = buildWorkspace(primaryWorkspaceRoot);

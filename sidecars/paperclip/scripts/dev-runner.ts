@@ -41,24 +41,11 @@ const watchedFiles = [
   "vitest.config.ts",
 ].map((relativePath) => path.join(repoRoot, relativePath));
 
-const ignoredDirectoryNames = new Set([
-  ".git",
-  ".turbo",
-  ".vite",
-  "coverage",
-  "dist",
-  "node_modules",
-  "ui-dist",
-]);
+const ignoredDirectoryNames = new Set([".git", ".turbo", ".vite", "coverage", "dist", "node_modules", "ui-dist"]);
 
-const ignoredRelativePaths = new Set([
-  ".paperclip/dev-server-status.json",
-]);
+const ignoredRelativePaths = new Set([".paperclip/dev-server-status.json"]);
 
-const tailscaleAuthFlagNames = new Set([
-  "--tailscale-auth",
-  "--authenticated-private",
-]);
+const tailscaleAuthFlagNames = new Set(["--tailscale-auth", "--authenticated-private"]);
 
 let tailscaleAuth = false;
 const forwardedArgs: string[] = [];
@@ -257,14 +244,18 @@ function writeDevServerStatus() {
   const changedPaths = [...dirtyPaths].sort();
   writeFileSync(
     devServerStatusFilePath,
-    `${JSON.stringify({
-      dirty: changedPaths.length > 0 || pendingMigrations.length > 0,
-      lastChangedAt,
-      changedPathCount: changedPaths.length,
-      changedPathsSample: changedPaths.slice(0, changedPathSampleLimit),
-      pendingMigrations,
-      lastRestartAt,
-    }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        dirty: changedPaths.length > 0 || pendingMigrations.length > 0,
+        lastChangedAt,
+        changedPathCount: changedPaths.length,
+        changedPathsSample: changedPaths.slice(0, changedPathSampleLimit),
+        pendingMigrations,
+        lastRestartAt,
+      },
+      null,
+      2,
+    )}\n`,
     "utf8",
   );
 }
@@ -302,50 +293,54 @@ async function updateDevServiceRecord(extra?: Record<string, unknown>) {
   });
 }
 
-async function runPnpm(args: string[], options: {
-  stdio?: "inherit" | ["ignore", "pipe", "pipe"];
-  env?: NodeJS.ProcessEnv;
-  cwd?: string;
-} = {}) {
-  return await new Promise<{ code: number; signal: NodeJS.Signals | null; stdout: string; stderr: string }>((resolve, reject) => {
-    const spawned = spawn(pnpmBin, args, {
-      stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
-      env: options.env ?? process.env,
-      cwd: options.cwd,
-      shell: process.platform === "win32",
-    });
-
-    let stdoutBuffer = "";
-    let stderrBuffer = "";
-
-    if (spawned.stdout) {
-      spawned.stdout.on("data", (chunk) => {
-        stdoutBuffer += String(chunk);
+async function runPnpm(
+  args: string[],
+  options: {
+    stdio?: "inherit" | ["ignore", "pipe", "pipe"];
+    env?: NodeJS.ProcessEnv;
+    cwd?: string;
+  } = {},
+) {
+  return await new Promise<{ code: number; signal: NodeJS.Signals | null; stdout: string; stderr: string }>(
+    (resolve, reject) => {
+      const spawned = spawn(pnpmBin, args, {
+        stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
+        env: options.env ?? process.env,
+        cwd: options.cwd,
+        shell: process.platform === "win32",
       });
-    }
-    if (spawned.stderr) {
-      spawned.stderr.on("data", (chunk) => {
-        stderrBuffer += String(chunk);
-      });
-    }
 
-    spawned.on("error", reject);
-    spawned.on("exit", (code, signal) => {
-      resolve({
-        code: code ?? 0,
-        signal,
-        stdout: stdoutBuffer,
-        stderr: stderrBuffer,
+      let stdoutBuffer = "";
+      let stderrBuffer = "";
+
+      if (spawned.stdout) {
+        spawned.stdout.on("data", (chunk) => {
+          stdoutBuffer += String(chunk);
+        });
+      }
+      if (spawned.stderr) {
+        spawned.stderr.on("data", (chunk) => {
+          stderrBuffer += String(chunk);
+        });
+      }
+
+      spawned.on("error", reject);
+      spawned.on("exit", (code, signal) => {
+        resolve({
+          code: code ?? 0,
+          signal,
+          stdout: stdoutBuffer,
+          stderr: stderrBuffer,
+        });
       });
-    });
-  });
+    },
+  );
 }
 
 async function getMigrationStatusPayload() {
-  const status = await runPnpm(
-    ["--filter", "@paperclipai/db", "exec", "tsx", "src/migration-status.ts", "--json"],
-    { env },
-  );
+  const status = await runPnpm(["--filter", "@paperclipai/db", "exec", "tsx", "src/migration-status.ts", "--json"], {
+    env,
+  });
   if (status.code !== 0) {
     process.stderr.write(
       status.stderr ||
@@ -359,9 +354,7 @@ async function getMigrationStatusPayload() {
     return JSON.parse(status.stdout.trim()) as { status?: string; pendingMigrations?: string[] };
   } catch (error) {
     process.stderr.write(
-      status.stderr ||
-        status.stdout ||
-        "[paperclip] migration-status returned invalid JSON payload\n",
+      status.stderr || status.stdout || "[paperclip] migration-status returned invalid JSON payload\n",
     );
     throw toError(error, "Unable to parse migration-status JSON output");
   }
@@ -377,7 +370,9 @@ async function refreshPendingMigrations() {
   return payload;
 }
 
-async function maybePreflightMigrations(options: { interactive?: boolean; autoApply?: boolean; exitOnDecline?: boolean } = {}) {
+async function maybePreflightMigrations(
+  options: { interactive?: boolean; autoApply?: boolean; exitOnDecline?: boolean } = {},
+) {
   const interactive = options.interactive ?? mode === "watch";
   const autoApply = options.autoApply ?? env.PAPERCLIP_MIGRATION_AUTO_APPLY === "true";
   const exitOnDecline = options.exitOnDecline ?? mode === "watch";
@@ -437,10 +432,7 @@ async function maybePreflightMigrations(options: { interactive?: boolean; autoAp
 
 async function buildPluginSdk() {
   console.log("[paperclip] building plugin sdk...");
-  const result = await runPnpm(
-    ["--filter", "@paperclipai/plugin-sdk", "build"],
-    { stdio: "inherit" },
-  );
+  const result = await runPnpm(["--filter", "@paperclipai/plugin-sdk", "build"], { stdio: "inherit" });
   if (result.signal) {
     exitForSignal(result.signal);
     return;
@@ -514,11 +506,11 @@ async function startServerChild() {
   await buildPluginSdk();
 
   const serverScript = mode === "watch" ? "dev:watch" : "dev";
-  child = spawn(
-    pnpmBin,
-    ["--filter", "@paperclipai/server", serverScript, ...forwardedArgs],
-    { stdio: "inherit", env, shell: process.platform === "win32" },
-  );
+  child = spawn(pnpmBin, ["--filter", "@paperclipai/server", serverScript, ...forwardedArgs], {
+    stdio: "inherit",
+    env,
+    shell: process.platform === "win32",
+  });
 
   childExitPromise = new Promise((resolve, reject) => {
     child?.on("error", reject);
@@ -556,7 +548,8 @@ async function maybeAutoRestartChild() {
   if (dirtyPaths.size === 0 && pendingMigrations.length === 0) return;
 
   restartInFlight = true;
-  let health: { devServer?: { enabled?: boolean; autoRestartEnabled?: boolean; activeRunCount?: number } } | null = null;
+  let health: { devServer?: { enabled?: boolean; autoRestartEnabled?: boolean; activeRunCount?: number } } | null =
+    null;
   try {
     health = await getDevHealthPayload();
   } catch {

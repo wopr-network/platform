@@ -104,9 +104,7 @@ describe("worktree helpers", () => {
   });
 
   it("resolves worktree:make target paths under the user home directory", () => {
-    expect(resolveWorktreeMakeTargetPath("paperclip-pr-432")).toBe(
-      path.resolve(os.homedir(), "paperclip-pr-432"),
-    );
+    expect(resolveWorktreeMakeTargetPath("paperclip-pr-432")).toBe(path.resolve(os.homedir(), "paperclip-pr-432"));
   });
 
   it("rejects worktree:make names that are not safe directory/branch names", () => {

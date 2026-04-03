@@ -49,9 +49,7 @@ describe("company skill import source parsing", () => {
   });
 
   it("resolves skills.sh URL with org/repo/skill to GitHub repo and preserves original URL", () => {
-    const parsed = parseSkillImportSourceInput(
-      "https://skills.sh/google-labs-code/stitch-skills/design-md",
-    );
+    const parsed = parseSkillImportSourceInput("https://skills.sh/google-labs-code/stitch-skills/design-md");
 
     expect(parsed.resolvedSource).toBe("https://github.com/google-labs-code/stitch-skills");
     expect(parsed.requestedSkillSlug).toBe("design-md");
@@ -59,9 +57,7 @@ describe("company skill import source parsing", () => {
   });
 
   it("resolves skills.sh URL with org/repo (no skill) to GitHub repo and preserves original URL", () => {
-    const parsed = parseSkillImportSourceInput(
-      "https://skills.sh/vercel-labs/skills",
-    );
+    const parsed = parseSkillImportSourceInput("https://skills.sh/vercel-labs/skills");
 
     expect(parsed.resolvedSource).toBe("https://github.com/vercel-labs/skills");
     expect(parsed.requestedSkillSlug).toBeNull();
@@ -131,18 +127,14 @@ describe("project workspace skill discovery", () => {
     await fs.writeFile(path.join(workspace, "README.md"), "# Repo\n", "utf8");
     await fs.writeFile(path.join(workspace, "src", "index.ts"), "export {};\n", "utf8");
 
-    const imported = await readLocalSkillImportFromDirectory(
-      "33333333-3333-4333-8333-333333333333",
-      workspace,
-      { inventoryMode: "project_root", metadata: { sourceKind: "project_scan" } },
-    );
+    const imported = await readLocalSkillImportFromDirectory("33333333-3333-4333-8333-333333333333", workspace, {
+      inventoryMode: "project_root",
+      metadata: { sourceKind: "project_scan" },
+    });
 
-    expect(new Set(imported.fileInventory.map((entry) => entry.path))).toEqual(new Set([
-      "assets/logo.svg",
-      "references/checklist.md",
-      "scripts/run.sh",
-      "SKILL.md",
-    ]));
+    expect(new Set(imported.fileInventory.map((entry) => entry.path))).toEqual(
+      new Set(["assets/logo.svg", "references/checklist.md", "scripts/run.sh", "SKILL.md"]),
+    );
     expect(imported.fileInventory.map((entry) => entry.kind)).toContain("script");
     expect(imported.metadata?.sourceKind).toBe("project_scan");
   });
@@ -168,11 +160,9 @@ describe("project workspace skill discovery", () => {
       "utf8",
     );
 
-    const imported = await readLocalSkillImportFromDirectory(
-      "33333333-3333-4333-8333-333333333333",
-      workspace,
-      { inventoryMode: "full" },
-    );
+    const imported = await readLocalSkillImportFromDirectory("33333333-3333-4333-8333-333333333333", workspace, {
+      inventoryMode: "full",
+    });
 
     expect(imported.metadata).toMatchObject({
       sourceKind: "local_path",

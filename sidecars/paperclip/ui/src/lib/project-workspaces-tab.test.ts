@@ -169,10 +169,7 @@ describe("buildProjectWorkspaceSummaries", () => {
       branchName: "feature/workspaces",
       projectWorkspaceId: "workspace-feature",
     });
-    expect(summaries[1]?.issues.map((issue) => issue.id)).toEqual([
-      "issue-feature-newer",
-      "issue-feature-older",
-    ]);
+    expect(summaries[1]?.issues.map((issue) => issue.id)).toEqual(["issue-feature-newer", "issue-feature-older"]);
     expect(summaries[2]?.key).toBe("project:workspace-default");
   });
 

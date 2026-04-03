@@ -124,7 +124,7 @@ function OnboardingRoutePage() {
   const { openOnboarding } = useDialog();
   const { companyPrefix } = useParams<{ companyPrefix?: string }>();
   const matchedCompany = companyPrefix
-    ? companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null
+    ? (companies.find((company) => company.issuePrefix.toUpperCase() === companyPrefix.toUpperCase()) ?? null)
     : null;
 
   const title = matchedCompany
@@ -146,9 +146,7 @@ function OnboardingRoutePage() {
         <div className="mt-4">
           <Button
             onClick={() =>
-              matchedCompany
-                ? openOnboarding({ initialStep: 2, companyId: matchedCompany.id })
-                : openOnboarding()
+              matchedCompany ? openOnboarding({ initialStep: 2, companyId: matchedCompany.id }) : openOnboarding()
             }
           >
             {matchedCompany ? "Add Agent" : "Start Onboarding"}
@@ -205,10 +203,7 @@ function UnprefixedBoardRedirect() {
   }
 
   return (
-    <Navigate
-      to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`}
-      replace
-    />
+    <Navigate to={`/${targetCompany.issuePrefix}${location.pathname}${location.search}${location.hash}`} replace />
   );
 }
 
@@ -219,9 +214,7 @@ function NoCompaniesStartPage() {
     <div className="mx-auto max-w-xl py-10">
       <div className="rounded-lg border border-border bg-card p-6">
         <h1 className="text-xl font-semibold">Create your first company</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Get started by creating a company.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">Get started by creating a company.</p>
         <div className="mt-4">
           <Button onClick={() => openOnboarding()}>New Company</Button>
         </div>

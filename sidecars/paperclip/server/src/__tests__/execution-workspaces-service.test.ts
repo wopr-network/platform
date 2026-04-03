@@ -5,18 +5,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import {
-  companies,
-  createDb,
-  executionWorkspaces,
-  issues,
-  projectWorkspaces,
-  projects,
-} from "@paperclipai/db";
-import {
-  getEmbeddedPostgresTestSupport,
-  startEmbeddedPostgresTestDatabase,
-} from "./helpers/embedded-postgres.js";
+import { companies, createDb, executionWorkspaces, issues, projectWorkspaces, projects } from "@paperclipai/db";
+import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 import {
   executionWorkspaceService,
   mergeExecutionWorkspaceConfig,
@@ -27,17 +17,19 @@ const execFileAsync = promisify(execFile);
 
 describe("execution workspace config helpers", () => {
   it("reads typed config from persisted metadata", () => {
-    expect(readExecutionWorkspaceConfig({
-      source: "project_primary",
-      config: {
-        provisionCommand: "bash ./scripts/provision-worktree.sh",
-        teardownCommand: "bash ./scripts/teardown-worktree.sh",
-        cleanupCommand: "pkill -f vite || true",
-        workspaceRuntime: {
-          services: [{ name: "web", command: "pnpm dev", port: 3100 }],
+    expect(
+      readExecutionWorkspaceConfig({
+        source: "project_primary",
+        config: {
+          provisionCommand: "bash ./scripts/provision-worktree.sh",
+          teardownCommand: "bash ./scripts/teardown-worktree.sh",
+          cleanupCommand: "pkill -f vite || true",
+          workspaceRuntime: {
+            services: [{ name: "web", command: "pnpm dev", port: 3100 }],
+          },
         },
-      },
-    })).toEqual({
+      }),
+    ).toEqual({
       provisionCommand: "bash ./scripts/provision-worktree.sh",
       teardownCommand: "bash ./scripts/teardown-worktree.sh",
       cleanupCommand: "pkill -f vite || true",
@@ -49,22 +41,24 @@ describe("execution workspace config helpers", () => {
   });
 
   it("merges config patches without dropping unrelated metadata", () => {
-    expect(mergeExecutionWorkspaceConfig(
-      {
-        source: "project_primary",
-        createdByRuntime: false,
-        config: {
-          provisionCommand: "bash ./scripts/provision-worktree.sh",
-          cleanupCommand: "pkill -f vite || true",
+    expect(
+      mergeExecutionWorkspaceConfig(
+        {
+          source: "project_primary",
+          createdByRuntime: false,
+          config: {
+            provisionCommand: "bash ./scripts/provision-worktree.sh",
+            cleanupCommand: "pkill -f vite || true",
+          },
         },
-      },
-      {
-        teardownCommand: "bash ./scripts/teardown-worktree.sh",
-        workspaceRuntime: {
-          services: [{ name: "web", command: "pnpm dev" }],
+        {
+          teardownCommand: "bash ./scripts/teardown-worktree.sh",
+          workspaceRuntime: {
+            services: [{ name: "web", command: "pnpm dev" }],
+          },
         },
-      },
-    )).toEqual({
+      ),
+    ).toEqual({
       source: "project_primary",
       createdByRuntime: false,
       config: {
@@ -80,15 +74,17 @@ describe("execution workspace config helpers", () => {
   });
 
   it("clears the nested config block when requested", () => {
-    expect(mergeExecutionWorkspaceConfig(
-      {
-        source: "project_primary",
-        config: {
-          provisionCommand: "bash ./scripts/provision-worktree.sh",
+    expect(
+      mergeExecutionWorkspaceConfig(
+        {
+          source: "project_primary",
+          config: {
+            provisionCommand: "bash ./scripts/provision-worktree.sh",
+          },
         },
-      },
-      null,
-    )).toEqual({
+        null,
+      ),
+    ).toEqual({
       source: "project_primary",
     });
   });
@@ -215,10 +211,12 @@ describeEmbeddedPostgres("executionWorkspaceService.getCloseReadiness", () => {
       isDestructiveCloseAllowed: true,
     });
     expect(readiness?.blockingReasons).toEqual([]);
-    expect(readiness?.warnings).toEqual(expect.arrayContaining([
-      "This workspace is still linked to an open issue. Archiving it will detach this shared workspace session from those issues, but keep the underlying project workspace available.",
-      "This shared workspace session points at project workspace infrastructure. Archiving it only removes the session record.",
-    ]));
+    expect(readiness?.warnings).toEqual(
+      expect.arrayContaining([
+        "This workspace is still linked to an open issue. Archiving it will detach this shared workspace session from those issues, but keep the underlying project workspace available.",
+        "This shared workspace session points at project workspace infrastructure. Archiving it only removes the session record.",
+      ]),
+    );
   });
 
   it("warns about dirty and unmerged git worktrees and reports cleanup actions", async () => {
@@ -310,16 +308,20 @@ describeEmbeddedPostgres("executionWorkspaceService.getCloseReadiness", () => {
         isMergedIntoBase: false,
       },
     });
-    expect(readiness?.warnings).toEqual(expect.arrayContaining([
-      "The workspace has 1 untracked file.",
-      "This workspace is 1 commit ahead of main and is not merged.",
-    ]));
-    expect(readiness?.plannedActions.map((action) => action.kind)).toEqual(expect.arrayContaining([
-      "archive_record",
-      "cleanup_command",
-      "teardown_command",
-      "git_worktree_remove",
-      "git_branch_delete",
-    ]));
+    expect(readiness?.warnings).toEqual(
+      expect.arrayContaining([
+        "The workspace has 1 untracked file.",
+        "This workspace is 1 commit ahead of main and is not merged.",
+      ]),
+    );
+    expect(readiness?.plannedActions.map((action) => action.kind)).toEqual(
+      expect.arrayContaining([
+        "archive_record",
+        "cleanup_command",
+        "teardown_command",
+        "git_worktree_remove",
+        "git_branch_delete",
+      ]),
+    );
   }, 20_000);
 });

@@ -43,9 +43,7 @@ export function useAgentOrder({ agents, companyId, userId }: UseAgentOrderParams
   });
 
   useEffect(() => {
-    const nextIds = storageKey
-      ? buildOrderIds(agents, readAgentOrder(storageKey))
-      : agents.map((agent) => agent.id);
+    const nextIds = storageKey ? buildOrderIds(agents, readAgentOrder(storageKey)) : agents.map((agent) => agent.id);
     setOrderedIds((current) => (areEqual(current, nextIds) ? current : nextIds));
   }, [agents, storageKey]);
 
@@ -75,10 +73,7 @@ export function useAgentOrder({ agents, companyId, userId }: UseAgentOrderParams
     };
   }, [agents, storageKey]);
 
-  const orderedAgents = useMemo(
-    () => sortAgentsByStoredOrder(agents, orderedIds),
-    [agents, orderedIds],
-  );
+  const orderedAgents = useMemo(() => sortAgentsByStoredOrder(agents, orderedIds), [agents, orderedIds]);
 
   const persistOrder = useCallback(
     (ids: string[]) => {

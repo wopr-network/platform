@@ -108,25 +108,10 @@ export const AGENT_ICON_NAMES = [
 ] as const;
 export type AgentIconName = (typeof AGENT_ICON_NAMES)[number];
 
-export const ISSUE_STATUSES = [
-  "backlog",
-  "todo",
-  "in_progress",
-  "in_review",
-  "done",
-  "blocked",
-  "cancelled",
-] as const;
+export const ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "done", "blocked", "cancelled"] as const;
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
-export const INBOX_MINE_ISSUE_STATUSES = [
-  "backlog",
-  "todo",
-  "in_progress",
-  "in_review",
-  "blocked",
-  "done",
-] as const;
+export const INBOX_MINE_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done"] as const;
 export const INBOX_MINE_ISSUE_STATUS_FILTER = INBOX_MINE_ISSUE_STATUSES.join(",");
 
 export const ISSUE_PRIORITIES = ["critical", "high", "medium", "low"] as const;
@@ -141,13 +126,7 @@ export type GoalLevel = (typeof GOAL_LEVELS)[number];
 export const GOAL_STATUSES = ["planned", "active", "achieved", "cancelled"] as const;
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
-export const PROJECT_STATUSES = [
-  "backlog",
-  "planned",
-  "in_progress",
-  "completed",
-  "cancelled",
-] as const;
+export const PROJECT_STATUSES = ["backlog", "planned", "in_progress", "completed", "cancelled"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
 export const ROUTINE_STATUSES = ["active", "paused", "archived"] as const;
@@ -172,7 +151,7 @@ export const ROUTINE_RUN_STATUSES = [
   "issue_created",
   "completed",
   "failed",
- ] as const;
+] as const;
 export type RoutineRunStatus = (typeof ROUTINE_RUN_STATUSES)[number];
 
 export const ROUTINE_RUN_SOURCES = ["schedule", "manual", "api", "webhook"] as const;
@@ -197,21 +176,10 @@ export const PROJECT_COLORS = [
 export const APPROVAL_TYPES = ["hire_agent", "approve_ceo_strategy", "budget_override_required"] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
-export const APPROVAL_STATUSES = [
-  "pending",
-  "revision_requested",
-  "approved",
-  "rejected",
-  "cancelled",
-] as const;
+export const APPROVAL_STATUSES = ["pending", "revision_requested", "approved", "rejected", "cancelled"] as const;
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
-export const SECRET_PROVIDERS = [
-  "local_encrypted",
-  "aws_secrets_manager",
-  "gcp_secret_manager",
-  "vault",
-] as const;
+export const SECRET_PROVIDERS = ["local_encrypted", "aws_secrets_manager", "gcp_secret_manager", "vault"] as const;
 export type SecretProvider = (typeof SECRET_PROVIDERS)[number];
 
 export const STORAGE_PROVIDERS = ["local_disk", "s3"] as const;
@@ -278,18 +246,10 @@ export type BudgetThresholdType = (typeof BUDGET_THRESHOLD_TYPES)[number];
 export const BUDGET_INCIDENT_STATUSES = ["open", "resolved", "dismissed"] as const;
 export type BudgetIncidentStatus = (typeof BUDGET_INCIDENT_STATUSES)[number];
 
-export const BUDGET_INCIDENT_RESOLUTION_ACTIONS = [
-  "keep_paused",
-  "raise_budget_and_resume",
-] as const;
+export const BUDGET_INCIDENT_RESOLUTION_ACTIONS = ["keep_paused", "raise_budget_and_resume"] as const;
 export type BudgetIncidentResolutionAction = (typeof BUDGET_INCIDENT_RESOLUTION_ACTIONS)[number];
 
-export const HEARTBEAT_INVOCATION_SOURCES = [
-  "timer",
-  "assignment",
-  "on_demand",
-  "automation",
-] as const;
+export const HEARTBEAT_INVOCATION_SOURCES = ["timer", "assignment", "on_demand", "automation"] as const;
 export type HeartbeatInvocationSource = (typeof HEARTBEAT_INVOCATION_SOURCES)[number];
 
 export const WAKEUP_TRIGGER_DETAILS = ["manual", "ping", "callback", "system"] as const;
@@ -307,14 +267,7 @@ export const WAKEUP_REQUEST_STATUSES = [
 ] as const;
 export type WakeupRequestStatus = (typeof WAKEUP_REQUEST_STATUSES)[number];
 
-export const HEARTBEAT_RUN_STATUSES = [
-  "queued",
-  "running",
-  "succeeded",
-  "failed",
-  "cancelled",
-  "timed_out",
-] as const;
+export const HEARTBEAT_RUN_STATUSES = ["queued", "running", "succeeded", "failed", "cancelled", "timed_out"] as const;
 export type HeartbeatRunStatus = (typeof HEARTBEAT_RUN_STATUSES)[number];
 
 export const LIVE_EVENT_TYPES = [
@@ -363,10 +316,31 @@ export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
 /** Role → permission mapping for provision member sync. */
 export const ROLE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
-  owner: ["agents:create", "users:invite", "users:manage_permissions", "tasks:assign", "tasks:assign_scope", "joins:approve"],
-  admin: ["agents:create", "users:invite", "users:manage_permissions", "tasks:assign", "tasks:assign_scope", "joins:approve"],
+  owner: [
+    "agents:create",
+    "users:invite",
+    "users:manage_permissions",
+    "tasks:assign",
+    "tasks:assign_scope",
+    "joins:approve",
+  ],
+  admin: [
+    "agents:create",
+    "users:invite",
+    "users:manage_permissions",
+    "tasks:assign",
+    "tasks:assign_scope",
+    "joins:approve",
+  ],
   member: ["agents:create", "tasks:assign", "tasks:assign_scope"],
-  ceo: ["agents:create", "users:invite", "users:manage_permissions", "tasks:assign", "tasks:assign_scope", "joins:approve"],
+  ceo: [
+    "agents:create",
+    "users:invite",
+    "users:manage_permissions",
+    "tasks:assign",
+    "tasks:assign_scope",
+    "joins:approve",
+  ],
   cto: ["agents:create", "users:invite", "tasks:assign", "tasks:assign_scope", "joins:approve"],
   cmo: ["agents:create", "tasks:assign"],
   cfo: ["agents:create", "tasks:assign"],
@@ -403,14 +377,7 @@ export const PLUGIN_API_VERSION = 1 as const;
  * @see {@link PluginStatus} — inferred union type
  * @see PLUGIN_SPEC.md §21.3 `plugins.status`
  */
-export const PLUGIN_STATUSES = [
-  "installed",
-  "ready",
-  "disabled",
-  "error",
-  "upgrade_pending",
-  "uninstalled",
-] as const;
+export const PLUGIN_STATUSES = ["installed", "ready", "disabled", "error", "upgrade_pending", "uninstalled"] as const;
 export type PluginStatus = (typeof PLUGIN_STATUSES)[number];
 
 /**
@@ -419,12 +386,7 @@ export type PluginStatus = (typeof PLUGIN_STATUSES)[number];
  *
  * @see PLUGIN_SPEC.md §6.2
  */
-export const PLUGIN_CATEGORIES = [
-  "connector",
-  "workspace",
-  "automation",
-  "ui",
-] as const;
+export const PLUGIN_CATEGORIES = ["connector", "workspace", "automation", "ui"] as const;
 export type PluginCategory = (typeof PLUGIN_CATEGORIES)[number];
 
 /**
@@ -535,8 +497,7 @@ export const PLUGIN_RESERVED_COMPANY_ROUTE_SEGMENTS = [
   "design-guide",
   "tests",
 ] as const;
-export type PluginReservedCompanyRouteSegment =
-  (typeof PLUGIN_RESERVED_COMPANY_ROUTE_SEGMENTS)[number];
+export type PluginReservedCompanyRouteSegment = (typeof PLUGIN_RESERVED_COMPANY_ROUTE_SEGMENTS)[number];
 
 /**
  * Launcher placement zones describe where a plugin-owned launcher can appear
@@ -578,13 +539,7 @@ export type PluginLauncherAction = (typeof PLUGIN_LAUNCHER_ACTIONS)[number];
  * Optional size hints the host can use when rendering plugin-owned launcher
  * destinations such as overlays, drawers, or full page handoffs.
  */
-export const PLUGIN_LAUNCHER_BOUNDS = [
-  "inline",
-  "compact",
-  "default",
-  "wide",
-  "full",
-] as const;
+export const PLUGIN_LAUNCHER_BOUNDS = ["inline", "compact", "default", "wide", "full"] as const;
 export type PluginLauncherBounds = (typeof PLUGIN_LAUNCHER_BOUNDS)[number];
 
 /**
@@ -598,22 +553,14 @@ export const PLUGIN_LAUNCHER_RENDER_ENVIRONMENTS = [
   "external",
   "iframe",
 ] as const;
-export type PluginLauncherRenderEnvironment =
-  (typeof PLUGIN_LAUNCHER_RENDER_ENVIRONMENTS)[number];
+export type PluginLauncherRenderEnvironment = (typeof PLUGIN_LAUNCHER_RENDER_ENVIRONMENTS)[number];
 
 /**
  * Entity types that a `detailTab` UI slot can attach to.
  *
  * @see PLUGIN_SPEC.md §19.3 — Detail Tabs
  */
-export const PLUGIN_UI_SLOT_ENTITY_TYPES = [
-  "project",
-  "issue",
-  "agent",
-  "goal",
-  "run",
-  "comment",
-] as const;
+export const PLUGIN_UI_SLOT_ENTITY_TYPES = ["project", "issue", "agent", "goal", "run", "comment"] as const;
 export type PluginUiSlotEntityType = (typeof PLUGIN_UI_SLOT_ENTITY_TYPES)[number];
 
 /**
@@ -635,38 +582,19 @@ export const PLUGIN_STATE_SCOPE_KINDS = [
 export type PluginStateScopeKind = (typeof PLUGIN_STATE_SCOPE_KINDS)[number];
 
 /** Statuses for a plugin's scheduled job definition. */
-export const PLUGIN_JOB_STATUSES = [
-  "active",
-  "paused",
-  "failed",
-] as const;
+export const PLUGIN_JOB_STATUSES = ["active", "paused", "failed"] as const;
 export type PluginJobStatus = (typeof PLUGIN_JOB_STATUSES)[number];
 
 /** Statuses for individual job run executions. */
-export const PLUGIN_JOB_RUN_STATUSES = [
-  "pending",
-  "queued",
-  "running",
-  "succeeded",
-  "failed",
-  "cancelled",
-] as const;
+export const PLUGIN_JOB_RUN_STATUSES = ["pending", "queued", "running", "succeeded", "failed", "cancelled"] as const;
 export type PluginJobRunStatus = (typeof PLUGIN_JOB_RUN_STATUSES)[number];
 
 /** What triggered a particular job run. */
-export const PLUGIN_JOB_RUN_TRIGGERS = [
-  "schedule",
-  "manual",
-  "retry",
-] as const;
+export const PLUGIN_JOB_RUN_TRIGGERS = ["schedule", "manual", "retry"] as const;
 export type PluginJobRunTrigger = (typeof PLUGIN_JOB_RUN_TRIGGERS)[number];
 
 /** Statuses for inbound webhook deliveries. */
-export const PLUGIN_WEBHOOK_DELIVERY_STATUSES = [
-  "pending",
-  "success",
-  "failed",
-] as const;
+export const PLUGIN_WEBHOOK_DELIVERY_STATUSES = ["pending", "success", "failed"] as const;
 export type PluginWebhookDeliveryStatus = (typeof PLUGIN_WEBHOOK_DELIVERY_STATUSES)[number];
 
 /**

@@ -52,9 +52,7 @@ function summarizeProbeDetail(stdout: string, stderr: string, parsedError: strin
 const CODEX_AUTH_REQUIRED_RE =
   /(?:not\s+logged\s+in|login\s+required|authentication\s+required|unauthorized|invalid(?:\s+or\s+missing)?\s+api(?:[_\s-]?key)?|openai[_\s-]?api[_\s-]?key|api[_\s-]?key.*required|please\s+run\s+`?codex\s+login`?)/i;
 
-export async function testEnvironment(
-  ctx: AdapterEnvironmentTestContext,
-): Promise<AdapterEnvironmentTestResult> {
+export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promise<AdapterEnvironmentTestResult> {
   const checks: AdapterEnvironmentCheck[] = [];
   const config = parseObject(ctx.config);
   const command = asString(config.command, "codex");
@@ -116,7 +114,9 @@ export async function testEnvironment(
         code: "codex_native_auth_present",
         level: "info",
         message: "Codex is authenticated via its own auth configuration.",
-        detail: codexAuth.email ? `Logged in as ${codexAuth.email}.` : `Credentials found in ${path.join(codexHome ?? codexHomeDir(), "auth.json")}.`,
+        detail: codexAuth.email
+          ? `Logged in as ${codexAuth.email}.`
+          : `Credentials found in ${path.join(codexHome ?? codexHomeDir(), "auth.json")}.`,
       });
     } else {
       checks.push({
@@ -128,8 +128,9 @@ export async function testEnvironment(
     }
   }
 
-  const canRunProbe =
-    checks.every((check) => check.code !== "codex_cwd_invalid" && check.code !== "codex_command_unresolvable");
+  const canRunProbe = checks.every(
+    (check) => check.code !== "codex_cwd_invalid" && check.code !== "codex_command_unresolvable",
+  );
   if (canRunProbe) {
     if (!commandLooksLike(command, "codex")) {
       checks.push({
@@ -141,10 +142,7 @@ export async function testEnvironment(
       });
     } else {
       const model = asString(config.model, "").trim();
-      const modelReasoningEffort = asString(
-        config.modelReasoningEffort,
-        asString(config.reasoningEffort, ""),
-      ).trim();
+      const modelReasoningEffort = asString(config.modelReasoningEffort, asString(config.reasoningEffort, "")).trim();
       const search = asBoolean(config.search, false);
       const bypass = asBoolean(
         config.dangerouslyBypassApprovalsAndSandbox,

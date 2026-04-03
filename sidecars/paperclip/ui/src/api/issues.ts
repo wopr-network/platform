@@ -60,14 +60,11 @@ export const issuesApi = {
   get: (id: string) => api.get<Issue>(`/issues/${id}`),
   markRead: (id: string) => api.post<{ id: string; lastReadAt: Date }>(`/issues/${id}/read`, {}),
   markUnread: (id: string) => api.delete<{ id: string; removed: boolean }>(`/issues/${id}/read`),
-  archiveFromInbox: (id: string) =>
-    api.post<{ id: string; archivedAt: Date }>(`/issues/${id}/inbox-archive`, {}),
+  archiveFromInbox: (id: string) => api.post<{ id: string; archivedAt: Date }>(`/issues/${id}/inbox-archive`, {}),
   unarchiveFromInbox: (id: string) =>
     api.delete<{ id: string; archivedAt: Date } | { ok: true }>(`/issues/${id}/inbox-archive`),
-  create: (companyId: string, data: Record<string, unknown>) =>
-    api.post<Issue>(`/companies/${companyId}/issues`, data),
-  update: (id: string, data: Record<string, unknown>) =>
-    api.patch<IssueUpdateResponse>(`/issues/${id}`, data),
+  create: (companyId: string, data: Record<string, unknown>) => api.post<Issue>(`/companies/${companyId}/issues`, data),
+  update: (id: string, data: Record<string, unknown>) => api.patch<IssueUpdateResponse>(`/issues/${id}`, data),
   remove: (id: string) => api.delete<Issue>(`/issues/${id}`),
   checkout: (id: string, agentId: string) =>
     api.post<Issue>(`/issues/${id}/checkout`, {
@@ -77,16 +74,14 @@ export const issuesApi = {
   release: (id: string) => api.post<Issue>(`/issues/${id}/release`, {}),
   listComments: (id: string) => api.get<IssueComment[]>(`/issues/${id}/comments`),
   addComment: (id: string, body: string, reopen?: boolean, interrupt?: boolean) =>
-    api.post<IssueComment>(
-      `/issues/${id}/comments`,
-      {
-        body,
-        ...(reopen === undefined ? {} : { reopen }),
-        ...(interrupt === undefined ? {} : { interrupt }),
-      },
-    ),
+    api.post<IssueComment>(`/issues/${id}/comments`, {
+      body,
+      ...(reopen === undefined ? {} : { reopen }),
+      ...(interrupt === undefined ? {} : { interrupt }),
+    }),
   listDocuments: (id: string) => api.get<IssueDocument[]>(`/issues/${id}/documents`),
-  getDocument: (id: string, key: string) => api.get<IssueDocument>(`/issues/${id}/documents/${encodeURIComponent(key)}`),
+  getDocument: (id: string, key: string) =>
+    api.get<IssueDocument>(`/issues/${id}/documents/${encodeURIComponent(key)}`),
   upsertDocument: (id: string, key: string, data: UpsertIssueDocument) =>
     api.put<IssueDocument>(`/issues/${id}/documents/${encodeURIComponent(key)}`, data),
   listDocumentRevisions: (id: string, key: string) =>
@@ -96,12 +91,7 @@ export const issuesApi = {
   deleteDocument: (id: string, key: string) =>
     api.delete<{ ok: true }>(`/issues/${id}/documents/${encodeURIComponent(key)}`),
   listAttachments: (id: string) => api.get<IssueAttachment[]>(`/issues/${id}/attachments`),
-  uploadAttachment: (
-    companyId: string,
-    issueId: string,
-    file: File,
-    issueCommentId?: string | null,
-  ) => {
+  uploadAttachment: (companyId: string, issueId: string, file: File, issueCommentId?: string | null) => {
     const form = new FormData();
     form.append("file", file);
     if (issueCommentId) {
@@ -111,10 +101,8 @@ export const issuesApi = {
   },
   deleteAttachment: (id: string) => api.delete<{ ok: true }>(`/attachments/${id}`),
   listApprovals: (id: string) => api.get<Approval[]>(`/issues/${id}/approvals`),
-  linkApproval: (id: string, approvalId: string) =>
-    api.post<Approval[]>(`/issues/${id}/approvals`, { approvalId }),
-  unlinkApproval: (id: string, approvalId: string) =>
-    api.delete<{ ok: true }>(`/issues/${id}/approvals/${approvalId}`),
+  linkApproval: (id: string, approvalId: string) => api.post<Approval[]>(`/issues/${id}/approvals`, { approvalId }),
+  unlinkApproval: (id: string, approvalId: string) => api.delete<{ ok: true }>(`/issues/${id}/approvals/${approvalId}`),
   listWorkProducts: (id: string) => api.get<IssueWorkProduct[]>(`/issues/${id}/work-products`),
   createWorkProduct: (id: string, data: Record<string, unknown>) =>
     api.post<IssueWorkProduct>(`/issues/${id}/work-products`, data),

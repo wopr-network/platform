@@ -53,8 +53,12 @@ export function buildPortableSidebarOrder(input: {
   const agentSlugById = buildPortableAgentSlugMap(input.agents);
   const projectSlugById = buildPortableProjectSlugMap(input.projects);
   const sidebar = {
-    agents: input.orderedAgents.map((agent) => agentSlugById.get(agent.id)).filter((slug): slug is string => Boolean(slug)),
-    projects: input.orderedProjects.map((project) => projectSlugById.get(project.id)).filter((slug): slug is string => Boolean(slug)),
+    agents: input.orderedAgents
+      .map((agent) => agentSlugById.get(agent.id))
+      .filter((slug): slug is string => Boolean(slug)),
+    projects: input.orderedProjects
+      .map((project) => projectSlugById.get(project.id))
+      .filter((slug): slug is string => Boolean(slug)),
   };
 
   return sidebar.agents.length > 0 || sidebar.projects.length > 0 ? sidebar : undefined;

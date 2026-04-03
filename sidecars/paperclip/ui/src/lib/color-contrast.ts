@@ -29,16 +29,12 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
 
 function relativeLuminanceChannel(value: number): number {
   const normalized = value / 255;
-  return normalized <= 0.03928
-    ? normalized / 12.92
-    : ((normalized + 0.055) / 1.055) ** 2.4;
+  return normalized <= 0.03928 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
 }
 
 function relativeLuminance(r: number, g: number, b: number): number {
   return (
-    0.2126 * relativeLuminanceChannel(r) +
-    0.7152 * relativeLuminanceChannel(g) +
-    0.0722 * relativeLuminanceChannel(b)
+    0.2126 * relativeLuminanceChannel(r) + 0.7152 * relativeLuminanceChannel(g) + 0.0722 * relativeLuminanceChannel(b)
   );
 }
 
@@ -81,9 +77,7 @@ export function pickTextColorForSolidBg(hexColor: string): string {
   const bgLum = relativeLuminance(rgb.r, rgb.g, rgb.b);
   const whiteLum = relativeLuminance(248, 250, 252);
   const blackLum = relativeLuminance(17, 24, 39);
-  return contrastRatio(bgLum, whiteLum) >= contrastRatio(bgLum, blackLum)
-    ? TEXT_LIGHT
-    : TEXT_DARK;
+  return contrastRatio(bgLum, whiteLum) >= contrastRatio(bgLum, blackLum) ? TEXT_LIGHT : TEXT_DARK;
 }
 
 /**
@@ -101,7 +95,5 @@ export function pickTextColorForPillBg(hexColor: string, alpha = 0.22): string {
   const bgLum = relativeLuminance(effectiveBg.r, effectiveBg.g, effectiveBg.b);
   const whiteLum = relativeLuminance(248, 250, 252);
   const blackLum = relativeLuminance(17, 24, 39);
-  return contrastRatio(bgLum, whiteLum) >= contrastRatio(bgLum, blackLum)
-    ? TEXT_LIGHT
-    : TEXT_DARK;
+  return contrastRatio(bgLum, whiteLum) >= contrastRatio(bgLum, blackLum) ? TEXT_LIGHT : TEXT_DARK;
 }

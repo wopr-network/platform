@@ -64,9 +64,7 @@ export async function prepareOpenCodeRuntimeConfig(input: {
   }
 
   const existingConfig = await readJsonObject(runtimeConfigPath);
-  const existingPermission = isPlainObject(existingConfig.permission)
-    ? existingConfig.permission
-    : {};
+  const existingPermission = isPlainObject(existingConfig.permission) ? existingConfig.permission : {};
   const nextConfig = {
     ...existingConfig,
     permission: {

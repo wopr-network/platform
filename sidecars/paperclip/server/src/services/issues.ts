@@ -123,11 +123,7 @@ function escapeLikePattern(value: string): string {
   return value.replace(/[\\%_]/g, "\\$&");
 }
 
-async function getProjectDefaultGoalId(
-  db: ProjectGoalReader,
-  companyId: string,
-  projectId: string | null | undefined,
-) {
+async function getProjectDefaultGoalId(db: ProjectGoalReader, companyId: string, projectId: string | null | undefined) {
   if (!projectId) return null;
   const row = await db
     .select({ goalId: projects.goalId })
@@ -137,11 +133,7 @@ async function getProjectDefaultGoalId(
   return row?.goalId ?? null;
 }
 
-async function getWorkspaceInheritanceIssue(
-  db: DbReader,
-  companyId: string,
-  issueId: string,
-) {
+async function getWorkspaceInheritanceIssue(db: DbReader, companyId: string, issueId: string) {
   const issue = await db
     .select({
       id: issues.id,
@@ -348,10 +340,10 @@ export function deriveIssueUserContext(
   userId: string,
   stats:
     | {
-      myLastCommentAt: Date | string | null;
-      myLastReadAt: Date | string | null;
-      lastExternalCommentAt: Date | string | null;
-    }
+        myLastCommentAt: Date | string | null;
+        myLastReadAt: Date | string | null;
+        lastExternalCommentAt: Date | string | null;
+      }
     | null
     | undefined,
 ) {
@@ -366,14 +358,13 @@ export function deriveIssueUserContext(
   const myLastReadAt = normalizeDate(stats?.myLastReadAt);
   const createdTouchAt = issue.createdByUserId === userId ? normalizeDate(issue.createdAt) : null;
   const assignedTouchAt = issue.assigneeUserId === userId ? normalizeDate(issue.updatedAt) : null;
-  const myLastTouchAt = [myLastCommentAt, myLastReadAt, createdTouchAt, assignedTouchAt]
-    .filter((value): value is Date => value instanceof Date)
-    .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const myLastTouchAt =
+    [myLastCommentAt, myLastReadAt, createdTouchAt, assignedTouchAt]
+      .filter((value): value is Date => value instanceof Date)
+      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
   const lastExternalCommentAt = normalizeDate(stats?.lastExternalCommentAt);
   const isUnreadForMe = Boolean(
-    myLastTouchAt &&
-    lastExternalCommentAt &&
-    lastExternalCommentAt.getTime() > myLastTouchAt.getTime(),
+    myLastTouchAt && lastExternalCommentAt && lastExternalCommentAt.getTime() > myLastTouchAt.getTime(),
   );
 
   return {
@@ -406,7 +397,10 @@ async function labelMapForIssues(dbOrTx: any, issueIds: string[]): Promise<Map<s
 
 async function withIssueLabels(dbOrTx: any, rows: IssueRow[]): Promise<IssueWithLabels[]> {
   if (rows.length === 0) return [];
-  const labelsByIssueId = await labelMapForIssues(dbOrTx, rows.map((row) => row.id));
+  const labelsByIssueId = await labelMapForIssues(
+    dbOrTx,
+    rows.map((row) => row.id),
+  );
   return rows.map((row) => {
     const issueLabels = labelsByIssueId.get(row.id) ?? [];
     return {
@@ -424,9 +418,7 @@ async function activeRunMapForIssues(
   issueRows: IssueWithLabels[],
 ): Promise<Map<string, IssueActiveRunRow>> {
   const map = new Map<string, IssueActiveRunRow>();
-  const runIds = issueRows
-    .map((row) => row.executionRunId)
-    .filter((id): id is string => id != null);
+  const runIds = issueRows.map((row) => row.executionRunId).filter((id): id is string => id != null);
   if (runIds.length === 0) return map;
 
   const rows = await dbOrTx
@@ -441,12 +433,7 @@ async function activeRunMapForIssues(
       createdAt: heartbeatRuns.createdAt,
     })
     .from(heartbeatRuns)
-    .where(
-      and(
-        inArray(heartbeatRuns.id, runIds),
-        inArray(heartbeatRuns.status, ACTIVE_RUN_STATUSES),
-      ),
-    );
+    .where(and(inArray(heartbeatRuns.id, runIds), inArray(heartbeatRuns.status, ACTIVE_RUN_STATUSES)));
 
   for (const row of rows) {
     map.set(row.id, row);
@@ -454,10 +441,7 @@ async function activeRunMapForIssues(
   return map;
 }
 
-function withActiveRuns(
-  issueRows: IssueWithLabels[],
-  runMap: Map<string, IssueActiveRunRow>,
-): IssueWithLabelsAndRun[] {
+function withActiveRuns(issueRows: IssueWithLabels[], runMap: Map<string, IssueActiveRunRow>): IssueWithLabelsAndRun[] {
   return issueRows.map((row) => ({
     ...row,
     activeRun: row.executionRunId ? (runMap.get(row.executionRunId) ?? null) : null,
@@ -570,12 +554,7 @@ export function issueService(db: Db) {
     }
   }
 
-  async function syncIssueLabels(
-    issueId: string,
-    companyId: string,
-    labelIds: string[],
-    dbOrTx: any = db,
-  ) {
+  async function syncIssueLabels(issueId: string, companyId: string, labelIds: string[], dbOrTx: any = db) {
     const deduped = [...new Set(labelIds)];
     await assertValidLabelIds(companyId, deduped, dbOrTx);
     await dbOrTx.delete(issueLabels).where(eq(issueLabels.issueId, issueId));
@@ -698,16 +677,16 @@ export function issueService(db: Db) {
           .from(issueLabels)
           .where(and(eq(issueLabels.companyId, companyId), eq(issueLabels.labelId, filters.labelId)));
         if (labeledIssueIds.length === 0) return [];
-        conditions.push(inArray(issues.id, labeledIssueIds.map((row) => row.issueId)));
+        conditions.push(
+          inArray(
+            issues.id,
+            labeledIssueIds.map((row) => row.issueId),
+          ),
+        );
       }
       if (hasSearch) {
         conditions.push(
-          or(
-            titleContainsMatch,
-            identifierContainsMatch,
-            descriptionContainsMatch,
-            commentContainsMatch,
-          )!,
+          or(titleContainsMatch, identifierContainsMatch, descriptionContainsMatch, commentContainsMatch)!,
         );
       }
       if (!filters?.includeRoutineExecutions && !filters?.originKind && !filters?.originId) {
@@ -756,12 +735,7 @@ export function issueService(db: Db) {
           `,
         })
         .from(issueComments)
-        .where(
-          and(
-            eq(issueComments.companyId, companyId),
-            inArray(issueComments.issueId, issueIds),
-          ),
-        )
+        .where(and(eq(issueComments.companyId, companyId), inArray(issueComments.issueId, issueIds)))
         .groupBy(issueComments.issueId);
       const readRows = await db
         .select({
@@ -797,7 +771,10 @@ export function issueService(db: Db) {
         ne(issues.originKind, "routine_execution"),
       ];
       if (status) {
-        const statuses = status.split(",").map((s) => s.trim()).filter(Boolean);
+        const statuses = status
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
         if (statuses.length === 1) {
           conditions.push(eq(issues.status, statuses[0]));
         } else if (statuses.length > 1) {
@@ -905,10 +882,7 @@ export function issueService(db: Db) {
       return enriched;
     },
 
-    create: async (
-      companyId: string,
-      data: IssueCreateInput,
-    ) => {
+    create: async (companyId: string, data: IssueCreateInput) => {
       const { labelIds: inputLabelIds, inheritExecutionWorkspaceFromIssueId, ...issueData } = data;
       const isolatedWorkspacesEnabled = (await instanceSettings.getExperimental()).enableIsolatedWorkspaces;
       if (!isolatedWorkspacesEnabled) {
@@ -969,23 +943,18 @@ export function issueService(db: Db) {
             }
           }
         }
-        if (
-          executionWorkspaceSettings == null &&
-          executionWorkspaceId == null &&
-          issueData.projectId
-        ) {
+        if (executionWorkspaceSettings == null && executionWorkspaceId == null && issueData.projectId) {
           const project = await tx
             .select({ executionWorkspacePolicy: projects.executionWorkspacePolicy })
             .from(projects)
             .where(and(eq(projects.id, issueData.projectId), eq(projects.companyId, companyId)))
             .then((rows) => rows[0] ?? null);
-          executionWorkspaceSettings =
-            defaultIssueExecutionWorkspaceSettingsForProject(
-              gateProjectExecutionWorkspacePolicy(
-                parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy),
-                isolatedWorkspacesEnabled,
-              ),
-            ) as Record<string, unknown> | null;
+          executionWorkspaceSettings = defaultIssueExecutionWorkspaceSettingsForProject(
+            gateProjectExecutionWorkspacePolicy(
+              parseProjectExecutionWorkspacePolicy(project?.executionWorkspacePolicy),
+              isolatedWorkspacesEnabled,
+            ),
+          ) as Record<string, unknown> | null;
         }
         if (!projectWorkspaceId && issueData.projectId) {
           const project = await tx
@@ -1001,7 +970,9 @@ export function issueService(db: Db) {
             projectWorkspaceId = await tx
               .select({ id: projectWorkspaces.id })
               .from(projectWorkspaces)
-              .where(and(eq(projectWorkspaces.projectId, issueData.projectId), eq(projectWorkspaces.companyId, companyId)))
+              .where(
+                and(eq(projectWorkspaces.projectId, issueData.projectId), eq(projectWorkspaces.companyId, companyId)),
+              )
               .orderBy(desc(projectWorkspaces.isPrimary), asc(projectWorkspaces.createdAt), asc(projectWorkspaces.id))
               .then((rows) => rows[0]?.id ?? null);
           }
@@ -1180,15 +1151,21 @@ export function issueService(db: Db) {
           .then((rows) => rows[0] ?? null);
 
         if (removedIssue && attachmentAssetIds.length > 0) {
-          await tx
-            .delete(assets)
-            .where(inArray(assets.id, attachmentAssetIds.map((row) => row.assetId)));
+          await tx.delete(assets).where(
+            inArray(
+              assets.id,
+              attachmentAssetIds.map((row) => row.assetId),
+            ),
+          );
         }
 
         if (removedIssue && issueDocumentIds.length > 0) {
-          await tx
-            .delete(documents)
-            .where(inArray(documents.id, issueDocumentIds.map((row) => row.documentId)));
+          await tx.delete(documents).where(
+            inArray(
+              documents.id,
+              issueDocumentIds.map((row) => row.documentId),
+            ),
+          );
         }
 
         if (!removedIssue) return null;
@@ -1208,9 +1185,9 @@ export function issueService(db: Db) {
       const now = new Date();
       const sameRunAssigneeCondition = checkoutRunId
         ? and(
-          eq(issues.assigneeAgentId, agentId),
-          or(isNull(issues.checkoutRunId), eq(issues.checkoutRunId, checkoutRunId)),
-        )
+            eq(issues.assigneeAgentId, agentId),
+            or(isNull(issues.checkoutRunId), eq(issues.checkoutRunId, checkoutRunId)),
+          )
         : and(eq(issues.assigneeAgentId, agentId), isNull(issues.checkoutRunId));
       const executionLockCondition = checkoutRunId
         ? or(isNull(issues.executionRunId), eq(issues.executionRunId, checkoutRunId))
@@ -1298,7 +1275,11 @@ export function issueService(db: Db) {
           expectedCheckoutRunId: current.checkoutRunId,
         });
         if (adopted) {
-          const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
+          const row = await db
+            .select()
+            .from(issues)
+            .where(eq(issues.id, id))
+            .then((rows) => rows[0]!);
           const [enriched] = await withIssueLabels(db, [row]);
           return enriched;
         }
@@ -1310,7 +1291,11 @@ export function issueService(db: Db) {
         current.status === "in_progress" &&
         sameRunLock(current.checkoutRunId, checkoutRunId)
       ) {
-        const row = await db.select().from(issues).where(eq(issues.id, id)).then((rows) => rows[0]!);
+        const row = await db
+          .select()
+          .from(issues)
+          .where(eq(issues.id, id))
+          .then((rows) => rows[0]!);
         const [enriched] = await withIssueLabels(db, [row]);
         return enriched;
       }
@@ -1460,9 +1445,7 @@ export function issueService(db: Db) {
       const order = opts?.order === "asc" ? "asc" : "desc";
       const afterCommentId = opts?.afterCommentId?.trim() || null;
       const limit =
-        opts?.limit && opts.limit > 0
-          ? Math.min(Math.floor(opts.limit), MAX_ISSUE_COMMENT_PAGE_LIMIT)
-          : null;
+        opts?.limit && opts.limit > 0 ? Math.min(Math.floor(opts.limit), MAX_ISSUE_COMMENT_PAGE_LIMIT) : null;
 
       const conditions = [eq(issueComments.issueId, issueId)];
       if (afterCommentId) {
@@ -1534,13 +1517,14 @@ export function issueService(db: Db) {
     getComment: (commentId: string) =>
       instanceSettings.getGeneral().then(({ censorUsernameInLogs }) =>
         db
-        .select()
-        .from(issueComments)
-        .where(eq(issueComments.id, commentId))
-        .then((rows) => {
-          const comment = rows[0] ?? null;
-          return comment ? redactIssueComment(comment, censorUsernameInLogs) : null;
-        })),
+          .select()
+          .from(issueComments)
+          .where(eq(issueComments.id, commentId))
+          .then((rows) => {
+            const comment = rows[0] ?? null;
+            return comment ? redactIssueComment(comment, censorUsernameInLogs) : null;
+          }),
+      ),
 
     addComment: async (issueId: string, body: string, actor: { agentId?: string; userId?: string }) => {
       const issue = await db
@@ -1567,10 +1551,7 @@ export function issueService(db: Db) {
         .returning();
 
       // Update issue's updatedAt so comment activity is reflected in recency sorting
-      await db
-        .update(issues)
-        .set({ updatedAt: new Date() })
-        .where(eq(issues.id, issueId));
+      await db.update(issues).set({ updatedAt: new Date() }).where(eq(issues.id, issueId));
 
       return redactIssueComment(comment, currentUserRedactionOptions.enabled);
     },
@@ -1742,8 +1723,10 @@ export function issueService(db: Db) {
 
       const explicitAgentMentionIds = extractAgentMentionIds(body);
       if (tokens.size === 0 && explicitAgentMentionIds.length === 0) return [];
-      const rows = await db.select({ id: agents.id, name: agents.name })
-        .from(agents).where(eq(agents.companyId, companyId));
+      const rows = await db
+        .select({ id: agents.id, name: agents.name })
+        .from(agents)
+        .where(eq(agents.companyId, companyId));
       const resolved = new Set<string>(explicitAgentMentionIds);
       for (const agent of rows) {
         if (tokens.has(agent.name.toLowerCase())) {
@@ -1771,11 +1754,7 @@ export function issueService(db: Db) {
         .where(eq(issueComments.issueId, issueId));
 
       const mentionedIds = new Set<string>();
-      for (const source of [
-        issue.title,
-        issue.description ?? "",
-        ...comments.map((comment) => comment.body),
-      ]) {
+      for (const source of [issue.title, issue.description ?? "", ...comments.map((comment) => comment.body)]) {
         for (const projectId of extractProjectMentionIds(source)) {
           mentionedIds.add(projectId);
         }
@@ -1785,81 +1764,107 @@ export function issueService(db: Db) {
       const rows = await db
         .select({ id: projects.id })
         .from(projects)
-        .where(
-          and(
-            eq(projects.companyId, issue.companyId),
-            inArray(projects.id, [...mentionedIds]),
-          ),
-        );
+        .where(and(eq(projects.companyId, issue.companyId), inArray(projects.id, [...mentionedIds])));
       const valid = new Set(rows.map((row) => row.id));
       return [...mentionedIds].filter((projectId) => valid.has(projectId));
     },
 
     getAncestors: async (issueId: string) => {
       const raw: Array<{
-        id: string; identifier: string | null; title: string; description: string | null;
-        status: string; priority: string;
-        assigneeAgentId: string | null; projectId: string | null; goalId: string | null;
+        id: string;
+        identifier: string | null;
+        title: string;
+        description: string | null;
+        status: string;
+        priority: string;
+        assigneeAgentId: string | null;
+        projectId: string | null;
+        goalId: string | null;
       }> = [];
       const visited = new Set<string>([issueId]);
-      const start = await db.select().from(issues).where(eq(issues.id, issueId)).then(r => r[0] ?? null);
+      const start = await db
+        .select()
+        .from(issues)
+        .where(eq(issues.id, issueId))
+        .then((r) => r[0] ?? null);
       let currentId = start?.parentId ?? null;
       while (currentId && !visited.has(currentId) && raw.length < 50) {
         visited.add(currentId);
-        const parent = await db.select({
-          id: issues.id, identifier: issues.identifier, title: issues.title, description: issues.description,
-          status: issues.status, priority: issues.priority,
-          assigneeAgentId: issues.assigneeAgentId, projectId: issues.projectId,
-          goalId: issues.goalId, parentId: issues.parentId,
-        }).from(issues).where(eq(issues.id, currentId)).then(r => r[0] ?? null);
+        const parent = await db
+          .select({
+            id: issues.id,
+            identifier: issues.identifier,
+            title: issues.title,
+            description: issues.description,
+            status: issues.status,
+            priority: issues.priority,
+            assigneeAgentId: issues.assigneeAgentId,
+            projectId: issues.projectId,
+            goalId: issues.goalId,
+            parentId: issues.parentId,
+          })
+          .from(issues)
+          .where(eq(issues.id, currentId))
+          .then((r) => r[0] ?? null);
         if (!parent) break;
         raw.push({
-          id: parent.id, identifier: parent.identifier ?? null, title: parent.title, description: parent.description ?? null,
-          status: parent.status, priority: parent.priority,
+          id: parent.id,
+          identifier: parent.identifier ?? null,
+          title: parent.title,
+          description: parent.description ?? null,
+          status: parent.status,
+          priority: parent.priority,
           assigneeAgentId: parent.assigneeAgentId ?? null,
-          projectId: parent.projectId ?? null, goalId: parent.goalId ?? null,
+          projectId: parent.projectId ?? null,
+          goalId: parent.goalId ?? null,
         });
         currentId = parent.parentId ?? null;
       }
 
       // Batch-fetch referenced projects and goals
-      const projectIds = [...new Set(raw.map(a => a.projectId).filter((id): id is string => id != null))];
-      const goalIds = [...new Set(raw.map(a => a.goalId).filter((id): id is string => id != null))];
+      const projectIds = [...new Set(raw.map((a) => a.projectId).filter((id): id is string => id != null))];
+      const goalIds = [...new Set(raw.map((a) => a.goalId).filter((id): id is string => id != null))];
 
-      const projectMap = new Map<string, {
-        id: string;
-        name: string;
-        description: string | null;
-        status: string;
-        goalId: string | null;
-        workspaces: Array<{
+      const projectMap = new Map<
+        string,
+        {
           id: string;
-          companyId: string;
-          projectId: string;
           name: string;
-          cwd: string | null;
-          repoUrl: string | null;
-          repoRef: string | null;
-          metadata: Record<string, unknown> | null;
-          isPrimary: boolean;
-          createdAt: Date;
-          updatedAt: Date;
-        }>;
-        primaryWorkspace: {
-          id: string;
-          companyId: string;
-          projectId: string;
-          name: string;
-          cwd: string | null;
-          repoUrl: string | null;
-          repoRef: string | null;
-          metadata: Record<string, unknown> | null;
-          isPrimary: boolean;
-          createdAt: Date;
-          updatedAt: Date;
-        } | null;
-      }>();
-      const goalMap = new Map<string, { id: string; title: string; description: string | null; level: string; status: string }>();
+          description: string | null;
+          status: string;
+          goalId: string | null;
+          workspaces: Array<{
+            id: string;
+            companyId: string;
+            projectId: string;
+            name: string;
+            cwd: string | null;
+            repoUrl: string | null;
+            repoRef: string | null;
+            metadata: Record<string, unknown> | null;
+            isPrimary: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+          }>;
+          primaryWorkspace: {
+            id: string;
+            companyId: string;
+            projectId: string;
+            name: string;
+            cwd: string | null;
+            repoUrl: string | null;
+            repoRef: string | null;
+            metadata: Record<string, unknown> | null;
+            isPrimary: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+          } | null;
+        }
+      >();
+      const goalMap = new Map<
+        string,
+        { id: string; title: string; description: string | null; level: string; status: string }
+      >();
 
       if (projectIds.length > 0) {
         const workspaceRows = await db
@@ -1874,10 +1879,16 @@ export function issueService(db: Db) {
           else workspaceMap.set(workspace.projectId, [workspace]);
         }
 
-        const rows = await db.select({
-          id: projects.id, name: projects.name, description: projects.description,
-          status: projects.status, goalId: projects.goalId,
-        }).from(projects).where(inArray(projects.id, projectIds));
+        const rows = await db
+          .select({
+            id: projects.id,
+            name: projects.name,
+            description: projects.description,
+            status: projects.status,
+            goalId: projects.goalId,
+          })
+          .from(projects)
+          .where(inArray(projects.id, projectIds));
         for (const r of rows) {
           const projectWorkspaceRows = workspaceMap.get(r.id) ?? [];
           const workspaces = projectWorkspaceRows.map((workspace) => ({
@@ -1905,17 +1916,23 @@ export function issueService(db: Db) {
       }
 
       if (goalIds.length > 0) {
-        const rows = await db.select({
-          id: goals.id, title: goals.title, description: goals.description,
-          level: goals.level, status: goals.status,
-        }).from(goals).where(inArray(goals.id, goalIds));
+        const rows = await db
+          .select({
+            id: goals.id,
+            title: goals.title,
+            description: goals.description,
+            level: goals.level,
+            status: goals.status,
+          })
+          .from(goals)
+          .where(inArray(goals.id, goalIds));
         for (const r of rows) goalMap.set(r.id, r);
       }
 
-      return raw.map(a => ({
+      return raw.map((a) => ({
         ...a,
-        project: a.projectId ? projectMap.get(a.projectId) ?? null : null,
-        goal: a.goalId ? goalMap.get(a.goalId) ?? null : null,
+        project: a.projectId ? (projectMap.get(a.projectId) ?? null) : null,
+        goal: a.goalId ? (goalMap.get(a.goalId) ?? null) : null,
       }));
     },
   };

@@ -87,12 +87,14 @@ describe("company portability sidebar order", () => {
       ["project-2", "launch-2"],
     ]);
 
-    expect(buildPortableSidebarOrder({
-      agents: [alphaOne, alphaTwo, beta],
-      orderedAgents: [beta, alphaTwo, alphaOne],
-      projects: [launch, launchTwo],
-      orderedProjects: [launchTwo, launch],
-    })).toEqual({
+    expect(
+      buildPortableSidebarOrder({
+        agents: [alphaOne, alphaTwo, beta],
+        orderedAgents: [beta, alphaTwo, alphaOne],
+        projects: [launch, launchTwo],
+        orderedProjects: [launchTwo, launch],
+      }),
+    ).toEqual({
       agents: ["beta", "alpha-2", "alpha"],
       projects: ["launch-2", "launch"],
     });

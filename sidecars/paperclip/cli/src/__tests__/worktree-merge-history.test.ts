@@ -199,7 +199,9 @@ describe("worktree merge history planner", () => {
     });
 
     expect(plan.counts.issuesToInsert).toBe(1);
-    expect(plan.issuePlans.filter((item) => item.action === "insert").map((item) => item.source.id)).toEqual(["issue-c"]);
+    expect(plan.issuePlans.filter((item) => item.action === "insert").map((item) => item.source.id)).toEqual([
+      "issue-c",
+    ]);
     expect(plan.issuePlans.find((item) => item.source.id === "issue-c" && item.action === "insert")).toMatchObject({
       previewIdentifier: "PAP-501",
     });

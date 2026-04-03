@@ -107,11 +107,7 @@ async function ensureServerWorkspaceLinksCurrent() {
   }
 
   const pnpmBin = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  await runCommand(
-    pnpmBin,
-    ["install", "--force", "--config.confirmModulesPurge=false"],
-    repoRoot,
-  );
+  await runCommand(pnpmBin, ["install", "--force", "--config.confirmModulesPurge=false"], repoRoot);
 
   const remainingMismatches = findServerWorkspaceLinkMismatches();
   if (remainingMismatches.length === 0) return;

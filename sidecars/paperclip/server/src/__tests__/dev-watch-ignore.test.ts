@@ -27,7 +27,9 @@ describe("resolveServerDevWatchIgnorePaths", () => {
     expect(ignorePaths).toContain(path.join(worktreeUiRoot, "node_modules"));
     expect(ignorePaths).toContain(`${path.join(worktreeUiRoot, "node_modules").replaceAll(path.sep, "/")}/**`);
     expect(ignorePaths).toContain(fs.realpathSync(path.join(sharedUiRoot, "node_modules")));
-    expect(ignorePaths).toContain(`${fs.realpathSync(path.join(sharedUiRoot, "node_modules")).replaceAll(path.sep, "/")}/**`);
+    expect(ignorePaths).toContain(
+      `${fs.realpathSync(path.join(sharedUiRoot, "node_modules")).replaceAll(path.sep, "/")}/**`,
+    );
     expect(ignorePaths).toContain(path.join(worktreeUiRoot, "node_modules", ".vite-temp"));
     expect(ignorePaths).toContain(
       `${path.join(worktreeUiRoot, "node_modules", ".vite-temp").replaceAll(path.sep, "/")}/**`,

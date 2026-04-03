@@ -7,8 +7,8 @@ function resolveScrollTarget() {
   if (mainContent instanceof HTMLElement) {
     const overflowY = window.getComputedStyle(mainContent).overflowY;
     const usesOwnScroll =
-      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay")
-      && mainContent.scrollHeight > mainContent.clientHeight + 1;
+      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+      mainContent.scrollHeight > mainContent.clientHeight + 1;
 
     if (usesOwnScroll) {
       return { type: "element" as const, element: mainContent };

@@ -44,7 +44,10 @@ function stableStringify(value: unknown): string {
   }
   if (value && typeof value === "object") {
     const rec = value as Record<string, unknown>;
-    return `{${Object.keys(rec).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(rec[key])}`).join(",")}}`;
+    return `{${Object.keys(rec)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(rec[key])}`)
+      .join(",")}}`;
   }
   return JSON.stringify(value);
 }
@@ -137,11 +140,7 @@ export function createLocalServiceKey(input: LocalServiceIdentityInput) {
 
 export async function writeLocalServiceRegistryRecord(record: LocalServiceRegistryRecord) {
   await fs.mkdir(getRuntimeServicesDir(), { recursive: true });
-  await fs.writeFile(
-    getRuntimeServiceRegistryPath(record.serviceKey),
-    `${JSON.stringify(record, null, 2)}\n`,
-    "utf8",
-  );
+  await fs.writeFile(getRuntimeServiceRegistryPath(record.serviceKey), `${JSON.stringify(record, null, 2)}\n`, "utf8");
 }
 
 export async function removeLocalServiceRegistryRecord(serviceKey: string) {

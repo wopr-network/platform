@@ -9,15 +9,11 @@ const tsxCliPath = require.resolve("tsx/cli");
 const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ignoreArgs = resolveServerDevWatchIgnorePaths(serverRoot).flatMap((ignorePath) => ["--exclude", ignorePath]);
 
-const child = spawn(
-  process.execPath,
-  [tsxCliPath, "watch", ...ignoreArgs, "src/index.ts"],
-  {
-    cwd: serverRoot,
-    env: process.env,
-    stdio: "inherit",
-  },
-);
+const child = spawn(process.execPath, [tsxCliPath, "watch", ...ignoreArgs, "src/index.ts"], {
+  cwd: serverRoot,
+  env: process.env,
+  stdio: "inherit",
+});
 
 child.on("exit", (code, signal) => {
   if (signal) {

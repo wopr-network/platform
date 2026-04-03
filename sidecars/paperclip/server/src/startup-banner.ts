@@ -65,9 +65,7 @@ function redactConnectionString(raw: string): string {
   }
 }
 
-function resolveAgentJwtSecretStatus(
-  envFilePath: string,
-): {
+function resolveAgentJwtSecretStatus(envFilePath: string): {
   status: "pass" | "warn";
   message: string;
 } {
@@ -81,7 +79,8 @@ function resolveAgentJwtSecretStatus(
 
   if (existsSync(envFilePath)) {
     const parsed = parseEnvFileContents(readFileSync(envFilePath, "utf-8"));
-    const fileValue = typeof parsed.PAPERCLIP_AGENT_JWT_SECRET === "string" ? parsed.PAPERCLIP_AGENT_JWT_SECRET.trim() : "";
+    const fileValue =
+      typeof parsed.PAPERCLIP_AGENT_JWT_SECRET === "string" ? parsed.PAPERCLIP_AGENT_JWT_SECRET.trim() : "";
     if (fileValue) {
       return {
         status: "warn",
@@ -106,9 +105,7 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
   const agentJwtSecret = resolveAgentJwtSecretStatus(envFilePath);
 
   const dbMode =
-    opts.db.mode === "embedded-postgres"
-      ? color("embedded-postgres", "green")
-      : color("external-postgres", "yellow");
+    opts.db.mode === "embedded-postgres" ? color("embedded-postgres", "green") : color("external-postgres", "yellow");
   const uiMode =
     opts.uiMode === "vite-dev"
       ? color("vite-dev-middleware", "cyan")

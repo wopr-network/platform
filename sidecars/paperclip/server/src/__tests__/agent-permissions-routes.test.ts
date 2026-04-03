@@ -108,11 +108,13 @@ function createDbStub() {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          then: vi.fn().mockResolvedValue([{
-            id: companyId,
-            name: "Paperclip",
-            requireBoardApprovalForNewAgents: false,
-          }]),
+          then: vi.fn().mockResolvedValue([
+            {
+              id: companyId,
+              name: "Paperclip",
+              requireBoardApprovalForNewAgents: false,
+            },
+          ]),
         }),
       }),
     }),
@@ -186,23 +188,15 @@ describe("agent permission routes", () => {
       companyIds: [companyId],
     });
 
-    const res = await request(app)
-      .post(`/api/companies/${companyId}/agents`)
-      .send({
-        name: "Builder",
-        role: "engineer",
-        adapterType: "process",
-        adapterConfig: {},
-      });
+    const res = await request(app).post(`/api/companies/${companyId}/agents`).send({
+      name: "Builder",
+      role: "engineer",
+      adapterType: "process",
+      adapterConfig: {},
+    });
 
     expect(res.status).toBe(201);
-    expect(mockAccessService.ensureMembership).toHaveBeenCalledWith(
-      companyId,
-      "agent",
-      agentId,
-      "member",
-      "active",
-    );
+    expect(mockAccessService.ensureMembership).toHaveBeenCalledWith(companyId, "agent", agentId, "member", "active");
     expect(mockAccessService.setPrincipalPermission).toHaveBeenCalledWith(
       companyId,
       "agent",
@@ -292,9 +286,7 @@ describe("agent permission routes", () => {
       source: "agent_key",
     });
 
-    const res = await request(app)
-      .get("/api/agents/me/inbox/mine")
-      .query({ userId: "board-user" });
+    const res = await request(app).get("/api/agents/me/inbox/mine").query({ userId: "board-user" });
 
     expect(res.status).toBe(200);
     expect(mockIssueService.list).toHaveBeenCalledWith(companyId, {

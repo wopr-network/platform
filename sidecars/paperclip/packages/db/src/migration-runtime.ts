@@ -87,10 +87,7 @@ async function loadEmbeddedPostgresCtor(): Promise<EmbeddedPostgresCtor> {
   }
 }
 
-async function ensureEmbeddedPostgresConnection(
-  dataDir: string,
-  preferredPort: number,
-): Promise<MigrationConnection> {
+async function ensureEmbeddedPostgresConnection(dataDir: string, preferredPort: number): Promise<MigrationConnection> {
   const EmbeddedPostgres = await loadEmbeddedPostgresCtor();
   const selectedPort = await findAvailablePort(preferredPort);
   const postmasterPidFile = path.resolve(dataDir, "postmaster.pid");
@@ -103,9 +100,7 @@ async function ensureEmbeddedPostgresConnection(
   if (!runningPid && existsSync(pgVersionFile)) {
     try {
       const actualDataDir = await getPostgresDataDirectory(preferredAdminConnectionString);
-      const matchesDataDir =
-        typeof actualDataDir === "string" &&
-        path.resolve(actualDataDir) === path.resolve(dataDir);
+      const matchesDataDir = typeof actualDataDir === "string" && path.resolve(actualDataDir) === path.resolve(dataDir);
       if (!matchesDataDir) {
         throw new Error("reachable postgres does not use the expected embedded data directory");
       }
@@ -150,8 +145,7 @@ async function ensureEmbeddedPostgresConnection(
       await instance.initialise();
     } catch (error) {
       throw formatEmbeddedPostgresError(error, {
-        fallbackMessage:
-          `Failed to initialize embedded PostgreSQL cluster in ${dataDir} on port ${selectedPort}`,
+        fallbackMessage: `Failed to initialize embedded PostgreSQL cluster in ${dataDir} on port ${selectedPort}`,
         recentLogs: logBuffer.getRecentLogs(),
       });
     }

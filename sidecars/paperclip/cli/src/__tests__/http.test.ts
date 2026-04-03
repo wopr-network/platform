@@ -7,9 +7,7 @@ describe("PaperclipApiClient", () => {
   });
 
   it("adds authorization and run-id headers", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200 }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new PaperclipApiClient({
@@ -31,9 +29,7 @@ describe("PaperclipApiClient", () => {
   });
 
   it("returns null on ignoreNotFound", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: "Not found" }), { status: 404 }),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: "Not found" }), { status: 404 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new PaperclipApiClient({ apiBase: "http://localhost:3100" });
@@ -42,12 +38,11 @@ describe("PaperclipApiClient", () => {
   });
 
   it("throws ApiRequestError with details", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ error: "Issue checkout conflict", details: { issueId: "1" } }),
-        { status: 409 },
-      ),
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: "Issue checkout conflict", details: { issueId: "1" } }), { status: 409 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new PaperclipApiClient({ apiBase: "http://localhost:3100" });
@@ -77,9 +72,7 @@ describe("PaperclipApiClient", () => {
     await expect(client.post("/api/companies/import/preview", {})).rejects.toThrow(
       /curl http:\/\/localhost:3100\/api\/health/,
     );
-    await expect(client.post("/api/companies/import/preview", {})).rejects.toThrow(
-      /pnpm dev|pnpm paperclipai run/,
-    );
+    await expect(client.post("/api/companies/import/preview", {})).rejects.toThrow(/pnpm dev|pnpm paperclipai run/);
   });
 
   it("retries once after interactive auth recovery", async () => {
