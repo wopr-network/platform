@@ -396,6 +396,35 @@ export default function NewPaperclipInstancePage() {
       return;
     }
 
+    // VISION entry: type in a hardcoded intro instead of calling the LLM
+    if (ctx.state === "VISION" && ctx.phase === "entry") {
+      setPendingEntry(false);
+      const intro = `Hey — I'm going to be your CEO. You describe what you want built, and I take it from there. I'll put together a founding brief, hire the right agents, assign the work, and get things moving. Real engineers writing real code, managed by me.\n\nSo tell me — what are we building? Don't worry about being specific yet. Just paint the picture and I'll figure out what we need to make it happen.`;
+      const introId = `intro-${Date.now()}`;
+      setMessages([{ id: introId, role: "assistant", content: "" }]);
+
+      // Typewriter effect
+      let idx = 0;
+      const typeTimer = setInterval(() => {
+        idx++;
+        if (idx >= intro.length) {
+          clearInterval(typeTimer);
+          setMessages([{ id: introId, role: "assistant", content: intro }]);
+          setCtx((prev) => ({
+            ...prev,
+            phase: "continue",
+            history: [{ role: "assistant" as const, content: intro }],
+          }));
+          setShowInput(true);
+          inputRef.current?.focus();
+          return;
+        }
+        setMessages([{ id: introId, role: "assistant", content: intro.slice(0, idx) }]);
+      }, 20);
+      return () => clearInterval(typeTimer);
+    }
+
+    // All other entry prompts: fire LLM
     setPendingEntry(false);
 
     (async () => {
