@@ -14,9 +14,11 @@ import {
   sendOnboardingChat,
 } from "@/lib/onboarding-chat";
 
-const CEO_INTRO = `Hey — I'm going to be your CEO. You describe what you want built, and I take it from there. I'll put together a founding brief, hire the right agents, assign the work, and get things moving. Real engineers writing real code, managed by me.
+const CEO_INTRO = `Hey — I'm going to be your CEO. Think of this like founding a company. You give me the vision, and I handle everything else: writing the founding brief, designing the org structure, hiring the right people, setting up projects, breaking work into tasks, and making sure everything gets done. I manage the whole operation so you can focus on the big picture.
 
-So tell me — what are we building? Don't worry about being specific yet. Just paint the picture and I'll figure out what we need to make it happen.`;
+The team I build depends on what you need. Engineers, designers, researchers, analysts — they're all AI agents, but they work like real employees. They have roles, they get assignments, they report progress, they collaborate on projects. You'll see everything happening in real time on your dashboard: who's working on what, what's blocked, what's shipping. It's your company to run, and I'm here to make it run well.
+
+So — what's the vision? What do you want this company to build? Don't overthink it. Just tell me the idea and I'll put together a plan we can act on.`;
 
 const THINKING_FIRST = [
   "Brewing coffee and drafting your founding brief...",
