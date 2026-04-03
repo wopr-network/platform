@@ -128,7 +128,7 @@
     "resend": "^6.9.3",
     "stripe": "^20.4.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vitest": "^4.0.18",
     "winston": "^3.19.0",
     "zod": "^4.3.6"
