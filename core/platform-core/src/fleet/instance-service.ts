@@ -82,6 +82,12 @@ export class InstanceService {
     let instanceId: string;
     const claimed = d.poolRepo ? await d.poolRepo.claimWarm(tenantId, name, productSlug) : null;
 
+    // Inject provision secret so the sidecar can validate provisioning calls
+    const instanceEnv: Record<string, string> = { ...env };
+    if (d.provisionSecret) {
+      instanceEnv.WOPR_PROVISION_SECRET = d.provisionSecret;
+    }
+
     if (claimed && d.docker) {
       instanceId = claimed.id;
       const cname = containerNameFor({ name, productSlug });
@@ -102,7 +108,7 @@ export class InstanceService {
         description: description ?? "",
         image,
         productSlug,
-        env: env ?? {},
+        env: instanceEnv,
         restartPolicy: "unless-stopped",
         releaseChannel: "stable",
         updatePolicy: "manual",
@@ -119,7 +125,7 @@ export class InstanceService {
       productSlug,
       description: description ?? "",
       image,
-      env: env ?? {},
+      env: instanceEnv,
       restartPolicy: "unless-stopped" as const,
       releaseChannel: "stable" as const,
       updatePolicy: "manual" as const,
