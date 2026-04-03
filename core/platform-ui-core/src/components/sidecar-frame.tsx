@@ -22,13 +22,9 @@ export function SidecarFrame() {
     return () => setIframeRef(null);
   }, [setIframeRef]);
 
-  // Send initial path when sidecar reports ready
-  useEffect(() => {
-    if (ready && !initialPathSent.current && isVisible) {
-      initialPathSent.current = true;
-      navigate(pathname);
-    }
-  }, [ready, isVisible, pathname, navigate]);
+  // Don't send initial navigate — the sidecar handles its own root redirect
+  // to /{companyPrefix}/dashboard. Navigation commands are only for subsequent
+  // sidebar clicks after the sidecar is already loaded.
 
   // Handle browser back/forward
   useEffect(() => {
