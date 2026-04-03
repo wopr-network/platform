@@ -15,7 +15,7 @@ export const botProfiles = pgTable(
     id: text("id").primaryKey(),
     /** Owning tenant ID */
     tenantId: text("tenant_id").notNull(),
-    /** Bot display name (1-63 alphanumeric chars, hyphens, underscores) */
+    /** Bot display name (free-form, 1-255 chars) */
     name: text("name").notNull(),
     /** Docker image reference (e.g. "ghcr.io/wopr-network/wopr:latest") */
     image: text("image").notNull(),
