@@ -14,7 +14,7 @@ import {
   sendOnboardingChat,
 } from "@/lib/onboarding-chat";
 
-const CEO_INTRO = "Hey — I'm going to be your CEO. Before we get started, tell me about the thing you want to build. What's the vision? I'll take it from there and put together a founding brief we can act on.";
+const CEO_INTRO = "Hey — I'm going to be your CEO. You tell me what to build, and I'll hire the team, write the plan, and start executing. Real AI agents, real code, real work. So — what are we building?";
 
 const THINKING_FIRST = [
   "Brewing coffee and drafting your founding brief...",
