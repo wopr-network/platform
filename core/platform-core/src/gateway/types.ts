@@ -61,6 +61,8 @@ export interface GatewayTenant {
   margin?: number;
   /** Default model for this tenant's product. Resolved at key resolution time from product config. */
   defaultModel?: string | null;
+  /** Ordered model priority list from product config. Gateway tries models in order, skipping cooldowns. */
+  modelPriority?: string[];
   /** User-configured spending caps (null fields = no cap). */
   spendingCaps?: SpendingCaps;
   /** Billing mode — "metered" tenants are invoiced via Stripe, not prepaid credits. */
@@ -104,11 +106,10 @@ export interface ProviderConfig {
 
 /** Full gateway configuration. */
 export interface GatewayConfig {
-  /** Static model override — rewrites body.model before forwarding to upstream. */
-  defaultModel?: string;
-  /** Dynamic model resolver — called per-request, takes priority over defaultModel.
-   *  Return null to fall back to defaultModel / client-specified. */
-  resolveDefaultModel?: () => string | null;
+  /** Model cooldown TTL in milliseconds. Default: 300_000 (5 minutes). */
+  modelCooldownTtlMs?: number;
+  /** Shared model health cache instance. Created by mountGateway if not provided. */
+  modelHealthCache?: import("./model-health-cache.js").ModelHealthCache;
   /** MeterEmitter instance for usage tracking */
   meter: MeterEmitter;
   /** BudgetChecker instance for pre-call budget validation */

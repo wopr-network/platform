@@ -23,6 +23,7 @@ import type { IBudgetChecker } from "../monetization/budget/budget-checker.js";
 import { PHONE_NUMBER_MONTHLY_COST } from "../monetization/credits/phone-billing.js";
 import { creditBalanceCheck, debitCredits } from "./credit-gate.js";
 import { mapBudgetError, mapProviderError } from "./error-mapping.js";
+import { DEFAULT_MODEL_COOLDOWN_MS, ModelHealthCache } from "./model-health-cache.js";
 import type { SellRateLookupFn } from "./rate-lookup.js";
 import { resolveTokenRates } from "./rate-lookup.js";
 import type { GatewayAuthEnv } from "./service-key-auth.js";
@@ -43,9 +44,9 @@ function marginFor(tenant: import("./types.js").GatewayTenant, deps: ProxyDeps):
   return tenant.margin ?? deps.defaultMargin;
 }
 
-/** Resolve default model for a tenant: tenant.defaultModel (from product config) → deps fallback. */
-function modelFor(tenant: import("./types.js").GatewayTenant, deps: ProxyDeps): string | null {
-  return tenant.defaultModel ?? deps.resolveDefaultModel?.() ?? deps.defaultModel ?? null;
+/** Returns true if the HTTP status should trigger model fallback. */
+function shouldFallback(status: number): boolean {
+  return status === 404 || status === 429 || status >= 500;
 }
 
 const phoneInboundBodySchema = z.object({
@@ -81,9 +82,8 @@ export interface ProxyDeps {
   topUpUrl: string;
   graceBufferCents?: number;
   providers: ProviderConfig;
-  defaultModel?: string;
-  /** Dynamic model resolver — called per-request, overrides defaultModel. Return null to use defaultModel fallback. */
-  resolveDefaultModel?: () => string | null;
+  /** Shared model health cache for cooldown tracking. */
+  modelHealthCache: import("./model-health-cache.js").ModelHealthCache;
   defaultMargin: number;
   fetchFn: FetchFn;
   arbitrageRouter?: import("../monetization/arbitrage/router.js").ArbitrageRouter;
@@ -108,8 +108,8 @@ export function buildProxyDeps(config: GatewayConfig): ProxyDeps {
     topUpUrl: config.topUpUrl ?? "/dashboard/credits",
     graceBufferCents: config.graceBufferCents,
     providers: config.providers,
-    defaultModel: config.defaultModel,
-    resolveDefaultModel: config.resolveDefaultModel,
+    modelHealthCache:
+      config.modelHealthCache ?? new ModelHealthCache(config.modelCooldownTtlMs ?? DEFAULT_MODEL_COOLDOWN_MS),
     get defaultMargin() {
       if (config.resolveMargin) return config.resolveMargin();
       return config.defaultMargin ?? TEST_ONLY_MARGIN;
@@ -225,20 +225,15 @@ export function chatCompletions(deps: ProxyDeps) {
           temperature?: number;
         }
       | undefined;
-    // Resolve the enforced model once — dynamic DB resolver takes priority over static env var.
-    const enforcedModel = modelFor(tenant, deps);
+    // Model priority: use first healthy model from product config
+    const modelPriority = tenant.modelPriority ?? ["openrouter/auto"];
     try {
       parsedBody = JSON.parse(rawBody) as typeof parsedBody;
       isStreaming = parsedBody?.stream === true;
-      if (enforcedModel && parsedBody) {
-        parsedBody.model = enforcedModel;
-      }
       requestModel = parsedBody?.model;
     } catch {
       // Not valid JSON, assume non-streaming
     }
-    // Re-serialize if model was overridden, otherwise forward raw body.
-    const body = enforcedModel && parsedBody ? JSON.stringify(parsedBody) : rawBody;
 
     deps.metrics?.recordGatewayRequest("chat-completions");
 
@@ -327,112 +322,136 @@ export function chatCompletions(deps: ProxyDeps) {
     const providerCfg = deps.providers.openrouter;
     if (!providerCfg) {
       return c.json(
-        {
-          error: {
-            message: "LLM service not configured",
-            type: "server_error",
-            code: "service_unavailable",
-          },
-        },
+        { error: { message: "LLM service not configured", type: "server_error", code: "service_unavailable" } },
         503,
       );
     }
+    const baseUrl = providerCfg.baseUrl ?? "https://openrouter.ai/api";
 
-    try {
-      const baseUrl = providerCfg.baseUrl ?? "https://openrouter.ai/api";
+    // Build list of models to try (skip those on cooldown)
+    const modelsToTry: string[] = [];
+    for (const model of modelPriority) {
+      if (deps.modelHealthCache.isHealthy(model)) modelsToTry.push(model);
+    }
+    if (modelsToTry.length === 0) modelsToTry.push(modelPriority[modelPriority.length - 1]);
 
-      // body, isStreaming, and requestModel are parsed above before the arbitrage block.
+    let lastError: unknown = null;
 
-      const res = await deps.fetchFn(`${baseUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${providerCfg.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body,
-      });
+    for (const currentModel of modelsToTry) {
+      try {
+        if (parsedBody) parsedBody.model = currentModel;
+        const serializedBody = parsedBody ? JSON.stringify(parsedBody) : rawBody;
 
-      // If streaming, pipe SSE through without buffering
-      if (isStreaming && res.ok) {
-        return proxySSEStream(res, {
-          tenant,
-          deps,
-          capability: "chat-completions",
-          provider: "openrouter",
-          costHeader: res.headers.get("x-openrouter-cost"),
-          model: requestModel,
-          rateLookupFn: deps.rateLookupFn,
+        const res = await deps.fetchFn(`${baseUrl}/v1/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${providerCfg.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: serializedBody,
         });
-      }
 
-      const responseBody = await res.text();
-      const costHeader = res.headers.get("x-openrouter-cost");
-      const cost = costHeader
-        ? parseFloat(costHeader)
-        : await estimateTokenCost(responseBody, requestModel, deps.rateLookupFn);
+        // Fallback to next model on retriable errors
+        if (!res.ok && shouldFallback(res.status) && currentModel !== modelsToTry[modelsToTry.length - 1]) {
+          deps.modelHealthCache.markUnhealthy(currentModel);
+          logger.warn("Gateway model fallback", {
+            tenant: tenant.id,
+            failedModel: currentModel,
+            status: res.status,
+          });
+          lastError = new Error(`Model ${currentModel} returned ${res.status}`);
+          continue;
+        }
 
-      logger.info("Gateway proxy: chat/completions", {
-        tenant: tenant.id,
-        status: res.status,
-        cost,
-      });
+        // Streaming success
+        if (isStreaming && res.ok) {
+          return proxySSEStream(res, {
+            tenant,
+            deps,
+            capability: "chat-completions",
+            provider: "openrouter",
+            costHeader: res.headers.get("x-openrouter-cost"),
+            model: currentModel,
+            rateLookupFn: deps.rateLookupFn,
+          });
+        }
 
-      if (res.ok) {
-        // Parse token counts and model from response (WOP-512)
-        let usage: { units: number; unitType: string } | undefined;
-        let metadata: Record<string, unknown> | undefined;
+        // Non-streaming path
+        const responseBody = await res.text();
+        const costHeader = res.headers.get("x-openrouter-cost");
+        const cost = costHeader
+          ? parseFloat(costHeader)
+          : await estimateTokenCost(responseBody, currentModel, deps.rateLookupFn);
+
+        logger.info("Gateway proxy: chat/completions", {
+          tenant: tenant.id,
+          status: res.status,
+          cost,
+          model: currentModel,
+        });
+
+        if (res.ok) {
+          let usage: { units: number; unitType: string } | undefined;
+          let metadata: Record<string, unknown> | undefined;
+          try {
+            const parsed = JSON.parse(responseBody) as {
+              usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+              model?: string;
+            };
+            const inputTokens = parsed.usage?.prompt_tokens ?? 0;
+            const outputTokens = parsed.usage?.completion_tokens ?? 0;
+            const totalTokens = parsed.usage?.total_tokens ?? inputTokens + outputTokens;
+            if (totalTokens > 0) {
+              usage = { units: totalTokens, unitType: "tokens" };
+              metadata = { inputTokens, outputTokens, model: parsed.model ?? currentModel };
+            }
+          } catch {
+            // proceed without usage data
+          }
+          emitMeterEventForTenant(deps, tenant, "chat-completions", "openrouter", Credit.fromDollars(cost), undefined, {
+            usage,
+            tier: "branded",
+            metadata,
+          });
+          debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "chat-completions", "openrouter");
+        }
+
+        let sanitizedBody = responseBody;
         try {
-          const parsed = JSON.parse(responseBody) as {
-            usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
-            model?: string;
-          };
-          const inputTokens = parsed.usage?.prompt_tokens ?? 0;
-          const outputTokens = parsed.usage?.completion_tokens ?? 0;
-          const totalTokens = parsed.usage?.total_tokens ?? inputTokens + outputTokens;
-          if (totalTokens > 0) {
-            usage = { units: totalTokens, unitType: "tokens" };
-            metadata = { inputTokens, outputTokens, model: parsed.model };
+          const parsed = JSON.parse(responseBody) as Record<string, unknown>;
+          if (parsed.usage && typeof parsed.usage === "object") {
+            const u = parsed.usage as Record<string, unknown>;
+            parsed.usage = {
+              prompt_tokens: u.prompt_tokens,
+              completion_tokens: u.completion_tokens,
+              total_tokens: u.total_tokens,
+            };
+            sanitizedBody = JSON.stringify(parsed);
           }
         } catch {
-          // If parsing fails, proceed without usage data
+          // Forward raw body
         }
-        emitMeterEventForTenant(deps, tenant, "chat-completions", "openrouter", Credit.fromDollars(cost), undefined, {
-          usage,
-          tier: "branded",
-          metadata,
+
+        return new Response(sanitizedBody, {
+          status: res.status,
+          headers: { "Content-Type": "application/json" },
         });
-        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "chat-completions", "openrouter");
+      } catch (error) {
+        deps.modelHealthCache.markUnhealthy(currentModel);
+        logger.warn("Gateway model network error", {
+          tenant: tenant.id,
+          failedModel: currentModel,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        lastError = error;
       }
-
-      // Sanitize response: strip non-standard OpenRouter fields from usage
-      // (cost, cost_details, is_byok, prompt_tokens_details, completion_tokens_details)
-      // that break downstream AI SDKs expecting standard OpenAI format.
-      let sanitizedBody = responseBody;
-      try {
-        const parsed = JSON.parse(responseBody) as Record<string, unknown>;
-        if (parsed.usage && typeof parsed.usage === "object") {
-          const u = parsed.usage as Record<string, unknown>;
-          parsed.usage = {
-            prompt_tokens: u.prompt_tokens,
-            completion_tokens: u.completion_tokens,
-            total_tokens: u.total_tokens,
-          };
-          sanitizedBody = JSON.stringify(parsed);
-        }
-      } catch {
-        // Forward raw body if parse fails
-      }
-
-      return new Response(sanitizedBody, {
-        status: res.status,
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      deps.metrics?.recordGatewayError("chat-completions");
-      logger.error("Gateway proxy error: chat/completions", { tenant: tenant.id, error });
-      const mapped = mapProviderError(error, "openrouter");
-      return c.json(mapped.body, mapped.status as 502);
     }
+
+    // All models exhausted
+    deps.metrics?.recordGatewayError("chat-completions");
+    logger.error("Gateway proxy: all models exhausted", { tenant: tenant.id, modelsAttempted: modelsToTry });
+    const mapped = mapProviderError(lastError, "openrouter");
+    return c.json(mapped.body, mapped.status as 502);
   };
 }
 

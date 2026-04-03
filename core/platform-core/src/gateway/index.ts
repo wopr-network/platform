@@ -28,6 +28,7 @@ export {
 } from "./error-mapping.js";
 export { gatewayHealthHandler } from "./health.js";
 export { type HydrateSpendingCapsConfig, hydrateSpendingCaps } from "./hydrate-spending-caps.js";
+export { DEFAULT_MODEL_COOLDOWN_MS, ModelHealthCache } from "./model-health-cache.js";
 export { modelsHandler } from "./models.js";
 export {
   anthropicToOpenAI,
