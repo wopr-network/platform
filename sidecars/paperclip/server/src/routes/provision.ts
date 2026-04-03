@@ -258,6 +258,14 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
     },
 
     async onProvisioned(req: ProvisionRequest, _result: ProvisionResponse) {
+      console.log("[provision] onProvisioned called", {
+        tenantId: req.tenantId,
+        tenantName: req.tenantName,
+        hasExtra: !!req.extra,
+        hasOnboarding: !!req.extra?.onboarding,
+        agentCount: _result.agents?.length ?? 0,
+        companyId: _result.tenantEntityId,
+      });
       // Persist instance config to data volume so deployment identity
       // survives container restarts.  The provision request carries
       // instanceConfig in `extra`; merge with sensible defaults.
@@ -357,15 +365,19 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
  */
 function requireProvisionSecret(req: Request, res: Response, next: NextFunction) {
   const secret = process.env.WOPR_PROVISION_SECRET;
+  console.log(`[provision] auth check: secret=${secret ? "set(" + secret.slice(0, 8) + "...)" : "MISSING"}, header=${req.headers.authorization ? "present" : "MISSING"}`);
   if (!secret) {
+    console.error("[provision] WOPR_PROVISION_SECRET not configured");
     res.status(500).json({ error: "WOPR_PROVISION_SECRET not configured" });
     return;
   }
   const header = req.headers.authorization;
   if (!header || header !== `Bearer ${secret}`) {
+    console.error(`[provision] auth failed: header=${header?.slice(0, 20)}..., expected=Bearer ${secret.slice(0, 8)}...`);
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+  console.log("[provision] auth OK");
   next();
 }
 
