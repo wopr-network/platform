@@ -80,12 +80,8 @@
           "name": "address_pool_key_ring_id_key_rings_id_fk",
           "tableFrom": "address_pool",
           "tableTo": "key_rings",
-          "columnsFrom": [
-            "key_ring_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["key_ring_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -378,12 +374,8 @@
           "name": "derived_addresses_chain_id_payment_methods_id_fk",
           "tableFrom": "derived_addresses",
           "tableTo": "payment_methods",
-          "columnsFrom": [
-            "chain_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chain_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -393,9 +385,7 @@
         "derived_addresses_address_unique": {
           "name": "derived_addresses_address_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "address"
-          ]
+          "columns": ["address"]
         }
       },
       "policies": {},
@@ -531,12 +521,8 @@
           "name": "path_allocations_chain_id_payment_methods_id_fk",
           "tableFrom": "path_allocations",
           "tableTo": "payment_methods",
-          "columnsFrom": [
-            "chain_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["chain_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -544,10 +530,7 @@
       "compositePrimaryKeys": {
         "path_allocations_coin_type_account_index_pk": {
           "name": "path_allocations_coin_type_account_index_pk",
-          "columns": [
-            "coin_type",
-            "account_index"
-          ]
+          "columns": ["coin_type", "account_index"]
         }
       },
       "uniqueConstraints": {},
@@ -789,10 +772,7 @@
       "compositePrimaryKeys": {
         "watcher_processed_watcher_id_tx_id_pk": {
           "name": "watcher_processed_watcher_id_tx_id_pk",
-          "columns": [
-            "watcher_id",
-            "tx_id"
-          ]
+          "columns": ["watcher_id", "tx_id"]
         }
       },
       "uniqueConstraints": {},
