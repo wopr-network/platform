@@ -12,6 +12,21 @@ const mockTenant: GatewayTenant = {
   spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null },
 };
 
+const mockProductConfig: import("../product-config/repository-types.js").ProductConfig = {
+  product: { slug: "test" } as import("../product-config/repository-types.js").Product,
+  navItems: [],
+  domains: [],
+  features: {
+    modelPriority: ["openrouter/auto"],
+    floorInputRatePer1k: 0.00005,
+    floorOutputRatePer1k: 0.0002,
+  } as unknown as import("../product-config/repository-types.js").ProductFeatures,
+  billing: {
+    marginConfig: { default: 1.3 },
+  } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
+  fleet: null,
+};
+
 function makeDeps(overrides?: Partial<ProxyDeps>): ProxyDeps {
   return {
     meter: {
@@ -23,7 +38,6 @@ function makeDeps(overrides?: Partial<ProxyDeps>): ProxyDeps {
     } as unknown as ProxyDeps["meter"],
     budgetChecker: { check: vi.fn() } as unknown as ProxyDeps["budgetChecker"],
     topUpUrl: "/credits",
-    defaultMargin: 1.3,
     providers: {},
     modelHealthCache: new ModelHealthCache(),
     fetchFn: vi.fn(),
@@ -63,6 +77,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -94,6 +109,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -111,6 +127,16 @@ describe("proxySSEStream", () => {
     });
   });
 
+  /** Product config with zero floor rates — forces fallback to rate-lookup path. */
+  const paidModelProductConfig: typeof mockProductConfig = {
+    ...mockProductConfig,
+    features: {
+      ...mockProductConfig.features,
+      floorInputRatePer1k: 0,
+      floorOutputRatePer1k: 0,
+    } as typeof mockProductConfig.features,
+  };
+
   describe("token-based fallback metering (no cost header)", () => {
     it("calculates cost from usage tokens using DEFAULT_TOKEN_RATES when no rateLookupFn", async () => {
       const deps = makeDeps();
@@ -122,6 +148,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: paidModelProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -158,6 +185,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: paidModelProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -180,6 +208,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -197,12 +226,21 @@ describe("proxySSEStream", () => {
   });
 
   describe("margin application", () => {
+    /** Build a product config with a custom margin for margin tests. */
+    function pcWithMargin(margin: number): typeof mockProductConfig {
+      return {
+        ...mockProductConfig,
+        billing: { marginConfig: { default: margin } } as unknown as typeof mockProductConfig.billing,
+      };
+    }
+
     it("applies default 1.3x margin to cost", async () => {
-      const deps = makeDeps({ defaultMargin: 1.3 });
+      const deps = makeDeps();
       const upstream = fakeSSEResponse(['data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n', "data: [DONE]\n\n"]);
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: pcWithMargin(1.3),
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -219,11 +257,12 @@ describe("proxySSEStream", () => {
     });
 
     it("applies custom margin (e.g., 20% as percentage)", async () => {
-      const deps = makeDeps({ defaultMargin: 20 });
+      const deps = makeDeps();
       const upstream = fakeSSEResponse(["data: [DONE]\n\n"]);
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: pcWithMargin(20),
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -241,11 +280,12 @@ describe("proxySSEStream", () => {
     });
 
     it("applies 2x margin multiplier", async () => {
-      const deps = makeDeps({ defaultMargin: 2.0 });
+      const deps = makeDeps();
       const upstream = fakeSSEResponse(["data: [DONE]\n\n"]);
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: pcWithMargin(2.0),
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -269,6 +309,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -292,6 +333,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -313,6 +355,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -337,6 +380,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -354,6 +398,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -379,6 +424,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: mockProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",
@@ -398,6 +444,7 @@ describe("proxySSEStream", () => {
 
       const res = proxySSEStream(upstream, {
         tenant: mockTenant,
+        productConfig: paidModelProductConfig,
         deps,
         capability: "chat-completions",
         provider: "openrouter",

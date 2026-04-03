@@ -7,6 +7,21 @@ import type { ProxyDeps } from "./proxy.js";
 import { chatCompletions } from "./proxy.js";
 import type { GatewayAuthEnv } from "./service-key-auth.js";
 
+const TEST_PRODUCT_CONFIG: import("../product-config/repository-types.js").ProductConfig = {
+  product: { slug: "test" } as import("../product-config/repository-types.js").Product,
+  navItems: [],
+  domains: [],
+  features: {
+    modelPriority: ["openrouter/auto"],
+    floorInputRatePer1k: 0.00005,
+    floorOutputRatePer1k: 0.0002,
+  } as unknown as import("../product-config/repository-types.js").ProductFeatures,
+  billing: {
+    marginConfig: { default: 1.3 },
+  } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
+  fleet: null,
+};
+
 function makeDeps(overrides: Partial<ProxyDeps> = {}): ProxyDeps {
   return {
     budgetChecker: { check: () => ({ allowed: true }) } as never,
@@ -14,7 +29,6 @@ function makeDeps(overrides: Partial<ProxyDeps> = {}): ProxyDeps {
     creditLedger: { balance: () => Credit.fromCents(1000), debit: vi.fn() } as never,
     providers: { openrouter: { apiKey: "test-key", baseUrl: "https://mock.test" } },
     fetchFn: vi.fn() as ProxyDeps["fetchFn"],
-    defaultMargin: 1.3,
     topUpUrl: "https://example.com/topup",
     modelHealthCache: new ModelHealthCache(),
     metrics: { recordGatewayRequest: vi.fn(), recordGatewayError: vi.fn() } as never,
@@ -29,6 +43,7 @@ function makeApp(deps: ProxyDeps) {
       id: "tenant-1",
       spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null },
     } as never);
+    c.set("gatewayProductConfig", TEST_PRODUCT_CONFIG);
     await next();
   });
   app.post("/chat/completions", chatCompletions(deps));

@@ -13,6 +13,7 @@ import type { GatewayTenant } from "./types.js";
 export interface GatewayAuthEnv {
   Variables: {
     gatewayTenant: GatewayTenant;
+    gatewayProductConfig: import("../product-config/repository-types.js").ProductConfig;
     webhookBody: Record<string, unknown>;
     attributedTenantId: string | null;
   };
@@ -28,7 +29,15 @@ export interface GatewayAuthEnv {
  * @param resolveServiceKey - Function that maps a service key to a tenant (or null)
  */
 export function serviceKeyAuth(
-  resolveServiceKey: (key: string) => GatewayTenant | null | Promise<GatewayTenant | null>,
+  resolveServiceKey: (
+    key: string,
+  ) =>
+    | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
+    | null
+    | Promise<
+        | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
+        | null
+      >,
 ) {
   return async (c: Context<GatewayAuthEnv>, next: Next) => {
     const authHeader = c.req.header("Authorization");
@@ -73,8 +82,8 @@ export function serviceKeyAuth(
       );
     }
 
-    const tenant = await resolveServiceKey(serviceKey);
-    if (!tenant) {
+    const result = await resolveServiceKey(serviceKey);
+    if (!result) {
       logger.warn("Invalid service key attempted", {
         keyPrefix: `${serviceKey.slice(0, 8)}...`,
       });
@@ -90,7 +99,8 @@ export function serviceKeyAuth(
       );
     }
 
-    c.set("gatewayTenant", tenant);
+    c.set("gatewayTenant", result.tenant);
+    c.set("gatewayProductConfig", result.productConfig);
     const attributedTenantId = c.req.header("x-attribute-to") ?? null;
     c.set("attributedTenantId", attributedTenantId);
     return next();

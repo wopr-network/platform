@@ -27,6 +27,21 @@ const TEST_TENANT: GatewayTenant = {
   spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null },
 };
 
+const TEST_PRODUCT_CONFIG: import("../product-config/repository-types.js").ProductConfig = {
+  product: { slug: "test" } as import("../product-config/repository-types.js").Product,
+  navItems: [],
+  domains: [],
+  features: {
+    modelPriority: ["openrouter/auto"],
+    floorInputRatePer1k: 0.00005,
+    floorOutputRatePer1k: 0.0002,
+  } as unknown as import("../product-config/repository-types.js").ProductFeatures,
+  billing: {
+    marginConfig: { default: 1.3 },
+  } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
+  fleet: null,
+};
+
 function buildTestConfig(overrides: Partial<GatewayConfig> = {}): GatewayConfig {
   const meter = {
     emit: vi.fn(),
@@ -73,7 +88,8 @@ function buildTestConfig(overrides: Partial<GatewayConfig> = {}): GatewayConfig 
     creditLedger,
     providers: { openrouter: { apiKey: "or-test-key" } },
     fetchFn,
-    resolveServiceKey: (key: string) => (key === VALID_KEY ? TEST_TENANT : null),
+    resolveServiceKey: (key: string) =>
+      key === VALID_KEY ? { tenant: TEST_TENANT, productConfig: TEST_PRODUCT_CONFIG } : null,
     ...overrides,
   };
 }

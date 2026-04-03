@@ -14,6 +14,21 @@ const TEST_TENANT: GatewayTenant = {
   spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null },
 };
 
+const TEST_PRODUCT_CONFIG: import("../product-config/repository-types.js").ProductConfig = {
+  product: { slug: "test" } as import("../product-config/repository-types.js").Product,
+  navItems: [],
+  domains: [],
+  features: {
+    modelPriority: ["openrouter/auto"],
+    floorInputRatePer1k: 0.00005,
+    floorOutputRatePer1k: 0.0002,
+  } as unknown as import("../product-config/repository-types.js").ProductFeatures,
+  billing: {
+    marginConfig: { default: 1.3 },
+  } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
+  fleet: null,
+};
+
 // Lazy import after setting up mocks
 async function buildProxyApp() {
   const { phoneInbound, smsInbound, smsDeliveryStatus, buildProxyDeps } = await import("./proxy.js");
@@ -25,7 +40,7 @@ async function buildProxyApp() {
     meter: mockMeter as never,
     budgetChecker: mockBudget as never,
     providers: {},
-    resolveServiceKey: () => TEST_TENANT,
+    resolveServiceKey: () => ({ tenant: TEST_TENANT, productConfig: TEST_PRODUCT_CONFIG }),
   });
 
   const app = new Hono<GatewayAuthEnv>();
@@ -33,6 +48,7 @@ async function buildProxyApp() {
   // Pre-set tenant so handlers don't need auth middleware
   app.use("/*", async (c, next) => {
     c.set("gatewayTenant", TEST_TENANT);
+    c.set("gatewayProductConfig", TEST_PRODUCT_CONFIG);
     await next();
   });
 

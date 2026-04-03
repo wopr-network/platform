@@ -51,26 +51,12 @@ export interface GatewayTenant {
   type?: "personal" | "org" | "platform_service";
   /** Spend limits for budget checking */
   spendLimits: SpendLimits;
-  /** Plan tier for rate limit lookup */
-  planTier?: string;
   /** Instance ID this token belongs to */
   instanceId?: string;
   /** Product this tenant belongs to (determines margin, model, gateway config). */
   productSlug?: string;
-  /** Billing margin multiplier for this tenant's product (e.g. 4.0 = 4x cost). Resolved at key resolution time from product config. */
-  margin?: number;
-  /** Default model for this tenant's product. Resolved at key resolution time from product config. */
-  defaultModel?: string | null;
-  /** Ordered model priority list from product config. Gateway tries models in order, skipping cooldowns. */
-  modelPriority?: string[];
-  /** Floor rate per 1K input tokens for free models. Charged directly, no margin. */
-  floorInputRatePer1k?: number;
-  /** Floor rate per 1K output tokens for free models. Charged directly, no margin. */
-  floorOutputRatePer1k?: number;
   /** User-configured spending caps (null fields = no cap). */
   spendingCaps?: SpendingCaps;
-  /** Billing mode — "metered" tenants are invoiced via Stripe, not prepaid credits. */
-  inferenceMode?: "metered" | "managed" | "byok";
 }
 
 /** Fetch function type for dependency injection in tests. */
@@ -126,18 +112,22 @@ export interface GatewayConfig {
   graceBufferCents?: number;
   /** Upstream provider credentials */
   providers: ProviderConfig;
-  /** Static margin (for tests only). Production should use resolveMargin. */
-  defaultMargin?: number;
-  /** Live margin resolver — called per-request, reads from DB. Takes priority over defaultMargin. */
-  resolveMargin?: () => number;
   /** Optional arbitrage router for multi-provider cost optimization (WOP-463) */
   arbitrageRouter?: import("../monetization/arbitrage/router.js").ArbitrageRouter;
   /** Injectable fetch for testing */
   fetchFn?: FetchFn;
   /** Optional cached rate lookup for model-specific token pricing (WOP-646) */
   rateLookupFn?: import("./rate-lookup.js").SellRateLookupFn;
-  /** Function to resolve a service key to a tenant */
-  resolveServiceKey: (key: string) => GatewayTenant | null | Promise<GatewayTenant | null>;
+  /** Function to resolve a service key to a tenant and its product config */
+  resolveServiceKey: (
+    key: string,
+  ) =>
+    | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
+    | null
+    | Promise<
+        | { tenant: GatewayTenant; productConfig: import("../product-config/repository-types.js").ProductConfig }
+        | null
+      >;
   /** Base URL for Twilio webhook signature verification (e.g., https://api.wopr.network/v1). Required for Twilio/Telnyx webhook endpoints. */
   webhookBaseUrl?: string;
   /** Resolve a tenant from an inbound webhook request (e.g., from a tenantId URL path param). Required when webhookBaseUrl is set. */

@@ -8,7 +8,24 @@ const TEST_TENANT: GatewayTenant = {
   spendLimits: { maxSpendPerHour: null, maxSpendPerMonth: null },
 };
 
-function buildTestApp(resolveServiceKey: (key: string) => GatewayTenant | null) {
+const TEST_PRODUCT_CONFIG: import("../product-config/repository-types.js").ProductConfig = {
+  product: { slug: "test" } as import("../product-config/repository-types.js").Product,
+  navItems: [],
+  domains: [],
+  features: {
+    modelPriority: ["openrouter/auto"],
+    floorInputRatePer1k: 0.00005,
+    floorOutputRatePer1k: 0.0002,
+  } as unknown as import("../product-config/repository-types.js").ProductFeatures,
+  billing: {
+    marginConfig: { default: 1.3 },
+  } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
+  fleet: null,
+};
+
+type ResolveResult = { tenant: GatewayTenant; productConfig: typeof TEST_PRODUCT_CONFIG } | null;
+
+function buildTestApp(resolveServiceKey: (key: string) => ResolveResult) {
   const app = new Hono<GatewayAuthEnv>();
   app.use("/*", serviceKeyAuth(resolveServiceKey));
   app.get("/protected", (c) => {
@@ -20,7 +37,8 @@ function buildTestApp(resolveServiceKey: (key: string) => GatewayTenant | null) 
 
 describe("serviceKeyAuth", () => {
   const validKey = "sk-test-valid-key-1234567890";
-  const resolver = (key: string): GatewayTenant | null => (key === validKey ? TEST_TENANT : null);
+  const resolver = (key: string): ResolveResult =>
+    key === validKey ? { tenant: TEST_TENANT, productConfig: TEST_PRODUCT_CONFIG } : null;
 
   describe("missing Authorization header", () => {
     it("returns 401 with missing_api_key code", async () => {

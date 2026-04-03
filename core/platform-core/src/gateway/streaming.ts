@@ -25,6 +25,7 @@ export function proxySSEStream(
   upstreamResponse: Response,
   opts: {
     tenant: GatewayTenant;
+    productConfig: import("../product-config/repository-types.js").ProductConfig;
     deps: ProxyDeps;
     capability: string;
     provider: string;
@@ -33,7 +34,7 @@ export function proxySSEStream(
     rateLookupFn?: SellRateLookupFn;
   },
 ): Response {
-  const { tenant, deps, capability, provider, costHeader } = opts;
+  const { tenant, productConfig, deps, capability, provider, costHeader } = opts;
 
   let accumulatedCost = 0;
   let isFreeModel = true;
@@ -83,10 +84,10 @@ export function proxySSEStream(
               const inputTokens = data.usage.prompt_tokens ?? 0;
               const outputTokens = data.usage.completion_tokens ?? 0;
 
-              if (isFreeModel && (tenant.floorInputRatePer1k || tenant.floorOutputRatePer1k)) {
+              const floorIn = Number(productConfig?.features?.floorInputRatePer1k ?? 0.00005);
+              const floorOut = Number(productConfig?.features?.floorOutputRatePer1k ?? 0.0002);
+              if (isFreeModel && (floorIn || floorOut)) {
                 // Free model: use floor rates directly (no margin will be applied)
-                const floorIn = tenant.floorInputRatePer1k ?? 0.00005;
-                const floorOut = tenant.floorOutputRatePer1k ?? 0.0002;
                 accumulatedCost = (inputTokens * floorIn + outputTokens * floorOut) / 1000;
               } else {
                 // Paid model without cost header: estimate from DB sell rates
@@ -121,7 +122,8 @@ export function proxySSEStream(
       // Stream ended — emit meter event with accumulated cost
       const cost = Credit.fromDollars(accumulatedCost);
       // Free models: floor rate IS the final price (margin = 1). Paid models: apply product margin.
-      const margin = isFreeModel ? 1 : (tenant.margin ?? deps.defaultMargin);
+      const mc = productConfig?.billing?.marginConfig as { default?: number } | null;
+      const margin = isFreeModel ? 1 : (mc?.default ?? 4.0);
       const charge = withMargin(cost, margin);
       deps.meter.emit({
         tenant: tenant.id,

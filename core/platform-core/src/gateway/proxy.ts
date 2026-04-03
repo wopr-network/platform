@@ -30,18 +30,33 @@ import type { GatewayAuthEnv } from "./service-key-auth.js";
 import { proxySSEStream } from "./streaming.js";
 import type { FetchFn, GatewayConfig, ProviderConfig } from "./types.js";
 
-/**
- * Fallback only used when resolveMargin is not provided (tests only).
- * Production MUST provide resolveMargin — mountRoutes enforces this.
- */
-const TEST_ONLY_MARGIN = 1.3;
-
 /** Max call duration cap: 4 hours = 240 minutes. */
 const MAX_CALL_DURATION_MINUTES = 240;
 
-/** Resolve margin for a tenant: tenant.margin (from product config) → deps.defaultMargin (fallback). */
-function marginFor(tenant: import("./types.js").GatewayTenant, deps: ProxyDeps): number {
-  return tenant.margin ?? deps.defaultMargin;
+// ---------------------------------------------------------------------------
+// Product config helpers — read billing/model config from ProductConfig context
+// ---------------------------------------------------------------------------
+
+/** Read product margin from gateway context. */
+function productMargin(c: Context<GatewayAuthEnv>): number {
+  const pc = c.get("gatewayProductConfig");
+  const mc = pc?.billing?.marginConfig as { default?: number } | null;
+  return mc?.default ?? 4.0;
+}
+
+/** Read ordered model priority list from gateway context. */
+function productModelPriority(c: Context<GatewayAuthEnv>): string[] {
+  const pc = c.get("gatewayProductConfig");
+  return pc?.features?.modelPriority?.length ? pc.features.modelPriority : ["openrouter/auto"];
+}
+
+/** Read floor token rates for free models from gateway context. */
+function productFloorRates(c: Context<GatewayAuthEnv>): { input: number; output: number } {
+  const pc = c.get("gatewayProductConfig");
+  return {
+    input: Number(pc?.features?.floorInputRatePer1k ?? 0.00005),
+    output: Number(pc?.features?.floorOutputRatePer1k ?? 0.0002),
+  };
 }
 
 /** Returns true if the HTTP status should trigger model fallback. */
@@ -84,7 +99,6 @@ export interface ProxyDeps {
   providers: ProviderConfig;
   /** Shared model health cache for cooldown tracking. */
   modelHealthCache: import("./model-health-cache.js").ModelHealthCache;
-  defaultMargin: number;
   fetchFn: FetchFn;
   arbitrageRouter?: import("../monetization/arbitrage/router.js").ArbitrageRouter;
   rateLookupFn?: SellRateLookupFn;
@@ -110,10 +124,6 @@ export function buildProxyDeps(config: GatewayConfig): ProxyDeps {
     providers: config.providers,
     modelHealthCache:
       config.modelHealthCache ?? new ModelHealthCache(config.modelCooldownTtlMs ?? DEFAULT_MODEL_COOLDOWN_MS),
-    get defaultMargin() {
-      if (config.resolveMargin) return config.resolveMargin();
-      return config.defaultMargin ?? TEST_ONLY_MARGIN;
-    },
     fetchFn: config.fetchFn ?? fetch,
     arbitrageRouter: config.arbitrageRouter,
     rateLookupFn: config.rateLookupFn,
@@ -159,7 +169,7 @@ function emitMeterEvent(
     productSlug?: string;
   },
 ): void {
-  const charge = withMargin(cost, margin ?? deps.defaultMargin);
+  const charge = withMargin(cost, margin ?? 4.0);
   deps.meter.emit({
     tenant: tenantId,
     instanceId: opts?.instanceId,
@@ -226,7 +236,7 @@ export function chatCompletions(deps: ProxyDeps) {
         }
       | undefined;
     // Model priority: use first healthy model from product config
-    const modelPriority = tenant.modelPriority ?? ["openrouter/auto"];
+    const modelPriority = productModelPriority(c);
     try {
       parsedBody = JSON.parse(rawBody) as typeof parsedBody;
       isStreaming = parsedBody?.stream === true;
@@ -281,7 +291,7 @@ export function chatCompletions(deps: ProxyDeps) {
           tier: "branded",
           metadata: { inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, model: responseModel },
         });
-        debitCredits(deps, tenant.id, cost.toDollars(), marginFor(tenant, deps), "chat-completions", provider);
+        debitCredits(deps, tenant.id, cost.toDollars(), productMargin(c), "chat-completions", provider);
 
         return c.json(
           {
@@ -367,6 +377,7 @@ export function chatCompletions(deps: ProxyDeps) {
         if (isStreaming && res.ok) {
           return proxySSEStream(res, {
             tenant,
+            productConfig: c.get("gatewayProductConfig"),
             deps,
             capability: "chat-completions",
             provider: "openrouter",
@@ -404,14 +415,13 @@ export function chatCompletions(deps: ProxyDeps) {
         // Paid models use upstream cost × margin as before.
         let cost: number;
         let billingMargin: number;
-        if (isFreeModel && (tenant.floorInputRatePer1k || tenant.floorOutputRatePer1k)) {
-          const floorIn = tenant.floorInputRatePer1k ?? 0.00005;
-          const floorOut = tenant.floorOutputRatePer1k ?? 0.0002;
-          cost = (inputTokens * floorIn + outputTokens * floorOut) / 1000;
+        const floorRates = productFloorRates(c);
+        if (isFreeModel && (floorRates.input || floorRates.output)) {
+          cost = (inputTokens * floorRates.input + outputTokens * floorRates.output) / 1000;
           billingMargin = 1; // floor IS the final price, no margin
         } else {
           cost = rawCost > 0 ? rawCost : await estimateTokenCost(responseBody, currentModel, deps.rateLookupFn);
-          billingMargin = marginFor(tenant, deps);
+          billingMargin = productMargin(c);
         }
 
         logger.info("Gateway proxy: chat/completions", {
@@ -559,7 +569,7 @@ export function textCompletions(deps: ProxyDeps) {
           tier: "branded",
           metadata,
         });
-        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "text-completions", "openrouter");
+        debitCredits(deps, tenant.id, cost, productMargin(c), "text-completions", "openrouter");
       }
 
       return new Response(responseBody, {
@@ -647,7 +657,7 @@ export function embeddings(deps: ProxyDeps) {
           tier: "branded",
           metadata,
         });
-        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "embeddings", "openrouter");
+        debitCredits(deps, tenant.id, cost, productMargin(c), "embeddings", "openrouter");
       }
 
       return new Response(responseBody, {
@@ -744,7 +754,7 @@ export function audioTranscriptions(deps: ProxyDeps) {
           tier: "branded",
           metadata: durationSeconds > 0 ? { model, durationSeconds } : undefined,
         });
-        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "transcription", "deepgram");
+        debitCredits(deps, tenant.id, cost, productMargin(c), "transcription", "deepgram");
       }
 
       return new Response(responseBody, {
@@ -827,7 +837,7 @@ export function audioSpeech(deps: ProxyDeps) {
           usage: { units: characterCount, unitType: "characters" },
           tier: "branded",
         });
-        debitCredits(deps, tenant.id, cost.toDollars(), marginFor(tenant, deps), "tts", provider);
+        debitCredits(deps, tenant.id, cost.toDollars(), productMargin(c), "tts", provider);
 
         const { audioUrl, format: audioFormat } = result.result;
         // audioUrl may be a data URL (data:<mime>;base64,<data>) or a remote URL.
@@ -926,7 +936,7 @@ export function audioSpeech(deps: ProxyDeps) {
         tier: "branded",
         metadata: { voice, model: body.model ?? "eleven_multilingual_v2" },
       });
-      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "tts", "elevenlabs");
+      debitCredits(deps, tenant.id, cost, productMargin(c), "tts", "elevenlabs");
 
       const audioBuffer = await res.arrayBuffer();
       const contentType = res.headers.get("content-type") ?? "audio/mpeg";
@@ -1028,7 +1038,7 @@ export function imageGenerations(deps: ProxyDeps) {
         tier: "branded",
         metadata: { width, height, predictTimeSeconds: predictTime },
       });
-      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "image-generation", "replicate");
+      debitCredits(deps, tenant.id, cost, productMargin(c), "image-generation", "replicate");
 
       // Return in OpenAI-compatible format
       const images = Array.isArray(prediction.output) ? prediction.output : [];
@@ -1116,7 +1126,7 @@ export function videoGenerations(deps: ProxyDeps) {
         tier: "branded",
         metadata: { predictTimeSeconds: predictTime },
       });
-      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "video-generation", "replicate");
+      debitCredits(deps, tenant.id, cost, productMargin(c), "video-generation", "replicate");
 
       return c.json({
         created: Math.floor(Date.now() / 1000),
@@ -1260,13 +1270,13 @@ export function phoneOutbound(deps: ProxyDeps) {
           "phone-outbound",
           "twilio",
           Credit.fromDollars(cost),
-          deps.defaultMargin,
+          productMargin(c),
           {
             usage: { units: 1, unitType: "minutes" },
             tier: "branded",
           },
         );
-        debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "phone-outbound", "twilio");
+        debitCredits(deps, tenant.id, cost, productMargin(c), "phone-outbound", "twilio");
       }
 
       return c.json({
@@ -1331,7 +1341,7 @@ export function phoneInbound(deps: ProxyDeps) {
         usage: { units: durationMinutes, unitType: "minutes" },
         tier: "branded",
       });
-      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "phone-inbound", providerName);
+      debitCredits(deps, tenant.id, cost, productMargin(c), "phone-inbound", providerName);
 
       return c.json({ status: "metered", duration_minutes: durationMinutes });
     } catch (error) {
@@ -1417,13 +1427,13 @@ export function phoneOutboundStatus(deps: ProxyDeps) {
         "phone-outbound",
         providerName,
         Credit.fromDollars(cost),
-        deps.defaultMargin,
+        productMargin(c),
         {
           usage: { units: durationMinutes, unitType: "minutes" },
           tier: "branded",
         },
       );
-      debitCredits(deps, tenant.id, cost, marginFor(tenant, deps), "phone-outbound", providerName);
+      debitCredits(deps, tenant.id, cost, productMargin(c), "phone-outbound", providerName);
 
       return c.json({ status: "metered", duration_minutes: durationMinutes });
     } catch (error) {

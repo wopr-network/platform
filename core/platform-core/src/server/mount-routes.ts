@@ -651,10 +651,6 @@ export async function mountRoutes(
       meter: gw.meter,
       budgetChecker: gw.budgetChecker,
       creditLedger: container.creditLedger,
-      // Margin and model are resolved per-tenant at key resolution time.
-      // The proxy reads tenant.margin and tenant.defaultModel directly.
-      // These fallbacks exist only for tests and edge cases.
-      defaultMargin: fallbackMargin,
       providers: {
         openrouter: config.openrouterApiKey ? { apiKey: config.openrouterApiKey } : undefined,
       },
@@ -662,27 +658,24 @@ export async function mountRoutes(
         const tenant = await gw.serviceKeyRepo.resolve(key);
         if (!tenant) return null;
 
-        // Resolve product config and attach margin + model priority to the tenant.
-        // Everything comes from the DB, nothing from boot state.
-        if (tenant.productSlug) {
-          const pc = await container.productConfigService.getBySlug(tenant.productSlug);
-          if (pc) {
-            const mc = pc.billing?.marginConfig as { default?: number } | null;
-            tenant.margin = mc?.default ?? fallbackMargin;
-            // Model priority: read from product config (replaces tenant_model_selection)
-            if (pc.features?.modelPriority?.length) {
-              tenant.modelPriority = pc.features.modelPriority;
-            }
-            // Floor rates for free models (charged directly, no margin)
-            tenant.floorInputRatePer1k = Number(pc.features?.floorInputRatePer1k) || 0.00005;
-            tenant.floorOutputRatePer1k = Number(pc.features?.floorOutputRatePer1k) || 0.0002;
-          }
-        }
-        if (!tenant.modelPriority?.length) {
-          tenant.modelPriority = ["openrouter/auto"];
-        }
+        // Resolve product config from DB. Returns alongside tenant — handlers
+        // read product-level fields (margin, model priority, floor rates) from
+        // ProductConfig, not from the tenant object.
+        const pc = tenant.productSlug
+          ? await container.productConfigService.getBySlug(tenant.productSlug)
+          : null;
 
-        return tenant;
+        // Fallback product config for tenants without a product slug (shouldn't happen in production)
+        const productConfig: import("../product-config/repository-types.js").ProductConfig = pc ?? {
+          product: { slug: tenant.productSlug ?? "unknown" } as import("../product-config/repository-types.js").Product,
+          navItems: [],
+          domains: [],
+          features: null,
+          billing: { marginConfig: { default: fallbackMargin } } as unknown as import("../product-config/repository-types.js").ProductBillingConfig,
+          fleet: null,
+        };
+
+        return { tenant, productConfig };
       },
     });
   }

@@ -61,12 +61,6 @@ export async function creditBalanceCheck(
     return null;
   }
 
-  // Metered tenants are invoiced via Stripe subscription, not prepaid credits.
-  // Skip balance enforcement but still allow debit (for P&L tracking).
-  if (tenant.inferenceMode === "metered") {
-    return null;
-  }
-
   const balance = await deps.creditLedger.balance(tenant.id);
   const required = Math.max(0, estimatedCostCents);
   const graceBuffer = deps.graceBufferCents ?? 50; // default -$0.50

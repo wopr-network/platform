@@ -54,7 +54,13 @@ export function createGatewayRoutes(config: GatewayConfig): Hono<GatewayAuthEnv>
   const gateway = new Hono<GatewayAuthEnv>();
   const deps = buildProxyDeps(config);
 
-  // Protocol-specific routes — these handle their own auth (x-api-key / Bearer)
+  // Protocol-specific routes — these handle their own auth (x-api-key / Bearer).
+  // Protocol handlers use the old flat resolveServiceKey signature (returns GatewayTenant | null).
+  // Adapt the new {tenant, productConfig} return to just tenant for backwards compat.
+  const protocolResolveServiceKey = async (key: string) => {
+    const result = await config.resolveServiceKey(key);
+    return result?.tenant ?? null;
+  };
   const protocolDeps: ProtocolDeps = {
     meter: config.meter,
     budgetChecker: config.budgetChecker,
@@ -62,9 +68,9 @@ export function createGatewayRoutes(config: GatewayConfig): Hono<GatewayAuthEnv>
     topUpUrl: config.topUpUrl ?? "/dashboard/credits",
     graceBufferCents: config.graceBufferCents,
     providers: config.providers,
-    defaultMargin: config.defaultMargin ?? 1.3,
+    defaultMargin: 4.0,
     fetchFn: config.fetchFn ?? fetch,
-    resolveServiceKey: config.resolveServiceKey,
+    resolveServiceKey: protocolResolveServiceKey,
     withMarginFn: withMargin,
     rateLookupFn: config.rateLookupFn,
     capabilityRateLimitConfig: config.capabilityRateLimitConfig,
