@@ -662,51 +662,21 @@ export async function mountRoutes(
         const tenant = await gw.serviceKeyRepo.resolve(key);
         if (!tenant) return null;
 
-        // Resolve product config and attach margin + model to the tenant.
+        // Resolve product config and attach margin + model priority to the tenant.
         // Everything comes from the DB, nothing from boot state.
         if (tenant.productSlug) {
           const pc = await container.productConfigService.getBySlug(tenant.productSlug);
           if (pc) {
             const mc = pc.billing?.marginConfig as { default?: number } | null;
             tenant.margin = mc?.default ?? fallbackMargin;
+            // Model priority: read from product config (replaces tenant_model_selection)
+            if (pc.features?.modelPriority?.length) {
+              tenant.modelPriority = pc.features.modelPriority;
+            }
           }
         }
-        // Default model: tenant-specific → platform-wide fallback (from tenant_model_selection)
-        if (!tenant.defaultModel) {
-          const { logger: gwLogger } = await import("../config/logger.js");
-          try {
-            const { sql } = await import("drizzle-orm");
-            const result = await container.db.execute(
-              sql`SELECT default_model, tenant_id FROM tenant_model_selection
-                  WHERE tenant_id = ${tenant.id}
-                     OR tenant_id = '__platform__'
-                  ORDER BY CASE WHEN tenant_id = ${tenant.id} THEN 0 ELSE 1 END
-                  LIMIT 1`,
-            );
-            const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
-            const row = (rows as Record<string, unknown>[])[0];
-            gwLogger.info("Gateway model query result", {
-              tenantId: tenant.id,
-              rowCount: (rows as unknown[]).length,
-              row: row ?? null,
-            });
-            const model = row?.default_model;
-            if (typeof model === "string" && model) {
-              tenant.defaultModel = model;
-              gwLogger.info("Gateway model resolved", {
-                tenantId: tenant.id,
-                model,
-                source: row?.tenant_id === tenant.id ? "tenant" : "platform",
-              });
-            } else {
-              gwLogger.warn("Gateway model: no default model found", { tenantId: tenant.id });
-            }
-          } catch (err) {
-            gwLogger.error("Gateway model resolution failed", {
-              tenantId: tenant.id,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
+        if (!tenant.modelPriority?.length) {
+          tenant.modelPriority = ["openrouter/auto"];
         }
 
         return tenant;
