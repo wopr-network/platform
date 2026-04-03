@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseOnboardingStream } from "@/lib/onboarding-chat";
+import { parseStateMachineStream } from "@/lib/onboarding-chat";
 
-describe("parseOnboardingStream", () => {
-  it("accumulates delta chunks into content", async () => {
+describe("parseStateMachineStream", () => {
+  it("extracts gate from fenced JSON and streams visible text after it", async () => {
     const lines = [
-      'data: {"type":"delta","content":"Hello"}',
-      'data: {"type":"delta","content":" world"}',
+      'data: {"type":"delta","content":"```json\\n"}',
+      'data: {"type":"delta","content":"{\\"ready\\": false}\\n"}',
+      'data: {"type":"delta","content":"```\\n"}',
+      'data: {"type":"delta","content":"Hello world"}',
       'data: {"type":"done"}',
     ];
     const stream = new ReadableStream({
@@ -19,17 +21,21 @@ describe("parseOnboardingStream", () => {
     });
 
     const onDelta = vi.fn();
-    const result = await parseOnboardingStream(stream, { onDelta });
+    const result = await parseStateMachineStream(stream, { onDelta });
 
-    expect(onDelta).toHaveBeenCalledWith("Hello");
-    expect(onDelta).toHaveBeenCalledWith(" world");
-    expect(result).toEqual({ content: "Hello world", plan: null });
+    expect(onDelta).toHaveBeenCalledWith("Hello world");
+    expect(result.gate).toEqual({ ready: false });
+    expect(result.visibleContent).toBe("Hello world");
   });
 
-  it("extracts plan from done chunk", async () => {
+  it("extracts ready:true gate with artifact", async () => {
+    const json = '{"ready": true, "artifact": {"companyName": "acme-labs"}}';
     const lines = [
-      'data: {"type":"delta","content":"Here is the plan."}',
-      'data: {"type":"done","plan":{"taskTitle":"Build dotsync","taskDescription":"A CLI tool..."}}',
+      'data: {"type":"delta","content":"```json\\n"}',
+      `data: {"type":"delta","content":"${json.replace(/"/g, '\\"')}\\n"}`,
+      'data: {"type":"delta","content":"```\\n"}',
+      'data: {"type":"delta","content":"Great choice!"}',
+      'data: {"type":"done"}',
     ];
     const stream = new ReadableStream({
       start(controller) {
@@ -42,16 +48,14 @@ describe("parseOnboardingStream", () => {
     });
 
     const onDelta = vi.fn();
-    const result = await parseOnboardingStream(stream, { onDelta });
+    const result = await parseStateMachineStream(stream, { onDelta });
 
-    expect(result).toEqual({
-      content: "Here is the plan.",
-      plan: { taskTitle: "Build dotsync", taskDescription: "A CLI tool..." },
-    });
+    expect(result.gate).toEqual({ ready: true, artifact: { companyName: "acme-labs" } });
+    expect(result.visibleContent).toBe("Great choice!");
   });
 
-  it("returns null plan when done has no plan", async () => {
-    const lines = ['data: {"type":"delta","content":"What platforms?"}', 'data: {"type":"done"}'];
+  it("returns ready:false when no fenced JSON is found", async () => {
+    const lines = ['data: {"type":"delta","content":"Just plain text"}', 'data: {"type":"done"}'];
     const stream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder();
@@ -62,7 +66,8 @@ describe("parseOnboardingStream", () => {
       },
     });
 
-    const result = await parseOnboardingStream(stream, { onDelta: vi.fn() });
-    expect(result).toEqual({ content: "What platforms?", plan: null });
+    const result = await parseStateMachineStream(stream, { onDelta: vi.fn() });
+    expect(result.gate).toEqual({ ready: false });
+    expect(result.visibleContent).toBe("Just plain text");
   });
 });

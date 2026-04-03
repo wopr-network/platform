@@ -1,9 +1,23 @@
 import { API_BASE_URL } from "@core/lib/api-config";
 
-export interface OnboardingPlan {
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type OnboardingState = "VISION" | "COMPANY_NAME" | "CEO_NAME" | "LAUNCH";
+export type PromptPhase = "entry" | "continue";
+
+export interface OnboardingArtifacts {
   suggestedName?: string;
-  taskTitle: string;
-  taskDescription: string;
+  taskTitle?: string;
+  taskDescription?: string;
+  companyName?: string;
+  ceoName?: string;
+}
+
+export interface LLMGate {
+  ready: boolean;
+  artifact?: Record<string, unknown>;
 }
 
 export interface ChatMessage {
@@ -18,17 +32,17 @@ interface StreamCallbacks {
 }
 
 interface StreamResult {
-  content: string;
-  plan: OnboardingPlan | null;
+  visibleContent: string;
+  gate: LLMGate;
 }
 
 /**
  * Parse an SSE ReadableStream from the onboarding-chat endpoint.
  * Calls onDelta for each visible text token. Suppresses raw JSON blocks
- * (the structured plan) and signals "thinking" while they stream.
- * The plan is extracted silently and returned in the result.
+ * (the gate + artifact) and signals "thinking" while they stream.
+ * The gate is extracted silently and returned in the result.
  */
-export async function parseOnboardingStream(
+export async function parseStateMachineStream(
   body: ReadableStream<Uint8Array>,
   callbacks: StreamCallbacks,
 ): Promise<StreamResult> {
@@ -36,7 +50,7 @@ export async function parseOnboardingStream(
   const decoder = new TextDecoder();
   let buffer = "";
   let visibleContent = "";
-  let plan: OnboardingPlan | null = null;
+  let gate: LLMGate = { ready: false };
 
   // JSON suppression: the LLM puts ```json{...}``` FIRST, then natural language.
   // Buffer everything, suppress the JSON block, only emit the visible text after it.
@@ -56,19 +70,16 @@ export async function parseOnboardingStream(
         if (afterOpen >= 0) {
           const closeFence = fullRaw.indexOf("```", afterOpen + 1);
           if (closeFence >= 0) {
-            // Found complete fenced block — extract plan
+            // Found complete fenced block — extract gate
             const jsonContent = fullRaw.slice(afterOpen + 1, closeFence).trim();
             try {
               const parsed = JSON.parse(jsonContent);
-              if (parsed.taskTitle && parsed.taskDescription) {
-                plan = {
-                  suggestedName: parsed.suggestedName ?? "",
-                  taskTitle: parsed.taskTitle,
-                  taskDescription: parsed.taskDescription,
-                };
-              }
+              gate = {
+                ready: !!parsed.ready,
+                artifact: parsed.artifact ?? undefined,
+              };
             } catch {
-              // malformed — no plan
+              // malformed — default gate (ready: false)
             }
             jsonExtracted = true;
             fenceCloseIdx = closeFence + 3; // skip past closing ```
@@ -113,45 +124,46 @@ export async function parseOnboardingStream(
         const chunk = JSON.parse(json);
         if (chunk.type === "delta" && chunk.content) {
           processToken(chunk.content);
-        } else if (chunk.type === "done") {
-          // Server-side plan extraction (backup)
-          if (!plan && chunk.plan?.taskTitle && chunk.plan?.taskDescription) {
-            plan = { taskTitle: chunk.plan.taskTitle, taskDescription: chunk.plan.taskDescription };
-          }
         }
+        // chunk.type === "done" — stream complete, no further action needed
       } catch {
         // Skip malformed chunks
       }
     }
   }
 
-  // If we never found the closing fence, try to extract from raw content
-  if (!jsonExtracted && fullRaw.includes("taskTitle")) {
-    const match = fullRaw.match(/\{[\s\S]*?"taskTitle"[\s\S]*?"taskDescription"[\s\S]*?\}/);
+  // Fallback: if we never found a fenced JSON block, treat entire response
+  // as ready: false with the full text as visible content
+  if (!jsonExtracted && fullRaw) {
+    // Try to extract from raw content as last resort
+    const match = fullRaw.match(/```json\s*(\{[\s\S]*?\})\s*```/);
     if (match) {
       try {
-        const parsed = JSON.parse(match[0]);
-        if (parsed.taskTitle && parsed.taskDescription) {
-          plan = {
-            suggestedName: parsed.suggestedName ?? "",
-            taskTitle: parsed.taskTitle,
-            taskDescription: parsed.taskDescription,
-          };
-        }
+        const parsed = JSON.parse(match[1]);
+        gate = { ready: !!parsed.ready, artifact: parsed.artifact ?? undefined };
       } catch {
         /* ignore */
       }
     }
+    if (!visibleContent) {
+      // No fence found at all — emit entire raw as visible
+      visibleContent = fullRaw;
+    }
   }
 
-  return { content: visibleContent, plan };
+  return { visibleContent, gate };
 }
 
 /**
- * Send messages to the onboarding chat endpoint and stream the response.
+ * Send a state-machine chat request and stream the response.
  * Returns an AbortController for cancellation + the ReadableStream body.
  */
-export function sendOnboardingChat(messages: ChatMessage[]): {
+export function sendStateMachineChat(
+  messages: ChatMessage[],
+  state: OnboardingState,
+  phase: PromptPhase,
+  artifacts?: OnboardingArtifacts,
+): {
   abort: AbortController;
   response: Promise<ReadableStream<Uint8Array>>;
 } {
@@ -161,7 +173,7 @@ export function sendOnboardingChat(messages: ChatMessage[]): {
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     signal: abort.signal,
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ messages, state, phase, artifacts }),
   }).then((res) => {
     if (!res.ok) throw new Error(`Onboarding chat failed: ${res.status}`);
     if (!res.body) throw new Error("No response body");

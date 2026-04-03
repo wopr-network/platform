@@ -1,6 +1,6 @@
 /**
- * Onboarding chat SSE route — streams a CEO agent conversation to help founders
- * articulate their vision and produce a founding brief.
+ * Onboarding chat SSE route — streams a CEO agent conversation through a
+ * 4-state onboarding flow: VISION -> COMPANY_NAME -> CEO_NAME -> LAUNCH.
  *
  * All LLM calls go through the billing gateway at localhost:3001 using a
  * platform service key so metering applies even to pre-creation conversations.
@@ -9,53 +9,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import type { PlatformContainer } from "../container.js";
-
-// ---------------------------------------------------------------------------
-// System prompt
-// ---------------------------------------------------------------------------
-
-const SYSTEM_PROMPT = `You are the CEO agent on Paperclip — a platform where autonomous AI agents run companies. You're meeting a new founder who wants to create a company. Your job is to understand their vision and produce a founding brief.
-
-## What is Paperclip?
-
-Paperclip instances are autonomous AI companies. Each company has agents (CEO, engineers, designers, etc.) that communicate through issues, operate in shared workspaces, and execute real work using coding tools. You are the CEO — you read your task, make a plan, hire specialists, delegate work, and drive the company forward.
-
-## What you can do once the company launches
-
-- **Hire agents**: Create new agents with specific roles (engineer, designer, researcher, etc.)
-- **Create issues**: Break work into concrete tasks and assign them to agents
-- **Create projects**: Organize related work into projects with goals
-- **Write code**: You and all agents can read/write files, run commands, and build software
-- **Delegate**: Assign tasks to specialists and review their output
-
-## How to behave in this conversation
-
-- Be direct, confident, and excited about the founder's idea
-- Ask clarifying questions when the goal is vague (target platforms? key constraints? what does v1 look like?)
-- Don't ask more than 1-2 questions at a time
-- After enough context (usually 1-3 exchanges), produce your founding brief
-
-## Producing the founding brief
-
-When you have enough context, include a JSON block in your response with this exact format on its own line:
-
-\`\`\`json
-{"suggestedName": "< lowercase-hyphenated subdomain name, like 'mule-reborn' or 'dotfile-sync' >", "taskTitle": "< imperative action phrase, under 60 chars >", "taskDescription": "< 3-5 paragraphs: mission, first milestone, concrete steps, specialist hires, deliverable >"}
-\`\`\`
-
-ALWAYS include this JSON block in EVERY response — even if the goal is vague, produce your best plan. When the user refines their idea, produce an updated block reflecting the changes. Never skip the JSON block.
-
-The suggestedName becomes the subdomain (name.runpaperclip.com) — keep it short, memorable, lowercase with hyphens only.
-
-Continue the conversation naturally after the JSON block — ask if they want to adjust anything.
-
-## What makes a great founding brief
-
-- Opens with the company's mission and why it matters
-- Defines the first milestone (what "done" looks like in week 1)
-- Lists 3-5 concrete first steps (hire X, research Y, build Z)
-- Specifies which specialist agents to hire and why
-- Ends with a clear deliverable the CEO is accountable for`;
+import {
+  type OnboardingArtifacts,
+  type OnboardingState,
+  type PromptPhase,
+  getSystemPrompt,
+} from "./onboarding-prompts.js";
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -69,42 +28,19 @@ const InputSchema = z.object({
         content: z.string().min(1).max(10000),
       }),
     )
-    .min(1)
-    .max(20),
+    .max(40),
+  state: z.enum(["VISION", "COMPANY_NAME", "CEO_NAME", "LAUNCH"]),
+  phase: z.enum(["entry", "continue"]),
+  artifacts: z
+    .object({
+      suggestedName: z.string().optional(),
+      taskTitle: z.string().optional(),
+      taskDescription: z.string().optional(),
+      companyName: z.string().optional(),
+      ceoName: z.string().optional(),
+    })
+    .optional(),
 });
-
-// ---------------------------------------------------------------------------
-// Plan extraction helper
-// ---------------------------------------------------------------------------
-
-interface OnboardingPlan {
-  suggestedName: string;
-  taskTitle: string;
-  taskDescription: string;
-}
-
-function extractPlan(content: string): OnboardingPlan | null {
-  const match = content.match(/```json\s*(\{[\s\S]*?\})\s*```/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[1]) as Record<string, unknown>;
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      typeof parsed.taskTitle === "string" &&
-      typeof parsed.taskDescription === "string"
-    ) {
-      return {
-        suggestedName: typeof parsed.suggestedName === "string" ? parsed.suggestedName : "",
-        taskTitle: parsed.taskTitle as string,
-        taskDescription: parsed.taskDescription as string,
-      };
-    }
-  } catch {
-    // malformed JSON — no plan
-  }
-  return null;
-}
 
 // ---------------------------------------------------------------------------
 // Route factory
@@ -149,15 +85,13 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
       return c.json({ error: "Failed to generate platform service key" }, 500);
     }
 
-    // Build messages array: system + conversation + format reminder before last user message
-    const REMINDER =
-      'Remember: your response MUST include a ```json block with {"suggestedName", "taskTitle", "taskDescription"} — never skip it. Put the JSON block FIRST, then your conversational response after it.';
-    const chatMessages = [...input.messages];
-    // Inject reminder as a system message right before the final user message
-    if (chatMessages.length > 0) {
-      chatMessages.splice(chatMessages.length - 1, 0, { role: "user" as const, content: `[system: ${REMINDER}]` });
-    }
-    const messages = [{ role: "system", content: SYSTEM_PROMPT }, ...chatMessages];
+    // Build system prompt from state machine + messages
+    const systemPrompt = getSystemPrompt(
+      input.state as OnboardingState,
+      input.phase as PromptPhase,
+      (input.artifacts ?? {}) as OnboardingArtifacts,
+    );
+    const messages = [{ role: "system", content: systemPrompt }, ...input.messages];
 
     // Call the billing gateway with streaming
     let upstreamResponse: Response;
@@ -192,7 +126,6 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
         const decoder = new TextDecoder();
         const reader = upstreamBody.getReader();
 
-        let fullContent = "";
         let buffer = "";
 
         const send = (data: string) => {
@@ -220,7 +153,6 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
                 };
                 const token = parsed.choices?.[0]?.delta?.content;
                 if (token) {
-                  fullContent += token;
                   send(JSON.stringify({ type: "delta", content: token }));
                 }
               } catch {
@@ -232,9 +164,8 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
           reader.releaseLock();
         }
 
-        // Extract plan from accumulated content and send done event
-        const plan = extractPlan(fullContent);
-        send(JSON.stringify({ type: "done", plan }));
+        // Signal stream complete
+        send(JSON.stringify({ type: "done" }));
         controller.close();
       },
     });

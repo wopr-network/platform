@@ -6,19 +6,20 @@ import { createInstance } from "@core/lib/api";
 import { cn } from "@core/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Loader2, Send } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   type ChatMessage,
-  type OnboardingPlan,
-  parseOnboardingStream,
-  sendOnboardingChat,
+  type LLMGate,
+  type OnboardingArtifacts,
+  type OnboardingState,
+  type PromptPhase,
+  parseStateMachineStream,
+  sendStateMachineChat,
 } from "@/lib/onboarding-chat";
 
-const CEO_INTRO = `Hey — I'm going to be your CEO. Think of this like founding a company. You give me the vision, and I handle everything else: writing the founding brief, designing the org structure, hiring the right people, setting up projects, breaking work into tasks, and making sure everything gets done. I manage the whole operation so you can focus on the big picture.
-
-The team I build depends on what you need. Engineers, designers, researchers, analysts — they're all AI agents, but they work like real employees. They have roles, they get assignments, they report progress, they collaborate on projects. You'll see everything happening in real time on your dashboard: who's working on what, what's blocked, what's shipping. It's your company to run, and I'm here to make it run well.
-
-So — what's the vision? What do you want this company to build? Don't overthink it. Just tell me the idea and I'll put together a plan we can act on.`;
+// ---------------------------------------------------------------------------
+// Thinking messages
+// ---------------------------------------------------------------------------
 
 const THINKING_FIRST = [
   "Brewing coffee and drafting your founding brief...",
@@ -42,18 +43,72 @@ const THINKING_UPDATE = [
   "Back to the whiteboard...",
 ];
 
-function _randomFrom(arr: string[]) {
-  return arr[Math.floor(Math.random() * arr.length)];
+// ---------------------------------------------------------------------------
+// Progress bar: monotonically increases at random intervals, token-aware
+// ---------------------------------------------------------------------------
+
+function ThinkingProgress({ tokenCount, done }: { tokenCount: number; done: boolean }) {
+  const [progress, setProgress] = useState(0);
+  const [fading, setFading] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const tick = () => {
+      setProgress((prev) => {
+        if (prev >= 90) return prev;
+        const remaining = 90 - prev;
+        const bump = Math.max(0.2, remaining * 0.03 * (0.4 + Math.random() * 0.8));
+        return prev + bump;
+      });
+      timer.current = setTimeout(tick, 300 + Math.random() * 1200);
+    };
+    setTimeout(() => setProgress(8 + Math.random() * 7), 200);
+    timer.current = setTimeout(tick, 800);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (tokenCount > 0) {
+      const tokenPct = 55 + 44 * (1 - Math.exp(-tokenCount / 300));
+      setProgress((prev) => Math.max(prev, Math.min(99, tokenPct)));
+    }
+  }, [tokenCount]);
+
+  useEffect(() => {
+    if (done) {
+      setProgress(100);
+      const fadeTimer = setTimeout(() => setFading(true), 400);
+      return () => clearTimeout(fadeTimer);
+    }
+  }, [done]);
+
+  return (
+    <div
+      className={cn(
+        "mt-2 h-1 w-48 overflow-hidden rounded-full bg-zinc-800 transition-opacity duration-500",
+        fading && "opacity-0",
+      )}
+    >
+      <div
+        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300 ease-out"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
 }
 
-/** Typewriter that cycles through messages: type → pause → backspace → pause → next */
+// ---------------------------------------------------------------------------
+// Typewriter thinking indicator
+// ---------------------------------------------------------------------------
+
 function TypewriterThinking({ messages }: { messages: string[] }) {
   const [display, setDisplay] = useState("");
   const shuffled = useRef<string[]>([]);
   const state = useRef({ idx: 0, charIdx: 0, phase: "typing" as "typing" | "pause" | "erasing" | "gap" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Shuffle on mount
   useEffect(() => {
     shuffled.current = [...messages].sort(() => Math.random() - 0.5);
   }, [messages]);
@@ -106,71 +161,6 @@ function TypewriterThinking({ messages }: { messages: string[] }) {
   );
 }
 
-/** Progress bar: monotonically increases at random intervals, token-aware, hits 100% then fades */
-function ThinkingProgress({ tokenCount, done }: { tokenCount: number; done: boolean }) {
-  const [progress, setProgress] = useState(0);
-  const [fading, setFading] = useState(false);
-  const _startTime = useRef(Date.now());
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Time-based: never stops crawling, asymptotically approaches 90%
-  // Feels like real progress the whole time — no stalls, no plateaus
-  useEffect(() => {
-    const tick = () => {
-      setProgress((prev) => {
-        if (prev >= 90) return prev;
-        // Always moving: bigger bumps early, tiny bumps late
-        const remaining = 90 - prev;
-        const bump = Math.max(0.2, remaining * 0.03 * (0.4 + Math.random() * 0.8));
-        return prev + bump;
-      });
-      // Random intervals: snappy early (300-600ms), leisurely late (800-2000ms)
-      timer.current = setTimeout(tick, 300 + Math.random() * 1200);
-    };
-    // Instant feedback: jump to 8-15% immediately
-    setTimeout(() => setProgress(8 + Math.random() * 7), 200);
-    timer.current = setTimeout(tick, 800);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
-
-  // Token-based: first token jumps to 55%, then zooms toward 80% by 250 tokens,
-  // 90% by 500 tokens, decaying toward 99% after that
-  useEffect(() => {
-    if (tokenCount > 0) {
-      // Map tokens to 55→99%: fast climb then asymptotic decay
-      // 1 token = 55%, 250 tokens = 80%, 500 = 90%, 1000+ → 99%
-      const tokenPct = 55 + 44 * (1 - Math.exp(-tokenCount / 300));
-      setProgress((prev) => Math.max(prev, Math.min(99, tokenPct)));
-    }
-  }, [tokenCount]);
-
-  // Done: snap to 100% then fade
-  useEffect(() => {
-    if (done) {
-      setProgress(100);
-      const fadeTimer = setTimeout(() => setFading(true), 400);
-      return () => clearTimeout(fadeTimer);
-    }
-  }, [done]);
-
-  return (
-    <div
-      className={cn(
-        "mt-2 h-1 w-48 overflow-hidden rounded-full bg-zinc-800 transition-opacity duration-500",
-        fading && "opacity-0",
-      )}
-    >
-      <div
-        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-300 ease-out"
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  );
-}
-
-/** Combined thinking indicator: typewriter messages + progress bar */
 function ThinkingIndicator({ messages, tokenCount, done }: { messages: string[]; tokenCount: number; done: boolean }) {
   return (
     <div className="space-y-1">
@@ -180,63 +170,257 @@ function ThinkingIndicator({ messages, tokenCount, done }: { messages: string[];
   );
 }
 
-const NAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+// ---------------------------------------------------------------------------
+// State machine types
+// ---------------------------------------------------------------------------
+
+interface OnboardingContext {
+  state: OnboardingState;
+  phase: PromptPhase;
+  history: ChatMessage[];
+  artifacts: OnboardingArtifacts;
+}
 
 interface DisplayMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  plan?: OnboardingPlan;
+  /** Show founding brief artifact card */
+  brief?: { taskTitle: string; taskDescription: string };
 }
+
+const STATE_ORDER: OnboardingState[] = ["VISION", "COMPANY_NAME", "CEO_NAME", "LAUNCH"];
+
+function nextState(current: OnboardingState): OnboardingState | null {
+  const idx = STATE_ORDER.indexOf(current);
+  return idx >= 0 && idx < STATE_ORDER.length - 1 ? STATE_ORDER[idx + 1] : null;
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
 
 export default function NewPaperclipInstancePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [messages, setMessages] = useState<DisplayMessage[]>([{ id: "intro", role: "assistant", content: "" }]);
+  const [ctx, setCtx] = useState<OnboardingContext>({
+    state: "VISION",
+    phase: "entry",
+    history: [],
+    artifacts: {},
+  });
+
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [introTyping, setIntroTyping] = useState(true);
   const [_thinking, setThinking] = useState(false);
   const [thinkingDone, setThinkingDone] = useState(false);
   const [showIndicator, setShowIndicator] = useState(false);
   const [jsonTokenCount, setJsonTokenCount] = useState(0);
-  const [plan, setPlan] = useState<OnboardingPlan | null>(null);
-  const [companyName, setCompanyName] = useState("");
-  const [nameError, setNameError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Track whether we need to auto-fire an entry prompt
+  const [pendingEntry, setPendingEntry] = useState(true);
+  // Track whether input should be shown (hidden during entry prompts)
+  const [showInput, setShowInput] = useState(false);
 
-  // Type in the CEO intro message character by character
-  useEffect(() => {
-    let idx = 0;
-    const speed = 25 + Math.random() * 15;
-    const timer = setInterval(() => {
-      idx++;
-      if (idx >= CEO_INTRO.length) {
-        clearInterval(timer);
-        setIntroTyping(false);
-        setMessages([{ id: "intro", role: "assistant", content: CEO_INTRO }]);
-        inputRef.current?.focus();
-        return;
-      }
-      setMessages([{ id: "intro", role: "assistant", content: CEO_INTRO.slice(0, idx) }]);
-    }, speed);
-    return () => clearInterval(timer);
-  }, []);
-
+  // Scroll to bottom on message changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: messages triggers scroll-to-bottom
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  function validateName(value: string): string | null {
-    if (!value.trim()) return null;
-    if (!NAME_PATTERN.test(value)) {
-      return "Lowercase letters, numbers, and hyphens only. Must start and end with a letter or number.";
+  // -------------------------------------------------------------------------
+  // Core: fire an LLM call
+  // -------------------------------------------------------------------------
+
+  const fireLLM = useCallback(
+    async (chatHistory: ChatMessage[], state: OnboardingState, phase: PromptPhase, artifacts: OnboardingArtifacts) => {
+      const replyId = `reply-${Date.now()}`;
+      setMessages((prev) => [...prev, { id: replyId, role: "assistant", content: "" }]);
+      setStreaming(true);
+      setThinking(true);
+      setThinkingDone(false);
+      setShowIndicator(true);
+      setJsonTokenCount(0);
+      setError(null);
+
+      let gate: LLMGate = { ready: false };
+
+      try {
+        const { response } = sendStateMachineChat(chatHistory, state, phase, artifacts);
+        const body = await response;
+
+        const result = await parseStateMachineStream(body, {
+          onDelta: (delta) => {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === "assistant") {
+                updated[updated.length - 1] = { ...last, content: last.content + delta };
+              }
+              return updated;
+            });
+          },
+          onThinking: (isThinking) => {
+            setThinking(isThinking);
+            if (!isThinking) {
+              setThinkingDone(true);
+              setTimeout(() => setShowIndicator(false), 900);
+            }
+          },
+          onJsonToken: () => setJsonTokenCount((c) => c + 1),
+        });
+
+        gate = result.gate;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong");
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.role === "assistant" && !last.content) {
+            updated.pop();
+          }
+          return updated;
+        });
+        setStreaming(false);
+        setShowInput(true);
+        return;
+      }
+
+      setStreaming(false);
+      return gate;
+    },
+    [],
+  );
+
+  // -------------------------------------------------------------------------
+  // Handle state transitions after receiving a gate
+  // -------------------------------------------------------------------------
+
+  const handleGate = useCallback((gate: LLMGate, currentCtx: OnboardingContext): OnboardingContext => {
+    // Entry phase always returns ready:false -> switch to continue, show input
+    if (currentCtx.phase === "entry") {
+      const newCtx = { ...currentCtx, phase: "continue" as PromptPhase };
+      setShowInput(true);
+      return newCtx;
     }
-    return null;
-  }
+
+    // Continue phase: not ready -> stay in state, keep input open
+    if (!gate.ready) {
+      setShowInput(true);
+      return currentCtx;
+    }
+
+    // Ready: true -> collect artifact and advance
+    const artifact = (gate.artifact ?? {}) as Record<string, string>;
+    let newArtifacts = { ...currentCtx.artifacts };
+
+    switch (currentCtx.state) {
+      case "VISION": {
+        newArtifacts = {
+          ...newArtifacts,
+          taskTitle: artifact.taskTitle,
+          taskDescription: artifact.taskDescription,
+          suggestedName: artifact.suggestedName,
+        };
+        // Attach brief card to the last assistant message
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last.role === "assistant") {
+            updated[updated.length - 1] = {
+              ...last,
+              brief: {
+                taskTitle: artifact.taskTitle ?? "",
+                taskDescription: artifact.taskDescription ?? "",
+              },
+            };
+          }
+          return updated;
+        });
+        break;
+      }
+      case "COMPANY_NAME": {
+        newArtifacts = { ...newArtifacts, companyName: artifact.companyName };
+        break;
+      }
+      case "CEO_NAME": {
+        newArtifacts = { ...newArtifacts, ceoName: artifact.ceoName };
+        break;
+      }
+      case "LAUNCH": {
+        // Refinement: overwrite all artifacts
+        newArtifacts = {
+          ...newArtifacts,
+          companyName: artifact.companyName ?? newArtifacts.companyName,
+          ceoName: artifact.ceoName ?? newArtifacts.ceoName,
+          taskTitle: artifact.taskTitle ?? newArtifacts.taskTitle,
+          taskDescription: artifact.taskDescription ?? newArtifacts.taskDescription,
+        };
+        setShowInput(true);
+        return { ...currentCtx, artifacts: newArtifacts };
+      }
+    }
+
+    // Advance to next state
+    const next = nextState(currentCtx.state);
+    if (next) {
+      const newCtx: OnboardingContext = {
+        state: next,
+        phase: "entry",
+        history: currentCtx.history,
+        artifacts: newArtifacts,
+      };
+      setShowInput(false);
+      setPendingEntry(true);
+      return newCtx;
+    }
+
+    setShowInput(true);
+    return { ...currentCtx, artifacts: newArtifacts };
+  }, []);
+
+  // -------------------------------------------------------------------------
+  // Auto-fire entry prompts when pendingEntry is true
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!pendingEntry || streaming) return;
+
+    // LAUNCH has no entry prompt — show the launch button + input immediately
+    if (ctx.state === "LAUNCH") {
+      setPendingEntry(false);
+      setShowInput(true);
+      return;
+    }
+
+    setPendingEntry(false);
+
+    (async () => {
+      const gate = await fireLLM(ctx.history, ctx.state, "entry", ctx.artifacts);
+      if (!gate) return; // error occurred
+
+      // Add the assistant response to history
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant" && last.content) {
+          setCtx((prevCtx) => {
+            const updatedHistory = [...prevCtx.history, { role: "assistant" as const, content: last.content }];
+            const newCtx = handleGate(gate, { ...prevCtx, history: updatedHistory });
+            return newCtx;
+          });
+        }
+        return prev;
+      });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingEntry, ctx.state, handleGate]);
+
+  // -------------------------------------------------------------------------
+  // Handle user sending a message
+  // -------------------------------------------------------------------------
 
   async function handleSend() {
     const text = input.trim();
@@ -249,93 +433,51 @@ export default function NewPaperclipInstancePage() {
     const userMsg: DisplayMessage = { id: msgId, role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
 
-    // Build chat history excluding the static intro
-    const history: ChatMessage[] = [
-      ...messages.slice(1).map((m) => ({ role: m.role, content: m.content })),
-      { role: "user" as const, content: text },
-    ];
+    const userChatMsg: ChatMessage = { role: "user", content: text };
+    const newHistory = [...ctx.history, userChatMsg];
 
-    setMessages((prev) => [...prev, { id: `${msgId}-reply`, role: "assistant", content: "" }]);
-    setStreaming(true);
-    setThinking(true);
-    setThinkingDone(false);
-    setShowIndicator(true);
-    setJsonTokenCount(0);
+    // Fire the continue prompt
+    const gate = await fireLLM(newHistory, ctx.state, "continue", ctx.artifacts);
+    if (!gate) return; // error occurred
 
-    try {
-      const { response } = sendOnboardingChat(history);
-      const body = await response;
-
-      const result = await parseOnboardingStream(body, {
-        onDelta: (delta) => {
-          setMessages((prev) => {
-            const updated = [...prev];
-            const last = updated[updated.length - 1];
-            if (last.role === "assistant") {
-              updated[updated.length - 1] = { ...last, content: last.content + delta };
-            }
-            return updated;
-          });
-        },
-        onThinking: (isThinking) => {
-          setThinking(isThinking);
-          if (!isThinking) {
-            // Thinking ended — let progress bar hit 100% and fade before hiding
-            setThinkingDone(true);
-            setTimeout(() => setShowIndicator(false), 900);
-          }
-        },
-        onJsonToken: () => setJsonTokenCount((c) => c + 1),
-      });
-
-      if (result.plan) {
-        setPlan(result.plan);
-        // Auto-fill suggested company name if user hasn't typed one yet
-        if (result.plan.suggestedName) {
-          setCompanyName(result.plan.suggestedName);
-        }
-        setMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last.role === "assistant") {
-            updated[updated.length - 1] = { ...last, plan: result.plan ?? undefined };
-          }
-          return updated;
+    // Get the assistant's reply from messages
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.role === "assistant" && last.content) {
+        const updatedHistory = [...newHistory, { role: "assistant" as const, content: last.content }];
+        setCtx((prevCtx) => {
+          const newCtx = handleGate(gate, { ...prevCtx, history: updatedHistory });
+          return newCtx;
         });
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
-        if (last?.role === "assistant" && !last.content) {
-          updated.pop();
-        }
-        return updated;
-      });
-    } finally {
-      setStreaming(false);
-      inputRef.current?.focus();
-    }
+      return prev;
+    });
+
+    inputRef.current?.focus();
   }
 
+  // -------------------------------------------------------------------------
+  // Launch: create instance with all artifacts
+  // -------------------------------------------------------------------------
+
   async function handleFoundCompany() {
-    if (!plan || !companyName.trim() || nameError || launching) return;
+    const { companyName, taskTitle, taskDescription, ceoName } = ctx.artifacts;
+    if (!companyName || !taskTitle || !taskDescription || !ceoName || launching) return;
 
     setLaunching(true);
     try {
-      const goal = messages.find((m) => m.role === "user")?.content ?? "";
       await createInstance({
-        name: companyName.trim(),
+        name: companyName,
         provider: "opencode",
         channels: [],
         plugins: [],
         extra: {
           onboarding: {
-            goal,
-            taskTitle: plan.taskTitle,
-            taskDescription: plan.taskDescription,
+            goal: taskTitle,
+            taskTitle,
+            taskDescription,
           },
+          ceoName,
         },
       });
       window.location.href = "/";
@@ -345,9 +487,21 @@ export default function NewPaperclipInstancePage() {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
+
+  const ceoLabel = ctx.artifacts.ceoName || "CEO Agent";
+  const hasAllArtifacts = !!(
+    ctx.artifacts.companyName &&
+    ctx.artifacts.taskTitle &&
+    ctx.artifacts.taskDescription &&
+    ctx.artifacts.ceoName
+  );
+
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
-      {/* Message area — scrollable, full width, content centered */}
+      {/* Message area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
           <AnimatePresence initial={false}>
@@ -371,42 +525,70 @@ export default function NewPaperclipInstancePage() {
                 </div>
 
                 <div className="min-w-0 flex-1 space-y-3">
-                  <p className="text-xs text-muted-foreground">{msg.role === "assistant" ? "CEO Agent" : "You"}</p>
+                  <p className="text-xs text-muted-foreground">{msg.role === "assistant" ? ceoLabel : "You"}</p>
                   <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
                     {msg.content}
-                    {introTyping && msg.id === "intro" && (
-                      <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
-                    )}
                     {streaming &&
                       i === messages.length - 1 &&
                       msg.role === "assistant" &&
                       (showIndicator ? (
                         <ThinkingIndicator
-                          messages={plan ? THINKING_UPDATE : THINKING_FIRST}
+                          messages={ctx.artifacts.taskTitle ? THINKING_UPDATE : THINKING_FIRST}
                           tokenCount={jsonTokenCount}
                           done={thinkingDone}
                         />
                       ) : (
-                        <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
+                        msg.content && <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
                       ))}
                   </div>
 
-                  {msg.plan && (
+                  {msg.brief && (
                     <motion.div
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="rounded-lg border border-indigo-500/20 bg-zinc-900/80 p-5"
                     >
                       <p className="mb-2 text-[10px] uppercase tracking-widest text-indigo-400">Founding Brief</p>
-                      <p className="mb-1 text-sm font-semibold text-zinc-100">{msg.plan.taskTitle}</p>
+                      <p className="mb-1 text-sm font-semibold text-zinc-100">{msg.brief.taskTitle}</p>
                       <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-400">
-                        {msg.plan.taskDescription}
+                        {msg.brief.taskDescription}
                       </p>
                     </motion.div>
                   )}
                 </div>
               </motion.div>
             ))}
+          </AnimatePresence>
+
+          {/* Launch state: prominent button in the conversation flow */}
+          <AnimatePresence>
+            {ctx.state === "LAUNCH" && hasAllArtifacts && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="flex justify-center py-4"
+              >
+                <Button
+                  onClick={handleFoundCompany}
+                  disabled={launching}
+                  size="lg"
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-8 py-6 text-base"
+                >
+                  {launching ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Founding {ctx.artifacts.companyName}...
+                    </>
+                  ) : (
+                    <>
+                      Found {ctx.artifacts.companyName} with CEO {ctx.artifacts.ceoName}
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           {error && (
@@ -428,75 +610,9 @@ export default function NewPaperclipInstancePage() {
       {/* Pinned bottom controls */}
       <div className="shrink-0 border-t border-zinc-800 bg-background/80 backdrop-blur-sm">
         <div className="mx-auto max-w-3xl px-6 py-4 space-y-3">
-          {/* Launch bar — slides in when plan is ready */}
+          {/* Chat input */}
           <AnimatePresence>
-            {plan && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="flex items-center gap-3 rounded-lg border border-indigo-500/20 bg-indigo-500/[0.03] px-4 py-3">
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-3">
-                      <Input
-                        placeholder="company-name"
-                        value={companyName}
-                        onChange={(e) => {
-                          setCompanyName(e.target.value);
-                          setNameError(validateName(e.target.value));
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleFoundCompany();
-                          }
-                        }}
-                        aria-invalid={nameError !== null}
-                        className="max-w-xs border-indigo-500/20 bg-zinc-900/50"
-                      />
-                      {nameError ? (
-                        <p className="text-xs text-red-500">{nameError}</p>
-                      ) : companyName.trim() ? (
-                        <p className="text-sm font-mono text-indigo-400/70">
-                          {companyName
-                            .toLowerCase()
-                            .replace(/[^a-z0-9-]/g, "-")
-                            .replace(/-+/g, "-")
-                            .replace(/^-|-$/g, "")}
-                          .runpaperclip.com
-                        </p>
-                      ) : (
-                        <p className="text-xs text-zinc-600">Your company&apos;s URL</p>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    onClick={handleFoundCompany}
-                    disabled={!companyName.trim() || !!nameError || launching}
-                    className="shrink-0 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white"
-                  >
-                    {launching ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Founding...
-                      </>
-                    ) : (
-                      <>
-                        Found Company
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Chat input — fades in after intro finishes */}
-          <AnimatePresence>
-            {!introTyping && (
+            {showInput && (
               <motion.form
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -509,11 +625,20 @@ export default function NewPaperclipInstancePage() {
               >
                 <Input
                   ref={inputRef}
-                  placeholder={plan ? "Refine the plan..." : "Describe what you want to build..."}
+                  placeholder={
+                    ctx.state === "LAUNCH"
+                      ? "Want to change anything before launch?"
+                      : ctx.state === "VISION"
+                        ? "Describe what you want to build..."
+                        : ctx.state === "COMPANY_NAME"
+                          ? "Name your company..."
+                          : "Name your CEO..."
+                  }
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   disabled={streaming}
                   className="animate-[pulse_1.5s_ease-in-out_0.4s_1] focus:animate-none"
+                  autoFocus
                 />
                 <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
                   <Send className="h-4 w-4" />
