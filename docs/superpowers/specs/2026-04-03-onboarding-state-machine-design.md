@@ -222,13 +222,35 @@ You MUST respond with valid JSON matching one of these two shapes:
 **UI shows:**
 - One prominent button, centered in the conversation flow:
   **"Found {companyName} with CEO {ceoName} →"**
+- Below it, a subtle link: **"Actually, let's change something"**
 - No input fields. No editable text. No summary card. The artifacts were confirmed during the conversation — the button just executes.
 - The Founding Brief card from State 1 remains visible above in the chat history for context.
 
-**On click:**
+**On click "Found...":**
 1. Button shows spinner: "Founding {companyName}..."
-2. Call `createInstance()` with all artifacts (brief, companyName, ceoName)
+2. Call `createInstance()` with all collected artifacts:
+   ```ts
+   {
+     name: companyName,
+     extra: {
+       onboarding: {
+         goal: brief.taskTitle,
+         taskTitle: brief.taskTitle,
+         taskDescription: brief.taskDescription,
+       },
+       ceoName: ceoName,
+     },
+   }
+   ```
 3. On success: `window.location.href = "/"` → unified layout loads
+
+**On click "Actually, let's change something":**
+1. Input box reappears in the conversation
+2. User types what they want to change ("let's call it something else", "change the CEO name")
+3. Fire the VISION continue prompt — the LLM has the full history, sees the user wants to revisit
+4. State machine resets to VISION with all history intact — the LLM naturally walks through only the parts that need changing
+5. Artifacts overwrite as the user confirms new values
+6. Eventually lands back at LAUNCH with updated artifacts
 
 ---
 
