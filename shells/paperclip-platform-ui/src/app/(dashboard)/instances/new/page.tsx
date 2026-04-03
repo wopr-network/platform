@@ -398,17 +398,23 @@ export default function NewPaperclipInstancePage() {
 
     // VISION entry: type in a hardcoded intro instead of calling the LLM
     if (ctx.state === "VISION" && ctx.phase === "entry") {
-      setPendingEntry(false);
-      const intro = `Hey — I'm going to be your CEO. You describe what you want built, and I take it from there. I'll put together a founding brief, hire the right agents, assign the work, and get things moving. Real engineers writing real code, managed by me.\n\nSo tell me — what are we building? Don't worry about being specific yet. Just paint the picture and I'll figure out what we need to make it happen.`;
+      // Don't use setPendingEntry here — it causes a re-render that kills the timer.
+      // Instead, advance state immediately so the effect guard prevents re-entry.
+      const intro = "Hey \u2014 I'm going to be your CEO. You describe what you want built, and I take it from there. I'll put together a founding brief, hire the right agents, assign the work, and get things moving. Real engineers writing real code, managed by me.\n\nSo tell me \u2014 what are we building? Don't worry about being specific yet. Just paint the picture and I'll figure out what we need to make it happen.";
       const introId = `intro-${Date.now()}`;
+
+      // Switch to continue phase immediately to prevent re-entry
+      setPendingEntry(false);
+      setCtx((prev) => ({ ...prev, phase: "continue" }));
+
+      // Set initial empty message
       setMessages([{ id: introId, role: "assistant", content: "" }]);
 
-      // Typewriter effect
+      // Typewriter effect — runs outside the effect lifecycle via setTimeout chain
       let idx = 0;
-      const typeTimer = setInterval(() => {
+      function typeNext() {
         idx++;
-        if (idx >= intro.length) {
-          clearInterval(typeTimer);
+        if (idx > intro.length) {
           setMessages([{ id: introId, role: "assistant", content: intro }]);
           setCtx((prev) => ({
             ...prev,
@@ -416,12 +422,14 @@ export default function NewPaperclipInstancePage() {
             history: [{ role: "assistant" as const, content: intro }],
           }));
           setShowInput(true);
-          inputRef.current?.focus();
+          setTimeout(() => inputRef.current?.focus(), 100);
           return;
         }
         setMessages([{ id: introId, role: "assistant", content: intro.slice(0, idx) }]);
-      }, 20);
-      return () => clearInterval(typeTimer);
+        setTimeout(typeNext, 20);
+      }
+      setTimeout(typeNext, 200);
+      return;
     }
 
     // All other entry prompts: fire LLM
