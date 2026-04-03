@@ -54,11 +54,6 @@ export {
   type InferenceAdminRouterDeps,
 } from "./routers/inference-admin.js";
 export { createMarketplaceRouter, type MarketplaceRouterDeps } from "./routers/marketplace.js";
-export {
-  createModelSelectionRouter,
-  type ITenantModelSelectionRepository,
-  type ModelSelectionRouterDeps,
-} from "./routers/model-selection.js";
 export { createNodesRouter, type NodesRouterDeps } from "./routers/nodes.js";
 export { createOrgRouter, type OrgRouterDeps } from "./routers/org.js";
 export { createOrgKeysRouter, type OrgKeysRouterDeps } from "./routers/org-keys.js";

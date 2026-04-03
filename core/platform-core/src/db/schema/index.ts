@@ -66,7 +66,6 @@ export * from "./tenant-addons.js";
 export * from "./tenant-api-keys.js";
 export * from "./tenant-capability-settings.js";
 export * from "./tenant-customers.js";
-export * from "./tenant-model-selection.js";
 export * from "./tenant-status.js";
 export * from "./tenant-update-configs.js";
 export * from "./tenants.js";
