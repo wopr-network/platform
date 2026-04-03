@@ -123,7 +123,8 @@ export default function HowItWorksPage() {
               Math doesn't cut corners. Math doesn't tell you what you want to hear. Math doesn't lie.
             </p>
             <p className="text-off-white/40">
-              Not reviewed — proven. The same way a compiler proves a type is valid. There is no opinion. Only pass or fail.
+              Not reviewed — proven. The same way a compiler proves a type is valid. There is no opinion. Only pass or
+              fail.
             </p>
           </div>
         </section>
@@ -151,7 +152,8 @@ export default function HowItWorksPage() {
               Every mistake costs you once. Then the system inoculates itself so that mistake never happens again.
             </p>
             <p className="text-off-white/40">
-              Issue #1 costs three correction cycles. Issue #100 costs one. The floor rises. Your bill drops. The AI didn't get smarter — the engineering around it did.
+              Issue #1 costs three correction cycles. Issue #100 costs one. The floor rises. Your bill drops. The AI
+              didn't get smarter — the engineering around it did.
             </p>
           </div>
         </section>

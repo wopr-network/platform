@@ -65,14 +65,12 @@ const steps = [
   {
     title: "The documentation.",
     vibe: "We'll do it later. We never do it later. The code is the documentation. The code is not the documentation.",
-    engineered:
-      "Ships with the code. The gate won't open until it does. Not optional. Not a follow-up ticket. Done.",
+    engineered: "Ships with the code. The gate won't open until it does. Not optional. Not a follow-up ticket. Done.",
   },
   {
     title: "The domain knowledge.",
     vibe: "In someone's head. Hope they don't leave. Hope they remember. Hope the next developer asks the right questions. They won't.",
-    engineered:
-      "In the system. Encoded, versioned, evolving. People leave. The system stays. The knowledge compounds.",
+    engineered: "In the system. Encoded, versioned, evolving. People leave. The system stays. The knowledge compounds.",
   },
   {
     title: "The learning cycle.",

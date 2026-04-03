@@ -13,7 +13,7 @@ const peaks = [
 const valleys = [
   { x: 140, y: 260, label: "Imports a package that doesn't exist" },
   { x: 310, y: 275, label: "Silently deletes the error handling" },
-  { x: 470, y: 265, label: 'Every assertion is true === true' },
+  { x: 470, y: 265, label: "Every assertion is true === true" },
   { x: 600, y: 270, label: "Tells you everything passed" },
 ];
 
@@ -42,7 +42,12 @@ export function JaggedIntelligence() {
 
   return (
     <div ref={ref} className="w-full max-w-4xl mx-auto">
-      <svg viewBox="0 0 680 340" className="w-full" role="img" aria-label="Jagged intelligence: AI has superhuman peaks and inexplicable valleys. Holy Ship raises the floor, eliminating the valleys.">
+      <svg
+        viewBox="0 0 680 340"
+        className="w-full"
+        role="img"
+        aria-label="Jagged intelligence: AI has superhuman peaks and inexplicable valleys. Holy Ship raises the floor, eliminating the valleys."
+      >
         <defs>
           {/* Gradient for the valley fade effect */}
           <linearGradient id="valleyFade" x1="0" y1="0" x2="0" y2="1">

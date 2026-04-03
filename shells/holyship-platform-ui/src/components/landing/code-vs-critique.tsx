@@ -36,9 +36,7 @@ export function CodeVsCritique({ code, code2, title, paragraphs, punchline, punc
           </div>
         </div>
         <p className="text-2xl md:text-3xl font-bold text-signal-orange text-center mt-16">{punchline}</p>
-        {punchline2 && (
-          <p className="text-lg md:text-xl text-off-white/40 text-center mt-3">{punchline2}</p>
-        )}
+        {punchline2 && <p className="text-lg md:text-xl text-off-white/40 text-center mt-3">{punchline2}</p>}
       </section>
     </FadeIn>
   );

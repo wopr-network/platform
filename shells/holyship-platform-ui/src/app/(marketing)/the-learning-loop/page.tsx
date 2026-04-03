@@ -11,9 +11,7 @@ export default function TheLearningLoopPage() {
   return (
     <>
       <section className="pt-10 md:pt-16 pb-12 flex flex-col justify-center items-center text-center px-6 md:px-16 lg:px-24">
-        <p className="text-lg md:text-xl text-off-white/40 mb-6">
-          The floor rises. Every issue. Automatically.
-        </p>
+        <p className="text-lg md:text-xl text-off-white/40 mb-6">The floor rises. Every issue. Automatically.</p>
         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-off-white max-w-4xl">
           The learning loop.
         </h1>
@@ -91,8 +89,8 @@ export default function TheLearningLoopPage() {
               Every gate failure is a prompt getting smarter.
             </p>
             <p className="text-off-white/40">
-              The gate didn't just protect the codebase. It taught the system. That's the loop. That's why the
-              floor rises.
+              The gate didn't just protect the codebase. It taught the system. That's the loop. That's why the floor
+              rises.
             </p>
           </div>
         </section>
@@ -173,12 +171,10 @@ export default function TheLearningLoopPage() {
               edge case that took down production on Friday.
             </p>
 
-            <p className="text-2xl md:text-3xl font-bold text-off-white">
-              Their prompts rot. Ours evolve.
-            </p>
+            <p className="text-2xl md:text-3xl font-bold text-off-white">Their prompts rot. Ours evolve.</p>
             <p className="text-off-white/40">
-              Friday's incident is already in the knowledge base. Tuesday's migration is already in the context.
-              The prompt that fires tomorrow is smarter than the prompt that fired today. Automatically. Without anyone
+              Friday's incident is already in the knowledge base. Tuesday's migration is already in the context. The
+              prompt that fires tomorrow is smarter than the prompt that fired today. Automatically. Without anyone
               touching it.
             </p>
           </div>

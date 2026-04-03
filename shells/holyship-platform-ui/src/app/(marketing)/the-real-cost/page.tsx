@@ -86,7 +86,8 @@ export default function TheRealCostPage() {
           <div className="space-y-5 text-xl md:text-2xl leading-relaxed text-off-white/90 max-w-3xl mx-auto">
             <p>
               Spec is wrong. Nobody catches it. Coder builds the wrong thing. Reviewer approves the wrong thing. Tests
-              validate the wrong thing. It ships. It breaks billing. Three engineers. Two days. The fix takes six minutes.
+              validate the wrong thing. It ships. It breaks billing. Three engineers. Two days. The fix takes six
+              minutes.
             </p>
 
             <p className="text-2xl md:text-3xl font-bold text-off-white">
@@ -177,7 +178,8 @@ export default function TheRealCostPage() {
               Same bugs. Same corrections. Radically different price.
             </p>
             <p className="text-off-white/40">
-              Compute costs pennies. Engineers cost salaries. Downtime costs $14,000 a minute. Pick which one catches your bugs.
+              Compute costs pennies. Engineers cost salaries. Downtime costs $14,000 a minute. Pick which one catches
+              your bugs.
             </p>
           </div>
         </section>

@@ -16,8 +16,7 @@ export default function Home() {
       <FadeIn>
         <section className="px-6 md:px-16 lg:px-24 py-20 md:py-28 mx-auto text-center max-w-3xl">
           <p className="text-3xl md:text-4xl font-bold text-off-white">
-            The intelligence isn't low. It's{" "}
-            <span className="text-signal-orange italic">jagged.</span>
+            The intelligence isn't low. It's <span className="text-signal-orange italic">jagged.</span>
           </p>
 
           <div className="mt-12 space-y-4 text-lg md:text-xl text-off-white/50">
@@ -45,13 +44,10 @@ export default function Home() {
         </section>
       </FadeIn>
 
-
       {/* The Flip */}
       <FadeIn>
         <section className="px-6 md:px-16 lg:px-24 py-16 md:py-24 mx-auto text-center max-w-3xl">
-          <p className="text-3xl md:text-5xl font-bold text-signal-orange leading-tight">
-            We raise the floor.
-          </p>
+          <p className="text-3xl md:text-5xl font-bold text-signal-orange leading-tight">We raise the floor.</p>
           <p className="text-xl md:text-2xl text-off-white/50 mt-8">
             Not smarter AI. Same models everyone uses.
             <br />
@@ -60,8 +56,7 @@ export default function Home() {
             Not reviewed. <span className="text-off-white font-semibold">Proven.</span>
           </p>
           <p className="text-2xl md:text-3xl text-off-white mt-12">
-            You go home. It just works.{" "}
-            <span className="text-signal-orange font-bold">Holy Ship.</span>
+            You go home. It just works. <span className="text-signal-orange font-bold">Holy Ship.</span>
           </p>
 
           <a
@@ -112,9 +107,7 @@ export default function Home() {
               <p className="text-xl md:text-2xl font-bold text-signal-orange group-hover:opacity-80 transition-opacity">
                 Vibe coding vs. engineering &rarr;
               </p>
-              <p className="text-base md:text-lg text-off-white/40 mt-1">
-                Every step. Side by side. Hope vs. proof.
-              </p>
+              <p className="text-base md:text-lg text-off-white/40 mt-1">Every step. Side by side. Hope vs. proof.</p>
             </a>
 
             <a href="/why-not-prompts" className="group block">
@@ -137,7 +130,6 @@ export default function Home() {
           </div>
         </section>
       </FadeIn>
-
     </>
   );
 }
