@@ -37,9 +37,11 @@ export function proxySSEStream(
 
   let accumulatedCost = 0;
 
-  // If cost header is present on the initial response, use it
+  // If cost header is present and non-zero, use it.
+  // Zero cost (free models) falls through to token-based estimation using DB sell rates.
   if (costHeader) {
-    accumulatedCost = parseFloat(costHeader);
+    const parsed = parseFloat(costHeader);
+    if (parsed > 0) accumulatedCost = parsed;
   }
 
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>({

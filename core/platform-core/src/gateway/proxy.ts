@@ -379,9 +379,10 @@ export function chatCompletions(deps: ProxyDeps) {
         // Non-streaming path
         const responseBody = await res.text();
         const costHeader = res.headers.get("x-openrouter-cost");
-        const cost = costHeader
-          ? parseFloat(costHeader)
-          : await estimateTokenCost(responseBody, currentModel, deps.rateLookupFn);
+        const rawCost = costHeader ? parseFloat(costHeader) : 0;
+        // If upstream cost is zero (free model), use DB sell rates instead
+        const cost =
+          rawCost > 0 ? rawCost : await estimateTokenCost(responseBody, currentModel, deps.rateLookupFn);
 
         logger.info("Gateway proxy: chat/completions", {
           tenant: tenant.id,
