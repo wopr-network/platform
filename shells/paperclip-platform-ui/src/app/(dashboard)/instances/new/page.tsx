@@ -490,26 +490,33 @@ export default function NewPaperclipInstancePage() {
             )}
           </AnimatePresence>
 
-          {/* Chat input */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex gap-2"
-          >
-            <Input
-              ref={inputRef}
-              placeholder={plan ? "Refine the plan..." : "Describe what you want to build..."}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              disabled={streaming || introTyping}
-              autoFocus
-            />
-            <Button type="submit" disabled={!input.trim() || streaming || introTyping} variant="outline" size="icon">
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
+          {/* Chat input — fades in after intro finishes */}
+          <AnimatePresence>
+            {!introTyping && (
+              <motion.form
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSend();
+                }}
+                className="flex gap-2"
+              >
+                <Input
+                  ref={inputRef}
+                  placeholder={plan ? "Refine the plan..." : "Describe what you want to build..."}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  disabled={streaming}
+                  className="animate-[pulse_1.5s_ease-in-out_0.4s_1] focus:animate-none"
+                />
+                <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </motion.form>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
