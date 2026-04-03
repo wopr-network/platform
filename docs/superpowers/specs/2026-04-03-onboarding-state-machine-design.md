@@ -215,21 +215,19 @@ You MUST respond with valid JSON matching one of these two shapes:
 
 ### State 4: LAUNCH
 
-**Purpose:** Confirm everything and provision.
+**Purpose:** One-click confirmation and provision. No editing. The conversation already resolved everything.
 
 **No LLM call.** This is a pure UI state.
 
 **UI shows:**
-- Summary card with all collected artifacts:
-  - Company name
-  - CEO name
-  - Founding Brief (task title + description)
-- "Found Company" button (prominent, centered)
-- Small "Go back" link to revisit
+- One prominent button, centered in the conversation flow:
+  **"Found {companyName} with CEO {ceoName} →"**
+- No input fields. No editable text. No summary card. The artifacts were confirmed during the conversation — the button just executes.
+- The Founding Brief card from State 1 remains visible above in the chat history for context.
 
-**On click "Found Company":**
-1. Call `createInstance()` with all artifacts
-2. Show provisioning animation ("Setting up {companyName}...")
+**On click:**
+1. Button shows spinner: "Founding {companyName}..."
+2. Call `createInstance()` with all artifacts (brief, companyName, ceoName)
 3. On success: `window.location.href = "/"` → unified layout loads
 
 ---
