@@ -1,0 +1,1 @@
+ALTER TABLE "bot_profiles" ADD COLUMN IF NOT EXISTS "product_slug" text;
