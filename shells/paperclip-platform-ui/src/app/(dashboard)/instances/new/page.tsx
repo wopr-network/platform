@@ -176,7 +176,7 @@ function ThinkingIndicator({ messages, tokenCount, done }: { messages: string[];
 
 interface OnboardingContext {
   state: OnboardingState;
-  phase: PromptPhase;  // "initial" = first user message in this state, "followup" = subsequent
+  phase: PromptPhase; // "initial" = first user message in this state, "followup" = subsequent
   history: ChatMessage[];
   artifacts: OnboardingArtifacts;
 }
@@ -375,7 +375,8 @@ export default function NewPaperclipInstancePage() {
     if (introStarted.current) return;
     introStarted.current = true;
 
-    const intro = "Hey \u2014 I'm going to be your CEO. Think of this like founding a company. You give me the vision, and I handle everything else: writing the founding brief, designing the org structure, hiring the right people, setting up projects, breaking work into tasks, and making sure everything gets done. I manage the whole operation so you can focus on the big picture.\n\nThe team I build depends on what you need. Engineers, designers, researchers, analysts \u2014 they're all AI agents, but they work like real employees. They have roles, they get assignments, they report progress, they collaborate on projects. You'll see everything happening in real time on your dashboard: who's working on what, what's blocked, what's shipping. It's your company to run, and I'm here to make it run well.\n\nSo \u2014 what's the vision? What do you want this company to build? Don't overthink it. Just tell me the idea and I'll put together a plan we can act on.";
+    const intro =
+      "Hey \u2014 I'm going to be your CEO. Think of this like founding a company. You give me the vision, and I handle everything else: writing the founding brief, designing the org structure, hiring the right people, setting up projects, breaking work into tasks, and making sure everything gets done. I manage the whole operation so you can focus on the big picture.\n\nThe team I build depends on what you need. Engineers, designers, researchers, analysts \u2014 they're all AI agents, but they work like real employees. They have roles, they get assignments, they report progress, they collaborate on projects. You'll see everything happening in real time on your dashboard: who's working on what, what's blocked, what's shipping. It's your company to run, and I'm here to make it run well.\n\nSo \u2014 what's the vision? What do you want this company to build? Don't overthink it. Just tell me the idea and I'll put together a plan we can act on.";
     const introId = "intro";
     setMessages([{ id: introId, role: "assistant", content: "" }]);
 

@@ -8,7 +8,6 @@
 
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { tenantModelSelection } from "../../db/schema/tenant-model-selection.js";
 import { adminProcedure, router } from "../../trpc/init.js";
 import type { PlatformContainer } from "../container.js";
 
@@ -26,54 +25,6 @@ type CachedModel = {
 let modelListCache: CachedModel[] | null = null;
 let modelListCacheExpiry = 0;
 
-/** Well-known tenant ID for the global platform model setting. */
-const GLOBAL_TENANT_ID = "__platform__";
-
-// ---------------------------------------------------------------------------
-// Gateway model cache (short-TTL, refreshed per-request for the proxy)
-// ---------------------------------------------------------------------------
-
-const CACHE_TTL_MS = 5_000;
-let cachedModel: string | null = null;
-let modelCacheExpiry = 0;
-
-/** Container ref stashed by `warmModelCache` so the background refresh can use it. */
-let _container: PlatformContainer | null = null;
-
-/**
- * Synchronous model resolver for the gateway proxy.
- * Returns the cached DB value, or null to fall back to env var.
- * The cache is refreshed asynchronously every 5 seconds.
- */
-export function resolveGatewayModel(): string | null {
-  const now = Date.now();
-  if (now > modelCacheExpiry && _container) {
-    // Refresh cache in the background — don't block the request
-    refreshModelCache(_container).catch(() => {});
-  }
-  return cachedModel;
-}
-
-async function refreshModelCache(container: PlatformContainer): Promise<void> {
-  try {
-    const row = await container.db
-      .select({ defaultModel: tenantModelSelection.defaultModel })
-      .from(tenantModelSelection)
-      .where(eq(tenantModelSelection.tenantId, GLOBAL_TENANT_ID))
-      .then((rows) => rows[0] ?? null);
-    cachedModel = row?.defaultModel ?? null;
-    modelCacheExpiry = Date.now() + CACHE_TTL_MS;
-  } catch {
-    // DB error — keep stale cache, retry next time
-  }
-}
-
-/** Seed the cache on startup so the first request doesn't miss. */
-export async function warmModelCache(container: PlatformContainer): Promise<void> {
-  _container = container;
-  await refreshModelCache(container);
-}
-
 // ---------------------------------------------------------------------------
 // Config shape needed by the OpenRouter model listing
 // ---------------------------------------------------------------------------
@@ -88,42 +39,35 @@ export interface AdminRouterConfig {
 
 export function createAdminRouter(container: PlatformContainer, config?: AdminRouterConfig) {
   return router({
-    /** Get the current gateway model setting. */
+    /** Get model priority lists for all products. */
     getGatewayModel: adminProcedure.query(async () => {
-      const row = await container.db
-        .select({
-          defaultModel: tenantModelSelection.defaultModel,
-          updatedAt: tenantModelSelection.updatedAt,
-        })
-        .from(tenantModelSelection)
-        .where(eq(tenantModelSelection.tenantId, GLOBAL_TENANT_ID))
-        .then((rows) => rows[0] ?? null);
-      return {
-        model: row?.defaultModel ?? null,
-        updatedAt: row?.updatedAt ?? null,
-      };
+      const allProducts = await container.productConfigService.listAll();
+      return allProducts.map((pc) => ({
+        slug: pc.product.slug,
+        modelPriority: pc.features?.modelPriority ?? [],
+      }));
     }),
 
-    /** Set the gateway model. Takes effect within 5 seconds. */
-    setGatewayModel: adminProcedure
-      .input(z.object({ model: z.string().min(1).max(200) }))
+    /** Set the model priority list for a product. */
+    setModelPriority: adminProcedure
+      .input(
+        z.object({
+          slug: z.string().min(1),
+          modelPriority: z.array(z.string().min(1).max(256)).min(1).max(10),
+        }),
+      )
       .mutation(async ({ input }) => {
-        const now = new Date().toISOString();
+        const pc = await container.productConfigService.getBySlug(input.slug);
+        if (!pc) {
+          const { TRPCError } = await import("@trpc/server");
+          throw new TRPCError({ code: "NOT_FOUND", message: `Product ${input.slug} not found` });
+        }
+        const { productFeatures } = await import("../../db/schema/product-config.js");
         await container.db
-          .insert(tenantModelSelection)
-          .values({
-            tenantId: GLOBAL_TENANT_ID,
-            defaultModel: input.model,
-            updatedAt: now,
-          })
-          .onConflictDoUpdate({
-            target: tenantModelSelection.tenantId,
-            set: { defaultModel: input.model, updatedAt: now },
-          });
-        // Immediately update the in-memory cache.
-        cachedModel = input.model;
-        modelCacheExpiry = Date.now() + CACHE_TTL_MS;
-        return { ok: true, model: input.model };
+          .update(productFeatures)
+          .set({ modelPriority: input.modelPriority, updatedAt: new Date() })
+          .where(eq(productFeatures.productId, pc.product.id));
+        return { slug: input.slug, modelPriority: input.modelPriority };
       }),
 
     /** List available OpenRouter models for the gateway model dropdown. */

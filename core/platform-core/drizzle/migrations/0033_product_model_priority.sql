@@ -1,0 +1,1 @@
+ALTER TABLE "product_features" ADD COLUMN IF NOT EXISTS "model_priority" text[] NOT NULL DEFAULT ARRAY['qwen/qwen3.6-plus:free', 'qwen/qwen3.6-plus', 'moonshotai/kimi-k2.5', 'openrouter/auto'];
