@@ -72,7 +72,14 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/marketplace",
     storagePrefix: "wopr",
     marginDefault: 4,
-    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
+    modelPriority: [
+      "qwen/qwen3.6-plus:free",
+      "qwen/qwen3-coder-480b:free",
+      "deepseek/deepseek-r1:free",
+      "qwen/qwen3.6-plus",
+      "moonshotai/kimi-k2.5",
+      "openrouter/auto",
+    ],
     navItems: [
       { label: "Dashboard", href: "/dashboard", sortOrder: 0 },
       { label: "Chat", href: "/chat", sortOrder: 1 },
@@ -114,7 +121,14 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/instances",
     storagePrefix: "paperclip",
     marginDefault: 4,
-    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
+    modelPriority: [
+      "qwen/qwen3.6-plus:free",
+      "qwen/qwen3-coder-480b:free",
+      "deepseek/deepseek-r1:free",
+      "qwen/qwen3.6-plus",
+      "moonshotai/kimi-k2.5",
+      "openrouter/auto",
+    ],
     navItems: [
       { label: "Instances", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },
@@ -148,7 +162,14 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/dashboard",
     storagePrefix: "holyship",
     marginDefault: 4,
-    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
+    modelPriority: [
+      "qwen/qwen3.6-plus:free",
+      "qwen/qwen3-coder-480b:free",
+      "deepseek/deepseek-r1:free",
+      "qwen/qwen3.6-plus",
+      "moonshotai/kimi-k2.5",
+      "openrouter/auto",
+    ],
     navItems: [
       { label: "Dashboard", href: "/dashboard", sortOrder: 0 },
       { label: "Ship", href: "/ship", sortOrder: 1 },
@@ -184,7 +205,14 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/instances",
     storagePrefix: "nemopod",
     marginDefault: 4,
-    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
+    modelPriority: [
+      "qwen/qwen3.6-plus:free",
+      "qwen/qwen3-coder-480b:free",
+      "deepseek/deepseek-r1:free",
+      "qwen/qwen3.6-plus",
+      "moonshotai/kimi-k2.5",
+      "openrouter/auto",
+    ],
     navItems: [
       { label: "NemoClaws", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },

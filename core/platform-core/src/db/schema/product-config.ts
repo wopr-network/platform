@@ -22,7 +22,14 @@ export const productFeatures = pgTable("product_features", {
   modelPriority: text("model_priority")
     .array()
     .notNull()
-    .default(["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"]),
+    .default([
+      "qwen/qwen3.6-plus:free",
+      "qwen/qwen3-coder-480b:free",
+      "deepseek/deepseek-r1:free",
+      "qwen/qwen3.6-plus",
+      "moonshotai/kimi-k2.5",
+      "openrouter/auto",
+    ]),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
