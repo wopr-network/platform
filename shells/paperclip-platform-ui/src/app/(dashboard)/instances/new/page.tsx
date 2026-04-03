@@ -421,18 +421,26 @@ export default function NewPaperclipInstancePage() {
     const gate = await fireLLM(newHistory, ctx.state, ctx.phase, ctx.artifacts);
     if (!gate) return; // error occurred
 
-    // Get the assistant's reply from messages
+    // Read the assistant's reply content from the DOM (messages state may be stale in closures)
+    // Use a microtask to ensure React has flushed the streaming updates
+    await new Promise((r) => setTimeout(r, 50));
+
+    // Get the last assistant message content
+    let assistantContent = "";
     setMessages((prev) => {
       const last = prev[prev.length - 1];
-      if (last?.role === "assistant" && last.content) {
-        const updatedHistory = [...newHistory, { role: "assistant" as const, content: last.content }];
-        setCtx((prevCtx) => {
-          const newCtx = handleGate(gate, { ...prevCtx, history: updatedHistory });
-          return newCtx;
-        });
+      if (last?.role === "assistant") {
+        assistantContent = last.content;
       }
       return prev;
     });
+
+    // Wait for the setMessages read to flush
+    await new Promise((r) => setTimeout(r, 0));
+
+    const updatedHistory = [...newHistory, { role: "assistant" as const, content: assistantContent }];
+    const newCtx = handleGate(gate, { ...ctx, history: updatedHistory });
+    setCtx(newCtx);
 
     inputRef.current?.focus();
   }
