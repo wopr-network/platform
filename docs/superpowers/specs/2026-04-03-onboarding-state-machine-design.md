@@ -244,13 +244,46 @@ You MUST respond with valid JSON matching one of these two shapes:
    ```
 3. On success: `window.location.href = "/"` → unified layout loads
 
-**On click "Actually, let's change something":**
-1. Input box reappears in the conversation
-2. User types what they want to change ("let's call it something else", "change the CEO name")
-3. Fire the VISION continue prompt — the LLM has the full history, sees the user wants to revisit
-4. State machine resets to VISION with all history intact — the LLM naturally walks through only the parts that need changing
-5. Artifacts overwrite as the user confirms new values
-6. Eventually lands back at LAUNCH with updated artifacts
+**Refinement — the input box stays open in LAUNCH:**
+
+LAUNCH isn't a terminal state. The input box remains visible. The user can keep talking:
+- "Actually, let's call it something else" → LLM updates companyName
+- "Change the CEO name to Nova" → LLM updates ceoName
+- "I want to pivot the brief to focus on mobile" → LLM updates the brief
+
+**LAUNCH continue prompt:**
+```
+You are the CEO. Everything is ready to launch. The founder may want to refine something before we go.
+
+Current artifacts:
+- Company: "{companyName}"
+- CEO name: "{ceoName}"
+- Brief: "{taskTitle}"
+
+If the founder wants to change any of these, update the relevant artifact and respond ready: true with the full updated artifact set. If they're just chatting or asking questions, respond ready: false.
+
+You MUST respond with valid JSON:
+
+### No change:
+{
+  "ready": false,
+  "message": "Your conversational response."
+}
+
+### Updated artifact(s):
+{
+  "ready": true,
+  "message": "Your response confirming the change.",
+  "artifact": {
+    "companyName": "current-or-updated-name",
+    "ceoName": "Current Or Updated Name",
+    "taskTitle": "current or updated title",
+    "taskDescription": "current or updated description"
+  }
+}
+```
+
+When `ready: true`, the button re-renders with the new values. The user can keep refining as many times as they want. When they click the button, whatever's current goes to `createInstance()`.
 
 ---
 
