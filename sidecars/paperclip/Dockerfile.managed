@@ -44,7 +44,7 @@ RUN pnpm --filter @wopr-network/provision-server build \
     && pnpm --filter @paperclipai/plugin-sdk build \
     && pnpm --filter @paperclipai/adapter-utils build \
     && pnpm --filter @paperclipai/adapter-opencode-local build \
-    && VITE_BASE_PATH=/_sidecar/ pnpm --filter @paperclipai/ui build \
+    && pnpm --filter @paperclipai/ui build \
     && cd sidecars/paperclip/server \
     && pnpm tsc \
     && mkdir -p dist/onboarding-assets \
