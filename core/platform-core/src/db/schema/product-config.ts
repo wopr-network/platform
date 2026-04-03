@@ -19,6 +19,10 @@ export const productFeatures = pgTable("product_features", {
   sharedModuleMonitoring: boolean("shared_module_monitoring").notNull().default(true),
   sharedModuleAnalytics: boolean("shared_module_analytics").notNull().default(true),
   hiddenInstanceTabs: text("hidden_instance_tabs").array().notNull().default([]),
+  modelPriority: text("model_priority")
+    .array()
+    .notNull()
+    .default(["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"]),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

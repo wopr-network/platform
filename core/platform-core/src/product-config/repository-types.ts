@@ -74,6 +74,8 @@ export interface ProductFeatures {
   sharedModuleMonitoring: boolean;
   sharedModuleAnalytics: boolean;
   hiddenInstanceTabs: string[];
+  /** Ordered model priority list for the gateway. First healthy model wins. */
+  modelPriority: string[];
 }
 
 // ---------------------------------------------------------------------------

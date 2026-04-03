@@ -10,10 +10,10 @@ import { Hono } from "hono";
 import { z } from "zod";
 import type { PlatformContainer } from "../container.js";
 import {
+  getSystemPrompt,
   type OnboardingArtifacts,
   type OnboardingState,
   type PromptPhase,
-  getSystemPrompt,
 } from "./onboarding-prompts.js";
 
 // ---------------------------------------------------------------------------

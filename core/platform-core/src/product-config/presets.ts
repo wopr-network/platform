@@ -46,8 +46,8 @@ export interface ProductPreset {
   fleet: FleetPreset;
   /** Margin multiplier for billing (e.g. 4 = 4x cost). */
   marginDefault: number;
-  /** Default LLM model for the gateway (e.g. "moonshotai/kimi-k2.5"). */
-  defaultModel: string;
+  /** Ordered model priority list for the gateway. First healthy model wins. */
+  modelPriority: string[];
   /** Infrastructure config for Docker routing. */
   infra: InfraPreset;
   /** Instance detail tabs to hide in the UI. */
@@ -72,7 +72,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/marketplace",
     storagePrefix: "wopr",
     marginDefault: 4,
-    defaultModel: "moonshotai/kimi-k2.5",
+    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
     navItems: [
       { label: "Dashboard", href: "/dashboard", sortOrder: 0 },
       { label: "Chat", href: "/chat", sortOrder: 1 },
@@ -114,7 +114,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/instances",
     storagePrefix: "paperclip",
     marginDefault: 4,
-    defaultModel: "moonshotai/kimi-k2.5",
+    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
     navItems: [
       { label: "Instances", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },
@@ -148,7 +148,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/dashboard",
     storagePrefix: "holyship",
     marginDefault: 4,
-    defaultModel: "moonshotai/kimi-k2.5",
+    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
     navItems: [
       { label: "Dashboard", href: "/dashboard", sortOrder: 0 },
       { label: "Ship", href: "/ship", sortOrder: 1 },
@@ -184,7 +184,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/instances",
     storagePrefix: "nemopod",
     marginDefault: 4,
-    defaultModel: "moonshotai/kimi-k2.5",
+    modelPriority: ["qwen/qwen3.6-plus:free", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.5", "openrouter/auto"],
     navItems: [
       { label: "NemoClaws", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },

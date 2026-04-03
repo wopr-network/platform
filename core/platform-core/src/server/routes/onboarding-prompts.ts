@@ -230,11 +230,7 @@ ALWAYS put the JSON block FIRST. Include ALL artifact fields, not just the chang
 // Selector
 // ---------------------------------------------------------------------------
 
-export function getSystemPrompt(
-  state: OnboardingState,
-  phase: PromptPhase,
-  artifacts: OnboardingArtifacts,
-): string {
+export function getSystemPrompt(state: OnboardingState, phase: PromptPhase, artifacts: OnboardingArtifacts): string {
   let prompt: string;
 
   switch (state) {

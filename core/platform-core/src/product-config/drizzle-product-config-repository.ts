@@ -197,6 +197,12 @@ export class DrizzleProductConfigRepository implements IProductConfigRepository 
       sharedModuleMonitoring: row.sharedModuleMonitoring,
       sharedModuleAnalytics: row.sharedModuleAnalytics,
       hiddenInstanceTabs: row.hiddenInstanceTabs ?? [],
+      modelPriority: row.modelPriority ?? [
+        "qwen/qwen3.6-plus:free",
+        "qwen/qwen3.6-plus",
+        "moonshotai/kimi-k2.5",
+        "openrouter/auto",
+      ],
     };
   }
 
