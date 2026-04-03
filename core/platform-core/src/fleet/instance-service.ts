@@ -90,7 +90,7 @@ export class InstanceService {
 
     if (claimed && d.docker) {
       instanceId = claimed.id;
-      const cname = containerNameFor({ name, productSlug });
+      const cname = containerNameFor({ id: instanceId, productSlug });
       try {
         const container = d.docker.getContainer(claimed.containerId);
         await container.rename({ name: cname });

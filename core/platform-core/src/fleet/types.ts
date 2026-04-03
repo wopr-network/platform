@@ -84,12 +84,11 @@ export const botProfileSchema = z.object({
 
 export type BotProfile = z.infer<typeof botProfileSchema>;
 
-/** Derive the Docker container name from a profile. Deterministic: {product}-{sanitizedName} */
-export function containerNameFor(profile: Pick<BotProfile, "name" | "productSlug">): string {
+/** Derive the Docker container name from a profile. Deterministic: {product}-{id} */
+export function containerNameFor(profile: Pick<BotProfile, "id" | "productSlug">): string {
   if (!profile.productSlug)
-    throw new Error(`Profile "${profile.name}" has no productSlug — cannot derive container name`);
-  const sanitized = profile.name.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
-  return `${profile.productSlug}-${sanitized}`;
+    throw new Error(`Profile has no productSlug — cannot derive container name`);
+  return `${profile.productSlug}-${profile.id}`;
 }
 
 /** Schema for creating a bot via the API */

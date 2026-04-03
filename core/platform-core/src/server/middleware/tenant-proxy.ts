@@ -126,8 +126,7 @@ function resolveContainerUrl(
 
   // Fallback: derive from persistent profile data (survives restarts)
   if (!profile.productSlug) return null;
-  const sanitized = profile.name.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase();
-  const containerName = `${profile.productSlug}-${sanitized}`;
+  const containerName = `${profile.productSlug}-${(profile as { id?: string }).id ?? profile.name.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase()}`;
   const port = profile.env?.PORT || "3100";
   return `http://${containerName}:${port}`;
 }
