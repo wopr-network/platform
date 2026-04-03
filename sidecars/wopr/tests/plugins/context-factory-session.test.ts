@@ -20,14 +20,12 @@ vi.mock("../../src/core/capability-health.js", () => ({
   getCapabilityHealthProber: vi.fn().mockReturnValue({ registerProbe: vi.fn() }),
 }));
 vi.mock("../../src/core/capability-registry.js", () => ({
-  getCapabilityRegistry: vi
-    .fn()
-    .mockReturnValue({
-      registerProvider: vi.fn(),
-      unregisterProvider: vi.fn(),
-      getProviders: vi.fn().mockReturnValue([]),
-      hasProvider: vi.fn().mockReturnValue(false),
-    }),
+  getCapabilityRegistry: vi.fn().mockReturnValue({
+    registerProvider: vi.fn(),
+    unregisterProvider: vi.fn(),
+    getProviders: vi.fn().mockReturnValue([]),
+    hasProvider: vi.fn().mockReturnValue(false),
+  }),
 }));
 vi.mock("../../src/core/capability-resolver.js", () => ({
   resolveCapability: vi.fn().mockReturnValue(null),
