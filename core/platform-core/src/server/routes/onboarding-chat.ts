@@ -30,7 +30,7 @@ const InputSchema = z.object({
     )
     .max(40),
   state: z.enum(["VISION", "COMPANY_NAME", "CEO_NAME", "LAUNCH"]),
-  phase: z.enum(["entry", "continue"]),
+  phase: z.enum(["initial", "followup"]),
   artifacts: z
     .object({
       suggestedName: z.string().optional(),

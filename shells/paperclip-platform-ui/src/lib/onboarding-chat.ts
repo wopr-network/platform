@@ -5,7 +5,7 @@ import { API_BASE_URL } from "@core/lib/api-config";
 // ---------------------------------------------------------------------------
 
 export type OnboardingState = "VISION" | "COMPANY_NAME" | "CEO_NAME" | "LAUNCH";
-export type PromptPhase = "entry" | "continue";
+export type PromptPhase = "initial" | "followup";
 
 export interface OnboardingArtifacts {
   suggestedName?: string;

@@ -176,7 +176,7 @@ function ThinkingIndicator({ messages, tokenCount, done }: { messages: string[];
 
 interface OnboardingContext {
   state: OnboardingState;
-  phase: PromptPhase;
+  phase: PromptPhase;  // "initial" = first user message in this state, "followup" = subsequent
   history: ChatMessage[];
   artifacts: OnboardingArtifacts;
 }
@@ -206,7 +206,7 @@ export default function NewPaperclipInstancePage() {
 
   const [ctx, setCtx] = useState<OnboardingContext>({
     state: "VISION",
-    phase: "entry",
+    phase: "initial",
     history: [],
     artifacts: {},
   });
@@ -300,17 +300,9 @@ export default function NewPaperclipInstancePage() {
   // -------------------------------------------------------------------------
 
   const handleGate = useCallback((gate: LLMGate, currentCtx: OnboardingContext): OnboardingContext => {
-    // Entry phase always returns ready:false -> switch to continue, show input
-    if (currentCtx.phase === "entry") {
-      const newCtx = { ...currentCtx, phase: "continue" as PromptPhase };
-      setShowInput(true);
-      return newCtx;
-    }
-
-    // Continue phase: not ready -> stay in state, keep input open
+    // Not ready -> stay in state, switch to followup phase for next message
     if (!gate.ready) {
-      setShowInput(true);
-      return currentCtx;
+      return { ...currentCtx, phase: "followup" };
     }
 
     // Ready: true -> collect artifact and advance
@@ -359,26 +351,21 @@ export default function NewPaperclipInstancePage() {
           taskTitle: artifact.taskTitle ?? newArtifacts.taskTitle,
           taskDescription: artifact.taskDescription ?? newArtifacts.taskDescription,
         };
-        setShowInput(true);
         return { ...currentCtx, artifacts: newArtifacts };
       }
     }
 
-    // Advance to next state
+    // Advance to next state with phase "initial"
     const next = nextState(currentCtx.state);
     if (next) {
-      const newCtx: OnboardingContext = {
+      return {
         state: next,
-        phase: "entry",
+        phase: "initial",
         history: currentCtx.history,
         artifacts: newArtifacts,
       };
-      setShowInput(false);
-      setPendingEntry(true);
-      return newCtx;
     }
 
-    setShowInput(true);
     return { ...currentCtx, artifacts: newArtifacts };
   }, []);
 
