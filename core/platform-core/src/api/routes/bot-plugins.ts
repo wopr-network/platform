@@ -14,7 +14,9 @@ import { detectCapabilityConflicts } from "../../fleet/capability-conflict.js";
 import { lookupCapabilityEnv } from "../../fleet/capability-env-map.js";
 import { dispatchEnvUpdate } from "../../fleet/dispatch-env-update.js";
 import { BotNotFoundError } from "../../fleet/fleet-manager.js";
-import { ProfileStore } from "../../fleet/profile-store.js";
+import { DrizzleBotProfileStore } from "../../fleet/drizzle-profile-store.js";
+import type { IProfileStore } from "../../fleet/profile-store.js";
+import { getDb } from "../../fleet/services.js";
 import type { IMarketplacePluginRepository } from "../../marketplace/marketplace-plugin-repository.js";
 import type { MeterEvent } from "../../metering/index.js";
 import type { DecryptedCredential } from "../../security/index.js";
@@ -30,7 +32,6 @@ export interface BotPluginDeps {
   meterEmitter?: { emit(event: MeterEvent): void };
   botInstanceRepo?: IBotInstanceRepository;
   pluginRepoFactory: () => IMarketplacePluginRepository;
-  fleetDataDir?: string;
   fleetManager: {
     update(botId: string, patch: { env: Record<string, string> }): Promise<void>;
   };
@@ -50,7 +51,7 @@ const installPluginSchema = z.object({
 
 export function createBotPluginRoutes(deps: BotPluginDeps): Hono {
   const routes = new Hono();
-  const store = new ProfileStore(deps.fleetDataDir ?? "/data/fleet");
+  const store: IProfileStore = new DrizzleBotProfileStore(getDb());
 
   const tokenMetadataMap = buildTokenMetadataMap();
   const readAuth = scopedBearerAuthWithTenant(tokenMetadataMap, "read");

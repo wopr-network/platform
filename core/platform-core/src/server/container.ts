@@ -256,7 +256,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   // No parallel paths — the registry IS the source of truth.
   let fleet: FleetServices | null = null;
   if (bootConfig.features.fleet) {
-    const { ProfileStore } = await import("../fleet/profile-store.js");
+    const { DrizzleBotProfileStore } = await import("../fleet/drizzle-profile-store.js");
     const { ProxyManager } = await import("../proxy/manager.js");
     const { DrizzleServiceKeyRepository } = await import("../gateway/service-key-repository.js");
     const { NodeRegistry: NodeRegistryClass } = await import("../fleet/node-registry.js");
@@ -264,8 +264,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { FleetResolver: FleetResolverClass } = await import("../fleet/fleet-resolver.js");
     const { OrgInstanceResolver: OrgInstanceResolverClass } = await import("../fleet/org-instance-resolver.js");
 
-    const fleetDataDir = productConfig.fleet?.fleetDataDir ?? "/data/fleet";
-    const profileStore: IProfileStore = new ProfileStore(fleetDataDir);
+    const profileStore: IProfileStore = new DrizzleBotProfileStore(db);
     // Build product route configs for Caddy from DB — zero hardcoded infra
     const allProducts = await productConfigService.listAll();
     const productRouteConfigs = allProducts

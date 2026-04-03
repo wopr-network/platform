@@ -15,8 +15,9 @@ import { ImagePoller } from "../../fleet/image-poller.js";
 import { findPlacement } from "../../fleet/placement.js";
 import { defaultTemplatesDir, loadProfileTemplates } from "../../fleet/profile-loader.js";
 import type { ProfileTemplate } from "../../fleet/profile-schema.js";
-import { ProfileStore } from "../../fleet/profile-store.js";
-import { getBotInstanceRepo, getCommandBus, getNodeRepo, getRecoveryOrchestrator } from "../../fleet/services.js";
+import { DrizzleBotProfileStore } from "../../fleet/drizzle-profile-store.js";
+import type { IProfileStore } from "../../fleet/profile-store.js";
+import { getDb, getBotInstanceRepo, getCommandBus, getNodeRepo, getRecoveryOrchestrator } from "../../fleet/services.js";
 import { createBotSchema, updateBotSchema } from "../../fleet/types.js";
 import { ContainerUpdater } from "../../fleet/updater.js";
 import type { IServiceKeyRepository } from "../../gateway/service-key-repository.js";
@@ -27,10 +28,17 @@ import { NetworkPolicy } from "../../network/network-policy.js";
 import { getProxyManager } from "../../proxy/singleton.js";
 import { assertSafeRedirectUrl } from "../../security/index.js";
 
-const DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
-
 const docker = new Docker();
-const store = new ProfileStore(DATA_DIR);
+let _store: IProfileStore | null = null;
+function getStore(): IProfileStore {
+  if (!_store) _store = new DrizzleBotProfileStore(getDb());
+  return _store;
+}
+const store = new Proxy({} as IProfileStore, {
+  get(_target, prop) {
+    return (getStore() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
 const networkPolicy = new NetworkPolicy(docker);
 
 // Lazy singletons — defer DB-accessing service calls until first request so

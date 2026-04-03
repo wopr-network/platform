@@ -10,7 +10,9 @@ import { logger } from "../../config/logger.js";
 import { Credit } from "../../credits/credit.js";
 import { lookupCapabilityEnv } from "../../fleet/capability-env-map.js";
 import { BotNotFoundError } from "../../fleet/fleet-manager.js";
-import { ProfileStore } from "../../fleet/profile-store.js";
+import { DrizzleBotProfileStore } from "../../fleet/drizzle-profile-store.js";
+import type { IProfileStore } from "../../fleet/profile-store.js";
+import { getDb } from "../../fleet/services.js";
 import type { IMarketplacePluginRepository } from "../../marketplace/marketplace-plugin-repository.js";
 import type { MarketplacePluginManifest } from "../../marketplace/marketplace-repository-types.js";
 import type { MeterEvent } from "../../metering/index.js";
@@ -36,8 +38,6 @@ export interface MarketplaceDeps {
   };
   /** Meter emitter for billing audit trail. */
   meterEmitter?: { emit(event: MeterEvent): void };
-  /** Fleet data directory for ProfileStore. */
-  fleetDataDir?: string;
   /** Fleet manager for applying env updates to containers. */
   fleetManager?: {
     update(botId: string, patch: { env: Record<string, string> }): Promise<void>;
@@ -95,7 +95,7 @@ const installSchema = z.object({
 
 export function createMarketplaceRoutes(deps: MarketplaceDeps): Hono<AuditEnv> {
   const routes = new Hono<AuditEnv>();
-  const store = new ProfileStore(deps.fleetDataDir ?? "/data/fleet");
+  const store: IProfileStore = new DrizzleBotProfileStore(getDb());
 
   const repo = (): IMarketplacePluginRepository => deps.pluginRepoFactory();
 

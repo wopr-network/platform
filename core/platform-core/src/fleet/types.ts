@@ -2,9 +2,6 @@ import { z } from "zod";
 import { discoveryConfigSchema } from "../discovery/types.js";
 import type { BotApplicationMetrics } from "../gateway/bot-metrics-tracker.js";
 
-/** Regex for valid bot names: alphanumeric, hyphens, underscores, 1-63 chars */
-const nameRegex = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}$/;
-
 /**
  * Docker named volume format: starts with alphanumeric, then alphanumeric plus `_`, `.`, `-`.
  * Rejects host paths (starting with `/`, `./`, `~`) and path traversal (`..`).
@@ -62,7 +59,7 @@ export type UpdatePolicy = z.infer<typeof updatePolicySchema>;
 export const botProfileSchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().min(1, "Tenant ID is required"),
-  name: z.string().regex(nameRegex, "Name must be 1-63 alphanumeric chars, hyphens, or underscores"),
+  name: z.string().min(1).max(255),
   description: z.string().default(""),
   image: imageSchema,
   env: z.record(z.string(), z.string()).default({}),
@@ -97,7 +94,7 @@ export const createBotSchema = z.object({
   name: z
     .string()
     .transform((s) => s.trim())
-    .pipe(z.string().regex(nameRegex, "Name must be 1-63 alphanumeric chars, hyphens, or underscores")),
+    .pipe(z.string().min(1).max(255)),
   description: z.string().default(""),
   image: imageSchema,
   env: z.record(z.string(), z.string()).default({}),
@@ -122,7 +119,7 @@ export const updateBotSchema = z.object({
   name: z
     .string()
     .transform((s) => s.trim())
-    .pipe(z.string().regex(nameRegex, "Name must be 1-63 alphanumeric chars, hyphens, or underscores"))
+    .pipe(z.string().min(1).max(255))
     .optional(),
   description: z.string().optional(),
   image: imageSchema.optional(),

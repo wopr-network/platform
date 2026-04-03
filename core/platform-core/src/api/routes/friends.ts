@@ -7,15 +7,15 @@ import { autoAcceptRuleSchema, sendFriendRequestSchema, updateCapabilitiesSchema
 
 /** Allowlist: only alphanumeric, hyphens, and underscores. */
 const SAFE_ID_RE = /^[a-zA-Z0-9_-]+$/;
-const FLEET_DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
 
 const friendsTokenMetadataMap = buildTokenMetadataMap();
 
 /** Helper to get instance tenantId from bot profile */
 async function getInstanceTenantId(instanceId: string): Promise<string | undefined> {
   try {
-    const { ProfileStore } = await import("../../fleet/profile-store.js");
-    const store = new ProfileStore(FLEET_DATA_DIR);
+    const { DrizzleBotProfileStore } = await import("../../fleet/drizzle-profile-store.js");
+    const { getDb } = await import("../../fleet/services.js");
+    const store = new DrizzleBotProfileStore(getDb());
     const profile = await store.get(instanceId);
     return profile?.tenantId;
   } catch {

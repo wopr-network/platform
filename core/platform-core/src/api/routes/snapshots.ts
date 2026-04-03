@@ -9,7 +9,6 @@ import { logger } from "../../config/logger.js";
 import { getSnapshotManager } from "../../fleet/services.js";
 
 const WOPR_HOME_BASE = process.env.WOPR_HOME_BASE || "/data/instances";
-const FLEET_DATA_DIR = process.env.FLEET_DATA_DIR || "/data/fleet";
 const tokenMetadataMap = buildTokenMetadataMap();
 
 /** Validates that an instance/snapshot ID contains only safe characters (no path traversal). */
@@ -56,8 +55,9 @@ const writeAuth = scopedBearerAuthWithTenant(tokenMetadataMap, "write");
 /** Helper to get instance tenantId from bot profile */
 async function getInstanceTenantId(instanceId: string): Promise<string | undefined> {
   try {
-    const { ProfileStore } = await import("../../fleet/profile-store.js");
-    const store = new ProfileStore(FLEET_DATA_DIR);
+    const { DrizzleBotProfileStore } = await import("../../fleet/drizzle-profile-store.js");
+    const { getDb } = await import("../../fleet/services.js");
+    const store = new DrizzleBotProfileStore(getDb());
     const profile = await store.get(instanceId);
     return profile?.tenantId;
   } catch {
