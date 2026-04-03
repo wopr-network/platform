@@ -220,10 +220,8 @@ export default function NewPaperclipInstancePage() {
   const [jsonTokenCount, setJsonTokenCount] = useState(0);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Track whether we need to auto-fire an entry prompt
-  const [pendingEntry, setPendingEntry] = useState(true);
-  // Track whether input should be shown (hidden during entry prompts)
-  const [showInput, setShowInput] = useState(false);
+  // Input shows after intro finishes typing
+  const [introDone, setIntroDone] = useState(false);
 
   // Scroll to bottom on message changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: messages triggers scroll-to-bottom
@@ -285,7 +283,6 @@ export default function NewPaperclipInstancePage() {
           return updated;
         });
         setStreaming(false);
-        setShowInput(true);
         return;
       }
 
@@ -370,78 +367,36 @@ export default function NewPaperclipInstancePage() {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Auto-fire entry prompts when pendingEntry is true
+  // Type hardcoded VISION intro on mount — no LLM call
   // -------------------------------------------------------------------------
 
+  const introStarted = useRef(false);
   useEffect(() => {
-    if (!pendingEntry || streaming) return;
+    if (introStarted.current) return;
+    introStarted.current = true;
 
-    // LAUNCH has no entry prompt — show the launch button + input immediately
-    if (ctx.state === "LAUNCH") {
-      setPendingEntry(false);
-      setShowInput(true);
-      return;
-    }
+    const intro = "Hey \u2014 I'm going to be your CEO. Think of this like founding a company. You give me the vision, and I handle everything else: writing the founding brief, designing the org structure, hiring the right people, setting up projects, breaking work into tasks, and making sure everything gets done. I manage the whole operation so you can focus on the big picture.\n\nThe team I build depends on what you need. Engineers, designers, researchers, analysts \u2014 they're all AI agents, but they work like real employees. They have roles, they get assignments, they report progress, they collaborate on projects. You'll see everything happening in real time on your dashboard: who's working on what, what's blocked, what's shipping. It's your company to run, and I'm here to make it run well.\n\nSo \u2014 what's the vision? What do you want this company to build? Don't overthink it. Just tell me the idea and I'll put together a plan we can act on.";
+    const introId = "intro";
+    setMessages([{ id: introId, role: "assistant", content: "" }]);
 
-    // VISION entry: type in a hardcoded intro instead of calling the LLM
-    if (ctx.state === "VISION" && ctx.phase === "entry") {
-      // Don't use setPendingEntry here — it causes a re-render that kills the timer.
-      // Instead, advance state immediately so the effect guard prevents re-entry.
-      const intro = "Hey \u2014 I'm going to be your CEO. Think of this like founding a company. You give me the vision, and I handle everything else: writing the founding brief, designing the org structure, hiring the right people, setting up projects, breaking work into tasks, and making sure everything gets done. I manage the whole operation so you can focus on the big picture.\n\nThe team I build depends on what you need. Engineers, designers, researchers, analysts \u2014 they're all AI agents, but they work like real employees. They have roles, they get assignments, they report progress, they collaborate on projects. You'll see everything happening in real time on your dashboard: who's working on what, what's blocked, what's shipping. It's your company to run, and I'm here to make it run well.\n\nSo \u2014 what's the vision? What do you want this company to build? Don't overthink it. Just tell me the idea and I'll put together a plan we can act on.";
-      const introId = `intro-${Date.now()}`;
-
-      // Switch to continue phase immediately to prevent re-entry
-      setPendingEntry(false);
-      setCtx((prev) => ({ ...prev, phase: "continue" }));
-
-      // Set initial empty message
-      setMessages([{ id: introId, role: "assistant", content: "" }]);
-
-      // Typewriter effect — 3 chars per tick for speed
-      let idx = 0;
-      function typeNext() {
-        idx += 3;
-        if (idx > intro.length) {
-          setMessages([{ id: introId, role: "assistant", content: intro }]);
-          setCtx((prev) => ({
-            ...prev,
-            phase: "continue",
-            history: [{ role: "assistant" as const, content: intro }],
-          }));
-          setShowInput(true);
-          setTimeout(() => inputRef.current?.focus(), 100);
-          return;
-        }
-        setMessages([{ id: introId, role: "assistant", content: intro.slice(0, idx) }]);
-        setTimeout(typeNext, 10);
+    let idx = 0;
+    function typeNext() {
+      idx += 3;
+      if (idx > intro.length) {
+        setMessages([{ id: introId, role: "assistant", content: intro }]);
+        setCtx((prev) => ({
+          ...prev,
+          history: [{ role: "assistant" as const, content: intro }],
+        }));
+        setIntroDone(true);
+        setTimeout(() => inputRef.current?.focus(), 100);
+        return;
       }
-      setTimeout(typeNext, 200);
-      return;
+      setMessages([{ id: introId, role: "assistant", content: intro.slice(0, idx) }]);
+      setTimeout(typeNext, 10);
     }
-
-    // All other entry prompts: fire LLM after a brief delay (avoids 429 rate limits on free models)
-    setPendingEntry(false);
-
-    (async () => {
-      await new Promise((r) => setTimeout(r, 2000));
-      const gate = await fireLLM(ctx.history, ctx.state, "entry", ctx.artifacts);
-      if (!gate) return; // error occurred
-
-      // Add the assistant response to history
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant" && last.content) {
-          setCtx((prevCtx) => {
-            const updatedHistory = [...prevCtx.history, { role: "assistant" as const, content: last.content }];
-            const newCtx = handleGate(gate, { ...prevCtx, history: updatedHistory });
-            return newCtx;
-          });
-        }
-        return prev;
-      });
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingEntry, ctx.state, handleGate]);
+    setTimeout(typeNext, 200);
+  }, []);
 
   // -------------------------------------------------------------------------
   // Handle user sending a message
@@ -461,8 +416,8 @@ export default function NewPaperclipInstancePage() {
     const userChatMsg: ChatMessage = { role: "user", content: text };
     const newHistory = [...ctx.history, userChatMsg];
 
-    // Fire the continue prompt
-    const gate = await fireLLM(newHistory, ctx.state, "continue", ctx.artifacts);
+    // Fire the prompt — "initial" on first message in state, "followup" after ready:false
+    const gate = await fireLLM(newHistory, ctx.state, ctx.phase, ctx.artifacts);
     if (!gate) return; // error occurred
 
     // Get the assistant's reply from messages
@@ -637,7 +592,7 @@ export default function NewPaperclipInstancePage() {
         <div className="mx-auto max-w-3xl px-6 py-4 space-y-3">
           {/* Chat input */}
           <AnimatePresence>
-            {showInput && (
+            {introDone && (
               <motion.form
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
