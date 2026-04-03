@@ -14,7 +14,7 @@ import {
   sendOnboardingChat,
 } from "@/lib/onboarding-chat";
 
-const CEO_INTRO = "I'm your CEO. Tell me what you want to build and I'll put together a plan to make it happen.";
+const CEO_INTRO = "Hey — I'm going to be your CEO. Before we get started, tell me about the thing you want to build. What's the vision? I'll take it from there and put together a founding brief we can act on.";
 
 const THINKING_FIRST = [
   "Brewing coffee and drafting your founding brief...",
@@ -189,9 +189,10 @@ export default function NewPaperclipInstancePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [messages, setMessages] = useState<DisplayMessage[]>([{ id: "intro", role: "assistant", content: CEO_INTRO }]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([{ id: "intro", role: "assistant", content: "" }]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [introTyping, setIntroTyping] = useState(true);
   const [_thinking, setThinking] = useState(false);
   const [thinkingDone, setThinkingDone] = useState(false);
   const [showIndicator, setShowIndicator] = useState(false);
@@ -201,6 +202,24 @@ export default function NewPaperclipInstancePage() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Type in the CEO intro message character by character
+  useEffect(() => {
+    let idx = 0;
+    const speed = 25 + Math.random() * 15;
+    const timer = setInterval(() => {
+      idx++;
+      if (idx >= CEO_INTRO.length) {
+        clearInterval(timer);
+        setIntroTyping(false);
+        setMessages([{ id: "intro", role: "assistant", content: CEO_INTRO }]);
+        inputRef.current?.focus();
+        return;
+      }
+      setMessages([{ id: "intro", role: "assistant", content: CEO_INTRO.slice(0, idx) }]);
+    }, speed);
+    return () => clearInterval(timer);
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: messages triggers scroll-to-bottom
   useEffect(() => {
@@ -351,6 +370,9 @@ export default function NewPaperclipInstancePage() {
                   <p className="text-xs text-muted-foreground">{msg.role === "assistant" ? "CEO Agent" : "You"}</p>
                   <div className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-200">
                     {msg.content}
+                    {introTyping && msg.id === "intro" && (
+                      <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse bg-indigo-400" />
+                    )}
                     {streaming &&
                       i === messages.length - 1 &&
                       msg.role === "assistant" &&
@@ -481,10 +503,10 @@ export default function NewPaperclipInstancePage() {
               placeholder={plan ? "Refine the plan..." : "Describe what you want to build..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              disabled={streaming}
+              disabled={streaming || introTyping}
               autoFocus
             />
-            <Button type="submit" disabled={!input.trim() || streaming} variant="outline" size="icon">
+            <Button type="submit" disabled={!input.trim() || streaming || introTyping} variant="outline" size="icon">
               <Send className="h-4 w-4" />
             </Button>
           </form>
