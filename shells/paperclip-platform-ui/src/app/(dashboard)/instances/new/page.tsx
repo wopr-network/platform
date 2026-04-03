@@ -210,6 +210,9 @@ export default function NewPaperclipInstancePage() {
     history: [],
     artifacts: {},
   });
+  // Ref always mirrors latest ctx — avoids stale closures in async handlers
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
 
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState("");
@@ -415,10 +418,11 @@ export default function NewPaperclipInstancePage() {
     setMessages((prev) => [...prev, userMsg]);
 
     const userChatMsg: ChatMessage = { role: "user", content: text };
-    const newHistory = [...ctx.history, userChatMsg];
+    const cur = ctxRef.current;
+    const newHistory = [...cur.history, userChatMsg];
 
     // Fire the prompt — "initial" on first message in state, "followup" after ready:false
-    const gate = await fireLLM(newHistory, ctx.state, ctx.phase, ctx.artifacts);
+    const gate = await fireLLM(newHistory, cur.state, cur.phase, cur.artifacts);
     if (!gate) return; // error occurred
 
     // Read the assistant's reply content from the DOM (messages state may be stale in closures)
@@ -439,8 +443,17 @@ export default function NewPaperclipInstancePage() {
     await new Promise((r) => setTimeout(r, 0));
 
     const updatedHistory = [...newHistory, { role: "assistant" as const, content: assistantContent }];
-    const newCtx = handleGate(gate, { ...ctx, history: updatedHistory });
-    setCtx(newCtx);
+    // Use setCtx callback to read the LATEST ctx (avoids stale closure)
+    setCtx((prevCtx) => {
+      const newCtx = handleGate(gate, { ...prevCtx, history: updatedHistory });
+      console.log("[onboarding] gate result", {
+        prevState: prevCtx.state,
+        newState: newCtx.state,
+        ready: gate.ready,
+        artifacts: Object.keys(newCtx.artifacts).filter((k) => !!(newCtx.artifacts as Record<string, unknown>)[k]),
+      });
+      return newCtx;
+    });
 
     inputRef.current?.focus();
   }
