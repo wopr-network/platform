@@ -196,7 +196,10 @@ export async function mountRoutes(
     createVerifyEmailRoutesLazy(
       () => container.pool,
       () => container.creditLedger,
-      { uiOrigin: process.env.UI_ORIGIN },
+      {
+        productConfigService: container.productConfigService,
+        resolveProductSlug: (req) => resolveProductSlug(req, container.productConfigService),
+      },
     ),
   );
 

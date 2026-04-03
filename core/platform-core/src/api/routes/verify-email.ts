@@ -14,6 +14,12 @@ export interface VerifyEmailRouteDeps {
 export interface VerifyEmailRouteConfig {
   /** UI origin for redirect URLs (default: http://localhost:3001) */
   uiOrigin?: string;
+  /** Product config service for resolving per-product UI origin and branding. */
+  productConfigService?: {
+    getBySlug(slug: string): Promise<import("../../product-config/repository-types.js").ProductConfig | null>;
+  };
+  /** Resolve product slug from a request (standard core mechanism). */
+  resolveProductSlug?: (req: { header(name: string): string | undefined }) => Promise<string>;
 }
 
 /**
@@ -38,16 +44,39 @@ export function createVerifyEmailRoutesLazy(
   return buildRoutes(poolFactory, creditLedgerFactory, config);
 }
 
+async function resolveUiOriginAndBrand(
+  req: { header(name: string): string | undefined },
+  config?: VerifyEmailRouteConfig,
+): Promise<{ uiOrigin: string; brandName: string; fromEmail: string | undefined }> {
+  const fallbackOrigin = config?.uiOrigin ?? process.env.UI_ORIGIN ?? "http://localhost:3001";
+  if (config?.resolveProductSlug && config?.productConfigService) {
+    try {
+      const slug = await config.resolveProductSlug(req);
+      const pc = await config.productConfigService.getBySlug(slug);
+      if (pc?.product) {
+        return {
+          uiOrigin: `https://${pc.product.appDomain}`,
+          brandName: pc.product.brandName,
+          fromEmail: pc.product.fromEmail,
+        };
+      }
+    } catch {
+      // Fall through to defaults
+    }
+  }
+  return { uiOrigin: fallbackOrigin, brandName: "WOPR", fromEmail: undefined };
+}
+
 function buildRoutes(
   poolFactory: () => Pool,
   creditLedgerFactory: () => ILedger,
   config?: VerifyEmailRouteConfig,
 ): Hono {
-  const uiOrigin = config?.uiOrigin ?? process.env.UI_ORIGIN ?? "http://localhost:3001";
   const routes = new Hono();
 
   routes.get("/verify", async (c) => {
     const token = c.req.query("token");
+    const { uiOrigin, brandName, fromEmail } = await resolveUiOriginAndBrand(c.req, config);
 
     if (!token) {
       return c.redirect(`${uiOrigin}/auth/verify?status=error&reason=missing_token`);
@@ -74,16 +103,16 @@ function buildRoutes(
         userId: result.userId,
         error: err instanceof Error ? err.message : String(err),
       });
-      // Don't block verification if credit grant fails
     }
 
     // Send welcome email
     try {
       const emailClient = getEmailClient();
-      const template = welcomeTemplate(result.email);
+      const template = welcomeTemplate(result.email, brandName);
       await emailClient.send({
         to: result.email,
         ...template,
+        from: fromEmail,
         userId: result.userId,
         templateName: "welcome",
       });
@@ -92,7 +121,6 @@ function buildRoutes(
         userId: result.userId,
         error: err instanceof Error ? err.message : String(err),
       });
-      // Don't block verification if welcome email fails
     }
 
     return c.redirect(`${uiOrigin}/auth/verify?status=success`);
