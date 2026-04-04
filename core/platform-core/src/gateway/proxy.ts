@@ -473,11 +473,27 @@ export function chatCompletions(deps: ProxyDeps) {
         // Fallback to next model on retriable errors
         if (!res.ok && shouldFallback(res.status) && currentModel !== modelsToTry[modelsToTry.length - 1]) {
           deps.modelHealthCache.markUnhealthy(currentModel);
+          const fallbackBody = await res.text().catch(() => "");
           logger.warn("Gateway model fallback", {
             tenant: tenant.id,
             failedModel: currentModel,
             status: res.status,
           });
+          // Record incident even on fallback — every upstream failure is forensic data
+          if (deps.incidentRepo) {
+            deps.incidentRepo
+              .record({
+                tenantId: tenant.id,
+                capability: "chat-completions",
+                provider: "openrouter",
+                model: currentModel,
+                errorCode: `fallback_${res.status}`,
+                upstreamStatus: res.status,
+                upstreamBody: fallbackBody.slice(0, 4096),
+                modelsAttempted: modelsToTry,
+              })
+              .catch(() => {});
+          }
           lastError = new Error(`Model ${currentModel} returned ${res.status}`);
           continue;
         }
@@ -631,11 +647,25 @@ export function chatCompletions(deps: ProxyDeps) {
       } catch (error) {
         deps.modelHealthCache.markUnhealthy(currentModel);
         const isTimeout = error instanceof DOMException && error.name === "AbortError";
+        const errCode = isTimeout ? "timeout" : "network_error";
         logger.warn(isTimeout ? "Gateway model timeout" : "Gateway model network error", {
           tenant: tenant.id,
           failedModel: currentModel,
           error: error instanceof Error ? error.message : String(error),
         });
+        if (deps.incidentRepo) {
+          deps.incidentRepo
+            .record({
+              tenantId: tenant.id,
+              capability: "chat-completions",
+              provider: "openrouter",
+              model: currentModel,
+              errorCode: errCode,
+              upstreamBody: error instanceof Error ? error.message : String(error),
+              modelsAttempted: modelsToTry,
+            })
+            .catch(() => {});
+        }
         lastError = isTimeout ? Object.assign(new Error("Request timed out"), { httpStatus: 504 }) : error;
       }
     }
