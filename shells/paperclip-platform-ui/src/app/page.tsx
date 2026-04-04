@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LandingPage } from "@/components/landing-page";
+import { PaperclipLanding } from "@/components/landing-page";
 
 export const metadata: Metadata = {
   title: "Paperclip — Deploy Your AI Workforce in Seconds",
@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function Page() {
-  return <LandingPage />;
+  return <PaperclipLanding />;
 }
