@@ -123,11 +123,11 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     marginDefault: 4,
     modelPriority: [
       "qwen/qwen3.6-plus:free",
-      "qwen/qwen3-coder-480b:free",
-      "deepseek/deepseek-r1:free",
+      "openai/gpt-oss-120b:free",
+      "minimax/minimax-m2.5:free",
+      "stepfun/step-3.5-flash:free",
+      "nvidia/nemotron-3-super-120b-a12b:free",
       "qwen/qwen3.6-plus",
-      "moonshotai/kimi-k2.5",
-      "openrouter/auto",
     ],
     navItems: [
       { label: "Instances", href: "/instances", sortOrder: 0 },
