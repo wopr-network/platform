@@ -3,11 +3,12 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
+import { getBrandConfig } from "@/lib/brand-config";
 import { sanitizeRedirectUrl } from "@/lib/utils";
 
 /**
  * Redirects authenticated users away from auth pages.
- * Checks callbackUrl param first, falls back to /instances.
+ * Checks callbackUrl param first, falls back to brand homePath.
  */
 export function AuthRedirect() {
   const { data: session, isPending } = useSession();
@@ -17,7 +18,8 @@ export function AuthRedirect() {
   useEffect(() => {
     if (!isPending && session) {
       const callback = searchParams.get("callbackUrl");
-      router.replace(callback ? sanitizeRedirectUrl(callback) : "/instances");
+      const homePath = getBrandConfig().homePath ?? "/dashboard";
+      router.replace(callback ? sanitizeRedirectUrl(callback) : homePath);
     }
   }, [isPending, session, router, searchParams]);
 
