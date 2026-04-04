@@ -91,7 +91,7 @@ export function mapBudgetError(reason: string): { status: number; body: GatewayE
 }
 
 /** Map an upstream error to a gateway error response with HTTP status. */
-export function mapProviderError(error: unknown, provider: string): { status: number; body: GatewayErrorResponse } {
+export function mapProviderError(error: unknown, _provider?: string): { status: number; body: GatewayErrorResponse } {
   const err = error instanceof Error ? error : new Error(String(error));
   const errWithStatus = err as Error & { httpStatus?: number; retryAfter?: string };
 
@@ -124,6 +124,20 @@ export function mapProviderError(error: unknown, provider: string): { status: nu
     };
   }
 
+  // Upstream timeout
+  if (errWithStatus.httpStatus === 504) {
+    return {
+      status: 504,
+      body: {
+        error: {
+          message: "The model did not respond in time. Please try again.",
+          type: "server_error",
+          code: "upstream_timeout",
+        },
+      },
+    };
+  }
+
   // Budget check unavailable
   if (errWithStatus.httpStatus === 503) {
     return {
@@ -144,9 +158,9 @@ export function mapProviderError(error: unknown, provider: string): { status: nu
       status: errWithStatus.httpStatus,
       body: {
         error: {
-          message: `Upstream error from ${provider}: ${err.message}`,
-          type: "upstream_error",
-          code: "provider_error",
+          message: "Unable to process this request. Please try again.",
+          type: "server_error",
+          code: "processing_error",
         },
       },
     };
@@ -157,9 +171,9 @@ export function mapProviderError(error: unknown, provider: string): { status: nu
     status: 502,
     body: {
       error: {
-        message: "An error occurred while processing your request.",
+        message: "An error occurred while processing your request. Please try again.",
         type: "server_error",
-        code: "upstream_error",
+        code: "internal_error",
       },
     },
   };

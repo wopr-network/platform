@@ -28,7 +28,7 @@ import type { SellRateLookupFn } from "./rate-lookup.js";
 import { resolveTokenRates } from "./rate-lookup.js";
 import type { GatewayAuthEnv } from "./service-key-auth.js";
 import { proxySSEStream } from "./streaming.js";
-import type { FetchFn, GatewayConfig, ProviderConfig } from "./types.js";
+import type { FetchFn, GatewayConfig, GatewayErrorResponse, ProviderConfig } from "./types.js";
 
 /** Max call duration cap: 4 hours = 240 minutes. */
 const MAX_CALL_DURATION_MINUTES = 240;
@@ -62,6 +62,67 @@ function productFloorRates(c: Context<GatewayAuthEnv>): { input: number; output:
 /** Returns true if the HTTP status should trigger model fallback. */
 function shouldFallback(status: number): boolean {
   return status === 404 || status === 429 || status >= 500;
+}
+
+/** Upstream request timeout (60s). */
+const UPSTREAM_TIMEOUT_MS = 60_000;
+
+/**
+ * Validate an upstream response body is spec-compliant JSON.
+ * Returns the parsed object on success, or a GatewayErrorResponse if the
+ * upstream returned garbage (HTML, empty body, malformed JSON, 200-with-error).
+ */
+function validateUpstreamResponse(
+  body: string,
+  status: number,
+): { ok: true; parsed: Record<string, unknown> } | { ok: false; status: number; body: GatewayErrorResponse } {
+  if (!body.trim()) {
+    return {
+      ok: false,
+      status: 502,
+      body: {
+        error: {
+          message: "The model returned an empty response. Please try again.",
+          type: "server_error",
+          code: "empty_response",
+        },
+      },
+    };
+  }
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    return {
+      ok: false,
+      status: 502,
+      body: {
+        error: {
+          message: "Received a malformed response. Please try again.",
+          type: "server_error",
+          code: "malformed_response",
+        },
+      },
+    };
+  }
+
+  // Some providers return 200 with an error object
+  if (status === 200 && parsed.error && typeof parsed.error === "object") {
+    return {
+      ok: false,
+      status: 502,
+      body: {
+        error: {
+          message: "The model encountered an error. Please try again.",
+          type: "server_error",
+          code: "model_error",
+        },
+      },
+    };
+  }
+
+  return { ok: true, parsed };
 }
 
 const phoneInboundBodySchema = z.object({
@@ -352,14 +413,22 @@ export function chatCompletions(deps: ProxyDeps) {
         if (parsedBody) parsedBody.model = currentModel;
         const serializedBody = parsedBody ? JSON.stringify(parsedBody) : rawBody;
 
-        const res = await deps.fetchFn(`${baseUrl}/v1/chat/completions`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${providerCfg.apiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: serializedBody,
-        });
+        const abortCtl = new AbortController();
+        const timer = setTimeout(() => abortCtl.abort(), UPSTREAM_TIMEOUT_MS);
+        let res: Response;
+        try {
+          res = await deps.fetchFn(`${baseUrl}/v1/chat/completions`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${providerCfg.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: serializedBody,
+            signal: abortCtl.signal,
+          });
+        } finally {
+          clearTimeout(timer);
+        }
 
         // Fallback to next model on retriable errors
         if (!res.ok && shouldFallback(res.status) && currentModel !== modelsToTry[modelsToTry.length - 1]) {
@@ -387,8 +456,28 @@ export function chatCompletions(deps: ProxyDeps) {
           });
         }
 
-        // Non-streaming path
+        // Non-streaming path — validate upstream response
         const responseBody = await res.text();
+
+        // Validate: reject garbage, detect 200-with-error
+        if (res.ok) {
+          const validation = validateUpstreamResponse(responseBody, res.status);
+          if (!validation.ok) {
+            // Upstream returned garbage on a 200 — fallback to next model if possible
+            if (currentModel !== modelsToTry[modelsToTry.length - 1]) {
+              deps.modelHealthCache.markUnhealthy(currentModel);
+              logger.warn("Gateway model fallback (malformed 200)", {
+                tenant: tenant.id,
+                failedModel: currentModel,
+                errorCode: validation.body.error.code,
+              });
+              lastError = new Error(validation.body.error.message);
+              continue;
+            }
+            return c.json(validation.body, validation.status as 502);
+          }
+        }
+
         const costHeader = res.headers.get("x-openrouter-cost");
         const rawCost = costHeader ? parseFloat(costHeader) : 0;
         const isFreeModel = rawCost === 0;
@@ -408,7 +497,7 @@ export function chatCompletions(deps: ProxyDeps) {
           totalTokens = parsed.usage?.total_tokens ?? inputTokens + outputTokens;
           responseModel = parsed.model;
         } catch {
-          // proceed without usage data
+          // proceed without usage data — body already validated above for ok responses
         }
 
         // Billing: free models use floor rates directly (no margin).
@@ -444,7 +533,8 @@ export function chatCompletions(deps: ProxyDeps) {
           debitCredits(deps, tenant.id, cost, billingMargin, "chat-completions", "openrouter");
         }
 
-        let sanitizedBody = responseBody;
+        // Sanitize: strip internal upstream fields, ensure valid JSON
+        let sanitizedBody: string;
         try {
           const parsed = JSON.parse(responseBody) as Record<string, unknown>;
           if (parsed.usage && typeof parsed.usage === "object") {
@@ -454,10 +544,15 @@ export function chatCompletions(deps: ProxyDeps) {
               completion_tokens: u.completion_tokens,
               total_tokens: u.total_tokens,
             };
-            sanitizedBody = JSON.stringify(parsed);
           }
+          sanitizedBody = JSON.stringify(parsed);
         } catch {
-          // Forward raw body
+          // Non-ok response with unparseable body — return clean error
+          if (!res.ok) {
+            const mapped = mapProviderError(new Error(`Upstream ${res.status}`), "openrouter");
+            return c.json(mapped.body, mapped.status as 502);
+          }
+          sanitizedBody = responseBody;
         }
 
         return new Response(sanitizedBody, {
@@ -466,12 +561,13 @@ export function chatCompletions(deps: ProxyDeps) {
         });
       } catch (error) {
         deps.modelHealthCache.markUnhealthy(currentModel);
-        logger.warn("Gateway model network error", {
+        const isTimeout = error instanceof DOMException && error.name === "AbortError";
+        logger.warn(isTimeout ? "Gateway model timeout" : "Gateway model network error", {
           tenant: tenant.id,
           failedModel: currentModel,
           error: error instanceof Error ? error.message : String(error),
         });
-        lastError = error;
+        lastError = isTimeout ? Object.assign(new Error("Request timed out"), { httpStatus: 504 }) : error;
       }
     }
 
