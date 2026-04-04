@@ -62,7 +62,7 @@ function productFloorRates(c: Context<GatewayAuthEnv>): { input: number; output:
 
 /** Returns true if the HTTP status should trigger model fallback. */
 function shouldFallback(status: number): boolean {
-  return status === 404 || status === 429 || status >= 500;
+  return status === 400 || status === 404 || status === 429 || status >= 500;
 }
 
 /** Upstream request timeout (60s). */
@@ -610,8 +610,22 @@ export function chatCompletions(deps: ProxyDeps) {
           sanitizedBody = responseBody;
         }
 
+        // Non-ok response that wasn't caught by fallback (last model) — record incident
+        if (!res.ok) {
+          const mapped = mapProviderError(new Error(`Model returned ${res.status}`));
+          const incBody = await recordIncident(deps, tenant.id, mapped.body, {
+            capability: "chat-completions",
+            provider: "openrouter",
+            model: currentModel,
+            upstreamStatus: res.status,
+            upstreamBody: responseBody.slice(0, 4096),
+            modelsAttempted: modelsToTry,
+          });
+          return c.json(incBody, mapped.status as 502);
+        }
+
         return new Response(sanitizedBody, {
-          status: res.status,
+          status: 200,
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
