@@ -38,6 +38,9 @@ export function proxySSEStream(
 
   let accumulatedCost = 0;
   let isFreeModel = true;
+  let malformedChunks = 0;
+  let contentChunks = 0;
+  const streamStart = Date.now();
 
   // If cost header is present and non-zero, use it (paid model).
   // Zero cost (free models) falls through to floor-rate billing.
@@ -105,7 +108,11 @@ export function proxySSEStream(
                 accumulatedCost = (inputTokens * rates.inputRatePer1K + outputTokens * rates.outputRatePer1K) / 1000;
               }
             }
+            // Track content chunks for empty-stream detection
+            const content = data as { choices?: Array<{ delta?: { content?: string } }> };
+            if (content.choices?.[0]?.delta?.content) contentChunks++;
           } catch (err) {
+            malformedChunks++;
             logger.warn("Failed to parse SSE chunk JSON", {
               tenant: tenant.id,
               capability,
@@ -144,7 +151,24 @@ export function proxySSEStream(
         capability,
         provider,
         cost: accumulatedCost,
+        contentChunks,
+        malformedChunks,
       });
+
+      // Record incident for degraded streams (fire-and-forget)
+      if (deps.incidentRepo && (contentChunks === 0 || malformedChunks > 5)) {
+        const code = contentChunks === 0 ? "empty_stream" : "excessive_malformed_chunks";
+        deps.incidentRepo
+          .record({
+            tenantId: tenant.id,
+            capability,
+            provider,
+            model: opts.model,
+            errorCode: code,
+            requestDurationMs: Date.now() - streamStart,
+          })
+          .catch(() => {});
+      }
     },
   });
 
@@ -152,6 +176,20 @@ export function proxySSEStream(
   if (upstreamResponse.body) {
     upstreamResponse.body.pipeTo(writable).catch((err) => {
       logger.error("SSE stream pipe error", { tenant: tenant.id, error: err });
+      // Record incident for stream failures (fire-and-forget)
+      if (deps.incidentRepo) {
+        deps.incidentRepo
+          .record({
+            tenantId: tenant.id,
+            capability,
+            provider,
+            model: opts.model,
+            errorCode: "stream_pipe_error",
+            requestDurationMs: Date.now() - streamStart,
+            upstreamBody: err instanceof Error ? err.message : String(err),
+          })
+          .catch(() => {});
+      }
     });
   }
 
