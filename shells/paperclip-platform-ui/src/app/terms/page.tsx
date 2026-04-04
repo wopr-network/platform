@@ -254,7 +254,32 @@ export default function TermsPage() {
           </p>
 
           <h2 className={h2} style={style}>
-            15. Contact
+            15. Force Majeure
+          </h2>
+          <p>
+            We shall not be liable for any failure or delay in performing our obligations where such failure or delay
+            results from events beyond our reasonable control, including but not limited to natural disasters, war,
+            terrorism, pandemics, zombie outbreaks, robot uprisings, pirate raids, zombie pirates, robot zombies,
+            government actions, power failures, internet or telecommunications failures, third-party service outages,
+            cyberattacks, alien contact, time paradoxes, or acts of god.
+          </p>
+          <p className={snark}>If the internet breaks, a volcano erupts, or the sun explodes, that&apos;s not on us.</p>
+
+          <h2 className={h2} style={style}>
+            16. Severability
+          </h2>
+          <p>
+            If any provision of these Terms is found to be unenforceable or invalid by a court of competent
+            jurisdiction, that provision shall be enforced to the maximum extent permissible, and the remaining
+            provisions shall continue in full force and effect.
+          </p>
+          <p className={snark}>
+            If a judge crosses out one paragraph, the rest still stands. You don&apos;t get to throw out the whole thing
+            on a technicality.
+          </p>
+
+          <h2 className={h2} style={style}>
+            17. Contact
           </h2>
           <p>
             Questions about these Terms? Email{" "}
