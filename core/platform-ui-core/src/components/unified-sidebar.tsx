@@ -412,9 +412,9 @@ export function UnifiedSidebarContent({ onNavigate }: { onNavigate?: () => void 
           <NavItem
             icon={SettingsIcon}
             label="Settings"
-            href="/settings/profile"
-            onClick={() => handleNav("/settings/profile")}
-            active={checkActive("/settings/profile")}
+            href="/settings"
+            onClick={() => handleNav("/settings")}
+            active={checkActive("/settings")}
           />
           {isAdmin && (
             <NavItem
@@ -461,11 +461,7 @@ export function UnifiedSidebarContent({ onNavigate }: { onNavigate?: () => void 
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/settings/profile")}>
-                <UserIcon />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/settings/providers")}>
+              <DropdownMenuItem onClick={() => router.push("/settings")}>
                 <SettingsIcon />
                 Settings
               </DropdownMenuItem>
