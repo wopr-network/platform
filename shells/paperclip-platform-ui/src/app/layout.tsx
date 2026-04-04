@@ -32,36 +32,50 @@ await initBrandConfig("paperclip");
 
 const brand = getBrandConfig();
 
+const seoTitle = "Paperclip — Deploy Your AI Workforce in Seconds";
+const seoDescription =
+  "AI agents that code, ship, and iterate while you sleep. Hire a CEO, build a team of specialists, and watch real work happen. $5 in free credits to start.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${brand.productName} — AI Agent Platform`,
-    template: `%s | ${brand.brandName}`,
+    default: seoTitle,
+    template: `%s | Paperclip`,
   },
-  description: `${brand.tagline} ${brand.price ? `${brand.price}.` : ""} ${brand.domain}`,
+  description: seoDescription,
   openGraph: {
     type: "website",
-    siteName: brand.brandName,
-    title: `${brand.productName} — AI Agent Platform`,
-    description: `${brand.tagline} ${brand.price ? `${brand.price}.` : ""} ${brand.domain}`,
+    siteName: "Paperclip",
+    title: seoTitle,
+    description: seoDescription,
     url: SITE_URL,
+    locale: "en_US",
     images: [
       {
         url: "/og",
         width: 1200,
         height: 630,
-        alt: `${brand.productName} — AI Agent Platform`,
+        alt: "Paperclip — Deploy your AI workforce",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: `${brand.productName} — AI Agent Platform`,
-    description: `${brand.tagline} ${brand.price ? `${brand.price}.` : ""} ${brand.domain}`,
+    title: seoTitle,
+    description: seoDescription,
     images: ["/og"],
+    creator: "@runpaperclip",
   },
   alternates: {
     canonical: SITE_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
   },
   icons: {
     icon: [
