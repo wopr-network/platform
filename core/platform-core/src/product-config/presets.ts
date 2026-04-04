@@ -118,7 +118,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     emailPrivacy: "privacy@runpaperclip.com",
     emailLegal: "legal@runpaperclip.com",
     fromEmail: "noreply@runpaperclip.com",
-    homePath: "/instances",
+    homePath: "/dashboard",
     storagePrefix: "paperclip",
     marginDefault: 4,
     modelPriority: [
