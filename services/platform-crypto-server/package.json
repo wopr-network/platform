@@ -27,7 +27,7 @@
     "@hono/node-server": "^1.14.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
-    "@scure/base": "^1.2.4",
+    "@scure/base": "^2.0.0",
     "@scure/bip32": "^2.0.1",
     "@wopr-network/crypto-plugins": "^1.0.1",
     "drizzle-orm": "^0.44.2",
