@@ -261,7 +261,7 @@ export default function TermsPage() {
             results from events beyond our reasonable control, including but not limited to natural disasters, war,
             terrorism, pandemics, zombie outbreaks, robot uprisings, pirate raids, zombie pirates, robot zombies,
             government actions, power failures, internet or telecommunications failures, third-party service outages,
-            cyberattacks, alien contact, time paradoxes, or acts of god.
+            cyberattacks, alien contact, time paradoxes, bad luck, hangovers, or acts of god.
           </p>
           <p className={snark}>If the internet breaks, a volcano erupts, or the sun explodes, that&apos;s not on us.</p>
 
