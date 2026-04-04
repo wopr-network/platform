@@ -853,8 +853,7 @@ export async function changePassword(data: { currentPassword: string; newPasswor
 }
 
 export async function deleteAccount(): Promise<void> {
-  // NOTE: add tRPC procedure
-  await apiFetch("/settings/profile", { method: "DELETE" });
+  throw new Error("Account deletion is not yet available. Please contact support.");
 }
 
 export async function listProviderKeys(): Promise<ProviderKey[]> {
