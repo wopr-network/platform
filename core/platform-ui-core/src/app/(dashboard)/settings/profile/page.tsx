@@ -219,8 +219,8 @@ export default function ProfilePage() {
       }
       // 2. Delete account (sessions, DB rows)
       await deleteAccount();
-      // 3. Redirect to login
-      window.location.href = "/login";
+      // 3. Sign out and redirect to home
+      window.location.href = "/";
     } catch {
       setError("Failed to delete account. Please try again.");
     }
