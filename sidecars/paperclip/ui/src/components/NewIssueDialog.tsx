@@ -395,7 +395,9 @@ export function NewIssueDialog() {
       stagedFiles: pendingStagedFiles,
       ...data
     }: { companyId: string; stagedFiles: StagedIssueFile[] } & Record<string, unknown>) => {
+      console.log("[NewIssue] mutation firing", { companyId, data: Object.keys(data) });
       const issue = await issuesApi.create(companyId, data);
+      console.log("[NewIssue] issue created", { id: issue.id, title: issue.title });
       const failures: string[] = [];
 
       for (const stagedFile of pendingStagedFiles) {
@@ -418,7 +420,11 @@ export function NewIssueDialog() {
 
       return { issue, companyId, failures };
     },
+    onError: (err) => {
+      console.error("[NewIssue] mutation error", err);
+    },
     onSuccess: ({ issue, companyId, failures }) => {
+      console.log("[NewIssue] mutation success", { issueId: issue.id, failures: failures.length });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listMineByMe(companyId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(companyId) });
@@ -624,7 +630,11 @@ export function NewIssueDialog() {
   }
 
   function handleSubmit() {
-    if (!effectiveCompanyId || !title.trim() || createIssue.isPending) return;
+    console.log("[NewIssue] handleSubmit", { effectiveCompanyId, title: title.trim(), isPending: createIssue.isPending });
+    if (!effectiveCompanyId || !title.trim() || createIssue.isPending) {
+      console.warn("[NewIssue] blocked", { noCompany: !effectiveCompanyId, noTitle: !title.trim(), pending: createIssue.isPending });
+      return;
+    }
     const assigneeAdapterOverrides = buildAssigneeAdapterOverrides({
       adapterType: assigneeAdapterType,
       modelOverride: assigneeModelOverride,
