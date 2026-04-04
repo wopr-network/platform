@@ -376,14 +376,14 @@ export function PaperclipLanding() {
             Paperclip
           </span>
           <div className="flex gap-6">
-            <Link href="/privacy" className="text-xs underline underline-offset-4" style={{ color: "#27272a" }}>
+            <Link href="/privacy" className="text-sm no-underline hover:text-indigo-300 transition-colors" style={{ color: "#a1a1aa" }}>
               Privacy
             </Link>
-            <Link href="/terms" className="text-xs underline underline-offset-4" style={{ color: "#27272a" }}>
+            <Link href="/terms" className="text-sm no-underline hover:text-indigo-300 transition-colors" style={{ color: "#a1a1aa" }}>
               Terms
             </Link>
           </div>
-          <span className="text-xs" style={{ color: "#18181b" }}>
+          <span className="text-sm" style={{ color: "#71717a" }}>
             runpaperclip.com
           </span>
         </div>
