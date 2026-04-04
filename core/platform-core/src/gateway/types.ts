@@ -154,6 +154,8 @@ export interface GatewayConfig {
   onDebitComplete?: (tenantId: string) => void;
   /** Called after every successful credit debit to check spend alert thresholds. */
   onSpendAlertCrossed?: (tenantId: string) => void;
+  /** Incident repo for forensic logging of upstream failures. */
+  incidentRepo?: import("./incident-repo.js").IIncidentRepo;
   /** Repository for tracking per-IP webhook signature failure penalties. Required when Twilio webhook routes are enabled. */
   sigPenaltyRepo?: import("../api/sig-penalty-repository.js").ISigPenaltyRepository;
   /** Repository for per-capability and per-route rate limit counters. Required when rate limiting is active. */
@@ -174,6 +176,8 @@ export interface GatewayErrorResponse {
     message: string;
     type: string;
     code: string;
+    /** Forensic incident ID — client can reference this for support. */
+    incident_id?: string;
   };
 }
 

@@ -23,6 +23,7 @@ import type { IBudgetChecker } from "../monetization/budget/budget-checker.js";
 import { PHONE_NUMBER_MONTHLY_COST } from "../monetization/credits/phone-billing.js";
 import { creditBalanceCheck, debitCredits } from "./credit-gate.js";
 import { mapBudgetError, mapProviderError } from "./error-mapping.js";
+import type { IIncidentRepo } from "./incident-repo.js";
 import { DEFAULT_MODEL_COOLDOWN_MS, ModelHealthCache } from "./model-health-cache.js";
 import type { SellRateLookupFn } from "./rate-lookup.js";
 import { resolveTokenRates } from "./rate-lookup.js";
@@ -66,6 +67,42 @@ function shouldFallback(status: number): boolean {
 
 /** Upstream request timeout (60s). */
 const UPSTREAM_TIMEOUT_MS = 60_000;
+
+/**
+ * Record an incident and inject the ID into the error body.
+ * Fire-and-forget — never blocks the response.
+ */
+async function recordIncident(
+  deps: ProxyDeps,
+  tenantId: string,
+  errorBody: GatewayErrorResponse,
+  context: {
+    capability: string;
+    provider: string;
+    model?: string;
+    upstreamStatus?: number;
+    upstreamBody?: string;
+    modelsAttempted?: string[];
+  },
+): Promise<GatewayErrorResponse> {
+  if (!deps.incidentRepo) return errorBody;
+  try {
+    const incidentId = await deps.incidentRepo.record({
+      tenantId,
+      capability: context.capability,
+      provider: context.provider,
+      model: context.model,
+      errorCode: errorBody.error.code,
+      upstreamStatus: context.upstreamStatus,
+      upstreamBody: context.upstreamBody,
+      modelsAttempted: context.modelsAttempted,
+    });
+    return { error: { ...errorBody.error, incident_id: incidentId } };
+  } catch (err) {
+    logger.error("Failed to record gateway incident", { error: err });
+    return errorBody;
+  }
+}
 
 /**
  * Validate an upstream response body is spec-compliant JSON.
@@ -173,6 +210,8 @@ export interface ProxyDeps {
   onBalanceExhausted?: (tenantId: string, newBalanceCents: number) => void;
   /** Called after every successful credit debit to check spend alert thresholds. */
   onSpendAlertCrossed?: (tenantId: string) => void;
+  /** Incident repo for forensic logging of upstream failures. */
+  incidentRepo?: IIncidentRepo;
 }
 
 export function buildProxyDeps(config: GatewayConfig): ProxyDeps {
@@ -194,6 +233,7 @@ export function buildProxyDeps(config: GatewayConfig): ProxyDeps {
     onDebitComplete: config.onDebitComplete,
     onBalanceExhausted: config.onBalanceExhausted,
     onSpendAlertCrossed: config.onSpendAlertCrossed,
+    incidentRepo: config.incidentRepo,
   };
 }
 
@@ -474,7 +514,15 @@ export function chatCompletions(deps: ProxyDeps) {
               lastError = new Error(validation.body.error.message);
               continue;
             }
-            return c.json(validation.body, validation.status as 502);
+            const body = await recordIncident(deps, tenant.id, validation.body, {
+              capability: "chat-completions",
+              provider: "openrouter",
+              model: currentModel,
+              upstreamStatus: res.status,
+              upstreamBody: responseBody.slice(0, 4096),
+              modelsAttempted: modelsToTry,
+            });
+            return c.json(body, validation.status as 502);
           }
         }
 
@@ -549,8 +597,15 @@ export function chatCompletions(deps: ProxyDeps) {
         } catch {
           // Non-ok response with unparseable body — return clean error
           if (!res.ok) {
-            const mapped = mapProviderError(new Error(`Upstream ${res.status}`), "openrouter");
-            return c.json(mapped.body, mapped.status as 502);
+            const mapped = mapProviderError(new Error(`Upstream ${res.status}`));
+            const incBody = await recordIncident(deps, tenant.id, mapped.body, {
+              capability: "chat-completions",
+              provider: "openrouter",
+              model: currentModel,
+              upstreamStatus: res.status,
+              upstreamBody: responseBody.slice(0, 4096),
+            });
+            return c.json(incBody, mapped.status as 502);
           }
           sanitizedBody = responseBody;
         }
@@ -574,8 +629,13 @@ export function chatCompletions(deps: ProxyDeps) {
     // All models exhausted
     deps.metrics?.recordGatewayError("chat-completions");
     logger.error("Gateway proxy: all models exhausted", { tenant: tenant.id, modelsAttempted: modelsToTry });
-    const mapped = mapProviderError(lastError, "openrouter");
-    return c.json(mapped.body, mapped.status as 502);
+    const mapped = mapProviderError(lastError);
+    const body = await recordIncident(deps, tenant.id, mapped.body, {
+      capability: "chat-completions",
+      provider: "openrouter",
+      modelsAttempted: modelsToTry,
+    });
+    return c.json(body, mapped.status as 502);
   };
 }
 
