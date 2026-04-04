@@ -128,8 +128,7 @@ export default function TermsPage() {
           </h2>
           <p>
             You may not use the Service for illegal activity, spam, harassment, generating malware, unauthorized access
-            to computer systems, circumventing security controls, or to harm others. You may not use the Service to
-            build competing products by systematically extracting our proprietary technology.{" "}
+            to computer systems, circumventing security controls, or to harm others.{" "}
             <strong className="text-white">
               Any use of the Service for unauthorized access, hacking, exploitation, or attack against any system,
               network, or individual will result in immediate account termination and referral to law enforcement. We
