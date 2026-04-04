@@ -650,10 +650,13 @@ export async function mountRoutes(
 
     const gw = container.gateway;
     const { mountGateway } = await import("../gateway/index.js");
+    const { DrizzleIncidentRepo } = await import("../gateway/incident-repo.js");
+    const incidentRepo = new DrizzleIncidentRepo(container.db);
     mountGateway(app, {
       meter: gw.meter,
       budgetChecker: gw.budgetChecker,
       creditLedger: container.creditLedger,
+      incidentRepo,
       providers: {
         openrouter: config.openrouterApiKey ? { apiKey: config.openrouterApiKey } : undefined,
       },

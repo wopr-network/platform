@@ -204,10 +204,18 @@ export function sendStateMachineChat(
     credentials: "include",
     signal: abort.signal,
     body: JSON.stringify({ messages: cleanMessages, state, phase, artifacts }),
-  }).then((res) => {
+  }).then(async (res) => {
     if (!res.ok) {
-      console.error("[onboarding] server error", { status: res.status, state, phase });
-      throw new Error(`Onboarding chat failed: ${res.status}`);
+      let incidentId: string | undefined;
+      try {
+        const body = (await res.json()) as { incident_id?: string };
+        incidentId = body.incident_id;
+      } catch {
+        /* no json */
+      }
+      const suffix = incidentId ? ` (${incidentId})` : "";
+      console.error("[onboarding] server error", { status: res.status, state, phase, incidentId });
+      throw new Error(`Onboarding chat failed: ${res.status}${suffix}`);
     }
     if (!res.body) throw new Error("No response body");
     return res.body;

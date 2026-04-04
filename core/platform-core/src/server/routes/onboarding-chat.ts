@@ -126,7 +126,15 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
 
     if (!upstreamResponse.ok || !upstreamResponse.body) {
       const text = await upstreamResponse.text().catch(() => "");
-      return c.json({ error: "Gateway error", detail: text }, 502);
+      // Try to extract incident_id from gateway error response
+      let incident_id: string | undefined;
+      try {
+        const parsed = JSON.parse(text) as { error?: { incident_id?: string } };
+        incident_id = parsed.error?.incident_id;
+      } catch {
+        /* raw text */
+      }
+      return c.json({ error: "Gateway error", incident_id, status: upstreamResponse.status }, 502);
     }
 
     // Stream SSE back to the client with typed protocol:

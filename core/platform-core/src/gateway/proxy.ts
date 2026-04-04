@@ -61,8 +61,9 @@ function productFloorRates(c: Context<GatewayAuthEnv>): { input: number; output:
 }
 
 /** Returns true if the HTTP status should trigger model fallback. */
+/** Any non-ok status triggers fallback EXCEPT 401 (bad key) and 402 (no credits). */
 function shouldFallback(status: number): boolean {
-  return status === 400 || status === 404 || status === 429 || status >= 500;
+  return status >= 400 && status !== 401 && status !== 402;
 }
 
 /** Upstream request timeout (60s). */
