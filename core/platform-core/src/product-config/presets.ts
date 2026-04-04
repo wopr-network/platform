@@ -125,6 +125,8 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       "qwen/qwen3.6-plus:free",
       "openai/gpt-oss-120b:free",
       "minimax/minimax-m2.5:free",
+      "xiaomi/mimo-v2-pro",
+      "minimax/minimax-m2.7",
       "stepfun/step-3.5-flash:free",
       "nvidia/nemotron-3-super-120b-a12b:free",
       "qwen/qwen3.6-plus",
