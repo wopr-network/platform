@@ -40,7 +40,7 @@
     "@scure/base": "^2.0.0",
     "@scure/bip32": "^2.0.1",
     "@scure/bip39": "^2.0.1",
-    "@sentry/node": "^9.27.0",
+    "@sentry/node": "^10.47.0",
     "@trpc/server": "^11.13.4",
     "@wopr-network/core-client": "workspace:*",
     "@wopr-network/platform-core": "workspace:*",
