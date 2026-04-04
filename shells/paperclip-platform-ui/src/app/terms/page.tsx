@@ -89,6 +89,12 @@ export default function TermsPage() {
             hallucinate, fabricate, contradict themselves, or produce results that are entirely disconnected from fact.
             You accept this risk entirely.
           </p>
+          <p>
+            We reserve the right to refuse service to anyone, for any reason, at any time. We reserve the right to
+            experience downtime, slow times, busy times, sad times, depressed times, and even just asleep-at-the-wheel
+            times. The Service may be unavailable, degraded, or temperamental without notice. We will do our best. That
+            is the extent of our commitment.
+          </p>
 
           <h2 className={h2} style={style}>
             6. Limitation of Liability
