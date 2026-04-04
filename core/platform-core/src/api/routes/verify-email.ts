@@ -55,7 +55,7 @@ async function resolveUiOriginAndBrand(
       const pc = await config.productConfigService.getBySlug(slug);
       if (pc?.product) {
         return {
-          uiOrigin: `https://${pc.product.appDomain}`,
+          uiOrigin: `https://${pc.product.domain}`,
           brandName: pc.product.brandName,
           fromEmail: pc.product.fromEmail,
         };
