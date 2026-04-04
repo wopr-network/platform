@@ -79,14 +79,14 @@ function buildRoutes(
     const { uiOrigin, brandName, fromEmail } = await resolveUiOriginAndBrand(c.req, config);
 
     if (!token) {
-      return c.redirect(`${uiOrigin}/auth/verify?status=error&reason=missing_token`);
+      return c.redirect(`${uiOrigin}/verify?status=error&reason=missing_token`);
     }
 
     const pool = poolFactory();
     const result = await verifyToken(pool, token);
 
     if (!result) {
-      return c.redirect(`${uiOrigin}/auth/verify?status=error&reason=invalid_or_expired`);
+      return c.redirect(`${uiOrigin}/verify?status=error&reason=invalid_or_expired`);
     }
 
     // Grant $5 signup credit (idempotent — safe on link re-click)
@@ -123,7 +123,7 @@ function buildRoutes(
       });
     }
 
-    return c.redirect(`${uiOrigin}/auth/verify?status=success`);
+    return c.redirect(`${uiOrigin}/verify?status=success`);
   });
 
   return routes;
