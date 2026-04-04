@@ -42,7 +42,7 @@ function getNavItems() {
 function isNavActive(href: string, pathname: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";
   if (href === "/marketplace") return pathname === "/marketplace";
-  if (href === "/settings/profile") return pathname.startsWith("/settings");
+  if (href === "/settings") return pathname.startsWith("/settings");
   if (href === "/billing/plans") return pathname.startsWith("/billing") && !pathname.startsWith("/billing/credits");
   if (href === "/billing/credits") return pathname.startsWith("/billing/credits");
   if (href === "/admin/tenants" || href === "/admin") return pathname.startsWith("/admin");
@@ -165,11 +165,7 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/settings/profile")}>
-                <UserIcon />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/settings/providers")}>
+              <DropdownMenuItem onClick={() => router.push("/settings")}>
                 <SettingsIcon />
                 Settings
               </DropdownMenuItem>

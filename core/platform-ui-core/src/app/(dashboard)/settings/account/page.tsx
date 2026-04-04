@@ -6,21 +6,9 @@ import CreateOrgWizard from "@/components/settings/create-org-wizard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { BillingUsage, Instance } from "@/lib/api";
-import { controlInstance, createBillingPortalSession, getBillingUsage, listInstances } from "@/lib/api";
+import type { BillingUsage } from "@/lib/api";
+import { createBillingPortalSession, getBillingUsage } from "@/lib/api";
 import { isAllowedRedirectUrl } from "@/lib/validate-redirect-url";
 
 export default function AccountPage() {
@@ -29,40 +17,19 @@ export default function AccountPage() {
 
   const [portalLoading, setPortalLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [instances, setInstances] = useState<Instance[]>([]);
-  const [destroyConfirm, setDestroyConfirm] = useState("");
-  const [destroying, setDestroying] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
     try {
-      const [data, inst] = await Promise.all([getBillingUsage(), listInstances()]);
+      const data = await getBillingUsage();
       setUsage(data);
-      setInstances(inst);
     } catch {
       setLoadError(true);
     } finally {
       setLoading(false);
     }
   }, []);
-
-  async function handleDestroyAllInstances() {
-    setDestroying(true);
-    try {
-      for (const inst of instances) {
-        await controlInstance(inst.id, "destroy");
-      }
-      toast.success("All instances destroyed. Redirecting to onboarding...");
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1000);
-    } catch {
-      toast.error("Failed to destroy instances. Please try again.");
-    } finally {
-      setDestroying(false);
-    }
-  }
 
   useEffect(() => {
     load();
@@ -155,61 +122,6 @@ export default function AccountPage() {
           <CreateOrgWizard />
         </CardContent>
       </Card>
-
-      {instances.length > 0 && (
-        <>
-          <div className="flex items-center gap-3 pt-4">
-            <Separator className="flex-1 bg-destructive/30" />
-            <span className="text-xs font-mono text-destructive/70">DANGER ZONE</span>
-            <Separator className="flex-1 bg-destructive/30" />
-          </div>
-
-          <Card className="border-destructive/50 bg-destructive/5">
-            <CardHeader>
-              <CardTitle className="text-destructive">Reset Instance</CardTitle>
-              <CardDescription>
-                Destroy all running instances and start fresh. Your account, credits, and settings are preserved. You
-                will be redirected to set up a new instance.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="destructive">Reset instance</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Reset your instance?</DialogTitle>
-                    <DialogDescription>
-                      This will permanently destroy{" "}
-                      {instances.length === 1 ? "your instance" : `all ${instances.length} instances`} and their data
-                      (agent history, issues, documents). Your account and credits are kept. Type <strong>reset</strong>{" "}
-                      to confirm.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <Input
-                    placeholder="reset"
-                    value={destroyConfirm}
-                    onChange={(e) => setDestroyConfirm(e.target.value)}
-                  />
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Cancel</Button>
-                    </DialogClose>
-                    <Button
-                      variant="destructive"
-                      disabled={destroyConfirm !== "reset" || destroying}
-                      onClick={handleDestroyAllInstances}
-                    >
-                      {destroying ? "Destroying..." : "Reset instance"}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
-        </>
-      )}
     </div>
   );
 }

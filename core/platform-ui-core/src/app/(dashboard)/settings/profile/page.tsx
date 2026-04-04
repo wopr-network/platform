@@ -19,8 +19,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { UserProfile } from "@/lib/api";
-import { changePassword, deleteAccount, getProfile, updateProfile, uploadAvatar } from "@/lib/api";
+import type { Instance, UserProfile } from "@/lib/api";
+import {
+  changePassword,
+  controlInstance,
+  deleteAccount,
+  getProfile,
+  listInstances,
+  updateProfile,
+  uploadAvatar,
+} from "@/lib/api";
 import { linkSocial, listAccounts, unlinkAccount } from "@/lib/auth-client";
 
 export default function ProfilePage() {
@@ -45,6 +53,9 @@ export default function ProfilePage() {
   const [changingPw, setChangingPw] = useState(false);
 
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [resetConfirm, setResetConfirm] = useState("");
+  const [instances, setInstances] = useState<Instance[]>([]);
+  const [resetting, setResetting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveSuccessTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,6 +83,11 @@ export default function ProfilePage() {
         setConnectedProviders(providers);
       } catch {
         setConnectedProviders(new Set(p.oauthConnections.filter((c) => c.connected).map((c) => c.provider)));
+      }
+      try {
+        setInstances(await listInstances());
+      } catch {
+        // Non-fatal — instances may not be available
       }
     } catch {
       setLoadError(true);
@@ -172,12 +188,28 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleResetInstance() {
+    setResetting(true);
+    setError(null);
+    try {
+      for (const inst of instances) {
+        try {
+          await controlInstance(inst.id, "destroy");
+        } catch {
+          // Instance may already be gone
+        }
+      }
+      window.location.href = "/dashboard";
+    } catch {
+      setError("Failed to reset instance. Please try again.");
+    } finally {
+      setResetting(false);
+    }
+  }
+
   async function handleDelete() {
     setError(null);
     try {
-      // 1. Destroy all instances first
-      const { listInstances, controlInstance } = await import("@/lib/api");
-      const instances = await listInstances();
       for (const inst of instances) {
         try {
           await controlInstance(inst.id, "destroy");
@@ -230,8 +262,8 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Profile</h1>
-        <p className="text-sm text-muted-foreground">Manage your account settings</p>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground">Manage your profile, security, and account</p>
       </div>
 
       <AnimatePresence>
@@ -451,6 +483,48 @@ export default function ProfilePage() {
         <span className="text-xs font-mono text-destructive/70">DANGER ZONE</span>
         <Separator className="flex-1 bg-destructive/30" />
       </div>
+
+      {instances.length > 0 && (
+        <Card className="border-destructive/50 bg-destructive/5">
+          <CardHeader>
+            <CardTitle className="text-destructive">Reset Instance</CardTitle>
+            <CardDescription>
+              Destroy all running instances and start fresh. Your account, credits, and settings are preserved.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="destructive">Reset instance</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Reset your instance?</DialogTitle>
+                  <DialogDescription>
+                    This will permanently destroy{" "}
+                    {instances.length === 1 ? "your instance" : `all ${instances.length} instances`} and their data
+                    (agent history, issues, documents). Your account and credits are kept. Type <strong>reset</strong>{" "}
+                    to confirm.
+                  </DialogDescription>
+                </DialogHeader>
+                <Input placeholder="reset" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button
+                    variant="destructive"
+                    disabled={resetConfirm !== "reset" || resetting}
+                    onClick={handleResetInstance}
+                  >
+                    {resetting ? "Destroying..." : "Reset instance"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-destructive/50 bg-destructive/5">
         <CardHeader>

@@ -94,7 +94,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       { label: "Fleet Health", href: "/fleet/health", sortOrder: 8 },
       { label: "Credits", href: "/billing/credits", sortOrder: 9 },
       { label: "Billing", href: "/billing/plans", sortOrder: 10 },
-      { label: "Settings", href: "/settings/profile", sortOrder: 11 },
+      { label: "Settings", href: "/settings", sortOrder: 11 },
       { label: "Admin", href: "/admin/tenants", sortOrder: 12, requiresRole: "platform_admin" },
     ],
     fleet: {
@@ -136,7 +136,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     navItems: [
       { label: "Instances", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },
-      { label: "Settings", href: "/settings/profile", sortOrder: 2 },
+      { label: "Settings", href: "/settings", sortOrder: 2 },
       { label: "Admin", href: "/admin/tenants", sortOrder: 3, requiresRole: "platform_admin" },
     ],
     fleet: {
@@ -182,7 +182,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
       { label: "Approvals", href: "/approvals", sortOrder: 2 },
       { label: "Connect", href: "/connect", sortOrder: 3 },
       { label: "Credits", href: "/billing/credits", sortOrder: 4 },
-      { label: "Settings", href: "/settings/profile", sortOrder: 5 },
+      { label: "Settings", href: "/settings", sortOrder: 5 },
       { label: "Admin", href: "/admin/tenants", sortOrder: 6, requiresRole: "platform_admin" },
     ],
     fleet: {
@@ -224,7 +224,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     navItems: [
       { label: "NemoClaws", href: "/instances", sortOrder: 0 },
       { label: "Credits", href: "/billing/credits", sortOrder: 1 },
-      { label: "Settings", href: "/settings/profile", sortOrder: 2 },
+      { label: "Settings", href: "/settings", sortOrder: 2 },
       { label: "Admin", href: "/admin/tenants", sortOrder: 3, requiresRole: "platform_admin" },
     ],
     fleet: {
