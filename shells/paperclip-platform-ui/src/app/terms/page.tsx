@@ -19,9 +19,9 @@ export default function TermsPage() {
 
         <div className="space-y-6 text-zinc-400 leading-relaxed">
           <p>
-            By accessing or using Paperclip (&ldquo;the Service&rdquo;), operated by WOPR Network Inc.
-            (&ldquo;Company,&rdquo; &ldquo;we,&rdquo; &ldquo;us&rdquo;) and available at runpaperclip.com, you agree to
-            be bound by these Terms of Service. If you do not agree, do not use the Service.
+            By accessing or using Paperclip (&ldquo;the Service&rdquo;), available at runpaperclip.com, you agree to be
+            bound by these Terms of Service. &ldquo;We,&rdquo; &ldquo;us,&rdquo; and &ldquo;the Company&rdquo; refer to
+            the operators of the Service. If you do not agree, do not use the Service.
           </p>
 
           <h2 className={h2} style={style}>
