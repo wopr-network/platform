@@ -27,9 +27,11 @@ export type HealthStatus = {
   devServer?: DevServerHealthStatus;
 };
 
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+
 export const healthApi = {
   get: async (): Promise<HealthStatus> => {
-    const res = await fetch("/api/health", {
+    const res = await fetch(`${BASE}/api/health`, {
       credentials: "include",
       headers: { Accept: "application/json" },
     });

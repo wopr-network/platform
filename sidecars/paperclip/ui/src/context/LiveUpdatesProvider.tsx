@@ -746,7 +746,8 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
     const connect = () => {
       if (closed) return;
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(liveCompanyId)}/events/ws`;
+      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const url = `${protocol}://${window.location.host}${base}/api/companies/${encodeURIComponent(liveCompanyId)}/events/ws`;
       const nextSocket = new WebSocket(url);
       socket = nextSocket;
 
