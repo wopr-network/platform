@@ -155,6 +155,7 @@ type AppRouterRecord = {
     getProfile: AnyTRPCQueryProcedure;
     updateProfile: AnyTRPCMutationProcedure;
     changePassword: AnyTRPCMutationProcedure;
+    deleteAccount: AnyTRPCMutationProcedure;
   };
   org: {
     getOrganization: AnyTRPCQueryProcedure;

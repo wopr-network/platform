@@ -853,7 +853,7 @@ export async function changePassword(data: { currentPassword: string; newPasswor
 }
 
 export async function deleteAccount(): Promise<void> {
-  throw new Error("Account deletion is not yet available. Please contact support.");
+  await trpcVanilla.profile.deleteAccount.mutate(undefined);
 }
 
 export async function listProviderKeys(): Promise<ProviderKey[]> {

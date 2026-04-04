@@ -366,6 +366,16 @@ export async function mountRoutes(
         updateUser: (userId, data) => container.authUserRepo.updateUser(userId, data),
         changePassword: (userId, currentPassword, newPassword) =>
           container.authUserRepo.changePassword(userId, currentPassword, newPassword),
+        deleteUser: async (userId) => {
+          const { logger } = await import("../config/logger.js");
+          // Delete all user data — instances should already be destroyed by the UI
+          await container.pool.query("DELETE FROM bot_profiles WHERE user_id = $1", [userId]);
+          await container.pool.query("DELETE FROM bot_instances WHERE user_id = $1", [userId]);
+          await container.pool.query('DELETE FROM "session" WHERE "userId" = $1', [userId]);
+          await container.pool.query('DELETE FROM "account" WHERE "userId" = $1', [userId]);
+          await container.pool.query('DELETE FROM "user" WHERE id = $1', [userId]);
+          logger.info("Account deleted", { userId });
+        },
       },
       pageContext: {
         repo: need(container.pageContextRepo, "pageContextRepo"),

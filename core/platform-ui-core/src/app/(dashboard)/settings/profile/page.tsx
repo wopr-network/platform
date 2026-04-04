@@ -175,7 +175,19 @@ export default function ProfilePage() {
   async function handleDelete() {
     setError(null);
     try {
+      // 1. Destroy all instances first
+      const { listInstances, controlInstance } = await import("@/lib/api");
+      const instances = await listInstances();
+      for (const inst of instances) {
+        try {
+          await controlInstance(inst.id, "destroy");
+        } catch {
+          // Instance may already be gone
+        }
+      }
+      // 2. Delete account (sessions, DB rows)
       await deleteAccount();
+      // 3. Redirect to login
       window.location.href = "/login";
     } catch {
       setError("Failed to delete account. Please try again.");

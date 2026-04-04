@@ -63,12 +63,7 @@ export {
   pageContextRouter,
   setPageContextRouterDeps,
 } from "./routers/page-context.js";
-export {
-  createProfileRouter,
-  type ProfileRouterDeps,
-  profileRouter,
-  setProfileRouterDeps,
-} from "./routers/profile.js";
+export { createProfileRouter, type ProfileRouterDeps } from "./routers/profile.js";
 export { createPromotionsRouter, type PromotionsRouterDeps } from "./routers/promotions.js";
 export {
   createSettingsRouter,
