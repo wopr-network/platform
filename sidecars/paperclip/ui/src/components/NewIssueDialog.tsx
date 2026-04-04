@@ -269,6 +269,8 @@ function issueExecutionWorkspaceModeForExistingWorkspace(mode: string | null | u
 export function NewIssueDialog() {
   const { newIssueOpen, newIssueDefaults, closeNewIssue } = useDialog();
   const { companies, selectedCompanyId, selectedCompany } = useCompany();
+  const healthQuery = useQuery({ queryKey: ["health"], queryFn: () => import("../api/health").then((m) => m.healthApi.get()), staleTime: 300_000 });
+  const isHosted = healthQuery.data?.hostedMode === true;
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
   const [title, setTitle] = useState("");
@@ -1162,7 +1164,7 @@ export function NewIssueDialog() {
           </div>
         )}
 
-        {supportsAssigneeOverrides && (
+        {supportsAssigneeOverrides && !isHosted && (
           <div className="px-4 pb-2 shrink-0">
             <button
               className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
