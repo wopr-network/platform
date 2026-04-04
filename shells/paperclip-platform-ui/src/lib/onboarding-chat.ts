@@ -31,9 +31,15 @@ interface StreamCallbacks {
   onJsonToken?: () => void;
 }
 
+export interface StreamError {
+  code: string;
+  message: string;
+}
+
 interface StreamResult {
   visibleContent: string;
   gate: LLMGate;
+  error?: StreamError;
 }
 
 /**
@@ -51,6 +57,7 @@ export async function parseStateMachineStream(
   let buffer = "";
   let visibleContent = "";
   let gate: LLMGate = { ready: false };
+  let streamError: StreamError | undefined;
 
   // JSON suppression: the LLM puts ```json{...}``` FIRST, then natural language.
   // Buffer everything, suppress the JSON block, only emit the visible text after it.
@@ -124,8 +131,11 @@ export async function parseStateMachineStream(
         const chunk = JSON.parse(json);
         if (chunk.type === "delta" && chunk.content) {
           processToken(chunk.content);
+        } else if (chunk.type === "error") {
+          streamError = { code: chunk.code ?? "unknown", message: chunk.message ?? "Unknown error" };
+          console.error("[onboarding] server error event", streamError);
         }
-        // chunk.type === "done" — stream complete, no further action needed
+        // chunk.type === "done" — stream complete
       } catch {
         // Skip malformed chunks
       }
@@ -157,9 +167,10 @@ export async function parseStateMachineStream(
     artifactKeys: gate.artifact ? Object.keys(gate.artifact) : [],
     visibleContentLength: visibleContent.length,
     jsonExtracted,
+    error: streamError?.code,
   });
 
-  return { visibleContent, gate };
+  return { visibleContent, gate, error: streamError };
 }
 
 /**

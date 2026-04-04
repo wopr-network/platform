@@ -276,6 +276,17 @@ export default function NewPaperclipInstancePage() {
 
         gate = result.gate;
 
+        // Surface stream errors from the gateway
+        if (result.error) {
+          const msg =
+            result.error.code === "upstream_timeout"
+              ? "The AI model timed out. Please try again."
+              : result.error.code === "empty_response"
+                ? "The AI model returned an empty response. Please try again."
+                : `Something went wrong (${result.error.code}). Please try again.`;
+          setError(msg);
+        }
+
         // Fallback: if streaming never emitted deltas (e.g. LLM skipped
         // fenced JSON block), push the visible content into the message
         if (result.visibleContent) {

@@ -129,8 +129,12 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
       return c.json({ error: "Gateway error", detail: text }, 502);
     }
 
-    // Stream SSE back to the client
+    // Stream SSE back to the client with typed protocol:
+    //   {type:"delta", content:"..."} — content token
+    //   {type:"error", code:"...", message:"..."} — error signal
+    //   {type:"done", tokenCount:N} — guaranteed terminal event
     const upstreamBody = upstreamResponse.body;
+    const STALL_TIMEOUT_MS = 30_000;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -139,14 +143,36 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
         const reader = upstreamBody.getReader();
 
         let buffer = "";
+        let tokenCount = 0;
+        let malformedChunks = 0;
 
         const send = (data: string) => {
           controller.enqueue(encoder.encode(`data: ${data}\n\n`));
         };
 
+        const sendError = (code: string, message: string) => {
+          logger.warn("Onboarding SSE error", { code, message, state: input.state, phase: input.phase });
+          send(JSON.stringify({ type: "error", code, message }));
+        };
+
         try {
           while (true) {
-            const { done, value } = await reader.read();
+            // Timeout watchdog: if upstream stalls for 30s, kill it
+            const readPromise = reader.read();
+            const timeout = new Promise<{ done: true; value: undefined }>((resolve) =>
+              setTimeout(() => resolve({ done: true, value: undefined }), STALL_TIMEOUT_MS),
+            );
+            const raceResult = await Promise.race([
+              readPromise.then((r) => ({ ...r, timedOut: false })),
+              timeout.then((r) => ({ ...r, timedOut: true })),
+            ]);
+
+            if ((raceResult as { timedOut?: boolean }).timedOut) {
+              sendError("upstream_timeout", "Model stopped responding");
+              break;
+            }
+
+            const { done, value } = raceResult;
             if (done) break;
 
             buffer += decoder.decode(value, { stream: true });
@@ -161,23 +187,41 @@ export function createOnboardingChatRoutes(container: PlatformContainer): Hono {
 
               try {
                 const parsed = JSON.parse(payload) as {
-                  choices?: Array<{ delta?: { content?: string } }>;
+                  choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>;
+                  error?: { message?: string };
                 };
+                // Upstream error object (OpenRouter sends these)
+                if (parsed.error?.message) {
+                  sendError("upstream_error", parsed.error.message);
+                  continue;
+                }
                 const token = parsed.choices?.[0]?.delta?.content;
                 if (token) {
+                  tokenCount++;
                   send(JSON.stringify({ type: "delta", content: token }));
                 }
               } catch {
-                // skip malformed SSE line
+                malformedChunks++;
+                if (malformedChunks > 10) {
+                  sendError("upstream_malformed", "Too many malformed chunks from model");
+                  break;
+                }
               }
             }
           }
+        } catch (err) {
+          sendError("stream_error", err instanceof Error ? err.message : "Stream read failed");
         } finally {
           reader.releaseLock();
         }
 
-        // Signal stream complete
-        send(JSON.stringify({ type: "done" }));
+        // Empty response detection
+        if (tokenCount === 0) {
+          sendError("empty_response", "Model returned no content");
+        }
+
+        // Guaranteed terminal event — client ALWAYS gets this
+        send(JSON.stringify({ type: "done", tokenCount }));
         controller.close();
       },
     });
