@@ -275,6 +275,19 @@ export default function NewPaperclipInstancePage() {
         });
 
         gate = result.gate;
+
+        // Fallback: if streaming never emitted deltas (e.g. LLM skipped
+        // fenced JSON block), push the visible content into the message
+        if (result.visibleContent) {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "assistant" && !last.content) {
+              updated[updated.length - 1] = { ...last, content: result.visibleContent };
+            }
+            return updated;
+          });
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
         setMessages((prev) => {
