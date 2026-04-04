@@ -32,42 +32,24 @@ export async function GET() {
         }}
       />
 
-      {/* Paperclip emoji + brand */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "20px",
-          marginBottom: "40px",
-        }}
+      {/* Paperclip icon */}
+      <svg
+        width="80"
+        height="80"
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ marginBottom: "32px" }}
       >
-        <div
-          style={{
-            width: "72px",
-            height: "72px",
-            borderRadius: "18px",
-            background: "linear-gradient(135deg, #818cf8, #6366f1)",
-            boxShadow: "0 0 60px rgba(99,102,241,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "40px",
-          }}
-        >
-          📎
-        </div>
-        <div
-          style={{
-            fontSize: "48px",
-            fontWeight: 700,
-            color: "#ffffff",
-            letterSpacing: "-0.02em",
-            display: "flex",
-          }}
-        >
-          Paperclip
-        </div>
-      </div>
+        <path
+          d="M11 22V12a5 5 0 0 1 10 0v8a3 3 0 0 1-6 0V12a1 1 0 0 1 2 0v8"
+          stroke="#818cf8"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </svg>
 
       {/* Headline */}
       <div
@@ -94,6 +76,29 @@ export async function GET() {
         }}
       >
         Agents that code, ship, and iterate — while you sleep.
+      </div>
+
+      {/* Domain — prominent */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "48px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "36px",
+            fontWeight: 700,
+            color: "#818cf8",
+            letterSpacing: "-0.01em",
+            display: "flex",
+          }}
+        >
+          runpaperclip.com
+        </div>
       </div>
 
       {/* Bottom accent line */}
