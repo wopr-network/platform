@@ -191,7 +191,21 @@ export default function TermsPage() {
           </p>
 
           <h2 className={h2} style={style}>
-            14. Contact
+            14. Fundamental Constraints
+          </h2>
+          <p>
+            At runpaperclip.com, we obey both the local laws and the laws of physics. The speed of light is 299,792,458
+            meters per second. It is not just a good idea&mdash;it is the law.
+          </p>
+          <p>
+            Any actions you take using the Service that violate either category of law&mdash;statutory or
+            thermodynamic&mdash;are entirely your own responsibility. We are not gods. We cannot change the laws of
+            physics, reverse entropy, or guarantee outcomes in a universe governed by quantum uncertainty.
+          </p>
+          <p>The Service is provided strictly at your own risk. Expect to be disappointed.</p>
+
+          <h2 className={h2} style={style}>
+            15. Contact
           </h2>
           <p>
             Questions about these Terms? Email{" "}
