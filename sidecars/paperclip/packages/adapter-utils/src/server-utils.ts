@@ -793,23 +793,23 @@ export async function runChildProcess(
     // The agent cannot kill or tamper with the Paperclip server because
     // it runs under a different UID. Modeled after NemoClaw's OpenShell
     // sandbox pattern (gateway user vs sandbox user).
-    const useSandbox = _sandboxAvailable();
-    const wrapForSandbox = (target: SpawnTarget): SpawnTarget => {
-      if (!useSandbox) return target;
-      return {
-        command: "gosu",
-        args: ["sandbox", target.command, ...target.args],
-      };
-    };
-    if (useSandbox) {
-      // Sandbox user needs a writable HOME for session state, .claude/ config, etc.
-      // The server's HOME (/paperclip) is owned by the paperclip user and not writable
-      // by sandbox. SANDBOX_HOME is chown'd to sandbox:agents by the entrypoint.
+    // Sandbox HOME: agent processes use /data as HOME so they can write
+    // session state, .claude/ config, etc. The server's HOME (/paperclip)
+    // is owned by the paperclip user. SANDBOX_HOME is chown'd to
+    // sandbox:agents with setgid by the entrypoint.
+    //
+    // NOTE: gosu-based privilege separation (running agents as a separate
+    // `sandbox` user) requires root privileges that the server process
+    // doesn't have after the entrypoint drops to paperclip. The sandbox
+    // user and group permissions are still used by the entrypoint for
+    // filesystem isolation, but agent processes run as paperclip.
+    // Full privilege separation requires the entrypoint to mediate agent
+    // spawning (like NemoClaw's architecture) — tracked as follow-up work.
+    if (_sandboxAvailable()) {
       mergedEnv.HOME = SANDBOX_HOME;
     }
 
     void resolveSpawnTarget(command, args, opts.cwd, mergedEnv)
-      .then((target) => wrapForSandbox(target))
       .then((target) => {
         const child = spawn(target.command, target.args, {
           cwd: opts.cwd,
