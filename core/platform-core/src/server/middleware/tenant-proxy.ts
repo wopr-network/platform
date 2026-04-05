@@ -210,7 +210,7 @@ export function createTenantProxyMiddleware(
     }
 
     // Resolve fleet container URL (route table or profile fallback)
-    const upstream = resolveContainerUrl(container, subdomain!, profile);
+    const upstream = resolveContainerUrl(container, subdomain ?? profile.name, profile);
     const { logger } = await import("../../config/logger.js");
     logger.info("Tenant proxy", {
       subdomain,
@@ -230,7 +230,7 @@ export function createTenantProxyMiddleware(
     // Strip /_sidecar prefix when proxying via path mode
     const proxyPath = isSidecarProxy ? url.pathname.replace(/^\/_sidecar/, "") || "/" : url.pathname;
     const targetUrl = `${upstream}${proxyPath}${url.search}`;
-    const upstreamHeaders = buildUpstreamHeaders(c.req.raw.headers, user, subdomain!);
+    const upstreamHeaders = buildUpstreamHeaders(c.req.raw.headers, user, subdomain ?? profile.name);
 
     let response: Response;
     try {
