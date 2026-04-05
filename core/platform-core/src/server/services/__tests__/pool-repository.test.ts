@@ -30,16 +30,23 @@ describe("IPoolRepository (InMemory)", () => {
     expect(await repo.warmCount()).toBe(2);
   });
 
-  it("lists warm instances", async () => {
+  it("lists active instances (warm + claimed)", async () => {
     const repo = new InMemoryPoolRepository();
     await repo.insertWarm("a", "container-a");
     await repo.insertWarm("b", "container-b");
 
-    const warm = await repo.listWarm();
-    expect(warm).toHaveLength(2);
-    expect(warm[0].id).toBe("a");
-    expect(warm[0].containerId).toBe("container-a");
-    expect(warm[0].status).toBe("warm");
+    const active = await repo.listActive();
+    expect(active).toHaveLength(2);
+    expect(active[0].id).toBe("a");
+    expect(active[0].containerId).toBe("container-a");
+    expect(active[0].status).toBe("warm");
+
+    // Claim one — it stays in listActive
+    await repo.claim();
+    const afterClaim = await repo.listActive();
+    expect(afterClaim).toHaveLength(2);
+    expect(afterClaim.filter((i) => i.status === "claimed")).toHaveLength(1);
+    expect(afterClaim.filter((i) => i.status === "warm")).toHaveLength(1);
   });
 
   it("claims warm instance FIFO", async () => {
@@ -47,7 +54,7 @@ describe("IPoolRepository (InMemory)", () => {
     await repo.insertWarm("first", "c-first");
     await repo.insertWarm("second", "c-second");
 
-    const claimed = await repo.claimWarm("tenant-1", "my-bot");
+    const claimed = await repo.claim();
     expect(claimed).not.toBeNull();
     expect(claimed?.id).toBe("first");
     expect(claimed?.containerId).toBe("c-first");
@@ -58,7 +65,7 @@ describe("IPoolRepository (InMemory)", () => {
 
   it("returns null when claiming from empty pool", async () => {
     const repo = new InMemoryPoolRepository();
-    const result = await repo.claimWarm("tenant-1", "bot");
+    const result = await repo.claim();
     expect(result).toBeNull();
   });
 
@@ -66,21 +73,21 @@ describe("IPoolRepository (InMemory)", () => {
     const repo = new InMemoryPoolRepository();
     await repo.insertWarm("only", "c-only");
 
-    const first = await repo.claimWarm("t1", "bot1");
+    const first = await repo.claim();
     expect(first).not.toBeNull();
 
-    const second = await repo.claimWarm("t2", "bot2");
+    const second = await repo.claim();
     expect(second).toBeNull();
   });
 
-  it("marks instances dead", async () => {
+  it("marks instances dead and excludes from listActive", async () => {
     const repo = new InMemoryPoolRepository();
     await repo.insertWarm("a", "c-a");
     await repo.markDead("a");
 
     expect(await repo.warmCount()).toBe(0);
-    const warm = await repo.listWarm();
-    expect(warm).toHaveLength(0);
+    const active = await repo.listActive();
+    expect(active).toHaveLength(0);
   });
 
   it("deletes dead instances", async () => {
@@ -91,18 +98,16 @@ describe("IPoolRepository (InMemory)", () => {
 
     await repo.deleteDead();
 
-    // Only 'b' remains (warm)
     expect(await repo.warmCount()).toBe(1);
-    const warm = await repo.listWarm();
-    expect(warm[0].id).toBe("b");
+    const active = await repo.listActive();
+    expect(active[0].id).toBe("b");
   });
 
   it("updates instance status", async () => {
     const repo = new InMemoryPoolRepository();
     await repo.insertWarm("a", "c-a");
-    await repo.updateInstanceStatus("a", "provisioning");
+    await repo.updateInstanceStatus("a", "dead");
 
-    // No longer warm
     expect(await repo.warmCount()).toBe(0);
   });
 
@@ -112,10 +117,10 @@ describe("IPoolRepository (InMemory)", () => {
     await repo.insertWarm("2", "c-2");
     await repo.insertWarm("3", "c-3");
 
-    const c1 = await repo.claimWarm("t-a", "bot-a");
-    const c2 = await repo.claimWarm("t-b", "bot-b");
-    const c3 = await repo.claimWarm("t-c", "bot-c");
-    const c4 = await repo.claimWarm("t-d", "bot-d");
+    const c1 = await repo.claim();
+    const c2 = await repo.claim();
+    const c3 = await repo.claim();
+    const c4 = await repo.claim();
 
     expect(c1?.id).toBe("1");
     expect(c2?.id).toBe("2");
@@ -129,7 +134,24 @@ describe("IPoolRepository (InMemory)", () => {
     await repo.insertWarm("a", "c-a");
     await repo.markDead("a");
 
-    const result = await repo.claimWarm("t1", "bot");
+    const result = await repo.claim();
     expect(result).toBeNull();
+  });
+
+  it("partitions by key", async () => {
+    const repo = new InMemoryPoolRepository();
+    await repo.insertWarm("a", "c-a", "alpha");
+    await repo.insertWarm("b", "c-b", "beta");
+
+    expect(await repo.warmCount("alpha")).toBe(1);
+    expect(await repo.warmCount("beta")).toBe(1);
+
+    // Claim from alpha partition only
+    const claimed = await repo.claim("alpha");
+    expect(claimed?.id).toBe("a");
+
+    // Beta still has its warm instance
+    expect(await repo.warmCount("beta")).toBe(1);
+    expect(await repo.warmCount("alpha")).toBe(0);
   });
 });

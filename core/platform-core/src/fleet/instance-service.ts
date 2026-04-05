@@ -11,7 +11,7 @@ import { Credit } from "../credits/index.js";
 import type { ILedger } from "../credits/ledger.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
 import type { ProductConfig } from "../product-config/index.js";
-import type { IPoolRepository } from "../server/services/pool-repository.js";
+import type { PoolClaim } from "../server/services/hot-pool.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { IProfileStore } from "./profile-store.js";
 import { containerNameFor } from "./types.js";
@@ -46,7 +46,8 @@ export interface InstanceServiceDeps {
   profileStore: IProfileStore;
   botInstanceRepo: IBotInstanceRepository;
   serviceKeyRepo: IServiceKeyRepository | null;
-  poolRepo: IPoolRepository | null;
+  /** Hot pool — try claiming a pre-warmed container before cold create. */
+  pool: { claim(key: string): Promise<PoolClaim | null> } | null;
   docker: import("dockerode") | null;
   provisionSecret: string | null;
   /** Resolve fleet manager for cold-create fallback */
@@ -80,7 +81,7 @@ export class InstanceService {
 
     // 2. Acquire container — pool first, cold create fallback
     let instanceId: string;
-    const claimed = d.poolRepo ? await d.poolRepo.claimWarm(tenantId, name, productSlug) : null;
+    const claimed = d.pool ? await d.pool.claim(productSlug) : null;
 
     // Inject provision secret so the sidecar can validate provisioning calls
     const instanceEnv: Record<string, string> = { ...env };

@@ -7,13 +7,14 @@
 
 import type { Pool } from "pg";
 
+export type PoolInstanceStatus = "warm" | "claimed" | "dead";
+
 export interface PoolInstance {
   id: string;
   containerId: string;
-  status: string;
-  tenantId: string | null;
-  name: string | null;
-  productSlug: string | null;
+  status: PoolInstanceStatus;
+  /** Partition key (e.g., product slug). Opaque to the pool. */
+  partition: string | null;
   image: string | null;
 }
 
@@ -22,11 +23,13 @@ export interface IPoolRepository {
   setPoolSize(size: number, productSlug?: string): Promise<void>;
   warmCount(productSlug?: string): Promise<number>;
   insertWarm(id: string, containerId: string, productSlug?: string, image?: string): Promise<void>;
-  listWarm(productSlug?: string): Promise<PoolInstance[]>;
+  /** All non-dead instances (warm + claimed). Every row returned MUST have a live container. */
+  listActive(productSlug?: string): Promise<PoolInstance[]>;
   markDead(id: string): Promise<void>;
   deleteDead(): Promise<void>;
-  claimWarm(tenantId: string, name: string, productSlug?: string): Promise<{ id: string; containerId: string } | null>;
-  updateInstanceStatus(id: string, status: string): Promise<void>;
+  /** Atomically claim the oldest warm instance for a partition. */
+  claim(partition?: string): Promise<{ id: string; containerId: string } | null>;
+  updateInstanceStatus(id: string, status: PoolInstanceStatus): Promise<void>;
 }
 
 export class DrizzlePoolRepository implements IPoolRepository {
@@ -76,18 +79,16 @@ export class DrizzlePoolRepository implements IPoolRepository {
     );
   }
 
-  async listWarm(productSlug?: string): Promise<PoolInstance[]> {
-    const sql = productSlug
-      ? "SELECT id, container_id, status, tenant_id, name, product_slug, image FROM pool_instances WHERE status = 'warm' AND product_slug = $1"
-      : "SELECT id, container_id, status, tenant_id, name, product_slug, image FROM pool_instances WHERE status = 'warm'";
-    const res = productSlug ? await this.pool.query(sql, [productSlug]) : await this.pool.query(sql);
+  async listActive(partition?: string): Promise<PoolInstance[]> {
+    const sql = partition
+      ? "SELECT id, container_id, status, product_slug, image FROM pool_instances WHERE status IN ('warm', 'claimed') AND product_slug = $1"
+      : "SELECT id, container_id, status, product_slug, image FROM pool_instances WHERE status IN ('warm', 'claimed')";
+    const res = partition ? await this.pool.query(sql, [partition]) : await this.pool.query(sql);
     return res.rows.map((r: Record<string, unknown>) => ({
       id: r.id as string,
       containerId: r.container_id as string,
-      status: r.status as string,
-      tenantId: (r.tenant_id as string) ?? null,
-      name: (r.name as string) ?? null,
-      productSlug: (r.product_slug as string) ?? null,
+      status: r.status as PoolInstanceStatus,
+      partition: (r.product_slug as string) ?? null,
       image: (r.image as string) ?? null,
     }));
   }
@@ -100,19 +101,13 @@ export class DrizzlePoolRepository implements IPoolRepository {
     await this.pool.query("DELETE FROM pool_instances WHERE status = 'dead'");
   }
 
-  async claimWarm(
-    tenantId: string,
-    name: string,
-    productSlug?: string,
-  ): Promise<{ id: string; containerId: string } | null> {
-    const slugFilter = productSlug ? "AND product_slug = $3" : "";
-    const params = productSlug ? [tenantId, name, productSlug] : [tenantId, name];
+  async claim(partition?: string): Promise<{ id: string; containerId: string } | null> {
+    const slugFilter = partition ? "AND product_slug = $1" : "";
+    const params = partition ? [partition] : [];
     const res = await this.pool.query(
       `UPDATE pool_instances
           SET status = 'claimed',
-              claimed_at = NOW(),
-              tenant_id = $1,
-              name = $2
+              claimed_at = NOW()
         WHERE id = (
           SELECT id FROM pool_instances
            WHERE status = 'warm' ${slugFilter}
@@ -128,7 +123,7 @@ export class DrizzlePoolRepository implements IPoolRepository {
     return { id: row.id, containerId: row.container_id };
   }
 
-  async updateInstanceStatus(id: string, status: string): Promise<void> {
+  async updateInstanceStatus(id: string, status: PoolInstanceStatus): Promise<void> {
     await this.pool.query("UPDATE pool_instances SET status = $1 WHERE id = $2", [status, id]);
   }
 }

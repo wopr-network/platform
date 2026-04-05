@@ -1,305 +1,307 @@
 /**
- * Hot pool manager — pre-provisions warm containers for instant claiming.
+ * HotPool — manages a pool of pre-warmed Docker containers for instant claiming.
  *
- * Reads desired pool size from DB (`pool_config` table) via IPoolRepository.
- * Periodically replenishes the pool and cleans up dead containers.
+ * The pool is container-aware but product-agnostic. Callers register container
+ * specs (image, port, network) under opaque keys. The pool keeps warm containers
+ * for each registered spec and lets callers claim them atomically.
  *
- * All config is DB-driven — no env vars for pool size, container image,
- * or port. Admin API updates pool_config, this reads it.
+ * Registration is dynamic — add a new product to the DB, register it with
+ * the pool, and warm containers appear on the next tick.
+ *
+ * All pool state (instances, sizes) is persisted via IPoolRepository.
  */
 
 import { logger } from "../../config/logger.js";
-import type { PlatformContainer } from "../container.js";
 import type { IPoolRepository } from "./pool-repository.js";
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** Container spec registered with the pool. */
+export interface PoolSpec {
+  /** Docker image to pre-warm. */
+  image: string;
+  /** Port the container listens on. */
+  port: number;
+  /** Docker network to connect containers to. */
+  network: string;
+  /** Desired number of warm containers to maintain. */
+  size: number;
+}
+
+/** Shared config for all pool operations (not per-spec). */
 export interface HotPoolConfig {
-  /** Shared secret for provision auth between platform and managed instances. */
+  /** Shared secret injected into warm containers for provision auth. */
   provisionSecret: string;
-  /** Replenish interval in ms. Default: 60_000. */
-  replenishIntervalMs?: number;
-  /** Product slugs to pre-warm. Each gets its own pool partition. */
-  productSlugs?: string[];
-  /** Registry auth for pulling sidecar images (dockerode needs explicit auth). */
+  /** Registry auth for pulling images. */
   registryAuth?: { username: string; password: string; serveraddress: string };
+  /** Cleanup + replenish interval in ms. Default: 60_000. */
+  replenishIntervalMs?: number;
 }
 
-export interface HotPoolHandles {
-  replenishTimer: ReturnType<typeof setInterval>;
-  stop: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Pool size — delegates to repository
-// ---------------------------------------------------------------------------
-
-export async function getPoolSize(repo: IPoolRepository): Promise<number> {
-  return repo.getPoolSize();
-}
-
-export async function setPoolSize(repo: IPoolRepository, size: number): Promise<void> {
-  return repo.setPoolSize(size);
+/** Result of a successful claim. */
+export interface PoolClaim {
+  id: string;
+  containerId: string;
 }
 
 // ---------------------------------------------------------------------------
-// Warm container management
+// HotPool
 // ---------------------------------------------------------------------------
 
-interface WarmContainerOpts {
-  containerImage: string;
-  containerPort: number;
-  dockerNetwork: string;
-  productSlug: string;
-}
+export class HotPool {
+  private specs = new Map<string, PoolSpec>();
+  private timer: ReturnType<typeof setInterval> | null = null;
 
-async function createWarmContainer(
-  container: PlatformContainer,
-  repo: IPoolRepository,
-  config: HotPoolConfig,
-  opts: WarmContainerOpts,
-): Promise<void> {
-  if (!container.fleet) throw new Error("Fleet services required for hot pool");
+  constructor(
+    private docker: import("dockerode"),
+    private repo: IPoolRepository,
+    private config: HotPoolConfig,
+  ) {}
 
-  const { containerImage, containerPort, dockerNetwork, productSlug } = opts;
-  const provisionSecret = config.provisionSecret;
-  const docker = container.fleet.docker;
-  const id = crypto.randomUUID();
-  const containerName = `pool-${id.slice(0, 8)}`;
-  const volumeName = `pool-${id.slice(0, 8)}`;
+  // ---- Registration --------------------------------------------------------
 
-  try {
-    // Pull image if not already available locally
-    try {
-      const auth = config.registryAuth;
-      const [fromImage, tag] = containerImage.includes(":") ? containerImage.split(":") : [containerImage, "latest"];
-      logger.info(
-        `Hot pool: pulling ${containerImage} (auth: ${auth ? `${auth.username}@${auth.serveraddress}` : "none"})`,
-      );
-      const authArg = auth
-        ? { username: auth.username, password: auth.password, serveraddress: auth.serveraddress }
-        : {};
-      const stream: NodeJS.ReadableStream = await docker.createImage(authArg, { fromImage, tag });
-      await new Promise<void>((resolve, reject) => {
-        docker.modem.followProgress(stream, (err: Error | null) => (err ? reject(err) : resolve()));
-      });
-    } catch (pullErr) {
-      // Image may already be cached locally — continue and let createContainer fail if not
-      logger.warn(`Hot pool: image pull failed for ${containerImage}`, {
-        productSlug,
-        error: (pullErr as Error).message,
+  /** Register a container spec. The pool will start warming containers for it. */
+  register(key: string, spec: PoolSpec): void {
+    this.specs.set(key, { ...spec });
+    // Persist desired size to DB for durability across restarts
+    this.repo.setPoolSize(spec.size, key).catch((err) => {
+      logger.warn(`Hot pool: failed to persist size for "${key}"`, { error: (err as Error).message });
+    });
+    logger.info(`Hot pool: registered "${key}" (${spec.image}, size=${spec.size})`);
+  }
+
+  /** Unregister a spec and drain its containers. */
+  async unregister(key: string): Promise<void> {
+    this.specs.delete(key);
+    // Mark all instances for this key as dead and clean up containers
+    const instances = await this.repo.listActive(key);
+    for (const instance of instances) {
+      await this.repo.markDead(instance.id);
+      await this.removeContainer(instance.containerId);
+    }
+    await this.repo.deleteDead();
+    logger.info(`Hot pool: unregistered spec "${key}", drained ${instances.length} container(s)`);
+  }
+
+  /** All currently registered spec keys. */
+  registeredKeys(): string[] {
+    return [...this.specs.keys()];
+  }
+
+  // ---- Lifecycle -----------------------------------------------------------
+
+  async start(): Promise<{ stop: () => void }> {
+    await this.tick();
+    const intervalMs = this.config.replenishIntervalMs ?? 60_000;
+    this.timer = setInterval(async () => {
+      try {
+        await this.tick();
+      } catch (err) {
+        logger.error("Hot pool tick failed", { error: (err as Error).message });
+      }
+    }, intervalMs);
+    logger.info("Hot pool started");
+    return { stop: () => this.stop() };
+  }
+
+  stop(): void {
+    if (this.timer) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
+  }
+
+  // ---- Operations ----------------------------------------------------------
+
+  /** Atomically claim a warm container for the given key. Returns null if pool is empty. */
+  async claim(key: string): Promise<PoolClaim | null> {
+    const result = await this.repo.claim(key);
+    if (result) {
+      // Replenish in background to refill the slot
+      this.replenish().catch((err) => {
+        logger.error("Pool replenish after claim failed", { error: (err as Error).message });
       });
     }
-
-    // Init volume: clear any stale embedded-PG data dirs and fix ownership.
-    // Paperclip's managed image runs embedded PostgreSQL in /paperclip/instances/default/db.
-    // If a previous init left PG data files, the next start fails with "data directory already exists".
-    // We wipe the volume clean so each warm container starts fresh.
-    const init = await docker.createContainer({
-      Image: containerImage,
-      Entrypoint: ["/bin/sh", "-c"],
-      Cmd: ["rm -rf /data/* /data/.* 2>/dev/null; chown -R 999:999 /data || true"],
-      User: "root",
-      HostConfig: { Binds: [`${volumeName}:/data`] },
-    });
-    await init.start();
-    await init.wait();
-    await init.remove();
-
-    // Inspect the image to get its original entrypoint and cmd so we can
-    // wrap them with a cleanup step. Some images (e.g. Paperclip) have
-    // embedded databases whose data dirs get baked into the image layer.
-    // Without cleanup, the container crash-loops with "data directory already exists".
-    const imageInfo = await docker.getImage(containerImage).inspect();
-    const rawEntrypoint = imageInfo.Config?.Entrypoint ?? [];
-    const rawCmd = imageInfo.Config?.Cmd ?? [];
-    const origEntrypoint: string[] = Array.isArray(rawEntrypoint) ? rawEntrypoint : [rawEntrypoint];
-    const origCmd: string[] = Array.isArray(rawCmd) ? rawCmd : [rawCmd];
-    const fullCmd = [...origEntrypoint, ...origCmd].join(" ");
-
-    // Build a wrapper that clears known stale state paths before exec-ing
-    // the original command. This is a no-op for images without embedded DBs.
-    const cleanupAndExec = ["rm -rf /paperclip/instances/default/db 2>/dev/null;", `exec ${fullCmd}`].join(" ");
-
-    const warmContainer = await docker.createContainer({
-      Image: containerImage,
-      name: containerName,
-      Entrypoint: ["/bin/sh", "-c"],
-      Cmd: [cleanupAndExec],
-      Env: [`PORT=${containerPort}`, `WOPR_PROVISION_SECRET=${provisionSecret}`, "HOME=/data"],
-      HostConfig: {
-        Binds: [`${volumeName}:/data`],
-        RestartPolicy: { Name: "on-failure", MaximumRetryCount: 3 },
-      },
-    });
-
-    await warmContainer.start();
-
-    // Connect to Docker network so the core server can reach pool containers
-    // by hostname (Docker DNS). Default to "platform" — the compose network
-    // created by the core-server docker-compose.yml.
-    const targetNetwork = dockerNetwork || "platform";
-    try {
-      const network = docker.getNetwork(targetNetwork);
-      await network.connect({ Container: warmContainer.id });
-      logger.info(`Hot pool: connected ${containerName} to network ${targetNetwork}`);
-    } catch (netErr) {
-      logger.warn(`Hot pool: failed to connect ${containerName} to network ${targetNetwork}`, {
-        error: (netErr as Error).message,
-      });
-    }
-
-    await repo.insertWarm(id, warmContainer.id, productSlug, containerImage);
-
-    logger.info(`Hot pool: created warm container ${containerName} (${id}) for ${productSlug}`);
-  } catch (err) {
-    logger.error("Hot pool: failed to create warm container", {
-      productSlug,
-      error: (err as Error).message,
-    });
-  }
-}
-
-export async function replenishPool(
-  container: PlatformContainer,
-  repo: IPoolRepository,
-  config: HotPoolConfig,
-): Promise<void> {
-  const slugs = config.productSlugs ?? [];
-
-  if (slugs.length === 0) {
-    // Legacy single-product mode — use boot-time product config
-    const pc = container.productConfig;
-    const slug = pc.product?.slug ?? "default";
-    await replenishForProduct(container, repo, config, {
-      containerImage: pc.fleet?.containerImage ?? "registry.wopr.bot/wopr:managed",
-      containerPort: pc.fleet?.containerPort ?? 3100,
-      dockerNetwork: pc.fleet?.dockerNetwork ?? "",
-      productSlug: slug,
-    });
-    return;
+    return result;
   }
 
-  // Multi-product mode — replenish each product's pool
-  for (const slug of slugs) {
-    const pc = await container.productConfigService.getBySlug(slug);
-    if (!pc?.fleet) continue;
-    await replenishForProduct(container, repo, config, {
-      containerImage: pc.fleet.containerImage,
-      containerPort: pc.fleet.containerPort,
-      dockerNetwork: pc.fleet.dockerNetwork,
-      productSlug: slug,
-    });
+  /** Current desired pool size for a key. */
+  size(key: string): number {
+    return this.specs.get(key)?.size ?? 0;
   }
-}
 
-async function replenishForProduct(
-  container: PlatformContainer,
-  repo: IPoolRepository,
-  config: HotPoolConfig,
-  opts: WarmContainerOpts,
-): Promise<void> {
-  const desired = await repo.getPoolSize(opts.productSlug);
-  const current = await repo.warmCount(opts.productSlug);
-  const deficit = desired - current;
-
-  if (deficit <= 0) return;
-
-  logger.info(
-    `Hot pool [${opts.productSlug}]: replenishing ${deficit} container(s) (have ${current}, want ${desired})`,
-  );
-
-  for (let i = 0; i < deficit; i++) {
-    await createWarmContainer(container, repo, config, opts);
+  /** Update desired pool size for a key. Persists to DB. */
+  async resize(key: string, size: number): Promise<void> {
+    const spec = this.specs.get(key);
+    if (spec) spec.size = size;
+    await this.repo.setPoolSize(size, key);
   }
-}
 
-async function cleanupDead(container: PlatformContainer, repo: IPoolRepository): Promise<void> {
-  if (!container.fleet) return;
+  // ---- Internals -----------------------------------------------------------
 
-  const docker = container.fleet.docker;
+  private async tick(): Promise<void> {
+    await this.cleanup();
+    await this.replenish();
+  }
 
-  // 1. Check DB-tracked warm instances — mark dead if container is gone/stopped
-  const warmInstances = await repo.listWarm();
-  const trackedContainerIds = new Set<string>();
+  /**
+   * Cleanup: verify every active DB row (warm + claimed) has a live container.
+   * If the container is gone or dead, mark the row dead and delete it.
+   * Then reconcile orphan Docker containers not tracked in the DB.
+   */
+  private async cleanup(): Promise<void> {
+    const docker = this.docker;
 
-  for (const instance of warmInstances) {
-    trackedContainerIds.add(instance.containerId);
-    try {
-      const c = docker.getContainer(instance.containerId);
-      const info = await c.inspect();
-      // Mark dead if stopped, or if crash-looping (Restarting state with high restart count)
-      const isRunning = info.State.Running && !info.State.Restarting;
-      const restartCount = info.RestartCount ?? 0;
-      const isCrashLooping = info.State.Restarting || restartCount > 2;
-      if (!isRunning || isCrashLooping) {
-        await repo.markDead(instance.id);
-        try {
-          await c.stop().catch(() => {});
-          await c.remove({ force: true });
-        } catch {
-          /* already gone */
+    // 1. Check ALL active instances — mark dead if container is gone
+    const activeInstances = await this.repo.listActive();
+    const trackedContainerIds = new Set<string>();
+
+    for (const instance of activeInstances) {
+      trackedContainerIds.add(instance.containerId);
+      try {
+        const c = docker.getContainer(instance.containerId);
+        const info = await c.inspect();
+        const isRunning = info.State.Running && !info.State.Restarting;
+        const restartCount = info.RestartCount ?? 0;
+        const isCrashLooping = info.State.Restarting || restartCount > 2;
+        if (!isRunning || isCrashLooping) {
+          await this.repo.markDead(instance.id);
+          await this.removeContainer(instance.containerId);
+          logger.warn(`Hot pool: dead container ${instance.id} (was ${instance.status})`, {
+            running: info.State.Running,
+            restarting: info.State.Restarting,
+            restartCount,
+          });
         }
-        logger.warn(`Hot pool: marked dead container ${instance.id}`, {
-          running: info.State.Running,
-          restarting: info.State.Restarting,
-          restartCount,
+      } catch {
+        await this.repo.markDead(instance.id);
+        logger.warn(`Hot pool: missing container ${instance.id} (was ${instance.status})`);
+      }
+    }
+
+    await this.repo.deleteDead();
+
+    // 2. Orphan reconciliation — pool-* containers not tracked in DB
+    try {
+      const allContainers = await docker.listContainers({ all: true });
+      for (const c of allContainers) {
+        const name = (c.Names?.[0] ?? "").replace(/^\//, "");
+        if (!name.startsWith("pool-")) continue;
+        if (trackedContainerIds.has(c.Id)) continue;
+        await this.removeContainer(c.Id);
+        logger.info(`Hot pool: removed orphan container ${name}`);
+      }
+    } catch (err) {
+      logger.warn("Hot pool: orphan reconciliation failed (non-fatal)", {
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  /** Replenish warm containers for every registered spec. */
+  private async replenish(): Promise<void> {
+    for (const [key, spec] of this.specs) {
+      const current = await this.repo.warmCount(key);
+      const deficit = spec.size - current;
+      if (deficit <= 0) continue;
+
+      logger.info(`Hot pool [${key}]: replenishing ${deficit} (have ${current}, want ${spec.size})`);
+      for (let i = 0; i < deficit; i++) {
+        await this.createWarm(key, spec);
+      }
+    }
+  }
+
+  /** Create a single warm container for the given spec. */
+  private async createWarm(key: string, spec: PoolSpec): Promise<void> {
+    const docker = this.docker;
+    const { image, port, network } = spec;
+    const { provisionSecret } = this.config;
+    const id = crypto.randomUUID();
+    const containerName = `pool-${id.slice(0, 8)}`;
+    const volumeName = `pool-${id.slice(0, 8)}`;
+
+    try {
+      // Pull image
+      try {
+        const auth = this.config.registryAuth;
+        const [fromImage, tag] = image.includes(":") ? image.split(":") : [image, "latest"];
+        logger.info(`Hot pool: pulling ${image} (auth: ${auth ? `${auth.username}@${auth.serveraddress}` : "none"})`);
+        const authArg = auth
+          ? { username: auth.username, password: auth.password, serveraddress: auth.serveraddress }
+          : {};
+        const stream: NodeJS.ReadableStream = await docker.createImage(authArg, { fromImage, tag });
+        await new Promise<void>((resolve, reject) => {
+          docker.modem.followProgress(stream, (err: Error | null) => (err ? reject(err) : resolve()));
+        });
+      } catch (pullErr) {
+        logger.warn(`Hot pool: image pull failed for ${image}`, { key, error: (pullErr as Error).message });
+      }
+
+      // Init volume — clear stale embedded-PG data
+      const init = await docker.createContainer({
+        Image: image,
+        Entrypoint: ["/bin/sh", "-c"],
+        Cmd: ["rm -rf /data/* /data/.* 2>/dev/null; chown -R 999:999 /data || true"],
+        User: "root",
+        HostConfig: { Binds: [`${volumeName}:/data`] },
+      });
+      await init.start();
+      await init.wait();
+      await init.remove();
+
+      // Wrap original entrypoint with cleanup
+      const imageInfo = await docker.getImage(image).inspect();
+      const rawEntrypoint = imageInfo.Config?.Entrypoint ?? [];
+      const rawCmd = imageInfo.Config?.Cmd ?? [];
+      const origEntrypoint: string[] = Array.isArray(rawEntrypoint) ? rawEntrypoint : [rawEntrypoint];
+      const origCmd: string[] = Array.isArray(rawCmd) ? rawCmd : [rawCmd];
+      const fullCmd = [...origEntrypoint, ...origCmd].join(" ");
+      const cleanupAndExec = `rm -rf /paperclip/instances/default/db 2>/dev/null; exec ${fullCmd}`;
+
+      const warmContainer = await docker.createContainer({
+        Image: image,
+        name: containerName,
+        Entrypoint: ["/bin/sh", "-c"],
+        Cmd: [cleanupAndExec],
+        Env: [`PORT=${port}`, `WOPR_PROVISION_SECRET=${provisionSecret}`, "HOME=/data"],
+        HostConfig: {
+          Binds: [`${volumeName}:/data`],
+          RestartPolicy: { Name: "on-failure", MaximumRetryCount: 3 },
+        },
+      });
+
+      await warmContainer.start();
+
+      // Connect to Docker network
+      const targetNetwork = network || "platform";
+      try {
+        const net = docker.getNetwork(targetNetwork);
+        await net.connect({ Container: warmContainer.id });
+        logger.info(`Hot pool: connected ${containerName} to network ${targetNetwork}`);
+      } catch (netErr) {
+        logger.warn(`Hot pool: network connect failed for ${containerName}`, {
+          error: (netErr as Error).message,
         });
       }
-    } catch {
-      await repo.markDead(instance.id);
-      logger.warn(`Hot pool: marked missing container ${instance.id} as dead`);
-    }
-  }
 
-  await repo.deleteDead();
-
-  // 2. Reconcile orphan Docker containers — pool-* containers not tracked in DB
-  try {
-    const allContainers = await docker.listContainers({ all: true });
-    for (const c of allContainers) {
-      const name = (c.Names?.[0] ?? "").replace(/^\//, "");
-      if (!name.startsWith("pool-")) continue;
-      if (trackedContainerIds.has(c.Id)) continue;
-      // Orphan — not in DB. Remove it.
-      try {
-        const orphan = docker.getContainer(c.Id);
-        await orphan.stop().catch(() => {});
-        await orphan.remove({ force: true });
-        logger.info(`Hot pool: removed orphan container ${name}`);
-      } catch {
-        // Already gone
-      }
-    }
-  } catch (err) {
-    logger.warn("Hot pool: orphan reconciliation failed (non-fatal)", { error: (err as Error).message });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
-
-export async function startHotPool(
-  container: PlatformContainer,
-  repo: IPoolRepository,
-  config: HotPoolConfig,
-): Promise<HotPoolHandles> {
-  await cleanupDead(container, repo);
-  await replenishPool(container, repo, config);
-
-  const intervalMs = config.replenishIntervalMs ?? 60_000;
-  const replenishTimer = setInterval(async () => {
-    try {
-      await cleanupDead(container, repo);
-      await replenishPool(container, repo, config);
+      await this.repo.insertWarm(id, warmContainer.id, key, image);
+      logger.info(`Hot pool: created warm container ${containerName} (${id}) for "${key}"`);
     } catch (err) {
-      logger.error("Hot pool tick failed", { error: (err as Error).message });
+      logger.error("Hot pool: failed to create warm container", { key, error: (err as Error).message });
     }
-  }, intervalMs);
+  }
 
-  logger.info("Hot pool manager started");
-
-  return {
-    replenishTimer,
-    stop: () => clearInterval(replenishTimer),
-  };
+  /** Best-effort stop + remove a Docker container. */
+  private async removeContainer(containerId: string): Promise<void> {
+    try {
+      const c = this.docker.getContainer(containerId);
+      await c.stop().catch(() => {});
+      await c.remove({ force: true });
+    } catch {
+      /* already gone */
+    }
+  }
 }

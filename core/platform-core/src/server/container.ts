@@ -77,20 +77,8 @@ export interface GatewayServices {
   budgetChecker: import("../monetization/budget/budget-checker.js").IBudgetChecker;
 }
 
-export interface HotPoolServices {
-  /** Start the pool manager (replenish loop + cleanup). */
-  start: () => Promise<{ stop: () => void }>;
-  /** Claim a warm instance from the pool. Returns null if empty. */
-  claim: (
-    name: string,
-    tenantId: string,
-    adminUser: { id: string; email: string; name: string },
-  ) => Promise<{ id: string; name: string; subdomain: string } | null>;
-  /** Get current pool size from DB. */
-  getPoolSize: () => Promise<number>;
-  /** Set pool size in DB. */
-  setPoolSize: (size: number) => Promise<void>;
-}
+/** @deprecated Use HotPool class directly. */
+export type HotPoolServices = import("./services/hot-pool.js").HotPool;
 
 // ---------------------------------------------------------------------------
 // Main container
@@ -131,9 +119,7 @@ export interface PlatformContainer {
   /** Null when the product does not expose a metered inference gateway. */
   gateway: GatewayServices | null;
   /** Null when the product does not use a hot-pool of pre-provisioned instances. */
-  hotPool: HotPoolServices | null;
-  /** Pool repository — exposed for fleet createInstance to try warm claim. Null when hotPool disabled. */
-  poolRepo: import("./services/pool-repository.js").IPoolRepository | null;
+  hotPool: import("./services/hot-pool.js").HotPool | null;
   /** Instance lifecycle service — orchestrates create, provision, billing. Null only when fleet is disabled. */
   instanceService: import("../fleet/instance-service.js").InstanceService | null;
   /** Per-product OAuth provider config. Null when auth is not configured. */
@@ -443,32 +429,20 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     stripe,
     gateway,
     hotPool: null,
-    poolRepo: null,
     instanceService: null,
     productAuthManager: null,
     leaderElection,
   };
 
-  // Bind hot pool after container construction (closures need the full container)
+  // Bind hot pool after container construction
   if (bootConfig.features.hotPool && fleet) {
-    const { startHotPool, setPoolSize: setSize, getPoolSize: getSize } = await import("./services/hot-pool.js");
-    const { claimPoolInstance } = await import("./services/hot-pool-claim.js");
+    const { HotPool } = await import("./services/hot-pool.js");
     const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
     const poolRepo = new DrizzlePoolRepository(pool);
-    result.poolRepo = poolRepo;
-
-    // In standalone mode, pass all product slugs so the pool pre-warms each product's image
-    const productSlugs = bootConfig.standalone
-      ? ((await result.productConfigService.listAll())
-          .filter((pc) => pc.fleet)
-          .map((pc) => pc.product?.slug)
-          .filter(Boolean) as string[])
-      : undefined;
 
     const secrets = bootConfig.secrets;
-    const hotPoolConfig = {
+    const hotPool = new HotPool(fleet.docker, poolRepo, {
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? "",
-      productSlugs,
       registryAuth:
         secrets?.registryUsername && secrets?.registryPassword
           ? {
@@ -477,14 +451,25 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
               serveraddress: secrets.registryUrl ?? "https://registry.wopr.bot",
             }
           : undefined,
-    };
-    result.hotPool = {
-      start: () => startHotPool(result, poolRepo, hotPoolConfig),
-      claim: (name, tenantId, adminUser) =>
-        claimPoolInstance(result, poolRepo, name, tenantId, adminUser, hotPoolConfig),
-      getPoolSize: () => getSize(poolRepo),
-      setPoolSize: (size) => setSize(poolRepo, size),
-    };
+    });
+
+    // Register all fleet-enabled products — each gets its own pool partition
+    const products = bootConfig.standalone
+      ? (await result.productConfigService.listAll()).filter((pc) => pc.fleet && pc.product?.slug)
+      : [result.productConfig].filter((pc) => pc.fleet);
+
+    for (const pc of products) {
+      const slug = pc.product?.slug ?? "default";
+      const dbSize = await poolRepo.getPoolSize(slug);
+      hotPool.register(slug, {
+        image: pc.fleet!.containerImage,
+        port: pc.fleet!.containerPort,
+        network: pc.fleet!.dockerNetwork,
+        size: dbSize,
+      });
+    }
+
+    result.hotPool = hotPool;
   }
 
   // Bind InstanceService — orchestrates create, provision, billing
@@ -498,7 +483,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       profileStore: fleet.profileStore,
       botInstanceRepo,
       serviceKeyRepo: fleet.serviceKeyRepo,
-      poolRepo: result.poolRepo,
+      pool: result.hotPool,
       docker: fleet.docker ?? null,
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? null,
       getFleetManager: () => fleet.manager as never,

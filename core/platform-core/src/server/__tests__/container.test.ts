@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BootConfig, FeatureFlags } from "../boot-config.js";
-import type { CryptoServices, FleetServices, GatewayServices, HotPoolServices, StripeServices } from "../container.js";
+import type { CryptoServices, FleetServices, GatewayServices, StripeServices } from "../container.js";
 import { createTestContainer } from "../test-container.js";
 
 // ---------------------------------------------------------------------------
@@ -173,12 +173,16 @@ describe("createTestContainer", () => {
       budgetChecker: {} as never,
     };
 
-    const hotPool: HotPoolServices = {
+    const hotPool = {
       start: async () => ({ stop: () => {} }),
+      stop: () => {},
       claim: async () => null,
-      getPoolSize: async () => 2,
-      setPoolSize: async () => {},
-    };
+      register: () => {},
+      unregister: async () => {},
+      registeredKeys: () => [],
+      size: () => 0,
+      resize: async () => {},
+    } as unknown as import("../services/hot-pool.js").HotPool;
 
     const c = createTestContainer({ fleet, crypto, stripe, gateway, hotPool });
 

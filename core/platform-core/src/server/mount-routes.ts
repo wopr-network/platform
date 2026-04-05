@@ -399,8 +399,6 @@ export async function mountRoutes(
               getFleetForInstance: (_instanceId: string) => need(container.fleet, "fleet").manager as never,
               provisionSecret: config.provisionSecret,
               resolveProductConfig: (slug: string) => container.productConfigService.getBySlug(slug),
-              poolRepo: container.poolRepo ?? undefined,
-              docker: container.fleet.docker,
               instanceService: need(container.instanceService, "instanceService"),
             },
           }

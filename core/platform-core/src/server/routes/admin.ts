@@ -281,24 +281,22 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
 
     getPoolConfig: adminProcedure.query(async () => {
       if (!container.hotPool) {
-        return { enabled: false, poolSize: 0, warmCount: 0 };
+        return { enabled: false, keys: [], pools: [] };
       }
-      const poolSize = await container.hotPool.getPoolSize();
-      const warmRes = await container.pool.query<{ count: string }>(
-        "SELECT COUNT(*)::int AS count FROM pool_instances WHERE status = 'warm'",
-      );
-      const warmCount = Number(warmRes.rows[0]?.count ?? 0);
-      return { enabled: true, poolSize, warmCount };
+      const pool = container.hotPool;
+      const keys = pool.registeredKeys();
+      const pools = keys.map((key) => ({ key, size: pool.size(key) }));
+      return { enabled: true, keys, pools };
     }),
 
     setPoolSize: adminProcedure
-      .input(z.object({ size: z.number().int().min(0).max(50) }))
+      .input(z.object({ key: z.string(), size: z.number().int().min(0).max(50) }))
       .mutation(async ({ input }) => {
         if (!container.hotPool) {
           throw new Error("Hot pool not enabled");
         }
-        await container.hotPool.setPoolSize(input.size);
-        return { poolSize: input.size };
+        await container.hotPool.resize(input.key, input.size);
+        return { key: input.key, poolSize: input.size };
       }),
   });
 }

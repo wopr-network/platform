@@ -13,7 +13,6 @@ import type { ILedger } from "../../credits/ledger.js";
 import type { IProfileStore } from "../../fleet/profile-store.js";
 import type { IServiceKeyRepository } from "../../gateway/service-key-repository.js";
 import type { ProductConfig } from "../../product-config/repository-types.js";
-import type { IPoolRepository } from "../../server/services/pool-repository.js";
 import { protectedProcedure, router, type TRPCContext } from "../init.js";
 
 // Narrowed context after protectedProcedure middleware (user is non-optional)
@@ -71,10 +70,6 @@ export interface FleetCoreRouterDeps {
   provisionSecret?: string;
   /** Resolve product config by slug. */
   resolveProductConfig?: (slug: string) => Promise<ProductConfig | null>;
-  /** Hot pool repository — try claiming a pre-warmed container before cold create. */
-  poolRepo?: IPoolRepository;
-  /** Docker client for container rename after pool claim. */
-  docker?: import("dockerode");
   /** Instance service — orchestrates create, provision, billing. */
   instanceService: import("../../fleet/instance-service.js").InstanceService;
 }
