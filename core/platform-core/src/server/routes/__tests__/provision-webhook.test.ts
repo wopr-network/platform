@@ -218,7 +218,7 @@ describe("createProvisionWebhookRoutes", () => {
       app,
       "POST",
       "/create",
-      { tenantId: "tenant-1", subdomain: "myapp" },
+      { tenantId: "tenant-1", subdomain: "myapp", product: "test" },
       { Authorization: `Bearer ${SECRET}` },
     );
 
@@ -345,7 +345,7 @@ describe("createProvisionWebhookRoutes", () => {
       app,
       "POST",
       "/create",
-      { tenantId: "tenant-1", subdomain: "myapp" },
+      { tenantId: "tenant-1", subdomain: "myapp", product: "test" },
       { Authorization: `Bearer ${SECRET}` },
     );
 

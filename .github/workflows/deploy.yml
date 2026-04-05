@@ -1,0 +1,129 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify registry auth
+        run: docker login registry.wopr.bot < /dev/null 2>&1 | grep -q "Authenticating with existing credentials" || { echo "Not logged into registry.wopr.bot — run 'docker login registry.wopr.bot' on this runner"; exit 1; }
+
+      # --- Monorepo images (context: .) ---
+
+      - name: Build core-server
+        run: docker build -f platforms/core-server/Dockerfile -t registry.wopr.bot/core-server:latest .
+
+      - name: Build paperclip
+        run: docker build -f sidecars/paperclip/Dockerfile.managed -t registry.wopr.bot/paperclip:managed .
+
+      - name: Build holyship
+        run: docker build -f platforms/holyship/Dockerfile -t registry.wopr.bot/holyship:latest .
+
+      - name: Build paperclip-ui
+        run: docker build -f shells/paperclip-platform-ui/Dockerfile -t registry.wopr.bot/paperclip-ui:latest .
+
+      - name: Build wopr-ui
+        run: docker build -f shells/wopr-platform-ui/Dockerfile -t registry.wopr.bot/wopr-ui:latest .
+
+      - name: Build holyship-ui
+        run: docker build -f shells/holyship-platform-ui/Dockerfile -t registry.wopr.bot/holyship-ui:latest .
+
+      - name: Build nemoclaw-ui
+        run: docker build -f shells/nemoclaw-platform-ui/Dockerfile -t registry.wopr.bot/nemoclaw-ui:latest .
+
+      # --- Standalone sidecar images ---
+
+      - name: Build wopr sidecar
+        run: docker build -f sidecars/wopr/Dockerfile -t registry.wopr.bot/wopr:managed sidecars/wopr/
+
+      - name: Build holyshipper
+        run: docker build -f sidecars/holyshipper/Dockerfile.managed -t registry.wopr.bot/holyshipper:managed sidecars/holyshipper/
+
+      - name: Build nemoclaw
+        run: docker build -f sidecars/nemoclaw/Dockerfile -t registry.wopr.bot/nemoclaw:managed sidecars/nemoclaw/
+
+      # --- Infrastructure ---
+
+      - name: Build caddy-cf
+        run: docker build -f ops/core-server/Dockerfile.caddy -t registry.wopr.bot/caddy-cf:latest ops/core-server/
+
+      # --- Push all images ---
+
+      - name: Push all images
+        run: |
+          for img in \
+            registry.wopr.bot/core-server:latest \
+            registry.wopr.bot/paperclip:managed \
+            registry.wopr.bot/holyship:latest \
+            registry.wopr.bot/paperclip-ui:latest \
+            registry.wopr.bot/wopr-ui:latest \
+            registry.wopr.bot/holyship-ui:latest \
+            registry.wopr.bot/nemoclaw-ui:latest \
+            registry.wopr.bot/wopr:managed \
+            registry.wopr.bot/holyshipper:managed \
+            registry.wopr.bot/nemoclaw:managed \
+            registry.wopr.bot/caddy-cf:latest; do
+            echo "Pushing $img..."
+            docker push "$img"
+          done
+
+      - name: Clean up build cache
+        if: always()
+        run: docker image prune -f
+
+  deploy:
+    needs: build-and-push
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Deploy to production
+        run: |
+          ssh -o StrictHostKeyChecking=no root@138.68.30.247 bash -s <<'DEPLOY'
+          set -euo pipefail
+          cd /opt/core-server
+
+          echo "=== Pulling images ==="
+          docker compose pull
+
+          echo "=== Recreating compose services ==="
+          docker compose up -d --force-recreate
+
+          echo "=== Waiting for core health ==="
+          for i in $(seq 1 30); do
+            if docker compose exec -T core curl -sf http://localhost:3001/health > /dev/null 2>&1; then
+              echo "Core healthy"
+              break
+            fi
+            echo "  Waiting... ($i/30)"
+            sleep 5
+          done
+
+          echo "=== Killing pool containers (will auto-replenish with new images) ==="
+          docker ps --filter "name=pool-" --format '{{.Names}}' | while read -r name; do
+            echo "  Stopping $name"
+            docker rm -f "$name" 2>/dev/null || true
+          done
+
+          echo "=== Cleanup ==="
+          docker image prune -f
+
+          echo "Deploy complete"
+          DEPLOY
+
+      - name: Verify pool replenishment
+        run: |
+          sleep 30
+          ssh -o StrictHostKeyChecking=no root@138.68.30.247 \
+            "docker ps --filter 'name=pool-' --format '{{.Names}}\t{{.Image}}\t{{.Status}}'"

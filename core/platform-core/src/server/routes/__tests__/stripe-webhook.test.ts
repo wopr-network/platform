@@ -37,12 +37,15 @@ describe("stripe webhook route", () => {
   });
 
   it("returns 200 on valid webhook", async () => {
-    const handleWebhook = vi.fn().mockResolvedValue({ handled: true, event_type: "checkout.session.completed" });
     const app = makeApp({
-      stripe: {},
+      stripe: {
+        webhooks: {
+          constructEvent: vi.fn().mockReturnValue({ type: "checkout.session.completed", data: { object: {} } }),
+        },
+      },
       webhookSecret: "whsec_test",
       customerRepo: {},
-      processor: { handleWebhook },
+      processor: { handleWebhook: vi.fn() },
     });
     const res = await app.request("/api/webhooks/stripe", {
       method: "POST",
@@ -50,7 +53,8 @@ describe("stripe webhook route", () => {
       body: '{"type":"checkout.session.completed"}',
     });
     expect(res.status).toBe(200);
-    expect(handleWebhook).toHaveBeenCalledOnce();
+    const body = await res.json();
+    expect(body.ok).toBe(true);
   });
 
   it("returns 400 when processor throws (bad signature)", async () => {

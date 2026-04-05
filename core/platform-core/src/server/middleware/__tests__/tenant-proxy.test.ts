@@ -83,7 +83,7 @@ describe("createTenantProxyMiddleware", () => {
 
   beforeEach(() => {
     resolveUser = vi.fn<(req: Request) => Promise<ProxyUserInfo | undefined>>();
-    config = { platformDomain: DOMAIN, resolveUser };
+    config = { platformDomains: [DOMAIN], resolveUser };
   });
 
   function createApp(container: ReturnType<typeof createTestContainer>) {

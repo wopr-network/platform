@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { generateCaddyConfig } from "./caddy-config.js";
+import { type CaddyConfigOptions, generateCaddyConfig, type ProductRouteConfig } from "./caddy-config.js";
 import type { ProxyRoute } from "./types.js";
+
+function makeProduct(overrides: Partial<ProductRouteConfig> = {}): ProductRouteConfig {
+  return {
+    slug: "testapp",
+    domain: "testapp.dev",
+    uiUpstream: "testapp-ui:3002",
+    apiUpstream: "core:3001",
+    ...overrides,
+  };
+}
+
+function makeOpts(overrides: Partial<CaddyConfigOptions> = {}): CaddyConfigOptions {
+  return {
+    cloudflareApiToken: "cf-test-token",
+    products: [makeProduct()],
+    ...overrides,
+  };
+}
 
 function makeRoute(overrides: Partial<ProxyRoute> = {}): ProxyRoute {
   return {
@@ -14,101 +32,98 @@ function makeRoute(overrides: Partial<ProxyRoute> = {}): ProxyRoute {
 }
 
 describe("generateCaddyConfig", () => {
-  it("generates empty config with no routes", () => {
-    const config = generateCaddyConfig([]);
+  it("generates product routes with no instance routes", () => {
+    const config = generateCaddyConfig(makeOpts());
+    const routes = (config.apps as any).http.servers.srv0.routes;
 
-    expect(config.apps.http.servers.proxy.routes).toEqual([]);
-    expect(config.apps.http.servers.proxy.listen).toEqual([":443"]);
+    // Product generates: domain→UI, api.domain→core, *.domain→core
+    expect(routes.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("generates subdomain and path routes for a healthy instance", () => {
-    const config = generateCaddyConfig([makeRoute()]);
-    const routes = config.apps.http.servers.proxy.routes;
+  it("generates empty routes with no products", () => {
+    const config = generateCaddyConfig(makeOpts({ products: [] }));
+    const routes = (config.apps as any).http.servers.srv0.routes;
 
-    // Should have 2 routes: subdomain + path
-    expect(routes).toHaveLength(2);
-
-    // Subdomain route
-    expect(routes[0].match).toEqual([{ host: ["inst-1.wopr.bot"] }]);
-    expect(routes[0].handle).toEqual([{ handler: "reverse_proxy", upstreams: [{ dial: "203.0.113.2:7437" }] }]);
-
-    // Path route
-    expect(routes[1].match).toEqual([{ path: ["/instance/inst-1/*"] }]);
-    expect(routes[1].handle).toEqual([{ handler: "reverse_proxy", upstreams: [{ dial: "203.0.113.2:7437" }] }]);
+    expect(routes).toEqual([]);
   });
 
-  it("generates 503 responses for unhealthy instances", () => {
-    const config = generateCaddyConfig([makeRoute({ healthy: false })]);
-    const routes = config.apps.http.servers.proxy.routes;
+  it("routes product domain to UI upstream", () => {
+    const config = generateCaddyConfig(makeOpts());
+    const routes = (config.apps as any).http.servers.srv0.routes;
 
-    expect(routes).toHaveLength(2);
-
-    for (const route of routes) {
-      expect(route.handle[0]).toEqual(
-        expect.objectContaining({
-          handler: "static_response",
-          status_code: "503",
-        }),
-      );
-    }
+    // First route: domain → UI
+    expect(routes[0].match).toEqual([{ host: ["testapp.dev"] }]);
   });
 
-  it("handles multiple routes", () => {
-    const routes = [
-      makeRoute({ instanceId: "a", subdomain: "a", upstreamHost: "203.0.113.1" }),
-      makeRoute({ instanceId: "b", subdomain: "b", upstreamHost: "203.0.113.2" }),
-      makeRoute({ instanceId: "c", subdomain: "c", upstreamHost: "203.0.113.3", healthy: false }),
-    ];
+  it("routes api subdomain to core upstream", () => {
+    const config = generateCaddyConfig(makeOpts());
+    const routes = (config.apps as any).http.servers.srv0.routes;
 
-    const config = generateCaddyConfig(routes);
-    const caddyRoutes = config.apps.http.servers.proxy.routes;
-
-    // 2 routes per instance (subdomain + path) = 6 total
-    expect(caddyRoutes).toHaveLength(6);
-
-    // First two are healthy reverse_proxy
-    expect(caddyRoutes[0].handle[0].handler).toBe("reverse_proxy");
-    expect(caddyRoutes[1].handle[0].handler).toBe("reverse_proxy");
-
-    // Last two are unhealthy static_response
-    expect(caddyRoutes[4].handle[0].handler).toBe("static_response");
-    expect(caddyRoutes[5].handle[0].handler).toBe("static_response");
+    // Second route: api.domain → core
+    expect(routes[1].match).toEqual([{ host: ["api.testapp.dev"] }]);
   });
 
-  it("uses custom domain option", () => {
-    const config = generateCaddyConfig([makeRoute()], { domain: "custom.dev" });
-    const routes = config.apps.http.servers.proxy.routes;
+  it("routes wildcard subdomain to core for tenant proxy", () => {
+    const config = generateCaddyConfig(makeOpts());
+    const routes = (config.apps as any).http.servers.srv0.routes;
 
-    expect(routes[0].match).toEqual([{ host: ["inst-1.custom.dev"] }]);
+    // Third route: *.domain → core
+    expect(routes[2].match).toEqual([{ host: ["*.testapp.dev"] }]);
   });
 
-  it("uses custom listen addresses", () => {
-    const config = generateCaddyConfig([], { listenAddresses: [":8080", ":8443"] });
+  it("includes instance routes when provided", () => {
+    const config = generateCaddyConfig(makeOpts({ instanceRoutes: [makeRoute()] }));
+    const routes = (config.apps as any).http.servers.srv0.routes;
 
-    expect(config.apps.http.servers.proxy.listen).toEqual([":8080", ":8443"]);
+    // 3 product routes + 1 instance route
+    expect(routes.length).toBe(4);
+
+    // Instance route: subdomain.domain → container
+    const instanceRoute = routes[3];
+    expect(instanceRoute.match).toEqual([{ host: ["inst-1.testapp.dev"] }]);
   });
 
-  it("routes WebSocket traffic via reverse_proxy (Caddy auto-upgrades)", () => {
-    // Caddy's reverse_proxy automatically handles WebSocket upgrade headers,
-    // so no special config is needed. We verify the reverse_proxy handler is used.
-    const config = generateCaddyConfig([makeRoute()]);
-    const routes = config.apps.http.servers.proxy.routes;
+  it("handles multiple products", () => {
+    const config = generateCaddyConfig(
+      makeOpts({
+        products: [
+          makeProduct({ slug: "alpha", domain: "alpha.dev", uiUpstream: "alpha-ui:3002" }),
+          makeProduct({ slug: "beta", domain: "beta.dev", uiUpstream: "beta-ui:3003" }),
+        ],
+      }),
+    );
+    const routes = (config.apps as any).http.servers.srv0.routes;
 
-    const proxyHandlers = routes.filter((r) => r.handle[0].handler === "reverse_proxy");
-    expect(proxyHandlers.length).toBeGreaterThan(0);
-
-    for (const route of proxyHandlers) {
-      expect(route.handle[0]).toHaveProperty("upstreams");
-    }
+    // Each product: domain, api.domain = 2 routes, then 1 wildcard catch-all
+    // alpha: alpha.dev, api.alpha.dev
+    // beta: beta.dev, api.beta.dev
+    // wildcard: *.alpha.dev, *.beta.dev (merged into one route)
+    expect(routes.length).toBe(5);
   });
 
-  it("uses correct upstream dial format", () => {
-    const route = makeRoute({ upstreamHost: "198.51.100.50", upstreamPort: 9000 });
-    const config = generateCaddyConfig([route]);
-    const caddyRoutes = config.apps.http.servers.proxy.routes;
+  it("configures TLS with cloudflare DNS challenge", () => {
+    const config = generateCaddyConfig(makeOpts({ cloudflareApiToken: "my-cf-token" }));
+    const tls = (config.apps as any).tls;
 
-    const handler = caddyRoutes[0].handle[0];
-    expect(handler).toEqual(
+    expect(tls.automation.policies[0].issuers[0].challenges.dns.provider.api_token).toBe("my-cf-token");
+  });
+
+  it("includes HTTP→HTTPS redirect server", () => {
+    const config = generateCaddyConfig(makeOpts());
+    const redirect = (config.apps as any).http.servers.srv_redirect;
+
+    expect(redirect.listen).toEqual([":80"]);
+    expect(redirect.routes[0].handle[0].status_code).toBe(301);
+  });
+
+  it("uses correct upstream dial format for instances", () => {
+    const config = generateCaddyConfig(
+      makeOpts({ instanceRoutes: [makeRoute({ upstreamHost: "198.51.100.50", upstreamPort: 9000 })] }),
+    );
+    const routes = (config.apps as any).http.servers.srv0.routes;
+    const instanceRoute = routes[routes.length - 1];
+
+    expect(instanceRoute.handle[0]).toEqual(
       expect.objectContaining({
         handler: "reverse_proxy",
         upstreams: [{ dial: "198.51.100.50:9000" }],

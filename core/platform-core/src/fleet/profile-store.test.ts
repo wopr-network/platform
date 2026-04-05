@@ -32,7 +32,7 @@ describe("ProfileStore Path Traversal Protection", () => {
         restartPolicy: "unless-stopped",
         releaseChannel: "stable",
         updatePolicy: "manual",
-        productSlug: "",
+        productSlug: "test",
       };
 
       await expect(store.save(profile)).resolves.not.toThrow();
@@ -53,7 +53,7 @@ describe("ProfileStore Path Traversal Protection", () => {
         restartPolicy: "unless-stopped",
         releaseChannel: "stable",
         updatePolicy: "manual",
-        productSlug: "",
+        productSlug: "test",
       };
 
       await expect(store.save(profile)).resolves.not.toThrow();

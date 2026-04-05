@@ -20,7 +20,18 @@ class MockPoolClass {
 vi.mock("pg", () => ({ Pool: MockPoolClass }));
 
 // Mock drizzle db creation
-const mockDb = { __brand: "drizzle-db" } as never;
+const mockDb = {
+  __brand: "drizzle-db",
+  select: vi.fn().mockReturnValue({ from: vi.fn().mockResolvedValue([]) }),
+  insert: vi.fn().mockReturnValue({
+    values: vi.fn().mockReturnValue({
+      onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+      onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
+    }),
+  }),
+  update: vi.fn().mockReturnValue({ set: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }) }),
+  delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+} as never;
 vi.mock("../../db/index.js", () => ({
   createDb: vi.fn(() => mockDb),
 }));
@@ -40,6 +51,8 @@ const mockProductConfig = {
     appDomain: "app.test.dev",
     fromEmail: "hi@test.dev",
     emailSupport: "support@test.dev",
+    uiService: "test-ui",
+    uiPort: 3002,
   },
   navItems: [],
   domains: [],
@@ -48,7 +61,10 @@ const mockProductConfig = {
   billing: null,
 };
 const mockPlatformBoot = vi.fn().mockResolvedValue({
-  service: {},
+  service: {
+    listAll: vi.fn().mockResolvedValue([mockProductConfig]),
+    getBySlug: vi.fn().mockResolvedValue(mockProductConfig),
+  },
   config: mockProductConfig,
   corsOrigins: ["https://test.dev"],
   seeded: false,
@@ -306,6 +322,10 @@ describe("buildContainer", () => {
     const buildContainer = await loadBuildContainer();
     const config = baseBootConfig({
       features: { fleet: true, crypto: false, stripe: false, gateway: false, hotPool: false },
+      secrets: {
+        cloudflareCaddyDnsToken: "test-cf-dns-token",
+        provisionSecret: "test-provision-secret",
+      } as never,
     });
 
     const container = await buildContainer(config);

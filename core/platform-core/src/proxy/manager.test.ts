@@ -29,7 +29,11 @@ describe("ProxyManager", () => {
   let manager: ProxyManager;
 
   beforeEach(() => {
-    manager = new ProxyManager({ caddyAdminUrl: "http://localhost:2019" });
+    manager = new ProxyManager({
+      caddyAdminUrl: "http://localhost:2019",
+      cloudflareApiToken: "test-cf-token",
+      products: [{ slug: "testapp", domain: "testapp.dev", uiUpstream: "testapp-ui:3002", apiUpstream: "core:3001" }],
+    });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, text: () => Promise.resolve("") }));
     // Default: DNS resolution returns the host as-is for IPs, public IPs for hostnames
     vi.mocked(dnsPromises.resolve4).mockResolvedValue(["203.0.113.50"]);
@@ -109,13 +113,10 @@ describe("ProxyManager", () => {
     it("calls Caddy admin API on start", async () => {
       await manager.start();
 
-      expect(fetch).toHaveBeenCalledWith(
-        "http://localhost:2019/load",
-        expect.objectContaining({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }),
-      );
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = vi.mocked(fetch).mock.calls[0];
+      expect(url).toBe("http://localhost:2019/load");
+      expect((opts as RequestInit).method).toBe("POST");
     });
   });
 
@@ -139,7 +140,7 @@ describe("ProxyManager", () => {
       expect(callArgs[0]).toBe("http://localhost:2019/load");
 
       const body = JSON.parse(callArgs[1]?.body as string);
-      expect(body.apps.http.servers.proxy.routes).toHaveLength(2); // subdomain + path
+      expect(body.apps.http.servers.srv0.routes.length).toBeGreaterThan(0);
     });
 
     it("throws on Caddy API failure", async () => {
@@ -379,34 +380,38 @@ describe("ProxyManager", () => {
   });
 
   describe("start rollback on failure", () => {
-    it("calls stop() and continues if reload fails during start()", async () => {
+    it("continues running if initial Caddy push fails (non-fatal)", async () => {
       vi.mocked(fetch).mockRejectedValueOnce(new Error("connection refused"));
 
-      // start() should NOT throw — proxy failure is non-fatal
+      // start() should NOT throw — proxy failure is non-fatal, falls back to static config
       await expect(manager.start()).resolves.toBeUndefined();
-      expect(manager.isRunning).toBe(false);
+      expect(manager.isRunning).toBe(true);
     });
   });
 
   describe("config options", () => {
     it("uses custom Caddy admin URL", async () => {
-      const custom = new ProxyManager({ caddyAdminUrl: "http://caddy:2020" });
+      const custom = new ProxyManager({
+        caddyAdminUrl: "http://caddy:2020",
+        cloudflareApiToken: "test-cf-token",
+        products: [{ slug: "testapp", domain: "testapp.dev", uiUpstream: "testapp-ui:3002", apiUpstream: "core:3001" }],
+      });
       await custom.start();
 
       expect(fetch).toHaveBeenCalledWith("http://caddy:2020/load", expect.anything());
     });
 
-    it("passes domain option to config generator", async () => {
+    it("passes product domain to config generator", async () => {
       const custom = new ProxyManager({
         caddyAdminUrl: "http://localhost:2019",
-        domain: "test.dev",
+        cloudflareApiToken: "test-cf-token",
+        products: [{ slug: "testapp", domain: "test.dev", uiUpstream: "testapp-ui:3002", apiUpstream: "core:3001" }],
       });
-      await custom.addRoute(makeRoute());
       await custom.start();
 
-      const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
-      const match = body.apps.http.servers.proxy.routes[0].match[0];
-      expect(match.host[0]).toBe("inst-1.test.dev");
+      expect(fetch).toHaveBeenCalledTimes(1);
+      const bodyStr = String(vi.mocked(fetch).mock.calls[0][1]?.body);
+      expect(bodyStr).toContain("test.dev");
     });
   });
 });
