@@ -20,64 +20,50 @@ jobs:
       - name: Verify registry auth
         run: docker login registry.wopr.bot < /dev/null 2>&1 | grep -q "Authenticating with existing credentials" || { echo "Not logged into registry.wopr.bot — run 'docker login registry.wopr.bot' on this runner"; exit 1; }
 
-      # --- Monorepo images (context: .) ---
-
-      - name: Build core-server
-        run: docker build -f platforms/core-server/Dockerfile -t registry.wopr.bot/core-server:latest .
-
-      - name: Build paperclip
-        run: docker build -f sidecars/paperclip/Dockerfile.managed -t registry.wopr.bot/paperclip:managed .
-
-      - name: Build holyship
-        run: docker build -f platforms/holyship/Dockerfile -t registry.wopr.bot/holyship:latest .
-
-      - name: Build paperclip-ui
-        run: docker build -f shells/paperclip-platform-ui/Dockerfile -t registry.wopr.bot/paperclip-ui:latest .
-
-      - name: Build wopr-ui
-        run: docker build -f shells/wopr-platform-ui/Dockerfile -t registry.wopr.bot/wopr-ui:latest .
-
-      - name: Build holyship-ui
-        run: docker build -f shells/holyship-platform-ui/Dockerfile -t registry.wopr.bot/holyship-ui:latest .
-
-      - name: Build nemoclaw-ui
-        run: docker build -f shells/nemoclaw-platform-ui/Dockerfile -t registry.wopr.bot/nemoclaw-ui:latest .
-
-      # --- Standalone sidecar images ---
-
-      - name: Build wopr sidecar
-        run: docker build -f sidecars/wopr/Dockerfile -t registry.wopr.bot/wopr:managed sidecars/wopr/
-
-      - name: Build holyshipper
-        run: docker build -f sidecars/holyshipper/Dockerfile.managed -t registry.wopr.bot/holyshipper:managed sidecars/holyshipper/
-
-      - name: Build nemoclaw
-        run: docker build -f sidecars/nemoclaw/Dockerfile -t registry.wopr.bot/nemoclaw:managed sidecars/nemoclaw/
-
-      # --- Infrastructure ---
-
-      - name: Build caddy-cf
-        run: docker build -f ops/core-server/Dockerfile.caddy -t registry.wopr.bot/caddy-cf:latest ops/core-server/
-
-      # --- Push all images ---
-
-      - name: Push all images
+      - name: Build and push all images
         run: |
-          for img in \
-            registry.wopr.bot/core-server:latest \
-            registry.wopr.bot/paperclip:managed \
-            registry.wopr.bot/holyship:latest \
-            registry.wopr.bot/paperclip-ui:latest \
-            registry.wopr.bot/wopr-ui:latest \
-            registry.wopr.bot/holyship-ui:latest \
-            registry.wopr.bot/nemoclaw-ui:latest \
-            registry.wopr.bot/wopr:managed \
-            registry.wopr.bot/holyshipper:managed \
-            registry.wopr.bot/nemoclaw:managed \
-            registry.wopr.bot/caddy-cf:latest; do
-            echo "Pushing $img..."
-            docker push "$img"
-          done
+          FAILED=0
+          BUILT=()
+
+          build() {
+            local name="$1" tag="$2" dockerfile="$3" context="$4"
+            echo "=== Building $name:$tag ==="
+            if docker build -f "$dockerfile" -t "registry.wopr.bot/$name:$tag" "$context"; then
+              echo "  Pushing $name:$tag..."
+              docker push "registry.wopr.bot/$name:$tag"
+              BUILT+=("$name:$tag")
+            else
+              echo "::error::Build failed: $name:$tag"
+              FAILED=$((FAILED + 1))
+            fi
+          }
+
+          # Monorepo images (context: .)
+          build core-server    latest  platforms/core-server/Dockerfile              .
+          build paperclip      managed sidecars/paperclip/Dockerfile.managed         .
+          build holyship       latest  platforms/holyship/Dockerfile                 .
+          build paperclip-ui   latest  shells/paperclip-platform-ui/Dockerfile       .
+          build wopr-ui        latest  shells/wopr-platform-ui/Dockerfile            .
+          build holyship-ui    latest  shells/holyship-platform-ui/Dockerfile        .
+          build nemoclaw-ui    latest  shells/nemoclaw-platform-ui/Dockerfile        .
+
+          # Standalone sidecars
+          build wopr           managed sidecars/wopr/Dockerfile                      sidecars/wopr/
+          build holyshipper    managed sidecars/holyshipper/Dockerfile.managed        sidecars/holyshipper/
+          build nemoclaw       managed sidecars/nemoclaw/Dockerfile                  sidecars/nemoclaw/
+
+          # Infrastructure
+          build caddy-cf       latest  ops/core-server/Dockerfile.caddy              ops/core-server/
+
+          echo ""
+          echo "=== Summary ==="
+          echo "Built: ${#BUILT[@]} / 11"
+          echo "Failed: $FAILED"
+          for img in "${BUILT[@]}"; do echo "  ✓ $img"; done
+
+          if [ $FAILED -gt 0 ]; then
+            echo "::warning::$FAILED image(s) failed to build"
+          fi
 
       - name: Clean up build cache
         if: always()
@@ -85,6 +71,7 @@ jobs:
 
   deploy:
     needs: build-and-push
+    if: always() && needs.build-and-push.result != 'cancelled'
     runs-on: self-hosted
     timeout-minutes: 10
     steps:

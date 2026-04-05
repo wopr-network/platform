@@ -9,7 +9,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/worker-runtime/package.json packages/worker-runtime/
 COPY packages/worker-runtime/tsconfig.json packages/worker-runtime/
 COPY packages/worker-runtime/src packages/worker-runtime/src
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 RUN pnpm -C packages/worker-runtime run build
 
 # Runtime stage
