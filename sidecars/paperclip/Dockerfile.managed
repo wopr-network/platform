@@ -58,17 +58,26 @@ RUN test -f sidecars/paperclip/server/dist/index.js || (echo "ERROR: server buil
 # --- Production ---
 FROM node:lts-trixie-slim AS production
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git locales \
+  && apt-get install -y --no-install-recommends \
+       ca-certificates curl git locales gosu libcap2-bin \
   && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen \
   && locale-gen en_US.UTF-8 \
   && rm -rf /var/lib/apt/lists/*
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 RUN npm install -g opencode-ai@latest
 
-RUN groupadd paperclip && useradd -g paperclip -m paperclip
+# Two users: paperclip runs the server, sandbox runs agent code.
+# Privilege separation prevents agents from killing/tampering with the server.
+# Both users share the `agents` supplementary group so prep work (skills,
+# XDG config, git init) written by paperclip is readable by sandbox.
+RUN groupadd agents \
+    && groupadd paperclip && useradd -g paperclip -G agents -m -d /app -s /usr/sbin/nologin paperclip \
+    && groupadd sandbox && useradd -g sandbox -G agents -m -d /sandbox -s /bin/bash sandbox
+
 WORKDIR /app
 COPY --chown=paperclip:paperclip --from=build /app/ .
-RUN mkdir -p /paperclip /data && chown -R paperclip:paperclip /paperclip /data
+RUN mkdir -p /paperclip /data /sandbox && chown -R paperclip:paperclip /paperclip /data \
+    && chown -R sandbox:sandbox /sandbox
 
 # embedded-postgres bundles its own libs — find wherever pnpm put them, create soname
 # symlinks, and link to a stable path for LD_LIBRARY_PATH
@@ -83,8 +92,10 @@ RUN EPLIB=$(find /app -path '*/@embedded-postgres/linux-x64/native/lib' -type d 
       ln -sfn "$EPLIB" /app/epg-lib/native; \
     fi
 ENV LD_LIBRARY_PATH=/app/epg-lib/native
-ENV NODE_ENV=production \
-  HOME=/paperclip \
+
+# Server environment — NODE_ENV=production applies ONLY to the server process.
+# It is NOT set as a global ENV so agent child processes get a clean dev environment.
+ENV HOME=/paperclip \
   HOST=0.0.0.0 \
   PORT=3100 \
   SERVE_UI=true \
@@ -97,9 +108,15 @@ ENV NODE_ENV=production \
 # NOT from env vars. Provisioning writes a richer config to the data volume.
 RUN echo '{"deploymentMode":"hosted_proxy","hostedMode":true,"deploymentExposure":"private"}' > /app/.managed-instance.json
 
+# Workspace volume — agent workspaces live here, writable by sandbox user.
+# /paperclip is the server data volume (instances, DB, config).
+# Sandbox user gets read access to /paperclip/instances/*/workspaces via entrypoint.
 VOLUME ["/paperclip"]
 EXPOSE 3100
 
-USER paperclip
+COPY sidecars/paperclip/managed-entrypoint.sh /usr/local/bin/managed-entrypoint
+RUN chmod +x /usr/local/bin/managed-entrypoint
+
 WORKDIR /app
-CMD ["node", "--import", "/app/node_modules/tsx/dist/loader.mjs", "sidecars/paperclip/server/dist/index.js"]
+ENTRYPOINT ["/usr/local/bin/managed-entrypoint"]
+CMD ["server"]

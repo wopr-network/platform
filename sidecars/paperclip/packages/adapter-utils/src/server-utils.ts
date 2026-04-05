@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { constants as fsConstants, promises as fs, type Dirent } from "node:fs";
 import path from "node:path";
 import type { AdapterSkillEntry, AdapterSkillSnapshot } from "./types.js";
@@ -21,6 +21,25 @@ interface RunningProcess {
 interface SpawnTarget {
   command: string;
   args: string[];
+}
+
+/**
+ * Check whether the `sandbox` user exists (managed image with privilege separation).
+ * Cached at module load — the user either exists or doesn't for the lifetime of the process.
+ */
+let _sandboxUserChecked = false;
+let _sandboxUserExists = false;
+function _sandboxAvailable(): boolean {
+  if (!_sandboxUserChecked) {
+    _sandboxUserChecked = true;
+    try {
+      execSync("id sandbox", { stdio: "ignore" });
+      _sandboxUserExists = true;
+    } catch {
+      _sandboxUserExists = false;
+    }
+  }
+  return _sandboxUserExists;
 }
 
 type ChildProcessWithEvents = ChildProcess & {
@@ -751,8 +770,38 @@ export async function runChildProcess(
       delete rawMerged[key];
     }
 
+    // Strip NODE_ENV=production from agent child processes. The Paperclip
+    // server needs production mode, but agents need a dev-friendly environment
+    // where npm/yarn/pip install devDependencies correctly. NODE_ENV=production
+    // causes silent failures: npm skips devDeps, yarn skips devDeps, and agents
+    // burn their entire token budget debugging phantom install issues.
+    // The server's NODE_ENV is set via the entrypoint, not inherited by children.
+    delete rawMerged.NODE_ENV;
+
     const mergedEnv = ensurePathInEnv(rawMerged);
+
+    // Sandbox isolation: when the `sandbox` user exists (managed image),
+    // run agent processes via `gosu sandbox` for privilege separation.
+    // The agent cannot kill or tamper with the Paperclip server because
+    // it runs under a different UID. Modeled after NemoClaw's OpenShell
+    // sandbox pattern (gateway user vs sandbox user).
+    const useSandbox = _sandboxAvailable();
+    const wrapForSandbox = (target: SpawnTarget): SpawnTarget => {
+      if (!useSandbox) return target;
+      return {
+        command: "gosu",
+        args: ["sandbox", target.command, ...target.args],
+      };
+    };
+    if (useSandbox) {
+      // Sandbox user needs a writable HOME for session state, .claude/ config, etc.
+      // The server's HOME (/paperclip) is owned by the paperclip user and not writable
+      // by sandbox. /data is chown'd to sandbox:agents by the entrypoint.
+      mergedEnv.HOME = "/data";
+    }
+
     void resolveSpawnTarget(command, args, opts.cwd, mergedEnv)
+      .then((target) => wrapForSandbox(target))
       .then((target) => {
         const child = spawn(target.command, target.args, {
           cwd: opts.cwd,

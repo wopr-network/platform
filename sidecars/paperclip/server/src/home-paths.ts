@@ -62,6 +62,16 @@ export function resolveDefaultAgentWorkspaceDir(agentId: string): string {
   return path.resolve(resolvePaperclipInstanceRoot(), "workspaces", trimmed);
 }
 
+/**
+ * Instance-level shared workspace — the default working directory for all
+ * agents when no project-specific workspace is configured. All agents on the
+ * instance share this directory so they work on the same codebase with the
+ * same installed dependencies.
+ */
+export function resolveInstanceSharedWorkspaceDir(): string {
+  return path.resolve(resolvePaperclipInstanceRoot(), "workspace");
+}
+
 function sanitizeFriendlyPathSegment(value: string | null | undefined, fallback = "_default"): string {
   const trimmed = value?.trim() ?? "";
   if (!trimmed) return fallback;
