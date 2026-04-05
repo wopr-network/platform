@@ -459,12 +459,14 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       : [result.productConfig].filter((pc) => pc.fleet);
 
     for (const pc of products) {
+      const fleet = pc.fleet;
+      if (!fleet) continue;
       const slug = pc.product?.slug ?? "default";
       const dbSize = await poolRepo.getPoolSize(slug);
       hotPool.register(slug, {
-        image: pc.fleet!.containerImage,
-        port: pc.fleet!.containerPort,
-        network: pc.fleet!.dockerNetwork,
+        image: fleet.containerImage,
+        port: fleet.containerPort,
+        network: fleet.dockerNetwork,
         size: dbSize,
       });
     }

@@ -232,6 +232,41 @@
       "when": 1775196000000,
       "tag": "0032_product_hidden_instance_tabs",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1775282400000,
+      "tag": "0033_product_model_priority",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1775368800000,
+      "tag": "0034_drop_tenant_model_selection",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1775455200000,
+      "tag": "0035_bot_profiles_product_slug",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1775541600000,
+      "tag": "0036_product_floor_rates",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1775628000000,
+      "tag": "0037_gateway_incidents",
+      "breakpoints": true
     }
   ]
 }

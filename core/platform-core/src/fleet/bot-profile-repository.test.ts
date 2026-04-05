@@ -18,6 +18,7 @@ function makeProfile(overrides: Partial<BotProfile> = {}): BotProfile {
     restartPolicy: "unless-stopped",
     releaseChannel: "stable",
     updatePolicy: "manual",
+    productSlug: "",
     ...overrides,
   };
 }

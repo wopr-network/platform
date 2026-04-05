@@ -173,7 +173,7 @@ export function mapProviderError(error: unknown, _provider?: string): { status: 
       error: {
         message: "An error occurred while processing your request. Please try again.",
         type: "server_error",
-        code: "internal_error",
+        code: "upstream_error",
       },
     },
   };

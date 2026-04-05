@@ -614,7 +614,9 @@ export function chatCompletions(deps: ProxyDeps) {
         } catch {
           // Non-ok response with unparseable body — return clean error
           if (!res.ok) {
-            const mapped = mapProviderError(new Error(`Upstream ${res.status}`));
+            const mapped = mapProviderError(
+              Object.assign(new Error(`Upstream ${res.status}`), { httpStatus: res.status }),
+            );
             const incBody = await recordIncident(deps, tenant.id, mapped.body, {
               capability: "chat-completions",
               provider: "openrouter",
@@ -629,7 +631,9 @@ export function chatCompletions(deps: ProxyDeps) {
 
         // Non-ok response that wasn't caught by fallback (last model) — record incident
         if (!res.ok) {
-          const mapped = mapProviderError(new Error(`Model returned ${res.status}`));
+          const mapped = mapProviderError(
+            Object.assign(new Error(`Model returned ${res.status}`), { httpStatus: res.status }),
+          );
           const incBody = await recordIncident(deps, tenant.id, mapped.body, {
             capability: "chat-completions",
             provider: "openrouter",

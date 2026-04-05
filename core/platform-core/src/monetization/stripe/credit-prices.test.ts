@@ -5,7 +5,7 @@ import {
   loadCreditPriceMap,
   lookupCreditPrice,
 } from "@wopr-network/platform-core/billing";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 describe("CREDIT_PRICE_POINTS", () => {
   it("has 5 tiers", () => {
@@ -47,28 +47,20 @@ describe("getCreditAmountForPurchase", () => {
 });
 
 describe("loadCreditPriceMap", () => {
-  it("loads prices from environment variables", () => {
-    vi.stubEnv("STRIPE_CREDIT_PRICE_5", "price_5_test");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_25", "price_25_test");
-
-    const map = loadCreditPriceMap();
+  it("loads prices from credit prices record", () => {
+    const map = loadCreditPriceMap({ "500": "price_5_test", "2500": "price_25_test" });
     expect(map.get("price_5_test")).toEqual(expect.objectContaining({ amountCents: 500, creditCents: 500 }));
     expect(map.get("price_25_test")).toEqual(expect.objectContaining({ amountCents: 2500, creditCents: 2550 }));
-
-    vi.unstubAllEnvs();
   });
 
-  it("skips unset environment variables", () => {
-    vi.stubEnv("STRIPE_CREDIT_PRICE_5", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_10", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_25", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_50", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_100", "");
+  it("skips missing or empty values", () => {
+    const map = loadCreditPriceMap({ "500": "", "1000": "" });
+    expect(map.size).toBe(0);
+  });
 
+  it("returns empty map when no argument", () => {
     const map = loadCreditPriceMap();
     expect(map.size).toBe(0);
-
-    vi.unstubAllEnvs();
   });
 });
 
@@ -88,27 +80,19 @@ describe("lookupCreditPrice", () => {
 });
 
 describe("getConfiguredPriceIds", () => {
-  it("returns configured price IDs from env", () => {
-    vi.stubEnv("STRIPE_CREDIT_PRICE_5", "price_5_id");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_100", "price_100_id");
-
-    const ids = getConfiguredPriceIds();
+  it("returns configured price IDs from record", () => {
+    const ids = getConfiguredPriceIds({ "500": "price_5_id", "10000": "price_100_id" });
     expect(ids).toContain("price_5_id");
     expect(ids).toContain("price_100_id");
-
-    vi.unstubAllEnvs();
   });
 
   it("returns empty array when no prices configured", () => {
-    vi.stubEnv("STRIPE_CREDIT_PRICE_5", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_10", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_25", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_50", "");
-    vi.stubEnv("STRIPE_CREDIT_PRICE_100", "");
+    const ids = getConfiguredPriceIds({ "500": "", "1000": "" });
+    expect(ids).toHaveLength(0);
+  });
 
+  it("returns empty array when no argument", () => {
     const ids = getConfiguredPriceIds();
     expect(ids).toHaveLength(0);
-
-    vi.unstubAllEnvs();
   });
 });
