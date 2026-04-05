@@ -17,8 +17,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify registry auth
-        run: docker login registry.wopr.bot < /dev/null 2>&1 | grep -q "Authenticating with existing credentials" || { echo "Not logged into registry.wopr.bot — run 'docker login registry.wopr.bot' on this runner"; exit 1; }
+      - name: Login to registry
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.wopr.bot -u wopr --password-stdin
 
       - name: Build and push all images
         run: |
@@ -77,7 +77,10 @@ jobs:
     steps:
       - name: Deploy to production
         run: |
-          ssh -o StrictHostKeyChecking=no root@138.68.30.247 bash -s <<'DEPLOY'
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@138.68.30.247 bash -s <<'DEPLOY'
           set -euo pipefail
           cd /opt/core-server
 
@@ -112,5 +115,5 @@ jobs:
       - name: Verify pool replenishment
         run: |
           sleep 30
-          ssh -o StrictHostKeyChecking=no root@138.68.30.247 \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@138.68.30.247 \
             "docker ps --filter 'name=pool-' --format '{{.Names}}\t{{.Image}}\t{{.Status}}'"
