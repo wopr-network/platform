@@ -17,7 +17,7 @@ RUN turbo prune @wopr-network/holyship --docker \
 FROM base AS deps
 WORKDIR /app
 COPY --from=pruner /app/out/json/ .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # --- Build all packages in dependency order ---
 FROM base AS build
