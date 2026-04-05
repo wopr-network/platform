@@ -77,6 +77,16 @@ setup_permissions() {
     chmod -R g+rX "$instance_root/skills" 2>/dev/null || true
   fi
 
+  # Gateway provider config — written by server during provisioning, read by
+  # OpenCode at agent execution time to route inference through the metered
+  # gateway. Path: $PAPERCLIP_HOME/.opencode-gateway/opencode.json
+  # Must be readable by sandbox user.
+  local gateway_config="/paperclip/.opencode-gateway"
+  if [ -d "$gateway_config" ]; then
+    chgrp -R agents "$gateway_config" 2>/dev/null || true
+    chmod -R g+rX "$gateway_config" 2>/dev/null || true
+  fi
+
   # /paperclip directory tree must be traversable by both users.
   # paperclip needs it for server data, sandbox needs it to follow
   # skill symlinks and reach workspace dirs.
