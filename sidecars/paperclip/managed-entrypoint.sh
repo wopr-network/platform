@@ -24,17 +24,6 @@ fi
 # Lock PATH to prevent binary injection from agent workspaces
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Drop unnecessary capabilities from the bounding set.
-# Keep: cap_chown, cap_setuid, cap_setgid, cap_fowner, cap_kill (needed for gosu).
-if [ "${PAPERCLIP_CAPS_DROPPED:-}" != "1" ] && command -v capsh >/dev/null 2>&1; then
-  if capsh --has-p=cap_setpcap 2>/dev/null; then
-    export PAPERCLIP_CAPS_DROPPED=1
-    exec capsh \
-      --drop=cap_net_raw,cap_dac_override,cap_sys_chroot,cap_fsetid,cap_setfcap,cap_mknod,cap_audit_write,cap_net_bind_service \
-      -- -c 'exec /usr/local/bin/managed-entrypoint "$@"' -- "$@"
-  fi
-fi
-
 # ── Permissions ─────────────────────────────────────────────────
 # Agent workspaces live under /paperclip/instances/*/workspaces.
 # The sandbox user needs write access to create files, install deps, etc.
@@ -48,6 +37,12 @@ fi
 #   - Server runs with umask 0002 so files are group-writable by `agents` group
 setup_permissions() {
   local instance_root="/paperclip/instances/${PAPERCLIP_INSTANCE_ID:-default}"
+
+  # Instance root must be owned by paperclip so the server can create
+  # its own subdirs (logs, db, config, secrets) at runtime.
+  mkdir -p "$instance_root"
+  chown paperclip:agents "$instance_root"
+  chown paperclip:agents /paperclip /paperclip/instances 2>/dev/null || true
 
   # Instance shared workspace — default working directory for all agents.
   # Created at startup so it exists before any heartbeat runs.
@@ -97,6 +92,9 @@ setup_permissions() {
 case "${1:-server}" in
   server)
     echo "[paperclip] Starting server (paperclip user, NODE_ENV=production)"
+
+    # Setup permissions BEFORE dropping capabilities — needs cap_dac_override
+    # to create/chown dirs under /paperclip (owned by paperclip user).
     setup_permissions
 
     # umask 0002: files created by server are group-writable.
@@ -104,10 +102,19 @@ case "${1:-server}" in
     # (skills, XDG config, git init) is accessible to the sandbox user.
     umask 0002
 
-    exec gosu paperclip env \
-      NODE_ENV=production \
-      node --import /app/node_modules/tsx/dist/loader.mjs \
-      sidecars/paperclip/server/dist/index.js
+    # Drop unnecessary capabilities from the bounding set, then exec the server.
+    # Keep: cap_chown, cap_setuid, cap_setgid, cap_fowner, cap_kill (needed for gosu).
+    # Must happen AFTER setup_permissions which needs cap_dac_override.
+    if command -v capsh >/dev/null 2>&1 && capsh --has-p=cap_setpcap 2>/dev/null; then
+      exec capsh \
+        --drop=cap_net_raw,cap_dac_override,cap_sys_chroot,cap_fsetid,cap_setfcap,cap_mknod,cap_audit_write,cap_net_bind_service \
+        -- -c 'exec gosu paperclip env NODE_ENV=production node --import /app/node_modules/tsx/dist/loader.mjs sidecars/paperclip/server/dist/index.js'
+    else
+      exec gosu paperclip env \
+        NODE_ENV=production \
+        node --import /app/node_modules/tsx/dist/loader.mjs \
+        sidecars/paperclip/server/dist/index.js
+    fi
     ;;
 
   sandbox)
