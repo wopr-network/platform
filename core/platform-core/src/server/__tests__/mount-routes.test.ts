@@ -16,9 +16,9 @@ function defaultMountConfig() {
   };
 }
 
-function makeApp(container: PlatformContainer) {
+async function makeApp(container: PlatformContainer) {
   const app = new Hono();
-  mountRoutes(app, container, defaultMountConfig());
+  await mountRoutes(app, container, defaultMountConfig());
   return app;
 }
 
@@ -71,7 +71,7 @@ function stubFleet(): PlatformContainer["fleet"] {
 describe("mountRoutes", () => {
   // 1. Health endpoint always available
   it("mounts /health endpoint", async () => {
-    const app = makeApp(createTestContainer());
+    const app = await makeApp(createTestContainer());
     const res = await req(app, "GET", "/health");
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -81,7 +81,7 @@ describe("mountRoutes", () => {
   // 2. Crypto webhook mounted when crypto enabled
   it("mounts crypto webhook when crypto enabled", async () => {
     const container = createTestContainer({ crypto: stubCrypto() });
-    const app = makeApp(container);
+    const app = await makeApp(container);
     const res = await req(app, "POST", "/api/webhooks/crypto", {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -93,7 +93,7 @@ describe("mountRoutes", () => {
   // 3. Crypto webhook NOT mounted when crypto disabled
   it("does not mount crypto webhook when crypto disabled", async () => {
     const container = createTestContainer({ crypto: null });
-    const app = makeApp(container);
+    const app = await makeApp(container);
     const res = await req(app, "POST", "/api/webhooks/crypto", {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -104,7 +104,7 @@ describe("mountRoutes", () => {
   // 4. Stripe webhook mounted when stripe enabled
   it("mounts stripe webhook when stripe enabled", async () => {
     const container = createTestContainer({ stripe: stubStripe() });
-    const app = makeApp(container);
+    const app = await makeApp(container);
     const res = await req(app, "POST", "/api/webhooks/stripe", {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -116,7 +116,7 @@ describe("mountRoutes", () => {
   // 5. Stripe webhook NOT mounted when stripe disabled
   it("does not mount stripe webhook when stripe disabled", async () => {
     const container = createTestContainer({ stripe: null });
-    const app = makeApp(container);
+    const app = await makeApp(container);
     const res = await req(app, "POST", "/api/webhooks/stripe", {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -127,7 +127,7 @@ describe("mountRoutes", () => {
   // 6. Provision webhook mounted when fleet enabled
   it("mounts provision webhook when fleet enabled", async () => {
     const container = createTestContainer({ fleet: stubFleet() });
-    const app = makeApp(container);
+    const app = await makeApp(container);
     const res = await req(app, "POST", "/api/provision/create", {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
@@ -139,7 +139,7 @@ describe("mountRoutes", () => {
   // 7. Provision webhook NOT mounted when fleet disabled
   it("does not mount provision webhook when fleet disabled", async () => {
     const container = createTestContainer({ fleet: null });
-    const app = makeApp(container);
+    const app = await makeApp(container);
     const res = await req(app, "POST", "/api/provision/create", {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
