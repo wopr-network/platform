@@ -26,6 +26,6 @@ export async function runMigrations(pool: pg.Pool): Promise<void> {
   // 2. Holyship engine migrations (local drizzle/ directory)
   const localMigrations = path.resolve(process.cwd(), "drizzle");
   if (existsSync(localMigrations)) {
-    await migrate(db, { migrationsFolder: localMigrations });
+    await migrate(db, { migrationsFolder: localMigrations, migrationsTable: "__holyship_migrations" });
   }
 }

@@ -124,7 +124,7 @@ async function main() {
     const { migrate } = await import("drizzle-orm/node-postgres/migrator");
     const localMigrations = path.resolve(process.cwd(), "drizzle");
     if (existsSync(localMigrations)) {
-      await migrate(platformDb as never, { migrationsFolder: localMigrations });
+      await migrate(platformDb as never, { migrationsFolder: localMigrations, migrationsTable: "__holyship_migrations" });
       logger.info("Holyship engine migrations complete");
     }
   }
