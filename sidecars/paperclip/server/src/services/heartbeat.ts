@@ -33,7 +33,7 @@ import { costService } from "./costs.js";
 import { companySkillService } from "./company-skills.js";
 import { budgetService, type BudgetEnforcementScope } from "./budgets.js";
 import { secretService } from "./secrets.js";
-import { resolveDefaultAgentWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
+import { resolveDefaultAgentWorkspaceDir, resolveInstanceSharedWorkspaceDir, resolveManagedProjectWorkspaceDir } from "../home-paths.js";
 import { summarizeHeartbeatRunResultJson } from "./heartbeat-run-summary.js";
 import {
   buildWorkspaceReadyComment,
@@ -1245,7 +1245,7 @@ export function heartbeatService(db: Db) {
         missingProjectCwds.push(projectCwd);
       }
 
-      const fallbackCwd = resolveDefaultAgentWorkspaceDir(agent.id);
+      const fallbackCwd = resolveInstanceSharedWorkspaceDir();
       await fs.mkdir(fallbackCwd, { recursive: true });
       const warnings: string[] = [];
       if (preferredWorkspaceWarning) {
@@ -1256,12 +1256,12 @@ export function heartbeatService(db: Db) {
         const extraMissingCount = Math.max(0, missingProjectCwds.length - 1);
         warnings.push(
           extraMissingCount > 0
-            ? `Project workspace path "${firstMissing}" and ${extraMissingCount} other configured path(s) are not available yet. Using fallback workspace "${fallbackCwd}" for this run.`
-            : `Project workspace path "${firstMissing}" is not available yet. Using fallback workspace "${fallbackCwd}" for this run.`,
+            ? `Project workspace path "${firstMissing}" and ${extraMissingCount} other configured path(s) are not available yet. Using instance shared workspace "${fallbackCwd}" for this run.`
+            : `Project workspace path "${firstMissing}" is not available yet. Using instance shared workspace "${fallbackCwd}" for this run.`,
         );
       } else if (!hasConfiguredProjectCwd) {
         warnings.push(
-          `Project workspace has no local cwd configured. Using fallback workspace "${fallbackCwd}" for this run.`,
+          `Project workspace has no local cwd configured. Using instance shared workspace "${fallbackCwd}" for this run.`,
         );
       }
       return {
@@ -1314,20 +1314,23 @@ export function heartbeatService(db: Db) {
       }
     }
 
-    const cwd = resolveDefaultAgentWorkspaceDir(agent.id);
+    // Fall back to the instance shared workspace — all agents work in the same
+    // directory so they share code, dependencies, and git history. Per-agent home
+    // dirs caused agents to work in empty directories with no project context.
+    const cwd = resolveInstanceSharedWorkspaceDir();
     await fs.mkdir(cwd, { recursive: true });
     const warnings: string[] = [];
     if (sessionCwd) {
       warnings.push(
-        `Saved session workspace "${sessionCwd}" is not available. Using fallback workspace "${cwd}" for this run.`,
+        `Saved session workspace "${sessionCwd}" is not available. Using instance shared workspace "${cwd}" for this run.`,
       );
     } else if (resolvedProjectId) {
       warnings.push(
-        `No project workspace directory is currently available for this issue. Using fallback workspace "${cwd}" for this run.`,
+        `No project workspace directory is currently available for this issue. Using instance shared workspace "${cwd}" for this run.`,
       );
     } else {
       warnings.push(
-        `No project or prior session workspace was available. Using fallback workspace "${cwd}" for this run.`,
+        `No project or prior session workspace was available. Using instance shared workspace "${cwd}" for this run.`,
       );
     }
     return {

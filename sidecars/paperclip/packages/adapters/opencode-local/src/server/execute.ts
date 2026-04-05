@@ -24,6 +24,7 @@ import {
   runChildProcess,
   readPaperclipRuntimeSkillEntries,
   resolvePaperclipDesiredSkillNames,
+  SANDBOX_HOME,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isOpenCodeUnknownSessionError, parseOpenCodeJsonl } from "./parse.js";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "./models.js";
@@ -129,6 +130,26 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   // The global path requires walk-up to HOME which may not be an ancestor of cwd.
   // The project-local path works if cwd is a git repo (ensured above).
   await ensureOpenCodeSkillsInjected(onLog, openCodeSkillEntries, desiredOpenCodeSkillNames);
+  // When running under sandbox isolation, the agent's HOME differs from
+  // the server's HOME (/paperclip). Inject skills into the sandbox HOME too so
+  // OpenCode's global skill discovery finds them.
+  const sandboxHome = SANDBOX_HOME;
+  if (os.homedir() !== sandboxHome) {
+    const sandboxSkillsHome = path.join(sandboxHome, ".claude", "skills");
+    try {
+      await fs.mkdir(sandboxSkillsHome, { recursive: true });
+      for (const entry of openCodeSkillEntries) {
+        const target = path.join(sandboxSkillsHome, entry.runtimeName);
+        try {
+          await ensurePaperclipSkillSymlink(entry.source, target);
+        } catch {
+          // Best effort — project-local and XDG paths are also available
+        }
+      }
+    } catch {
+      // /data may not exist in non-managed environments
+    }
+  }
   // Also inject into cwd/.opencode/skills/ for project-local discovery
   const cwdSkillsDir = path.join(cwd, ".opencode", "skills");
   await fs.mkdir(cwdSkillsDir, { recursive: true });

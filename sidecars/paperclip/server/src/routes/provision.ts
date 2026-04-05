@@ -305,12 +305,15 @@ function createPaperclipAdapter(db: Db): ProvisionAdapter {
           goalId = goal.id;
         }
 
-        // Create starter project
+        // Create starter project with a workspace so agents have somewhere to work
+        // from the first heartbeat. Without a workspace, agents fall back to a
+        // generic shared directory with no project context.
         const project = await projects.create(companyId, {
           name: "Onboarding",
           description: goalId ? `Working toward: ${onboarding?.goal}` : "Getting started with Paperclip",
           ...(goalId ? { goalId } : {}),
         });
+        await projects.createWorkspace(project.id, {});
 
         // Create first issue assigned to CEO
         const taskTitle = onboarding?.taskTitle || "Get started";

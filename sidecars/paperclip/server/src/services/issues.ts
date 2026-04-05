@@ -903,6 +903,22 @@ export function issueService(db: Db) {
         throw unprocessable("in_progress issues require an assignee");
       }
       return db.transaction(async (tx) => {
+        // Auto-assign to the company's most recent project when no projectId is
+        // provided. Without a projectId, workspace resolution has nothing to work
+        // with and agents fall back to a generic shared directory with no project
+        // context. Every company has at least one project (created during provisioning).
+        if (!issueData.projectId) {
+          const defaultProject = await tx
+            .select({ id: projects.id })
+            .from(projects)
+            .where(eq(projects.companyId, companyId))
+            .orderBy(desc(projects.createdAt))
+            .limit(1)
+            .then((rows) => rows[0] ?? null);
+          if (defaultProject) {
+            issueData.projectId = defaultProject.id;
+          }
+        }
         const defaultCompanyGoal = await getDefaultCompanyGoal(tx, companyId);
         const projectGoalId = await getProjectDefaultGoalId(tx, companyId, issueData.projectId);
         let projectWorkspaceId = issueData.projectWorkspaceId ?? null;

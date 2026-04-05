@@ -46,10 +46,13 @@ export async function prepareOpenCodeRuntimeConfig(input: {
 
   const sourceConfigDir = path.join(resolveXdgConfigHome(input.env), "opencode");
   const runtimeConfigHome = await fs.mkdtemp(path.join(os.tmpdir(), "paperclip-opencode-config-"));
+  // mkdtemp creates with 0700 — open to group+other read so the sandbox
+  // user can access skills and config when running under privilege separation.
+  await fs.chmod(runtimeConfigHome, 0o755);
   const runtimeConfigDir = path.join(runtimeConfigHome, "opencode");
   const runtimeConfigPath = path.join(runtimeConfigDir, "opencode.json");
 
-  await fs.mkdir(runtimeConfigDir, { recursive: true });
+  await fs.mkdir(runtimeConfigDir, { recursive: true, mode: 0o755 });
   try {
     await fs.cp(sourceConfigDir, runtimeConfigDir, {
       recursive: true,
