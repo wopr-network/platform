@@ -42,30 +42,33 @@ fi
 # (skills injection, git init, XDG config).
 #
 # Strategy:
-#   - Workspace dirs are owned by sandbox:agents (sandbox writes, server reads)
+#   - Workspace dirs are owned by sandbox:agents with setgid so new files
+#     inherit the agents group regardless of which user creates them
 #   - /tmp is world-writable (XDG temp dirs created here by server, read by sandbox)
-#   - Server runs with umask 0002 so files are group-readable by `agents` group
+#   - Server runs with umask 0002 so files are group-writable by `agents` group
 setup_permissions() {
+  local instance_root="/paperclip/instances/${PAPERCLIP_INSTANCE_ID:-default}"
+
   # Instance shared workspace — default working directory for all agents.
   # Created at startup so it exists before any heartbeat runs.
-  local instance_root="/paperclip/instances/${PAPERCLIP_INSTANCE_ID:-default}"
+  # Setgid ensures files created by either user get group `agents`.
   local shared_workspace="$instance_root/workspace"
   mkdir -p "$shared_workspace"
   chown sandbox:agents "$shared_workspace"
-  chmod g+rwx "$shared_workspace"
+  chmod 2775 "$shared_workspace"
 
-  # Per-project workspace directories — owned by sandbox, group agents
+  # Per-project workspace directories — owned by sandbox, group agents, setgid
   if [ -d "$instance_root/workspaces" ]; then
-    find "$instance_root/workspaces" -type d -name workspaces -exec chown -R sandbox:agents {} + 2>/dev/null || true
-    find "$instance_root/workspaces" -maxdepth 1 -mindepth 1 -type d -exec chown -R sandbox:agents {} + 2>/dev/null || true
-    chmod -R g+rwX "$instance_root/workspaces" 2>/dev/null || true
+    chown -R sandbox:agents "$instance_root/workspaces" 2>/dev/null || true
+    find "$instance_root/workspaces" -type d -exec chmod 2775 {} + 2>/dev/null || true
   fi
 
-  # /data is the agent HOME for spawned processes
+  # /data is the sandbox user's HOME for agent processes.
+  # Setgid so server prep work (skills, config) gets group agents.
   chown -R sandbox:agents /data 2>/dev/null || true
-  chmod -R g+rwX /data 2>/dev/null || true
+  find /data -type d -exec chmod 2775 {} + 2>/dev/null || true
 
-  # /sandbox is the sandbox user's home
+  # /sandbox is the sandbox user's passwd home
   chown -R sandbox:agents /sandbox 2>/dev/null || true
 
   # Git identity is configured dynamically per-run by the adapter using the
@@ -97,9 +100,8 @@ case "${1:-server}" in
     setup_permissions
 
     # umask 0002: files created by server are group-writable.
-    # This ensures skills, XDG config, and other prep work written by
-    # the paperclip user are accessible to the sandbox user via the
-    # shared `agents` group.
+    # Combined with setgid on workspace dirs, this ensures prep work
+    # (skills, XDG config, git init) is accessible to the sandbox user.
     umask 0002
 
     exec gosu paperclip env \
@@ -116,7 +118,8 @@ case "${1:-server}" in
     ;;
 
   *)
-    # Pass-through for debugging (e.g., bash, sh)
-    exec "$@"
+    # Pass-through for debugging — run as sandbox, not root.
+    # Use `docker exec` as root directly if root access is needed.
+    exec gosu sandbox "$@"
     ;;
 esac

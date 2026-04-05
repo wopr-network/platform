@@ -27,6 +27,14 @@ interface SpawnTarget {
  * Check whether the `sandbox` user exists (managed image with privilege separation).
  * Cached at module load — the user either exists or doesn't for the lifetime of the process.
  */
+/**
+ * Home directory for the sandbox user in the managed image.
+ * Must match the entrypoint's `chown sandbox:agents /data` and the
+ * Dockerfile's directory setup. Exported so adapters can inject skills
+ * into the sandbox HOME without hardcoding the path.
+ */
+export const SANDBOX_HOME = "/data";
+
 let _sandboxUserChecked = false;
 let _sandboxUserExists = false;
 function _sandboxAvailable(): boolean {
@@ -796,8 +804,8 @@ export async function runChildProcess(
     if (useSandbox) {
       // Sandbox user needs a writable HOME for session state, .claude/ config, etc.
       // The server's HOME (/paperclip) is owned by the paperclip user and not writable
-      // by sandbox. /data is chown'd to sandbox:agents by the entrypoint.
-      mergedEnv.HOME = "/data";
+      // by sandbox. SANDBOX_HOME is chown'd to sandbox:agents by the entrypoint.
+      mergedEnv.HOME = SANDBOX_HOME;
     }
 
     void resolveSpawnTarget(command, args, opts.cwd, mergedEnv)

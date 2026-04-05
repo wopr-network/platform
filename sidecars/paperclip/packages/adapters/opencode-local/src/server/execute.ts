@@ -24,6 +24,7 @@ import {
   runChildProcess,
   readPaperclipRuntimeSkillEntries,
   resolvePaperclipDesiredSkillNames,
+  SANDBOX_HOME,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isOpenCodeUnknownSessionError, parseOpenCodeJsonl } from "./parse.js";
 import { ensureOpenCodeModelConfiguredAndAvailable } from "./models.js";
@@ -129,10 +130,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   // The global path requires walk-up to HOME which may not be an ancestor of cwd.
   // The project-local path works if cwd is a git repo (ensured above).
   await ensureOpenCodeSkillsInjected(onLog, openCodeSkillEntries, desiredOpenCodeSkillNames);
-  // When running under sandbox isolation, the agent's HOME (/data) differs from
+  // When running under sandbox isolation, the agent's HOME differs from
   // the server's HOME (/paperclip). Inject skills into the sandbox HOME too so
   // OpenCode's global skill discovery finds them.
-  const sandboxHome = "/data";
+  const sandboxHome = SANDBOX_HOME;
   if (os.homedir() !== sandboxHome) {
     const sandboxSkillsHome = path.join(sandboxHome, ".claude", "skills");
     try {
