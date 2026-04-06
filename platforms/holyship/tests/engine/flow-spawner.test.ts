@@ -610,17 +610,13 @@ describe("executeSpawn", () => {
       appendSpawnedChild: vi.fn().mockRejectedValue(new Error("DB write failed")),
     } as unknown as IEntityRepository;
 
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      const result = await executeSpawn(transition, parentEntity, flowRepo, entityRepo);
-      // Must log the orphan child ID at ERROR level
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("ent-2"));
-      // Must still return the child entity (non-throwing)
-      expect(result).not.toBeNull();
-      expect(result!.id).toBe("ent-2");
-    } finally {
-      errorSpy.mockRestore();
-    }
+    const mockLogger = { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() };
+    const result = await executeSpawn(transition, parentEntity, flowRepo, entityRepo, mockLogger);
+    // Must log the orphan child ID at ERROR level
+    expect(mockLogger.error).toHaveBeenCalledWith(expect.stringContaining("ent-2"));
+    // Must still return the child entity (non-throwing)
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe("ent-2");
   });
 
   it("does not throw when appendSpawnedChild resolves (malformed existing children handled by repo layer)", async () => {
