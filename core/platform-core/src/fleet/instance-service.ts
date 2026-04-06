@@ -144,25 +144,44 @@ export class InstanceService {
     const gatewayUrl = `https://api.${productConfig.product.domain}/v1`;
     if (d.provisionSecret && gatewayKey) {
       const containerUrl = `http://${containerNameFor(profile)}:${containerPort}`;
-      try {
-        const { provisionContainer } = await import("@wopr-network/provision-client");
-        await provisionContainer(containerUrl, d.provisionSecret, {
-          tenantId,
-          tenantName: name,
-          gatewayUrl,
-          apiKey: gatewayKey,
-          budgetCents: balance.toCentsRounded(),
-          adminUser: { id: userId, email: userEmail, name },
-          agents: [{ name: (params.extra?.ceoName as string) || "CEO", role: "ceo", title: "Chief Executive Officer" }],
-          extra: {
-            instanceConfig: {
-              deploymentMode: "hosted_proxy",
-              hostedMode: true,
-              deploymentExposure: "private",
-            },
-            ...params.extra,
+      const provisionPayload = {
+        tenantId,
+        tenantName: name,
+        gatewayUrl,
+        apiKey: gatewayKey,
+        budgetCents: balance.toCentsRounded(),
+        adminUser: { id: userId, email: userEmail, name },
+        agents: [{ name: (params.extra?.ceoName as string) || "CEO", role: "ceo", title: "Chief Executive Officer" }],
+        extra: {
+          instanceConfig: {
+            deploymentMode: "hosted_proxy",
+            hostedMode: true,
+            deploymentExposure: "private",
           },
-        });
+          ...params.extra,
+        },
+      };
+      // Wait for sidecar to accept connections before provisioning
+      let sidecarReady = false;
+      for (let i = 0; i < 30; i++) {
+        try {
+          const res = await fetch(`${containerUrl}/health`, { signal: AbortSignal.timeout(2000) });
+          if (res.ok) {
+            sidecarReady = true;
+            logger.info("Instance: sidecar ready", { instanceId, waited: `${i * 2}s` });
+            break;
+          }
+        } catch {
+          // Not ready yet
+        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      if (!sidecarReady) {
+        logger.warn("Instance: sidecar not ready after 60s, provisioning anyway", { instanceId });
+      }
+      const { provisionContainer } = await import("@wopr-network/provision-client");
+      try {
+        await provisionContainer(containerUrl, d.provisionSecret, provisionPayload);
         provisioned = true;
         logger.info("Instance: provisioned", { instanceId, containerUrl });
       } catch (err) {
