@@ -18,14 +18,12 @@
  */
 
 import { serve } from "@hono/node-server";
-import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import pg from "pg";
 import { createShipItRoutes } from "./api/ship-it.js";
-import { setCoreUrl } from "./auth/validate-session.js";
 import { getConfig } from "./config.js";
 import { DomainEventPersistAdapter } from "./engine/domain-event-adapter.js";
 import { Engine } from "./engine/engine.js";
@@ -50,7 +48,6 @@ import { createScopedRepos } from "./repositories/scoped-repos.js";
 import { createEngineRoutes } from "./routes/engine.js";
 import { createFlowEditorRoutes } from "./routes/flow-editor.js";
 import { createInterrogationRoutes } from "./routes/interrogation.js";
-import { createTRPCContext } from "./trpc/init.js";
 
 // ---------------------------------------------------------------------------
 // GitHub token resolution
@@ -91,12 +88,36 @@ function parseRepoFullName(entity: Entity): { owner: string; repo: string } {
 async function main() {
   const config = getConfig();
 
-  // ─── 1. Wire auth to core ────────────────────────────────────────────
-  setCoreUrl(config.CORE_URL);
-  logger.info("Core URL configured", { url: config.CORE_URL });
+  // ─── 1. Resolve secrets from Vault ───────────────────────────────────
+  const { resolveSecrets, VaultClient, resolveVaultConfig } = await import("@wopr-network/vault-client");
+  const secrets = await resolveSecrets("holyship");
+
+  // Holyship-specific secrets (gateway key, worker token, GitHub App ID)
+  const vaultConfig = resolveVaultConfig();
+  let holyshipSecrets: Record<string, string> = {};
+  if (vaultConfig) {
+    const vault = new VaultClient(vaultConfig);
+    holyshipSecrets = await vault.read("holyship/prod").catch(() => ({}));
+  }
+
+  const githubAppId = holyshipSecrets.github_app_id ?? null;
+  const githubAppPrivateKey = secrets.githubAppPrivateKey;
+  const githubWebhookSecret = secrets.githubWebhookSecret;
+  const gatewayKey = holyshipSecrets.gateway_key ?? null;
+  const workerToken = holyshipSecrets.worker_token ?? null;
+  const platformServiceKey = holyshipSecrets.platform_service_key ?? null;
+
+  logger.info("Secrets resolved", { url: config.CORE_URL, hasGitHub: !!githubAppId });
+
+  // Build DATABASE_URL from Vault secrets if not explicitly set
+  const dbHost = process.env.DB_HOST ?? "postgres";
+  const dbName = process.env.DB_NAME ?? "holyship_engine";
+  const dbPort = process.env.DB_PORT ?? "5432";
+  const databaseUrl =
+    config.DATABASE_URL ?? `postgresql://holyship:${secrets.dbPassword}@${dbHost}:${dbPort}/${dbName}`;
 
   // ─── 2. Engine database (holyship's own tables) ──────────────────────
-  const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
+  const pool = new pg.Pool({ connectionString: databaseUrl });
   const engineSchema = await import("./repositories/drizzle/schema.js");
   const engineDb = drizzle(pool, { schema: engineSchema });
 
@@ -148,17 +169,26 @@ async function main() {
     });
   });
 
-  // ─── 6. tRPC ─────────────────────────────────────────────────────────
-  const { appRouter } = await import("./trpc/index.js");
+  // ─── 6. tRPC proxy — forward all tRPC to core ────────────────────────
+  // Holyship's engine is REST (/api/*). All platform tRPC (billing, org,
+  // profile, settings, admin, fleet) lives on core. We proxy it through
+  // so holyship-ui can talk to one API endpoint.
   app.all("/trpc/*", async (c) => {
-    return fetchRequestHandler({
-      endpoint: "/trpc",
-      req: c.req.raw,
-      router: appRouter,
-      createContext: () => createTRPCContext(c.req.raw),
+    const url = new URL(c.req.url);
+    const coreUrl = `${config.CORE_URL}${url.pathname}${url.search}`;
+
+    const headers = new Headers(c.req.raw.headers);
+    headers.set("X-Product", "holyship");
+    headers.delete("host");
+
+    const res = await fetch(coreUrl, {
+      method: c.req.method,
+      headers,
+      body: c.req.method !== "GET" ? await c.req.arrayBuffer() : undefined,
     });
+    return new Response(res.body, { status: res.status, headers: res.headers });
   });
-  logger.info("tRPC router mounted at /trpc/*");
+  logger.info("tRPC proxied to core at /trpc/*");
 
   // ─── 7. Flow engine ──────────────────────────────────────────────────
   const tenantId = "default";
@@ -168,7 +198,7 @@ async function main() {
   eventEmitter.register(new DomainEventPersistAdapter(repos.domainEvents));
 
   // GitHub primitive op handler (for gate evaluation)
-  const hasGitHubApp = !!(config.GITHUB_APP_ID && config.GITHUB_APP_PRIVATE_KEY);
+  const hasGitHubApp = !!(githubAppId && githubAppPrivateKey);
   const installationRepo = new DrizzleGitHubInstallationRepository(engineDb, tenantId);
 
   const primitiveOpHandler: PrimitiveOpHandler | undefined = hasGitHubApp
@@ -176,8 +206,8 @@ async function main() {
         const token = await getTokenForEntity(
           entity,
           installationRepo,
-          config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppId as string,
+          githubAppPrivateKey as string,
         );
         const { owner, repo } = parseRepoFullName(entity);
         const ctx = { token, owner, repo };
@@ -265,18 +295,18 @@ async function main() {
   const gatewayUrl = `${config.CORE_URL}/v1`;
   const flowEditService = new FlowEditService({
     gatewayUrl,
-    platformServiceKey: config.HOLYSHIP_PLATFORM_SERVICE_KEY ?? config.HOLYSHIP_GATEWAY_KEY ?? "",
+    platformServiceKey: platformServiceKey ?? gatewayKey ?? "",
   });
 
   // ─── 9. Reactive worker pool (holyshipper containers via core fleet) ─
   let holyshipperFleetManager: import("./fleet/provision-holyshipper.js").IFleetManager | undefined;
-  if (config.HOLYSHIP_WORKER_IMAGE && config.HOLYSHIP_GATEWAY_KEY) {
+  if (config.HOLYSHIP_WORKER_IMAGE && gatewayKey) {
     try {
       const { HolyshipperFleetManager } = await import("./fleet/holyshipper-fleet-manager.js");
       holyshipperFleetManager = new HolyshipperFleetManager({
         image: config.HOLYSHIP_WORKER_IMAGE,
         gatewayUrl,
-        gatewayKey: config.HOLYSHIP_GATEWAY_KEY,
+        gatewayKey: gatewayKey,
         network: config.DOCKER_NETWORK,
       });
 
@@ -292,8 +322,8 @@ async function main() {
           const installations = await installationRepo.listByTenant(tenantId);
           if (installations.length === 0) return null;
           const { token } = await getInstallationAccessToken(
-            config.GITHUB_APP_ID as string,
-            config.GITHUB_APP_PRIVATE_KEY as string,
+            githubAppId as string,
+            githubAppPrivateKey as string,
             installations[0].installationId,
           );
           return token;
@@ -318,7 +348,7 @@ async function main() {
       entities: repos.entities,
       flows: repos.flows,
       invocations: repos.invocations,
-      workerToken: config.HOLYSHIP_WORKER_TOKEN,
+      workerToken: workerToken,
     }),
   );
 
@@ -336,8 +366,8 @@ async function main() {
           throw new Error("No GitHub App installations found");
         }
         const { token } = await getInstallationAccessToken(
-          config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppId as string,
+          githubAppPrivateKey as string,
           installations[0].installationId,
         );
         const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`, {
@@ -357,7 +387,6 @@ async function main() {
   );
 
   // ─── 12. GitHub webhook routes ───────────────────────────────────────
-  const githubWebhookSecret = config.GITHUB_WEBHOOK_SECRET;
   if (githubWebhookSecret) {
     app.route(
       "/api/github/webhook",
@@ -388,8 +417,8 @@ async function main() {
           return c.json({ repositories: [] });
         }
         const { token } = await getInstallationAccessToken(
-          config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppId as string,
+          githubAppPrivateKey as string,
           installations[0].installationId,
         );
         const res = await fetch("https://api.github.com/installation/repositories?per_page=100", {
@@ -425,8 +454,8 @@ async function main() {
           return c.json({ issues: [] });
         }
         const { token } = await getInstallationAccessToken(
-          config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppId as string,
+          githubAppPrivateKey as string,
           installations[0].installationId,
         );
         const res = await fetch(
@@ -472,8 +501,8 @@ async function main() {
       const installation = installations[0];
       if (!installation.accessToken || !installation.tokenExpiresAt || installation.tokenExpiresAt < new Date()) {
         const { token, expiresAt } = await getInstallationAccessToken(
-          config.GITHUB_APP_ID as string,
-          config.GITHUB_APP_PRIVATE_KEY as string,
+          githubAppId as string,
+          githubAppPrivateKey as string,
           installation.installationId,
         );
         await installationRepo.updateToken(installation.installationId, token, expiresAt);
@@ -502,7 +531,7 @@ async function main() {
     const flowDesignService = new FlowDesignService({
       interrogationService,
       gatewayUrl,
-      platformServiceKey: config.HOLYSHIP_PLATFORM_SERVICE_KEY ?? config.HOLYSHIP_GATEWAY_KEY ?? "",
+      platformServiceKey: platformServiceKey ?? gatewayKey ?? "",
     });
 
     if (hasGitHubApp) {
@@ -513,8 +542,8 @@ async function main() {
             const installations = await installationRepo.listByTenant(tenantId);
             if (installations.length === 0) return null;
             const { token } = await getInstallationAccessToken(
-              config.GITHUB_APP_ID as string,
-              config.GITHUB_APP_PRIVATE_KEY as string,
+              githubAppId as string,
+              githubAppPrivateKey as string,
               installations[0].installationId,
             );
             return token;

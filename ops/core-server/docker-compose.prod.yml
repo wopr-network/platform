@@ -183,9 +183,18 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3005"
-      DATABASE_URL: ${DATABASE_URL}
       CORE_URL: http://core:3001
       CORE_SERVICE_TOKEN: ${HOLYSHIP_SERVICE_TOKEN}
+      UI_ORIGIN: https://holyship.wtf
+      APP_BASE_URL: https://api.holyship.wtf
+      # Vault (secrets resolved at boot — no secrets in env)
+      VAULT_ADDR: ${VAULT_ADDR}
+      VAULT_ROLE_ID: ${HOLYSHIP_VAULT_ROLE_ID}
+      VAULT_SECRET_ID: ${HOLYSHIP_VAULT_SECRET_ID}
+      # Non-secret config
+      HOLYSHIP_WORKER_IMAGE: ${HOLYSHIP_WORKER_IMAGE:-registry.wopr.bot/holyshipper:managed}
+      DOCKER_NETWORK: platform
+      DB_HOST: postgres
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3005/health"]
       interval: 30s
