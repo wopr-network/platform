@@ -11,6 +11,9 @@ import type {
 } from "./types";
 
 const BASE = "/api";
+/** Direct API URL for long-running requests (bypasses Next.js rewrite proxy timeout). */
+const DIRECT_BASE =
+  typeof window !== "undefined" ? `${window.location.protocol}//api.${window.location.hostname}/api` : BASE;
 const TIMEOUT = 30_000;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -26,10 +29,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Like request() but calls the API directly (not through Next.js rewrite). Use for long-running calls. */
+async function directRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${DIRECT_BASE}${path}`, {
+    ...init,
+    credentials: "include",
+    signal: init?.signal ?? AbortSignal.timeout(300_000),
+    headers: { "Content-Type": "application/json", ...init?.headers },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}: ${text.slice(0, 200)}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 // ─── Interrogation ───
 
 export function interrogateRepo(owner: string, repo: string) {
-  return request<{
+  return directRequest<{
     repoConfigId: string;
     repo: string;
     description: string;
@@ -37,7 +55,7 @@ export function interrogateRepo(owner: string, repo: string) {
     gapCount: number;
     gaps: { capability: string; title: string; priority: string }[];
     hasClaudeMd: boolean;
-  }>(`/repos/${owner}/${repo}/interrogate`, { method: "POST", signal: AbortSignal.timeout(120_000) });
+  }>(`/repos/${owner}/${repo}/interrogate`, { method: "POST" });
 }
 
 export async function getRepoConfig(owner: string, repo: string) {
@@ -88,10 +106,7 @@ export function runAudit(owner: string, repo: string, categories: AuditCategory[
 // ─── Flow Design ───
 
 export function designFlow(owner: string, repo: string) {
-  return request<DesignedFlow>(`/repos/${owner}/${repo}/design-flow`, {
-    method: "POST",
-    signal: AbortSignal.timeout(120_000),
-  });
+  return directRequest<DesignedFlow>(`/repos/${owner}/${repo}/design-flow`, { method: "POST" });
 }
 
 // ─── Flow Editor ───
@@ -105,10 +120,9 @@ export async function getFlow(owner: string, repo: string) {
 }
 
 export function editFlow(owner: string, repo: string, message: string, currentYaml: string) {
-  return request<FlowEditResponse>(`/repos/${owner}/${repo}/flow/edit`, {
+  return directRequest<FlowEditResponse>(`/repos/${owner}/${repo}/flow/edit`, {
     method: "POST",
     body: JSON.stringify({ message, currentYaml }),
-    signal: AbortSignal.timeout(60_000),
   });
 }
 

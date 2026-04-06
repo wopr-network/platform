@@ -263,7 +263,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
           slug: p.slug,
           domain: p.domain,
           uiUpstream: `${p.uiService}:${p.uiPort}`,
-          apiUpstream: "core:3001",
+          apiUpstream: `${p.apiService || "core"}:${p.apiPort || 3001}`,
         };
       });
 
