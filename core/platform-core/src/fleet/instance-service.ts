@@ -74,8 +74,11 @@ export class InstanceService {
     if (!image) throw new Error(`No container image configured for product ${productSlug}`);
     const containerPort = fleetConfig?.containerPort ?? 3000;
 
+    logger.info("Instance.create: starting", { tenantId, userId, name, productSlug, image, containerPort });
+
     // 1. Credit check
     const balance = await d.creditLedger.balance(tenantId);
+    logger.info("Instance.create: credit check", { tenantId, balance: balance.toCentsRounded(), minimum: 17 });
     if (balance.lessThan(Credit.fromCents(17))) {
       throw new Error(`Insufficient credits: ${balance.toCentsRounded()}¢ (need 17¢ minimum)`);
     }
@@ -86,6 +89,7 @@ export class InstanceService {
       instanceEnv.WOPR_PROVISION_SECRET = d.provisionSecret;
     }
 
+    logger.info("Instance.create: calling fleet.create", { productSlug, image, hasProvisionSecret: !!d.provisionSecret });
     const fleet = d.getFleetManager();
     const result = await fleet.create({
       tenantId,
@@ -99,7 +103,7 @@ export class InstanceService {
       updatePolicy: "manual",
     });
     const instanceId = result.id;
-    logger.info("Instance: created", { instanceId, productSlug });
+    logger.info("Instance.create: fleet.create returned", { instanceId, productSlug });
 
     // 3. Register — profile (for listInstances) + bot_instances (for billing)
     const profile = {
@@ -115,6 +119,7 @@ export class InstanceService {
       updatePolicy: "manual" as const,
     };
     await d.profileStore.save(profile);
+    logger.info("Instance.create: profile saved", { instanceId });
     await d.botInstanceRepo.create({
       id: instanceId,
       tenantId,
@@ -122,18 +127,22 @@ export class InstanceService {
       nodeId: null,
       createdByUserId: userId,
     });
+    logger.info("Instance.create: bot instance registered", { instanceId, tenantId });
 
     // 4. Gateway key
     let gatewayKey: string | null = null;
     if (d.serviceKeyRepo) {
       try {
         gatewayKey = await d.serviceKeyRepo.generate(tenantId, instanceId, productSlug);
+        logger.info("Instance.create: gateway key generated", { instanceId, hasKey: true });
       } catch (err) {
-        logger.warn("Instance: gateway key generation failed", {
+        logger.warn("Instance.create: gateway key generation failed", {
           instanceId,
           error: err instanceof Error ? err.message : String(err),
         });
       }
+    } else {
+      logger.info("Instance.create: no service key repo, skipping gateway key", { instanceId });
     }
 
     // 5. Provision — give the container its identity
@@ -142,8 +151,11 @@ export class InstanceService {
       throw new Error(`Product ${productSlug} has no domain configured`);
     }
     const gatewayUrl = `https://api.${productConfig.product.domain}/v1`;
+    const containerName = containerNameFor(profile);
+    const containerUrl = `http://${containerName}:${containerPort}`;
+    logger.info("Instance.create: provisioning setup", { instanceId, containerName, containerUrl, gatewayUrl, hasSecret: !!d.provisionSecret, hasKey: !!gatewayKey });
+
     if (d.provisionSecret && gatewayKey) {
-      const containerUrl = `http://${containerNameFor(profile)}:${containerPort}`;
       const provisionPayload = {
         tenantId,
         tenantName: name,
@@ -161,36 +173,46 @@ export class InstanceService {
           ...params.extra,
         },
       };
+
       // Wait for sidecar to accept connections before provisioning
       let sidecarReady = false;
+      logger.info("Instance.create: waiting for sidecar health", { instanceId, containerUrl });
       for (let i = 0; i < 30; i++) {
         try {
           const res = await fetch(`${containerUrl}/health`, { signal: AbortSignal.timeout(2000) });
           if (res.ok) {
             sidecarReady = true;
-            logger.info("Instance: sidecar ready", { instanceId, waited: `${i * 2}s` });
+            logger.info("Instance.create: sidecar healthy", { instanceId, waitedSeconds: i * 2 });
             break;
           }
-        } catch {
-          // Not ready yet
+          logger.info("Instance.create: sidecar responded but not ok", { instanceId, status: res.status, attempt: i + 1 });
+        } catch (err) {
+          if (i % 5 === 0) {
+            logger.info("Instance.create: sidecar not ready yet", { instanceId, attempt: i + 1, error: err instanceof Error ? err.message : "fetch failed" });
+          }
         }
         await new Promise((r) => setTimeout(r, 2000));
       }
       if (!sidecarReady) {
-        logger.warn("Instance: sidecar not ready after 60s, provisioning anyway", { instanceId });
+        logger.warn("Instance.create: sidecar not ready after 60s, provisioning anyway", { instanceId, containerUrl });
       }
+
       const { provisionContainer } = await import("@wopr-network/provision-client");
+      logger.info("Instance.create: sending provision request", { instanceId, containerUrl, tenantId, budgetCents: provisionPayload.budgetCents });
       try {
         await provisionContainer(containerUrl, d.provisionSecret, provisionPayload);
         provisioned = true;
-        logger.info("Instance: provisioned", { instanceId, containerUrl });
+        logger.info("Instance.create: provisioned successfully", { instanceId, containerUrl });
       } catch (err) {
-        logger.warn("Instance: provisioning failed (non-fatal)", {
+        logger.error("Instance.create: provisioning FAILED", {
           instanceId,
           containerUrl,
           error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
         });
       }
+    } else {
+      logger.warn("Instance.create: skipping provision — missing secret or gateway key", { instanceId, hasSecret: !!d.provisionSecret, hasKey: !!gatewayKey });
     }
 
     // 6. Start billing — activate the daily charge clock

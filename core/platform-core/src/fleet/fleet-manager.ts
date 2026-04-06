@@ -106,6 +106,7 @@ export class FleetManager {
   ): Promise<Instance> {
     const id = params.id ?? randomUUID();
     const hasExplicitId = "id" in params && params.id !== undefined;
+    logger.info("Fleet.create: starting", { id, productSlug: params.productSlug, image: params.image, hasExplicitId, hasPool: !!this.pool });
     const doCreate = async (): Promise<Instance> => {
       const profile: BotProfile = { ...params, id };
 
@@ -114,24 +115,30 @@ export class FleetManager {
       }
 
       await this.store.save(profile);
+      logger.info("Fleet.create: profile saved", { id, name: profile.name });
 
       try {
         // Try pool first — only replaces container acquisition
         let poolClaimed = false;
         if (this.pool && params.productSlug) {
+          logger.info("Fleet.create: attempting pool claim", { id, productSlug: params.productSlug });
           const claimed = await this.pool.claim(params.productSlug);
           if (claimed) {
             const cname = containerNameFor({ id, productSlug: params.productSlug });
+            logger.info("Fleet.create: pool claimed, renaming", { id, containerId: claimed.containerId, newName: cname });
             const container = this.docker.getContainer(claimed.containerId);
             await container.rename({ name: cname });
-            logger.info("Fleet: pool claim", { id, productSlug: params.productSlug });
+            logger.info("Fleet.create: pool claim complete", { id, productSlug: params.productSlug, containerName: cname });
             poolClaimed = true;
+          } else {
+            logger.info("Fleet.create: pool empty, falling back to direct create", { id, productSlug: params.productSlug });
           }
         }
 
         if (!poolClaimed) {
           const remote = await this.resolveNodeId(id);
           if (remote) {
+            logger.info("Fleet.create: dispatching to remote node", { id, nodeId: remote.nodeId });
             await remote.commandBus.send(remote.nodeId, {
               type: "bot.start",
               payload: {
@@ -156,13 +163,18 @@ export class FleetManager {
             remoteInstance.emitCreated();
             return remoteInstance;
           } else {
+            logger.info("Fleet.create: pulling image", { id, image: profile.image });
             await this.pullImage(profile.image);
+            logger.info("Fleet.create: creating container", { id, containerName: containerNameFor(profile), network: profile.network ?? "platform" });
             await this.createContainer(profile, resourceLimits);
+            logger.info("Fleet.create: container created and started", { id });
           }
         }
       } catch (err) {
-        logger.error(`Failed to create container for bot ${profile.id}, rolling back profile`, {
-          err,
+        logger.error("Fleet.create: FAILED, rolling back profile", {
+          id,
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
         });
         await this.store.delete(profile.id);
         throw err;
