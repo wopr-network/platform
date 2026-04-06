@@ -227,22 +227,37 @@ export function renderFlowDesignPrompt(repoFullName: string, config: RepoConfig)
  * Parse the AI's flow design output into structured data.
  */
 export function parseFlowDesignOutput(output: string): FlowDesignResult {
-  const lines = output.split("\n");
-
   let design: FlowDesignOutput | null = null;
   let notes = "";
 
-  for (const line of lines) {
-    if (line.startsWith("FLOW_DESIGN:")) {
-      const json = line.slice("FLOW_DESIGN:".length).trim();
-      design = JSON.parse(json) as FlowDesignOutput;
-    } else if (line.startsWith("DESIGN_NOTES:")) {
-      notes = line.slice("DESIGN_NOTES:".length).trim();
+  // Extract JSON between FLOW_DESIGN: and DESIGN_NOTES: (or end of output).
+  // The model may output multi-line JSON, so we can't rely on single-line parsing.
+  const flowIdx = output.indexOf("FLOW_DESIGN:");
+  if (flowIdx !== -1) {
+    const jsonStart = flowIdx + "FLOW_DESIGN:".length;
+    const notesIdx = output.indexOf("DESIGN_NOTES:", jsonStart);
+    const jsonStr = (notesIdx !== -1 ? output.slice(jsonStart, notesIdx) : output.slice(jsonStart)).trim();
+    // Strip markdown fences if the model wrapped them
+    const cleaned = jsonStr
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
+    design = JSON.parse(cleaned) as FlowDesignOutput;
+
+    if (notesIdx !== -1) {
+      notes = output.slice(notesIdx + "DESIGN_NOTES:".length).trim();
     }
+  } else {
+    // Fallback: try parsing the entire output as JSON (model may have skipped the prefix)
+    const cleaned = output
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
+    design = JSON.parse(cleaned) as FlowDesignOutput;
   }
 
   if (!design) {
-    throw new Error("Flow design output missing FLOW_DESIGN line");
+    throw new Error("Flow design output missing FLOW_DESIGN block");
   }
 
   // Validate required fields
