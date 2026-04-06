@@ -69,15 +69,29 @@ export class HolyshipperFleetManager implements IFleetManager {
 
     // Create bare container via core fleet API — no billing, no provisioning.
     // Holyship handles its own setup (credentials, checkout).
-    const instance = await core.fleet.createContainer.mutate({
-      name: botName,
-      image: this.image,
-      productSlug: "holyship",
-      env,
-      network: this.network,
-      restartPolicy: "no",
-      readonlyRootfs: false,
-    });
+    let instance: { id: string; url: string; containerId: string; name: string };
+    try {
+      logger.info("[fleet] calling core.fleet.createContainer", {
+        botName,
+        image: this.image,
+        hasFleet: !!core.fleet,
+      });
+      instance = await core.fleet.createContainer.mutate({
+        name: botName,
+        image: this.image,
+        productSlug: "holyship",
+        env,
+        network: this.network,
+        restartPolicy: "no",
+        readonlyRootfs: false,
+      });
+    } catch (err) {
+      logger.error("[fleet] createContainer failed", {
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      throw err;
+    }
 
     const containerId = instance.id;
     const runnerUrl = instance.url;

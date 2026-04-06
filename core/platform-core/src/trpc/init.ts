@@ -38,21 +38,53 @@ export async function createTRPCContext(req: Request): Promise<TRPCContext> {
   let user: AuthUser | undefined;
   let tenantId: string | undefined;
   let userEmail: string | undefined;
-  try {
-    const { getAuth } = await import("../auth/better-auth.js");
-    const auth = getAuth();
-    const session = await auth.api.getSession({ headers: req.headers });
-    if (session?.user) {
-      const sessionUser = session.user as { id: string; role?: string; email?: string };
-      const roles: string[] = [];
-      if (sessionUser.role) roles.push(sessionUser.role);
-      user = { id: sessionUser.id, roles };
-      tenantId = req.headers.get("x-tenant-id") || sessionUser.id;
-      userEmail = sessionUser.email ?? undefined;
+
+  // 1. Try service token auth FIRST (server-to-server via core-client)
+  // Must run before BetterAuth — BetterAuth intercepts Authorization headers
+  // and may resolve them as bearer sessions, creating a wrong user context.
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.toLowerCase().startsWith("bearer ")) {
+    const token = authHeader.slice(7).trim();
+    const allowedTokens = process.env.CORE_ALLOWED_SERVICE_TOKENS ?? "";
+    const tokenSet = new Set(
+      allowedTokens
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    );
+    if (tokenSet.has(token)) {
+      const userId = req.headers.get("x-user-id") ?? "system";
+      const rolesRaw = req.headers.get("x-user-roles");
+      const roles = rolesRaw
+        ? rolesRaw
+            .split(",")
+            .map((r) => r.trim())
+            .filter(Boolean)
+        : ["service", "platform_admin"];
+      user = { id: `token:${userId}`, roles };
+      tenantId = req.headers.get("x-tenant-id") ?? "";
     }
-  } catch {
-    // No session — unauthenticated request
   }
+
+  // 2. Fall back to BetterAuth session (browser cookies)
+  if (!user) {
+    try {
+      const { getAuth } = await import("../auth/better-auth.js");
+      const auth = getAuth();
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (session?.user) {
+        const sessionUser = session.user as { id: string; role?: string; email?: string };
+        const roles: string[] = [];
+        if (sessionUser.role) roles.push(sessionUser.role);
+        user = { id: sessionUser.id, roles };
+        tenantId = req.headers.get("x-tenant-id") || sessionUser.id;
+        userEmail = sessionUser.email ?? undefined;
+      }
+    } catch {
+      // No session — unauthenticated request
+    }
+  }
+
   return { user, tenantId: tenantId ?? "", productSlug: req.headers.get("x-product") ?? undefined, userEmail };
 }
 

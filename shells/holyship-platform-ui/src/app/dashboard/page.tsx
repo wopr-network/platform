@@ -9,6 +9,18 @@ import type { RepoSummary } from "@/lib/types";
 export default function DashboardPage() {
   const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [loadKey, setLoadKey] = useState(0);
+
+  async function syncInstallations() {
+    setSyncing(true);
+    try {
+      await fetch("/api/github/sync-installations", { method: "POST", credentials: "include" });
+      setLoadKey((k) => k + 1);
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +65,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadKey]);
 
   if (loading) {
     return (
@@ -73,12 +85,22 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
             Install the Holy Ship GitHub App to start shipping issues automatically.
           </p>
-          <a
-            href="/connect"
-            className="inline-block rounded-lg bg-primary px-8 py-3 font-bold text-primary-foreground hover:bg-primary/90 transition-opacity"
-          >
-            Connect GitHub
-          </a>
+          <div className="flex gap-3 justify-center">
+            <a
+              href="/connect"
+              className="inline-block rounded-lg bg-primary px-8 py-3 font-bold text-primary-foreground hover:bg-primary/90 transition-opacity"
+            >
+              Connect GitHub
+            </a>
+            <button
+              type="button"
+              onClick={syncInstallations}
+              disabled={syncing}
+              className="rounded-lg border border-border px-6 py-3 font-bold text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+            >
+              {syncing ? "Syncing..." : "Refresh"}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -88,12 +110,22 @@ export default function DashboardPage() {
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Your Repos</h1>
-        <Link
-          href="/connect"
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-opacity"
-        >
-          + Connect Repo
-        </Link>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={syncInstallations}
+            disabled={syncing}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+          >
+            {syncing ? "Syncing..." : "Refresh"}
+          </button>
+          <Link
+            href="/connect"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-opacity"
+          >
+            + Connect Repo
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
