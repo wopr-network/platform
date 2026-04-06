@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { pluginsApi } from "@/api/plugins";
 import { queryKeys } from "@/lib/queryKeys";
 import { PluginSlotMount } from "@/plugins/slots";
@@ -19,6 +20,11 @@ import { NotFoundPage } from "./NotFound";
  * @see doc/plugins/PLUGIN_SPEC.md §24.4 — Company-Context Plugin Page
  */
 export function PluginPage() {
+  const { isHosted } = useHostedMode();
+
+  // Redirect to home in hosted mode — plugin pages are infrastructure
+  if (isHosted) return <Navigate to="/" replace />;
+
   const {
     companyPrefix: routeCompanyPrefix,
     pluginId,

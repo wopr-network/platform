@@ -8,6 +8,7 @@ import { goalsApi } from "../api/goals";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { statusBadge, statusBadgeDefault } from "../lib/status-colors";
 import { Separator } from "@/components/ui/separator";
@@ -226,6 +227,7 @@ export function ProjectProperties({
   onArchive,
   archivePending,
 }: ProjectPropertiesProps) {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [goalOpen, setGoalOpen] = useState(false);
@@ -597,8 +599,9 @@ export function ProjectProperties({
 
       <Separator className="my-4" />
 
-      <div className="space-y-1 py-4">
-        <div className="space-y-2">
+      {!isHosted && (
+        <div className="space-y-1 py-4">
+          <div className="space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span>Codebase</span>
             <Tooltip>
@@ -1105,7 +1108,8 @@ export function ProjectProperties({
             </div>
           </>
         ) : null}
-      </div>
+        </div>
+      )}
 
       {onArchive && (
         <>

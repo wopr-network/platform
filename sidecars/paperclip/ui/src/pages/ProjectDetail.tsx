@@ -14,6 +14,7 @@ import { usePanel } from "../context/PanelContext";
 import { useCompany } from "../context/CompanyContext";
 import { useToast } from "../context/ToastContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import {
   ProjectProperties,
@@ -445,6 +446,11 @@ function ProjectWorkspacesContent({
 /* ── Main project page ── */
 
 export function ProjectDetail() {
+  const { isHosted } = useHostedMode();
+
+  // Redirect to home in hosted mode — detailed project settings are not exposed
+  if (isHosted) return <Navigate to="/" replace />;
+
   const { companyPrefix, projectId, filter } = useParams<{
     companyPrefix?: string;
     projectId: string;

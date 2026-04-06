@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { cn, projectWorkspaceUrl } from "../lib/utils";
 import { Button } from "@/components/ui/button";
@@ -175,6 +176,7 @@ interface IssueWorkspaceCardProps {
 }
 
 export function IssueWorkspaceCard({ issue, project, onUpdate }: IssueWorkspaceCardProps) {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const companyId = issue.companyId ?? selectedCompanyId;
   const [editing, setEditing] = useState(false);
@@ -275,7 +277,7 @@ export function IssueWorkspaceCard({ issue, project, onUpdate }: IssueWorkspaceC
     setEditing(false);
   }, [currentSelection, issue.executionWorkspaceId]);
 
-  if (!policyEnabled || !project) return null;
+  if (isHosted || !policyEnabled || !project) return null;
 
   return (
     <div className="rounded-lg border border-border p-3 space-y-2">

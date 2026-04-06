@@ -3,6 +3,7 @@ import { Link } from "@/lib/router";
 import { AGENT_ROLE_LABELS, type Agent, type AgentRuntimeState } from "@paperclipai/shared";
 import { agentsApi } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "./StatusBadge";
 import { Identity } from "./Identity";
@@ -37,6 +38,7 @@ function PropertyRow({ label, children }: { label: string; children: React.React
 }
 
 export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
 
   const { data: agents } = useQuery({
@@ -61,9 +63,11 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
             <span className="text-sm">{agent.title}</span>
           </PropertyRow>
         )}
-        <PropertyRow label="Adapter">
-          <span className="text-sm font-mono">{adapterLabels[agent.adapterType] ?? agent.adapterType}</span>
-        </PropertyRow>
+        {!isHosted && (
+          <PropertyRow label="Adapter">
+            <span className="text-sm font-mono">{adapterLabels[agent.adapterType] ?? agent.adapterType}</span>
+          </PropertyRow>
+        )}
       </div>
 
       <Separator />
