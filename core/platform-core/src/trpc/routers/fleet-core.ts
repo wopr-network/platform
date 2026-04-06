@@ -274,7 +274,9 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
       .mutation(async ({ input, ctx }) => {
         const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
         const userId = (ctx as ProtectedCtx).user.id;
+        logger.info("createInstance: start", { tenant, userId, inputOrgId: input.orgId, ctxTenantId: (ctx as ProtectedCtx).tenantId, productSlug: ctx.productSlug, name: input.name });
         await d.assertOrgAdminOrOwner(tenant, userId);
+        logger.info("createInstance: auth passed", { tenant, userId });
 
         if (!ctx.productSlug) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Product could not be determined from request" });
@@ -284,9 +286,10 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           const resolved = await d.resolveProductConfig(ctx.productSlug);
           if (resolved) pc = resolved;
         }
+        logger.info("createInstance: product resolved", { productSlug: ctx.productSlug, hasFleet: !!pc.fleet });
 
         try {
-          return await d.instanceService.create({
+          const result = await d.instanceService.create({
             tenantId: tenant,
             userId,
             userEmail: ctx.userEmail ?? "",
@@ -297,7 +300,10 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
             env: input.env,
             extra: input.extra,
           });
+          logger.info("createInstance: success", { instanceId: result.id, tenant });
+          return result;
         } catch (err) {
+          logger.error("createInstance: failed", { error: err instanceof Error ? err.message : String(err), tenant, userId });
           if (err instanceof Error && err.message.startsWith("Insufficient credits")) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: err.message });
           }
