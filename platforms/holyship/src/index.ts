@@ -92,15 +92,19 @@ async function main() {
   const { resolveSecrets, VaultClient, resolveVaultConfig } = await import("@wopr-network/vault-client");
   const secrets = await resolveSecrets("holyship");
 
-  // Holyship-specific secrets (gateway key, worker token, GitHub App ID)
+  // Holyship-specific secrets (gateway key, worker token) + GitHub App ID
   const vaultConfig = resolveVaultConfig();
   let holyshipSecrets: Record<string, string> = {};
+  let githubSecrets: Record<string, string> = {};
   if (vaultConfig) {
     const vault = new VaultClient(vaultConfig);
-    holyshipSecrets = await vault.read("holyship/prod").catch(() => ({}));
+    [holyshipSecrets, githubSecrets] = await Promise.all([
+      vault.read("holyship/prod").catch(() => ({})),
+      vault.read("shared/github").catch(() => ({})),
+    ]);
   }
 
-  const githubAppId = holyshipSecrets.github_app_id ?? null;
+  const githubAppId = githubSecrets.app_id ?? null;
   const githubAppPrivateKey = secrets.githubAppPrivateKey;
   const githubWebhookSecret = secrets.githubWebhookSecret;
   const gatewayKey = holyshipSecrets.gateway_key ?? null;

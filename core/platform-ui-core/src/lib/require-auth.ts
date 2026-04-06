@@ -13,32 +13,19 @@ import { useSession } from "@/lib/auth-client";
  *   if (isPending) return <Loading />;
  */
 export function useRequireAuth(callbackUrl?: string) {
-  const { data, isPending, error } = useSession();
+  const { data, isPending } = useSession();
   const router = useRouter();
 
   useEffect(() => {
     // Diagnostic logging — remove once redirect loop is resolved
     if (!isPending) {
-      console.warn("[useRequireAuth] session check complete", {
-        hasSession: !!data?.session,
-        hasUser: !!data?.user,
-        userId: data?.user?.id ?? null,
-        sessionId: data?.session?.id?.slice(0, 8) ?? null,
-        error: error ?? null,
-        pathname: window.location.pathname,
-        cookies: document.cookie
-          .split(";")
-          .map((c) => c.trim().split("=")[0])
-          .filter((n) => n.startsWith("better-auth")),
-      });
     }
 
     if (!isPending && !data?.session) {
       const callback = callbackUrl || window.location.pathname;
-      console.warn("[useRequireAuth] NO SESSION — redirecting to /login", { callback });
       router.replace(`/login?reason=expired&callbackUrl=${encodeURIComponent(callback)}`);
     }
-  }, [isPending, data, router, callbackUrl, error]);
+  }, [isPending, data, router, callbackUrl]);
 
   return {
     user: data?.user ?? null,

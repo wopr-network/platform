@@ -122,10 +122,6 @@ async function sendViaWallet(opts: WalletTxOpts): Promise<string | null> {
     const root = (window as { ethereum?: EthProvider & { providers?: EthProvider[] } }).ethereum;
     if (!root) return null;
     const eth: EthProvider = root.providers?.find((p) => p.isMetaMask) ?? root;
-    console.warn("[wallet] Using provider", {
-      isMetaMask: (eth as { isMetaMask?: boolean }).isMetaMask,
-      hasProviders: !!root.providers,
-    });
 
     // Check if already connected (non-prompting), only request if needed
     let accounts = (await eth.request({ method: "eth_accounts" })) as string[];
@@ -169,14 +165,10 @@ async function sendViaWallet(opts: WalletTxOpts): Promise<string | null> {
 
     // TRC-20: call transfer() on the contract via tronWeb.contract()
     if (tokenType === "erc20" && contractAddress) {
-      console.warn("[wallet] TRC-20 transfer via TronLink", { contractAddress, to: depositAddress, amount });
       const contract = await tw.contract().at(contractAddress);
       const txHash = await contract.transfer(depositAddress, amount).send();
       return txHash;
     }
-
-    // Native TRX
-    console.warn("[wallet] Native TRX transfer via TronLink", { to: depositAddress, amount });
     const result = await tw.trx.sendTransaction(depositAddress, Number(amount));
     return result.txid;
   }
@@ -221,7 +213,6 @@ export function DepositView({
 
   const handleWalletPay = useCallback(async () => {
     if (sendingRef.current) {
-      console.warn("[wallet] Blocked duplicate call — already sending");
       return;
     }
     sendingRef.current = true;
@@ -232,13 +223,6 @@ export function DepositView({
         expectedAmount && receivedAmount
           ? String(BigInt(expectedAmount) - BigInt(receivedAmount))
           : (checkout.expectedAmount ?? expectedAmount);
-      console.warn("[wallet] Sending tx — instance", Math.random().toString(36).slice(2, 6), {
-        walletType,
-        tokenType: checkout.type,
-        contractAddress: checkout.contractAddress,
-        amount: amountToSend,
-        to: checkout.depositAddress,
-      });
       const txHash = await sendViaWallet({
         walletType,
         depositAddress: checkout.depositAddress,
