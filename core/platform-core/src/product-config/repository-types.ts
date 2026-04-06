@@ -28,6 +28,8 @@ export interface Product {
   storagePrefix: string;
   uiService: string;
   uiPort: number;
+  apiService: string;
+  apiPort: number;
   createdAt: Date;
   updatedAt: Date;
 }
