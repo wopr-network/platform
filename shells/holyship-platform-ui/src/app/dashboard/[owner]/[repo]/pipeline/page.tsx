@@ -132,6 +132,7 @@ export default function PipelineLivePage() {
 
   useEffect(() => {
     let active = true;
+    const repoFullName = `${owner}/${repo}`;
 
     async function poll() {
       try {
@@ -140,7 +141,12 @@ export default function PipelineLivePage() {
           getEngineStatus().catch(() => null),
         ]);
         if (!active) return;
-        setEntities(entityList);
+        // Filter entities to this repo (artifacts.repoFullName)
+        const repoEntities = entityList.filter((e) => {
+          const rn = e.artifacts?.repoFullName;
+          return rn === repoFullName;
+        });
+        setEntities(repoEntities);
         setStatus(engineStatus);
         setError(null);
       } catch (err) {
@@ -157,7 +163,7 @@ export default function PipelineLivePage() {
       active = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [owner, repo]);
 
   if (loading) {
     return (
@@ -207,8 +213,11 @@ export default function PipelineLivePage() {
         <div className="rounded-lg border border-dashed p-12 text-center">
           <p className="text-lg font-medium mb-2">No entities in the pipeline</p>
           <p className="text-muted-foreground mb-4">Ship an issue to get started.</p>
-          <Link href="/ship" className="rounded-lg bg-primary px-6 py-3 font-bold text-primary-foreground">
-            Ship It
+          <Link
+            href={`/dashboard/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`}
+            className="rounded-lg bg-primary px-6 py-3 font-bold text-primary-foreground"
+          >
+            Ship an Issue
           </Link>
         </div>
       )}

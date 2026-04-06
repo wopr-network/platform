@@ -65,8 +65,8 @@ export function createShipItRoutes(deps: ShipItDeps): Hono {
       return c.json({ error: `Failed to fetch issue: ${msg}` }, 502);
     }
 
-    // Create entity with flow "ship-it" (or configurable)
-    const flowName = (body.flow as string) ?? "ship-it";
+    // Create entity with the engineering flow (or configurable override)
+    const flowName = (body.flow as string) ?? "engineering";
     try {
       const entity = await deps.engine.createEntity(flowName, undefined, {
         owner,
@@ -77,7 +77,7 @@ export function createShipItRoutes(deps: ShipItDeps): Hono {
         issueBody: issue.body,
         issueUrl: issue.htmlUrl,
       });
-      return c.json({ entityId: entity.id, state: entity.state }, 201);
+      return c.json({ ok: true, entityId: entity.id, state: entity.state }, 201);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return c.json({ error: msg }, 500);
