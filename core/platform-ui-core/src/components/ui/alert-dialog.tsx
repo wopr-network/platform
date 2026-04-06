@@ -33,20 +33,25 @@ function AlertDialogOverlay({ className, ...props }: React.ComponentProps<typeof
 
 function AlertDialogContent({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
   if (typeof document === "undefined") return null;
-  return createPortal(
-    <AlertDialogPrimitive.Portal forceMount>
+  const content = (
+    <>
       <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content
-        data-slot="alert-dialog-content"
-        className={cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg duration-200",
-          className,
-        )}
-        {...props}
-      />
-    </AlertDialogPrimitive.Portal>,
-    document.body,
+      <div
+        data-slot="alert-dialog-positioner"
+        style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}
+      >
+        <AlertDialogPrimitive.Content
+          data-slot="alert-dialog-content"
+          className={cn(
+            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-50 grid w-full max-w-lg gap-4 rounded-lg border p-6 shadow-lg duration-200",
+            className,
+          )}
+          {...props}
+        />
+      </div>
+    </>
   );
+  return createPortal(content, document.body);
 }
 
 function AlertDialogHeader({ className, ...props }: React.ComponentProps<"div">) {
