@@ -69,7 +69,6 @@ function DialogContent({
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>,
     document.body,
-  )
   );
 }
 
