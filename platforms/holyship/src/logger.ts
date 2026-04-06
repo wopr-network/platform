@@ -8,10 +8,10 @@ export interface Logger {
 }
 
 export const consoleLogger: Logger = {
-  error: (msg, ...args) => console.error(msg, ...args),
-  warn: (msg, ...args) => console.warn(msg, ...args),
-  info: (msg, ...args) => console.info(msg, ...args),
-  debug: (msg, ...args) => console.debug(msg, ...args),
+  error: (_msg, ..._args) => {},
+  warn: (_msg, ..._args) => {},
+  info: (_msg, ..._args) => {},
+  debug: (_msg, ..._args) => {},
 };
 
 export const noopLogger: Logger = {

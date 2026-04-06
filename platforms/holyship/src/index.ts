@@ -68,7 +68,7 @@ async function getTokenForEntity(
 
 function parseRepoFullName(entity: Entity): { owner: string; repo: string } {
   const fullName = entity.artifacts?.repoFullName as string | undefined;
-  if (!fullName || !fullName.includes("/")) {
+  if (!fullName?.includes("/")) {
     throw new Error(`Entity ${entity.id} missing repoFullName artifact`);
   }
   const [owner, repo] = fullName.split("/");
@@ -124,7 +124,10 @@ async function main() {
     const { migrate } = await import("drizzle-orm/node-postgres/migrator");
     const localMigrations = path.resolve(process.cwd(), "drizzle");
     if (existsSync(localMigrations)) {
-      await migrate(platformDb as never, { migrationsFolder: localMigrations, migrationsTable: "__holyship_migrations" });
+      await migrate(platformDb as never, {
+        migrationsFolder: localMigrations,
+        migrationsTable: "__holyship_migrations",
+      });
       logger.info("Holyship engine migrations complete");
     }
   }
