@@ -22,7 +22,6 @@ export { DrizzleProductConfigRepository } from "./drizzle-product-config-reposit
 // Re-exports for consumers
 export type {
   FleetBillingModel,
-  FleetLifecycle,
   IProductConfigRepository,
   NavItemInput,
   Product,

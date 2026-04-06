@@ -124,7 +124,6 @@ export function createProductConfigRouter(getService: () => ProductConfigService
           z.object({
             containerImage: z.string().optional(),
             containerPort: z.number().int().optional(),
-            lifecycle: z.enum(["managed", "ephemeral"]).optional(),
             billingModel: z.enum(["monthly", "per_use", "none"]).optional(),
             maxInstances: z.number().int().min(1).optional(),
             imageAllowlist: z.array(z.string()).optional(),

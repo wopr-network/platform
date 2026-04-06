@@ -303,6 +303,38 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         }
       }),
 
+    /**
+     * Create a bare container — no billing, no provisioning, no credit check.
+     *
+     * For products that manage their own lifecycle (e.g., holyship workers).
+     * Returns container ID + URL. The caller handles setup from there.
+     */
+    createContainer: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().min(1).max(255),
+          image: z.string().min(1),
+          productSlug: z.string().min(1),
+          env: z.record(z.string(), z.string()).optional(),
+          network: z.string().min(1).optional(),
+          restartPolicy: z.enum(["no", "always", "on-failure", "unless-stopped"]).optional(),
+          readonlyRootfs: z.boolean().optional(),
+        }),
+      )
+      .mutation(async ({ input, ctx }) => {
+        const tenant = tenantFromCtx(ctx as ProtectedCtx);
+        return d.instanceService.createContainer({
+          tenantId: tenant,
+          name: input.name,
+          image: input.image,
+          productSlug: input.productSlug,
+          env: input.env,
+          network: input.network,
+          restartPolicy: input.restartPolicy,
+          readonlyRootfs: input.readonlyRootfs,
+        });
+      }),
+
     /** List available templates for instance creation. */
     listTemplates: protectedProcedure.query(() => {
       return [

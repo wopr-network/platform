@@ -98,7 +98,7 @@ describe("ProductConfigService", () => {
 
   it("upsertFleetConfig invalidates cache", async () => {
     await service.getBySlug("test");
-    await service.upsertFleetConfig("test", "test-id", { lifecycle: "ephemeral" });
+    await service.upsertFleetConfig("test", "test-id", { billingModel: "none" });
     await service.getBySlug("test");
     expect(repo.getBySlug).toHaveBeenCalledTimes(2);
   });

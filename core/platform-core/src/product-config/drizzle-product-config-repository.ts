@@ -213,7 +213,6 @@ export class DrizzleProductConfigRepository implements IProductConfigRepository 
       productId: row.productId,
       containerImage: row.containerImage,
       containerPort: row.containerPort,
-      lifecycle: row.lifecycle as ProductFleetConfigType["lifecycle"],
       billingModel: row.billingModel as ProductFleetConfigType["billingModel"],
       maxInstances: row.maxInstances,
       imageAllowlist: row.imageAllowlist ?? null,

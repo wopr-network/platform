@@ -73,8 +73,8 @@ export const botProfileSchema = z.object({
   nodeId: z.string().uuid().optional(),
   /** Docker network to attach the container to (bypasses NetworkPolicy). */
   network: z.string().min(1).optional(),
-  /** When true, disables ReadonlyRootfs and CapDrop for containers that need write access (e.g., ephemeral workers). */
-  ephemeral: z.boolean().optional(),
+  /** When false, allows writable root filesystem and relaxed capabilities. Defaults to true (hardened). */
+  readonlyRootfs: z.boolean().optional(),
   /** Product this instance belongs to. Determines container name prefix and billing rules. */
   productSlug: z.string().min(1),
 });
@@ -107,8 +107,8 @@ export const createBotSchema = z.object({
   nodeId: z.string().uuid().optional(),
   /** Docker network to attach the container to. */
   network: z.string().min(1).optional(),
-  /** When true, disables ReadonlyRootfs and CapDrop for ephemeral workers. */
-  ephemeral: z.boolean().optional(),
+  /** When false, allows writable root filesystem and relaxed capabilities. Defaults to true (hardened). */
+  readonlyRootfs: z.boolean().optional(),
   /** Product this instance belongs to. Determines container name prefix and billing rules. */
   productSlug: z.string().min(1),
 });

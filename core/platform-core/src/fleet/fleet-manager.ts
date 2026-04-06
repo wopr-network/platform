@@ -346,7 +346,7 @@ export class FleetManager {
     "name",
     "discovery",
     "network",
-    "ephemeral",
+    "readonlyRootfs",
   ]);
 
   /**
@@ -459,7 +459,7 @@ export class FleetManager {
       binds.push(`${sharedVolConfig.volumeName}:${sharedVolConfig.mountPath}:ro`);
     }
 
-    const isEphemeral = profile.ephemeral === true;
+    const hardened = profile.readonlyRootfs ?? true;
 
     const hostConfig: Docker.ContainerCreateOptions["HostConfig"] = {
       RestartPolicy: {
@@ -467,15 +467,15 @@ export class FleetManager {
       },
       Binds: binds.length > 0 ? binds : undefined,
       SecurityOpt: ["no-new-privileges"],
-      CapDrop: isEphemeral ? undefined : ["ALL"],
-      CapAdd: isEphemeral ? undefined : ["NET_BIND_SERVICE", "CHOWN", "DAC_OVERRIDE"],
-      ReadonlyRootfs: !isEphemeral,
-      Tmpfs: isEphemeral
-        ? undefined
-        : {
+      CapDrop: hardened ? ["ALL"] : undefined,
+      CapAdd: hardened ? ["NET_BIND_SERVICE", "CHOWN", "DAC_OVERRIDE"] : undefined,
+      ReadonlyRootfs: hardened,
+      Tmpfs: hardened
+        ? {
             "/tmp": "rw,noexec,nosuid,size=64m",
             "/var/tmp": "rw,noexec,nosuid,size=64m",
-          },
+          }
+        : undefined,
     };
 
     // Set network: explicit profile.network takes precedence, then NetworkPolicy

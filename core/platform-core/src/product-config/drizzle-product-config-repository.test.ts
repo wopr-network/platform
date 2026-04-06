@@ -89,14 +89,13 @@ describe("DrizzleProductConfigRepository", () => {
     expect(updated?.features?.onboardingMaxCredits).toBe(50);
   });
 
-  it("upsertFleetConfig with lifecycle ephemeral and billingModel none", async () => {
+  it("upsertFleetConfig with billingModel none", async () => {
     const config = await repo.getBySlug("test-product");
     if (!config) throw new Error("product not found");
     const productId = config.product.id;
 
     await repo.upsertFleetConfig(productId, {
       containerImage: "ghcr.io/example/app:latest",
-      lifecycle: "ephemeral",
       billingModel: "none",
       containerPort: 8080,
       maxInstances: 10,
@@ -105,7 +104,6 @@ describe("DrizzleProductConfigRepository", () => {
     const updated = await repo.getBySlug("test-product");
     expect(updated?.fleet).not.toBeNull();
     expect(updated?.fleet?.containerImage).toBe("ghcr.io/example/app:latest");
-    expect(updated?.fleet?.lifecycle).toBe("ephemeral");
     expect(updated?.fleet?.billingModel).toBe("none");
     expect(updated?.fleet?.containerPort).toBe(8080);
     expect(updated?.fleet?.maxInstances).toBe(10);
