@@ -485,8 +485,6 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       profileStore: fleet.profileStore,
       botInstanceRepo,
       serviceKeyRepo: fleet.serviceKeyRepo,
-      pool: result.hotPool,
-      docker: fleet.docker ?? null,
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? null,
       getFleetManager: () => fleet.manager as never,
     });

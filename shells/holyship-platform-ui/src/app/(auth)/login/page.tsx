@@ -1,7 +1,6 @@
 "use client";
 
 import { signIn, useSession } from "@core/lib/auth-client";
-import { getBrandConfig } from "@core/lib/brand-config";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -11,7 +10,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
 
-  const callbackPath = searchParams.get("callbackUrl") ?? getBrandConfig().homePath;
+  const callbackPath = searchParams.get("callbackUrl") ?? "/dashboard";
   const callbackUrl = typeof window !== "undefined" ? `${window.location.origin}${callbackPath}` : callbackPath;
 
   useEffect(() => {

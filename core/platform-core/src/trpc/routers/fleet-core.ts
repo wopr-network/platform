@@ -151,7 +151,9 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           ctx: ProtectedCtx;
         }) => {
           const tenant = input.orgId ?? tenantFromCtx(ctx);
-          await d.assertOrgAdminOrOwner(tenant, ctx.user.id);
+          if (!ctx.user.id.startsWith("token:")) {
+            await d.assertOrgAdminOrOwner(tenant, ctx.user.id);
+          }
           const profile = await d.profileStore.get(input.id);
           if (!profile) {
             throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
@@ -325,7 +327,10 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
       .mutation(async ({ input, ctx }) => {
         const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
         const userId = (ctx as ProtectedCtx).user.id;
-        await d.assertOrgAdminOrOwner(tenant, userId);
+        // Service token users (token:*) skip org membership — they're trusted servers
+        if (!userId.startsWith("token:")) {
+          await d.assertOrgAdminOrOwner(tenant, userId);
+        }
 
         // Validate image against product config allowlist
         if (d.resolveProductConfig) {

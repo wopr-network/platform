@@ -79,6 +79,7 @@ function getFleet(): FleetManager {
       instanceRepo,
       undefined,
       getFleetEventEmitter(),
+      _deps?.pool ?? null,
     );
   }
   return _fleet;
@@ -140,6 +141,7 @@ export interface FleetRouteDeps {
   tenantCustomerRepo: ITenantCustomerRepository | null;
   secrets: { stripeSecretKey?: string };
   discovery: PlatformDiscoveryConfig | undefined;
+  pool: { claim(key: string): Promise<{ id: string; containerId: string } | null> } | null;
   removeInstance: (
     fleet: FleetManager,
     keyRepo: IServiceKeyRepository | null,

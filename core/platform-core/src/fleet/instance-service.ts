@@ -2,8 +2,8 @@
  * InstanceService — orchestrates the full instance lifecycle.
  *
  * Single entry point for creating, provisioning, and billing instances.
- * Abstracts pool-vs-cold container acquisition. The tRPC handler calls
- * this service; it never touches Docker, profiles, or billing directly.
+ * Fleet handles container acquisition (including pool). This service
+ * handles credit checks, provisioning, and billing on top.
  */
 
 import { logger } from "../config/logger.js";
@@ -11,7 +11,6 @@ import { Credit } from "../credits/index.js";
 import type { ILedger } from "../credits/ledger.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
 import type { ProductConfig } from "../product-config/index.js";
-import type { PoolClaim } from "../server/services/hot-pool.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { IProfileStore } from "./profile-store.js";
 import { containerNameFor } from "./types.js";
@@ -46,15 +45,16 @@ export interface InstanceServiceDeps {
   profileStore: IProfileStore;
   botInstanceRepo: IBotInstanceRepository;
   serviceKeyRepo: IServiceKeyRepository | null;
-  /** Hot pool — try claiming a pre-warmed container before cold create. */
-  pool: { claim(key: string): Promise<PoolClaim | null> } | null;
-  docker: import("dockerode") | null;
   provisionSecret: string | null;
-  /** Resolve fleet manager for cold-create fallback and direct container creation */
+  /** Fleet manager — handles container creation (pool is internal to fleet) */
   getFleetManager: () => {
-    create: (
-      params: Record<string, unknown>,
-    ) => Promise<{ id: string; url: string; containerId: string; profile: { name: string; tenantId: string } }>;
+    create: (params: Record<string, unknown>) => Promise<{
+      id: string;
+      url: string;
+      containerId: string;
+      profile: { name: string; tenantId: string };
+      start(): Promise<void>;
+    }>;
   };
 }
 
@@ -80,44 +80,26 @@ export class InstanceService {
       throw new Error(`Insufficient credits: ${balance.toCentsRounded()}¢ (need 17¢ minimum)`);
     }
 
-    // 2. Acquire container — pool first, cold create fallback
-    let instanceId: string;
-    const claimed = d.pool ? await d.pool.claim(productSlug) : null;
-
-    // Inject provision secret so the sidecar can validate provisioning calls
+    // 2. Acquire container via fleet (pool is handled inside FleetManager.create)
     const instanceEnv: Record<string, string> = { ...env };
     if (d.provisionSecret) {
       instanceEnv.WOPR_PROVISION_SECRET = d.provisionSecret;
     }
 
-    if (claimed && d.docker) {
-      instanceId = claimed.id;
-      const cname = containerNameFor({ id: instanceId, productSlug });
-      try {
-        const container = d.docker.getContainer(claimed.containerId);
-        await container.rename({ name: cname });
-        logger.info("Instance: pool claim + rename", { instanceId, containerName: cname, productSlug });
-      } catch (renameErr) {
-        throw new Error(
-          `Container rename failed: ${renameErr instanceof Error ? renameErr.message : String(renameErr)}`,
-        );
-      }
-    } else {
-      const fleet = d.getFleetManager();
-      const result = await fleet.create({
-        tenantId,
-        name,
-        description: description ?? "",
-        image,
-        productSlug,
-        env: instanceEnv,
-        restartPolicy: "unless-stopped",
-        releaseChannel: "stable",
-        updatePolicy: "manual",
-      });
-      instanceId = result.id;
-      logger.info("Instance: cold create", { instanceId, productSlug });
-    }
+    const fleet = d.getFleetManager();
+    const result = await fleet.create({
+      tenantId,
+      name,
+      description: description ?? "",
+      image,
+      productSlug,
+      env: instanceEnv,
+      restartPolicy: "unless-stopped",
+      releaseChannel: "stable",
+      updatePolicy: "manual",
+    });
+    const instanceId = result.id;
+    logger.info("Instance: created", { instanceId, productSlug });
 
     // 3. Register — profile (for listInstances) + bot_instances (for billing)
     const profile = {
@@ -233,6 +215,8 @@ export class InstanceService {
       readonlyRootfs: params.readonlyRootfs,
       network: params.network,
     });
+    // Start the container — fleet.create() only creates, doesn't start
+    await instance.start();
     return {
       id: instance.id,
       url: instance.url,

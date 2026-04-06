@@ -8,9 +8,13 @@ export interface Logger {
 }
 
 export const consoleLogger: Logger = {
+  // biome-ignore lint/suspicious/noConsole: intentional console delegation
   error: (msg, ...args) => console.error(msg, ...args),
+  // biome-ignore lint/suspicious/noConsole: intentional console delegation
   warn: (msg, ...args) => console.warn(msg, ...args),
+  // biome-ignore lint/suspicious/noConsole: intentional console delegation
   info: (msg, ...args) => console.info(msg, ...args),
+  // biome-ignore lint/suspicious/noConsole: intentional console delegation
   debug: (msg, ...args) => console.debug(msg, ...args),
 };
 

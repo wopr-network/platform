@@ -19,8 +19,16 @@ import type { TRPCContext } from "./init.js";
  */
 export function createInternalTRPCContext(c: Context<InternalServiceAuthEnv>): TRPCContext {
   const ctx = c as unknown as { get(k: string): string | undefined };
+  const user = c.get("user");
+  // Service token users get token: prefix so isAuthed skips org membership checks.
+  // internalServiceAuth sets user.id from X-User-Id header (e.g. "system").
+  // tRPC's isAuthed middleware skips org checks when id starts with "token:".
+  const serviceName = ctx.get("serviceName");
+  if (user && serviceName && !user.id.startsWith("token:")) {
+    user.id = `token:${user.id}`;
+  }
   return {
-    user: c.get("user"),
+    user,
     tenantId: c.get("tenantId"),
     productSlug: c.req.header("x-product") ?? ctx.get("product") ?? undefined,
     userEmail: ctx.get("userEmail") ?? undefined,

@@ -16,9 +16,7 @@ export default function ConnectCompletePage() {
       return;
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
-    fetch(`${apiUrl}/api/github/link-installation`, {
+    fetch("/api/github/link-installation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",

@@ -115,10 +115,11 @@ async function main() {
 
   // Build DATABASE_URL from Vault secrets if not explicitly set
   const dbHost = process.env.DB_HOST ?? "postgres";
+  const dbUser = process.env.DB_USER ?? "core";
   const dbName = process.env.DB_NAME ?? "holyship_engine";
   const dbPort = process.env.DB_PORT ?? "5432";
   const databaseUrl =
-    config.DATABASE_URL ?? `postgresql://holyship:${secrets.dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+    config.DATABASE_URL ?? `postgresql://${dbUser}:${secrets.dbPassword}@${dbHost}:${dbPort}/${dbName}`;
 
   // ─── 2. Engine database (holyship's own tables) ──────────────────────
   const pool = new pg.Pool({ connectionString: databaseUrl });
@@ -152,10 +153,22 @@ async function main() {
 
   app.get("/health", (c) => c.json({ status: "ok", service: "holyship" }));
 
+  // Request logging — every request, every response
+  app.use("*", async (c, next) => {
+    const start = Date.now();
+    const method = c.req.method;
+    const path = c.req.path;
+    logger.info(`→ ${method} ${path}`);
+    await next();
+    const ms = Date.now() - start;
+    logger.info(`← ${method} ${path} ${c.res.status} ${ms}ms`);
+  });
+
   // ─── 5. Auth proxy — forward to core so cookies work on our domain ──
   app.on(["GET", "POST"], "/api/auth/*", async (c) => {
     const url = new URL(c.req.url);
     const coreUrl = `${config.CORE_URL}${url.pathname}${url.search}`;
+    logger.info("[proxy:auth]", { path: url.pathname, method: c.req.method });
 
     const headers = new Headers(c.req.raw.headers);
     headers.set("X-Product", "holyship");
@@ -166,6 +179,7 @@ async function main() {
       headers,
       body: c.req.method === "POST" ? await c.req.arrayBuffer() : undefined,
     });
+    logger.info("[proxy:auth] response", { path: url.pathname, status: res.status });
 
     return new Response(res.body, {
       status: res.status,
@@ -174,12 +188,10 @@ async function main() {
   });
 
   // ─── 6. tRPC proxy — forward all tRPC to core ────────────────────────
-  // Holyship's engine is REST (/api/*). All platform tRPC (billing, org,
-  // profile, settings, admin, fleet) lives on core. We proxy it through
-  // so holyship-ui can talk to one API endpoint.
   app.all("/trpc/*", async (c) => {
     const url = new URL(c.req.url);
     const coreUrl = `${config.CORE_URL}${url.pathname}${url.search}`;
+    logger.info("[proxy:trpc]", { path: url.pathname, method: c.req.method });
 
     const headers = new Headers(c.req.raw.headers);
     headers.set("X-Product", "holyship");
@@ -190,9 +202,32 @@ async function main() {
       headers,
       body: c.req.method !== "GET" ? await c.req.arrayBuffer() : undefined,
     });
+    logger.info("[proxy:trpc] response", { path: url.pathname, status: res.status });
     return new Response(res.body, { status: res.status, headers: res.headers });
   });
   logger.info("tRPC proxied to core at /trpc/*");
+
+  // ─── 6b. Core API proxy — platform endpoints that live on core ───────
+  // Must be BEFORE engine routes (which have worker token auth at /api).
+  const coreApiProxy = async (c: {
+    req: { url: string; method: string; raw: Request; arrayBuffer(): Promise<ArrayBuffer> };
+  }) => {
+    const url = new URL(c.req.url);
+    const coreUrl = `${config.CORE_URL}${url.pathname}${url.search}`;
+    logger.info("[proxy:core-api]", { path: url.pathname, method: c.req.method });
+    const headers = new Headers(c.req.raw.headers);
+    headers.set("X-Product", "holyship");
+    headers.delete("host");
+    const res = await fetch(coreUrl, {
+      method: c.req.method,
+      headers,
+      body: !["GET", "HEAD"].includes(c.req.method) ? await c.req.arrayBuffer() : undefined,
+    });
+    return new Response(res.body, { status: res.status, headers: res.headers });
+  };
+  app.all("/api/products/*", coreApiProxy);
+  app.all("/api/stripe/*", coreApiProxy);
+  app.all("/v1/*", coreApiProxy);
 
   // ─── 7. Flow engine ──────────────────────────────────────────────────
   const tenantId = "default";
@@ -346,7 +381,7 @@ async function main() {
 
   // ─── 10. Engine REST routes (claim/report for holyshippers) ──────────
   app.route(
-    "/api",
+    "/api/engine",
     createEngineRoutes({
       engine,
       entities: repos.entities,
@@ -445,6 +480,101 @@ async function main() {
       }
     });
     logger.info("GitHub repos endpoint mounted");
+
+    // Link installation — called by /connect/complete after GitHub App install
+    app.post("/api/github/link-installation", async (c) => {
+      try {
+        const body = (await c.req.json()) as { installationId?: string | number };
+        const instId = Number(body.installationId);
+        if (!instId || Number.isNaN(instId)) {
+          return c.json({ error: "installationId is required" }, 400);
+        }
+
+        // Fetch installation details from GitHub
+        const { token } = await getInstallationAccessToken(
+          githubAppId as string,
+          githubAppPrivateKey as string,
+          instId,
+        );
+
+        // Get the account info for this installation
+        const infoRes = await fetch("https://api.github.com/installation/repositories?per_page=1", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        });
+
+        let accountLogin = "unknown";
+        if (infoRes.ok) {
+          const infoData = (await infoRes.json()) as {
+            repositories?: { owner?: { login?: string; type?: string } }[];
+          };
+          accountLogin = infoData.repositories?.[0]?.owner?.login ?? "unknown";
+        }
+
+        await installationRepo.upsert({
+          tenantId,
+          installationId: instId,
+          accountLogin,
+          accountType: "Organization",
+          accessToken: token,
+          tokenExpiresAt: new Date(Date.now() + 55 * 60_000),
+        });
+
+        logger.info("GitHub installation linked", { installationId: instId, accountLogin });
+        return c.json({ ok: true, installationId: instId, accountLogin });
+      } catch (err) {
+        logger.error("Failed to link installation", (err as Error).message);
+        return c.json({ error: (err as Error).message }, 500);
+      }
+    });
+    logger.info("GitHub link-installation endpoint mounted");
+
+    // Sync installations — queries GitHub for all app installations, upserts them
+    app.post("/api/github/sync-installations", async (c) => {
+      try {
+        const { generateAppJwt } = await import("./github/token-generator.js");
+        const jwt = generateAppJwt(githubAppId as string, githubAppPrivateKey as string);
+        const res = await fetch("https://api.github.com/app/installations", {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        });
+        if (!res.ok) {
+          return c.json({ error: `GitHub API ${res.status}` }, 502);
+        }
+        const installations = (await res.json()) as {
+          id: number;
+          account: { login: string; type: string };
+        }[];
+        let synced = 0;
+        for (const inst of installations) {
+          const { token, expiresAt } = await getInstallationAccessToken(
+            githubAppId as string,
+            githubAppPrivateKey as string,
+            inst.id,
+          );
+          await installationRepo.upsert({
+            tenantId,
+            installationId: inst.id,
+            accountLogin: inst.account.login,
+            accountType: inst.account.type,
+            accessToken: token,
+            tokenExpiresAt: expiresAt,
+          });
+          synced++;
+        }
+        logger.info("GitHub installations synced", { synced });
+        return c.json({ ok: true, synced });
+      } catch (err) {
+        logger.error("Failed to sync installations", (err as Error).message);
+        return c.json({ error: (err as Error).message }, 500);
+      }
+    });
 
     // GitHub issues endpoint — proxy to GitHub API via installation token
     app.get("/api/github/repos/:owner/:repo/issues", async (c) => {

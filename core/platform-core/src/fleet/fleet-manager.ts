@@ -14,7 +14,7 @@ import { Instance } from "./instance.js";
 import type { INodeCommandBus } from "./node-command-bus.js";
 import type { IProfileStore } from "./profile-store.js";
 import { getSharedVolumeConfig } from "./shared-volume-config.js";
-import type { BotProfile, BotStatus } from "./types.js";
+import { type BotProfile, type BotStatus, containerNameFor } from "./types.js";
 
 const CONTAINER_LABEL = "wopr.managed";
 const CONTAINER_ID_LABEL = "wopr.bot-id";
@@ -47,6 +47,8 @@ export class FleetManager {
     }
   }
 
+  private readonly pool: { claim(key: string): Promise<{ id: string; containerId: string } | null> } | null;
+
   constructor(
     docker: Docker,
     store: IProfileStore,
@@ -57,6 +59,7 @@ export class FleetManager {
     instanceRepo?: IBotInstanceRepository,
     botMetricsTracker?: BotMetricsTracker,
     eventEmitter?: FleetEventEmitter,
+    pool?: { claim(key: string): Promise<{ id: string; containerId: string } | null> } | null,
   ) {
     this.docker = docker;
     this.store = store;
@@ -67,6 +70,7 @@ export class FleetManager {
     this.instanceRepo = instanceRepo;
     this.botMetricsTracker = botMetricsTracker;
     this.eventEmitter = eventEmitter;
+    this.pool = pool ?? null;
   }
 
   private emitEvent(type: BotEventType, botId: string, tenantId?: string): void {
@@ -112,35 +116,49 @@ export class FleetManager {
       await this.store.save(profile);
 
       try {
-        const remote = await this.resolveNodeId(id);
-        if (remote) {
-          await remote.commandBus.send(remote.nodeId, {
-            type: "bot.start",
-            payload: {
-              name: profile.name,
-              image: profile.image,
-              env: profile.env,
-              restart: profile.restartPolicy,
-            },
-          });
-          // Remote bots have no local container — return a remote Instance
-          const containerName = `wopr-${profile.name.replace(/_/g, "-")}`;
-          const remoteInstance = new Instance({
-            docker: this.docker,
-            profile,
-            containerId: `remote:${remote.nodeId}`,
-            containerName,
-            url: `remote://${remote.nodeId}/${containerName}`,
-            instanceRepo: this.instanceRepo,
-            proxyManager: this.proxyManager,
-            eventEmitter: this.eventEmitter,
-            botMetricsTracker: this.botMetricsTracker,
-          });
-          remoteInstance.emitCreated();
-          return remoteInstance;
-        } else {
-          await this.pullImage(profile.image);
-          await this.createContainer(profile, resourceLimits);
+        // Try pool first — only replaces container acquisition
+        let poolClaimed = false;
+        if (this.pool && params.productSlug) {
+          const claimed = await this.pool.claim(params.productSlug);
+          if (claimed) {
+            const cname = containerNameFor({ id, productSlug: params.productSlug });
+            const container = this.docker.getContainer(claimed.containerId);
+            await container.rename({ name: cname });
+            logger.info("Fleet: pool claim", { id, productSlug: params.productSlug });
+            poolClaimed = true;
+          }
+        }
+
+        if (!poolClaimed) {
+          const remote = await this.resolveNodeId(id);
+          if (remote) {
+            await remote.commandBus.send(remote.nodeId, {
+              type: "bot.start",
+              payload: {
+                name: profile.name,
+                image: profile.image,
+                env: profile.env,
+                restart: profile.restartPolicy,
+              },
+            });
+            const containerName = `wopr-${profile.name.replace(/_/g, "-")}`;
+            const remoteInstance = new Instance({
+              docker: this.docker,
+              profile,
+              containerId: `remote:${remote.nodeId}`,
+              containerName,
+              url: `remote://${remote.nodeId}/${containerName}`,
+              instanceRepo: this.instanceRepo,
+              proxyManager: this.proxyManager,
+              eventEmitter: this.eventEmitter,
+              botMetricsTracker: this.botMetricsTracker,
+            });
+            remoteInstance.emitCreated();
+            return remoteInstance;
+          } else {
+            await this.pullImage(profile.image);
+            await this.createContainer(profile, resourceLimits);
+          }
         }
       } catch (err) {
         logger.error(`Failed to create container for bot ${profile.id}, rolling back profile`, {
