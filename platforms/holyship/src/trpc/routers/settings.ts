@@ -1,78 +1,36 @@
 /**
- * tRPC settings router — tenant config, notification preferences, health.
+ * Settings proxy — health is local, everything else delegates to core.
  */
-
-import { TRPCError } from "@trpc/server";
-import type { INotificationPreferencesRepository } from "@wopr-network/platform-core/email";
-import { publicProcedure, router, tenantProcedure } from "@wopr-network/platform-core/trpc";
+import { coreClient } from "../../services/core-client.js";
+import { publicProcedure, router, tenantProcedure } from "../init.js";
 import { z } from "zod";
 
-// ---------------------------------------------------------------------------
-// Deps
-// ---------------------------------------------------------------------------
-
-export interface SettingsRouterDeps {
-  getNotificationPrefsStore: () => INotificationPreferencesRepository;
-  testProvider?: (provider: string, tenantId: string) => Promise<{ ok: boolean; latencyMs?: number; error?: string }>;
+function forTenant(ctx: { tenantId: string; user: { id: string } }) {
+  return coreClient({ tenantId: ctx.tenantId, userId: ctx.user.id, product: "holyship" });
 }
-
-let _deps: SettingsRouterDeps | null = null;
-
-export function setSettingsRouterDeps(deps: SettingsRouterDeps): void {
-  _deps = deps;
-}
-
-function deps(): SettingsRouterDeps {
-  if (!_deps) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Settings not initialized" });
-  return _deps;
-}
-
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
 
 export const settingsRouter = router({
-  /** Health check — publicly accessible. */
+  /** Health check — local to holyship. */
   health: publicProcedure.query(() => {
     return { status: "ok" as const, service: "holyship" };
   }),
 
-  /** Get tenant configuration summary. */
-  tenantConfig: tenantProcedure.query(({ ctx }) => {
-    return {
-      tenantId: ctx.tenantId,
-      configured: true,
-    };
+  /** Tenant config — proxied to core. */
+  tenantConfig: tenantProcedure.query(async ({ ctx }) => {
+    return forTenant(ctx).settings.tenantConfig.query();
   }),
 
-  /** Ping — verify auth and tenant context. */
-  ping: tenantProcedure.query(({ ctx }) => {
-    return {
-      ok: true as const,
-      tenantId: ctx.tenantId,
-      userId: ctx.user.id,
-      timestamp: Date.now(),
-    };
+  /** Ping — proxied to core. */
+  ping: tenantProcedure.query(async ({ ctx }) => {
+    return forTenant(ctx).settings.ping.query();
   }),
 
-  /** Get notification preferences for the authenticated tenant. */
-  notificationPreferences: tenantProcedure.query(({ ctx }) => {
-    const store = deps().getNotificationPrefsStore();
-    return store.get(ctx.tenantId);
+  /** Notification preferences — proxied to core. */
+  notificationPreferences: tenantProcedure.query(async ({ ctx }) => {
+    return forTenant(ctx).settings.notificationPreferences.query();
   }),
 
-  /** Test connectivity to a provider. */
-  testProvider: tenantProcedure
-    .input(z.object({ provider: z.string().min(1).max(64) }))
-    .mutation(async ({ input, ctx }) => {
-      const testFn = deps().testProvider;
-      if (!testFn) {
-        return { ok: false as const, error: "Provider testing not configured" };
-      }
-      return testFn(input.provider, ctx.tenantId);
-    }),
-
-  /** Update notification preferences for the authenticated tenant. */
+  /** Update notification preferences — proxied to core. */
   updateNotificationPreferences: tenantProcedure
     .input(
       z.object({
@@ -85,9 +43,7 @@ export const settingsRouter = router({
         account_team_invites: z.boolean().optional(),
       }),
     )
-    .mutation(({ input, ctx }) => {
-      const store = deps().getNotificationPrefsStore();
-      store.update(ctx.tenantId, input);
-      return store.get(ctx.tenantId);
+    .mutation(async ({ input, ctx }) => {
+      return forTenant(ctx).settings.updateNotificationPreferences.mutate(input);
     }),
 });

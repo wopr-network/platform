@@ -8,25 +8,22 @@ const optStr = z
   .or(z.literal("").transform(() => undefined));
 
 const envSchema = z.object({
+  // Server
   PORT: z.coerce.number().default(3001),
   HOST: z.string().default("0.0.0.0"),
-  DATABASE_URL: optStr, // Built from Vault in production
 
-  // Auth (from Vault in production)
-  BETTER_AUTH_SECRET: optStr,
+  // Engine database (holyship's own tables — flows, entities, gates, events)
+  DATABASE_URL: z.string().min(1),
 
-  // Platform
+  // Core server — holyship delegates auth, billing, credits, org, fleet to core
+  CORE_URL: z.string().url().default("http://core:3001"),
+  CORE_SERVICE_TOKEN: z.string().min(1),
+
+  // UI
   UI_ORIGIN: z.string().default("https://holyship.wtf"),
   APP_BASE_URL: z.string().url().default("https://api.holyship.wtf"),
 
-  // Billing (from Vault in production)
-  STRIPE_SECRET_KEY: optStr,
-  STRIPE_WEBHOOK_SECRET: optStr,
-
-  // Gateway (from Vault in production)
-  OPENROUTER_API_KEY: optStr,
-
-  // GitHub App (secrets from Vault, IDs can stay in env)
+  // GitHub App (holyship's own integration — not delegated to core)
   GITHUB_APP_ID: optStr,
   GITHUB_APP_PRIVATE_KEY: optStr,
   GITHUB_WEBHOOK_SECRET: optStr,
@@ -35,31 +32,13 @@ const envSchema = z.object({
   HOLYSHIP_ADMIN_TOKEN: optStr,
   HOLYSHIP_WORKER_TOKEN: optStr,
 
-  // Fleet
-  FLEET_DATA_DIR: z.string().default("/data/fleet"),
-
-  // Holyshipper ephemeral containers
+  // Fleet — holyship tells core to provision holyshipper containers
   HOLYSHIP_WORKER_IMAGE: optStr,
   HOLYSHIP_GATEWAY_KEY: optStr,
   DOCKER_NETWORK: optStr,
 
-  // Platform service key for direct gateway calls (e.g. flow editing)
+  // Platform service key for holyship → core gateway calls (e.g. flow editing)
   HOLYSHIP_PLATFORM_SERVICE_KEY: optStr,
-
-  // Notifications (Resend)
-  RESEND_API_KEY: optStr,
-  FROM_EMAIL: z.string().default("noreply@holyship.wtf"),
-
-  // Crypto payments (key server)
-  CRYPTO_SERVICE_URL: optStr,
-  CRYPTO_WEBHOOK_SECRET: optStr,
-
-  // EVM (stablecoin + ETH payments)
-  EVM_XPUB: optStr,
-  EVM_RPC_BASE: optStr,
-
-  // Product config
-  PRODUCT_SLUG: z.string().default("holyship"),
 });
 
 export type Config = z.infer<typeof envSchema>;

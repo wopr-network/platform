@@ -43,8 +43,6 @@
     "@sentry/node": "^9.27.0",
     "@trpc/server": "^11.13.4",
     "@wopr-network/core-client": "workspace:*",
-    "@wopr-network/platform-core": "workspace:*",
-    "dockerode": "^4.0.9",
     "drizzle-orm": "^0.45.1",
     "handlebars": "^4.7.8",
     "hono": "^4.12.5",
@@ -60,7 +58,6 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
     "@electric-sql/pglite": "^0.3.16",
-    "@types/dockerode": "^4.0.1",
     "@types/node": "^25.3.3",
     "@types/pg": "^8.15.6",
     "@vitest/coverage-v8": "^4.0.18",
