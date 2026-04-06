@@ -30,6 +30,8 @@ export interface SecretsSecurityFns {
 
 export interface SecretsDeps {
   profileLookup: IProfileLookup;
+  /** Resolve instance URL from fleet (Instance.url). Returns null if instance not found/running. */
+  getInstanceUrl?: (instanceId: string) => Promise<string | null>;
   platformSecret?: string;
   instanceDataDir?: string;
   logger?: { error(msg: string, meta?: Record<string, unknown>): void };
@@ -106,7 +108,12 @@ export function createSecretsRoutes(deps: SecretsDeps): Hono<AuthEnv> {
 
     // Default: proxy mode — forward body opaquely to the instance container
     const rawBody = await c.req.text();
-    const instanceUrl = `http://wopr-${instanceId}:3000`;
+    const instanceUrl = deps.getInstanceUrl ? await deps.getInstanceUrl(instanceId) : null;
+    if (!instanceUrl) {
+      deps.logger?.error("Secrets proxy: could not resolve instance URL", { instanceId });
+      return c.json({ error: "Instance not found or not running" }, 503);
+    }
+    deps.logger?.error("Secrets proxy: forwarding", { instanceId, instanceUrl });
     const authHeader = c.req.header("Authorization") || "";
     const sessionToken = authHeader.replace(/^Bearer\s+/i, "");
 
@@ -115,6 +122,7 @@ export function createSecretsRoutes(deps: SecretsDeps): Hono<AuthEnv> {
       return c.json({ ok: true, mode: "proxy" });
     }
     const status = result.status === 502 ? 502 : result.status === 503 ? 503 : result.status === 404 ? 404 : 500;
+    deps.logger?.error("Secrets proxy: forward failed", { instanceId, instanceUrl, status, error: result.error });
     return c.json({ error: result.error || "Proxy failed" }, status);
   });
 

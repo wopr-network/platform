@@ -54,15 +54,17 @@ export interface SetupRouteDeps {
     env: Record<string, string>,
   ) => Promise<{ dispatched: boolean; dispatchError?: string }>;
   dispatchPluginInstall: (
-    botId: string,
+    instanceUrl: string,
     npmPackage: string,
   ) => Promise<{ dispatched: boolean; dispatchError?: string }>;
   dispatchPluginConfig: (
-    botId: string,
+    instanceUrl: string,
     pluginId: string,
     config: Record<string, unknown>,
   ) => Promise<{ dispatched: boolean; dispatchError?: string }>;
-  fetchPluginDependencies: (botId: string, pluginName: string) => Promise<string[]>;
+  fetchPluginDependencies: (instanceUrl: string, pluginName: string) => Promise<string[]>;
+  /** Resolve instance URL from fleet. */
+  getInstanceUrl: (instanceId: string) => Promise<string>;
   platformEncryptionSecret: string;
 }
 
@@ -353,23 +355,25 @@ export function createSetupRoutes(deps: SetupRouteDeps): Hono {
     };
 
     if (npmPackage) {
-      pluginInstallResult = await deps.dispatchPluginInstall(botId, npmPackage);
+      const instanceUrl = await deps.getInstanceUrl(botId);
+      pluginInstallResult = await deps.dispatchPluginInstall(instanceUrl, npmPackage);
 
       // Only dispatch config if install succeeded
       if (pluginInstallResult.dispatched && Object.keys(configValues).length > 0) {
-        pluginConfigResult = await deps.dispatchPluginConfig(botId, session.pluginId, configValues);
+        pluginConfigResult = await deps.dispatchPluginConfig(instanceUrl, session.pluginId, configValues);
       }
     }
 
     // 6c. Apply stored configs to dependency plugins (non-fatal)
     let dependencyConfigResults: DependencyConfigResult[] = [];
     if (pluginInstallResult.dispatched) {
+      const instanceUrl = await deps.getInstanceUrl(botId);
       dependencyConfigResults = await applyDependencyConfigs({
         botId,
         superpowerPluginName: session.pluginId,
         pluginRegistry: deps.pluginRegistry,
-        fetchDependencies: deps.fetchPluginDependencies,
-        dispatchConfig: deps.dispatchPluginConfig,
+        fetchDependencies: (_, pluginName) => deps.fetchPluginDependencies(instanceUrl, pluginName),
+        dispatchConfig: (_, pluginId, config) => deps.dispatchPluginConfig(instanceUrl, pluginId, config),
         findAllForBot: (bId) => deps.pluginConfigRepo.findAllForBot(bId),
       });
       if (dependencyConfigResults.length > 0) {
