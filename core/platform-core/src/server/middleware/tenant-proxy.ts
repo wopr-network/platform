@@ -124,14 +124,23 @@ async function resolveContainerUrl(
     return `http://${route.upstreamHost}:${route.upstreamPort}`;
   }
 
-  // Fallback: derive container name from profile via containerNameFor (uses friendlyName)
-  if (!profile.productSlug) return null;
-  const { containerNameFor } = await import("../../fleet/types.js");
+  // Get the actual container URL from the Instance (Docker inspect)
   const profileId = (profile as { id?: string }).id;
-  if (!profileId) return null;
-  const containerName = containerNameFor({ id: profileId, productSlug: profile.productSlug });
-  const port = profile.env?.PORT || "3100";
-  return `http://${containerName}:${port}`;
+  if (!profileId) {
+    const { logger } = await import("../../config/logger.js");
+    logger.warn("resolveContainerUrl: no profile ID", { subdomain, productSlug: profile.productSlug });
+    return null;
+  }
+  try {
+    const instance = await container.fleet.manager.getInstance(profileId);
+    const { logger } = await import("../../config/logger.js");
+    logger.info("resolveContainerUrl: resolved from Instance", { profileId, containerName: instance.containerName, url: instance.url });
+    return instance.url;
+  } catch (err) {
+    const { logger } = await import("../../config/logger.js");
+    logger.warn("resolveContainerUrl: getInstance failed", { profileId, error: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
 }
 
 /**

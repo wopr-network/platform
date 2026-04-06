@@ -13,7 +13,6 @@ import type { IServiceKeyRepository } from "../gateway/service-key-repository.js
 import type { ProductConfig } from "../product-config/index.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { IProfileStore } from "./profile-store.js";
-import { containerNameFor } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -151,9 +150,8 @@ export class InstanceService {
       throw new Error(`Product ${productSlug} has no domain configured`);
     }
     const gatewayUrl = `https://api.${productConfig.product.domain}/v1`;
-    const containerName = containerNameFor(profile);
-    const containerUrl = `http://${containerName}:${containerPort}`;
-    logger.info("Instance.create: provisioning setup", { instanceId, containerName, containerUrl, gatewayUrl, hasSecret: !!d.provisionSecret, hasKey: !!gatewayKey });
+    const containerUrl = result.url;
+    logger.info("Instance.create: provisioning setup", { instanceId, containerName: result.containerName, containerUrl, gatewayUrl, hasSecret: !!d.provisionSecret, hasKey: !!gatewayKey });
 
     if (d.provisionSecret && gatewayKey) {
       const provisionPayload = {

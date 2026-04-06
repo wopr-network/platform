@@ -175,9 +175,9 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     // Track container → node assignment
     nodeRegistry.assignContainer(instance.id, targetNode.config.id);
 
-    // Register proxy route — container name must match FleetManager naming convention
-    const containerName = `${containerPrefix}-${subdomain}`;
-    const upstreamHost = nodeRegistry.resolveUpstreamHost(instance.id, containerName);
+    // Register proxy route — get container name from the Instance (Docker inspect)
+    const inst = await fleet.getInstance(instance.id);
+    const upstreamHost = nodeRegistry.resolveUpstreamHost(instance.id, inst.containerName);
     await fleetResolver.registerRoute(instance.id, subdomain, upstreamHost, containerPort);
 
     // Wait for container to become healthy
