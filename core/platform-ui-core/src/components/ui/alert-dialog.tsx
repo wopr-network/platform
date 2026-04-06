@@ -2,6 +2,7 @@
 
 import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 import type * as React from "react";
+import { createPortal } from "react-dom";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -31,8 +32,9 @@ function AlertDialogOverlay({ className, ...props }: React.ComponentProps<typeof
 }
 
 function AlertDialogContent({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
-  return (
-    <AlertDialogPortal>
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <AlertDialogPrimitive.Portal forceMount>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
@@ -42,7 +44,8 @@ function AlertDialogContent({ className, ...props }: React.ComponentProps<typeof
         )}
         {...props}
       />
-    </AlertDialogPortal>
+    </AlertDialogPrimitive.Portal>,
+    document.body,
   );
 }
 

@@ -3,6 +3,7 @@
 import { XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type * as React from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -43,8 +44,9 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
-  return (
-    <DialogPortal data-slot="dialog-portal" container={typeof document !== "undefined" ? document.body : undefined}>
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <DialogPrimitive.Portal forceMount>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
@@ -65,7 +67,9 @@ function DialogContent({
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Content>
-    </DialogPortal>
+    </DialogPrimitive.Portal>,
+    document.body,
+  )
   );
 }
 
