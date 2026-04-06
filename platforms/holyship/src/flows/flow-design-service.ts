@@ -79,13 +79,25 @@ export class FlowDesignService {
       throw new Error(`Gateway call failed: HTTP ${res.status} — ${text.slice(0, 500)}`);
     }
 
-    const data = (await res.json()) as { choices: Array<{ message: { content: string } }> };
-    const content = data.choices[0]?.message?.content;
+    const data = (await res.json()) as {
+      model?: string;
+      choices: Array<{ message: { content: string }; finish_reason?: string }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+    };
+    const choice = data.choices[0];
+    const content = choice?.message?.content;
+
+    logger.info(`${tag} gateway response`, {
+      repo: repoFullName,
+      model: data.model,
+      finishReason: choice?.finish_reason,
+      contentLength: content?.length ?? 0,
+      usage: data.usage,
+    });
+
     if (!content) {
       throw new Error("Gateway returned empty content");
     }
-
-    logger.info(`${tag} parsing output`, { repo: repoFullName, outputLength: content.length });
     const result = parseFlowDesignOutput(content);
 
     logger.info(`${tag} complete`, {
