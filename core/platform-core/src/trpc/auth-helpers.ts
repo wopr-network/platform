@@ -19,8 +19,10 @@ import type { IOrgMemberRepository } from "../tenancy/org-member-repository.js";
  */
 export function createAssertOrgAdminOrOwner(orgMemberRepo: IOrgMemberRepository) {
   return async function assertOrgAdminOrOwner(tenantId: string, userId: string): Promise<void> {
-    if (tenantId === userId) return;
-    const member = await orgMemberRepo.findMember(tenantId, userId);
+    // Service token auth prepends "token:" — strip it for comparison and lookup
+    const rawUserId = userId.startsWith("token:") ? userId.slice(6) : userId;
+    if (tenantId === rawUserId) return;
+    const member = await orgMemberRepo.findMember(tenantId, rawUserId);
     if (!member || (member.role !== "owner" && member.role !== "admin")) {
       throw new TRPCError({ code: "FORBIDDEN", message: "Organization admin access required" });
     }
