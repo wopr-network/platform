@@ -5,13 +5,15 @@
  * the user, verifies tenant membership via orgMemberRepo, resolves
  * the fleet container URL, and proxies the request upstream.
  *
- * Ported from paperclip-platform with fail-closed semantics:
+ * Fail-closed semantics:
  * - If fleet services are unavailable, returns 503 (not silent skip)
  * - Auth check runs before tenant ownership check
  * - Upstream headers are sanitized via allowlist
  */
 
 import type { MiddlewareHandler } from "hono";
+import { validateTenantAccess } from "../../auth/index.js";
+import { logger } from "../../config/logger.js";
 import type { PlatformContainer } from "../container.js";
 
 /** Reserved subdomains that should never resolve to a tenant. */
@@ -23,7 +25,7 @@ const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 /**
  * Headers safe to forward to upstream containers.
  *
- * This is an allowlist -- only these headers are copied from the incoming
+ * This is an allowlist — only these headers are copied from the incoming
  * request. All x-platform-* headers are injected server-side after auth
  * resolution, preventing client-side spoofing.
  */
@@ -82,8 +84,8 @@ export function extractTenantSubdomain(host: string, platformDomain: string): st
  * Build sanitized headers for upstream requests.
  *
  * Only allowlisted headers are forwarded. All x-platform-* headers are
- * injected server-side from the authenticated session -- never copied from
- * the incoming request -- to prevent spoofing.
+ * injected server-side from the authenticated session — never copied from
+ * the incoming request — to prevent spoofing.
  */
 export function buildUpstreamHeaders(incoming: Headers, user: ProxyUserInfo, tenantSubdomain: string): Headers {
   const headers = new Headers();
@@ -103,55 +105,14 @@ export function buildUpstreamHeaders(incoming: Headers, user: ProxyUserInfo, ten
 }
 
 /**
- * Resolve the upstream container URL for a tenant subdomain.
- *
- * First checks the in-memory proxy route table (populated during
- * provisioning). Falls back to deriving from the persistent profile
- * data so that routing survives server restarts without needing
- * Caddy or in-memory state.
- */
-async function resolveContainerUrl(
-  container: PlatformContainer,
-  subdomain: string,
-  profile: { name: string; productSlug?: string; env?: Record<string, string> },
-): Promise<string | null> {
-  if (!container.fleet) return null;
-
-  // Fast path: in-memory route table (populated during provisioning)
-  const routes = container.fleet.proxy.getRoutes();
-  const route = routes.find((r) => r.subdomain === subdomain);
-  if (route?.healthy) {
-    return `http://${route.upstreamHost}:${route.upstreamPort}`;
-  }
-
-  // Get the actual container URL from the Instance (Docker inspect)
-  const profileId = (profile as { id?: string }).id;
-  if (!profileId) {
-    const { logger } = await import("../../config/logger.js");
-    logger.warn("resolveContainerUrl: no profile ID", { subdomain, productSlug: profile.productSlug });
-    return null;
-  }
-  try {
-    const instance = await container.fleet.manager.getInstance(profileId);
-    const { logger } = await import("../../config/logger.js");
-    logger.info("resolveContainerUrl: resolved from Instance", { profileId, containerName: instance.containerName, url: instance.url });
-    return instance.url;
-  } catch (err) {
-    const { logger } = await import("../../config/logger.js");
-    logger.warn("resolveContainerUrl: getInstance failed", { profileId, error: err instanceof Error ? err.message : String(err) });
-    return null;
-  }
-}
-
-/**
  * Create a tenant subdomain proxy middleware.
  *
- * If the request Host identifies a tenant subdomain, authenticates the user,
- * resolves the fleet container URL, and proxies the request. Non-tenant
- * requests (root domain, reserved subdomains) pass through to next().
+ * Two modes:
+ * 1. Subdomain: alice.runpaperclip.com → proxy to alice's container
+ * 2. Path: runpaperclip.com/_sidecar/* → proxy to the user's instance
  *
- * Fail-closed: if fleet services or orgMemberRepo are unavailable, returns
- * 503 instead of silently skipping checks.
+ * Container URLs come from the Instance object (Docker inspect) — never
+ * reconstructed from naming conventions.
  */
 export function createTenantProxyMiddleware(
   container: PlatformContainer,
@@ -163,9 +124,6 @@ export function createTenantProxyMiddleware(
     const host = c.req.header("host");
     if (!host) return next();
 
-    // Two proxy modes:
-    // 1. Subdomain: alice.runpaperclip.com → proxy to alice's container
-    // 2. Path: runpaperclip.com/_sidecar/* → proxy to the user's instance
     const url = new URL(c.req.url);
     const isSidecarProxy = url.pathname.startsWith("/_sidecar");
     let subdomain: string | null = null;
@@ -180,25 +138,25 @@ export function createTenantProxyMiddleware(
 
     // --- Fail-closed checks ---
 
-    // Fleet services must be available for tenant proxying
     if (!container.fleet) {
+      logger.warn("Tenant proxy: fleet unavailable", { path: url.pathname });
       return c.json({ error: "Fleet services unavailable" }, 503);
     }
 
-    // Authenticate -- reject unauthenticated requests
     const user = await resolveUser(c.req.raw);
     if (!user) {
+      logger.warn("Tenant proxy: unauthenticated", { path: url.pathname, isSidecarProxy });
       return c.json({ error: "Authentication required" }, 401);
     }
 
-    // Verify tenant ownership -- user must belong to the org that owns this subdomain/instance
+    // --- Resolve the target profile ---
+
     const profiles = await container.fleet.profileStore.list();
     let profile: (typeof profiles)[number] | undefined;
 
     if (isSidecarProxy) {
-      // /_sidecar/ mode: find the user's instance by checking tenant access
+      // /_sidecar/ mode: find the user's instance by tenant access
       for (const p of profiles) {
-        const { validateTenantAccess } = await import("../../auth/index.js");
         const hasAccess = await validateTenantAccess(user.id, p.tenantId, container.orgMemberRepo);
         if (hasAccess) {
           profile = p;
@@ -206,43 +164,73 @@ export function createTenantProxyMiddleware(
           break;
         }
       }
+      if (!profile) {
+        logger.warn("Tenant proxy: no instance for user", { userId: user.id, path: url.pathname });
+        return c.json({ error: "Tenant not found" }, 404);
+      }
     } else {
       profile = profiles.find((p) => p.name === subdomain);
-    }
-
-    if (!profile) {
-      return c.json({ error: "Tenant not found" }, 404);
-    }
-    if (!isSidecarProxy) {
-      const { validateTenantAccess } = await import("../../auth/index.js");
+      if (!profile) {
+        logger.warn("Tenant proxy: subdomain not found", { subdomain, path: url.pathname });
+        return c.json({ error: "Tenant not found" }, 404);
+      }
       const hasAccess = await validateTenantAccess(user.id, profile.tenantId, container.orgMemberRepo);
       if (!hasAccess) {
+        logger.warn("Tenant proxy: access denied", { subdomain, userId: user.id });
         return c.json({ error: "Forbidden: not a member of this tenant" }, 403);
       }
     }
 
-    // Resolve fleet container URL (route table or profile fallback)
-    const upstream = await resolveContainerUrl(container, subdomain ?? profile.name, profile);
-    const { logger } = await import("../../config/logger.js");
-    logger.info("Tenant proxy", {
-      subdomain,
-      upstream,
-      userId: user.id,
-      profileName: profile.name,
-      productSlug: profile.productSlug,
-      method: c.req.method,
-      path: url.pathname,
-      targetUrl: `${upstream}${url.pathname}${url.search}`,
-    });
+    // --- Resolve container URL from the Instance object ---
+
+    let upstream: string | null = null;
+
+    // Fast path: in-memory route table (populated during provisioning)
+    const routes = container.fleet.proxy.getRoutes();
+    const route = routes.find((r) => r.subdomain === subdomain);
+    if (route?.healthy) {
+      upstream = `http://${route.upstreamHost}:${route.upstreamPort}`;
+      logger.info("Tenant proxy: resolved from route table", { subdomain, upstream });
+    }
+
+    // Primary path: get the Instance from fleet (Docker inspect — the truth)
+    if (!upstream && profile.id) {
+      try {
+        const instance = await container.fleet.manager.getInstance(profile.id);
+        upstream = instance.url;
+        logger.info("Tenant proxy: resolved from Instance", {
+          subdomain,
+          instanceId: profile.id,
+          containerName: instance.containerName,
+          upstream,
+        });
+      } catch (err) {
+        logger.warn("Tenant proxy: getInstance failed", {
+          subdomain,
+          instanceId: profile.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     if (!upstream) {
-      logger.warn("Tenant proxy: no upstream", { subdomain, productSlug: profile.productSlug });
+      logger.warn("Tenant proxy: no upstream", { subdomain, instanceId: profile.id, productSlug: profile.productSlug });
       return c.json({ error: "Container unavailable" }, 503);
     }
 
-    // Strip /_sidecar prefix when proxying via path mode
+    // --- Proxy the request ---
+
     const proxyPath = isSidecarProxy ? url.pathname.replace(/^\/_sidecar/, "") || "/" : url.pathname;
     const targetUrl = `${upstream}${proxyPath}${url.search}`;
     const upstreamHeaders = buildUpstreamHeaders(c.req.raw.headers, user, subdomain ?? profile.name);
+
+    logger.info("Tenant proxy: forwarding", {
+      subdomain,
+      method: c.req.method,
+      path: url.pathname,
+      targetUrl,
+      userId: user.id,
+    });
 
     let response: Response;
     try {
@@ -253,18 +241,23 @@ export function createTenantProxyMiddleware(
         // @ts-expect-error duplex needed for streaming request bodies
         duplex: "half",
       });
-    } catch {
+    } catch (err) {
+      logger.error("Tenant proxy: upstream fetch failed", {
+        subdomain,
+        targetUrl,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return c.json({ error: "Bad Gateway: upstream container unavailable" }, 502);
     }
 
-    logger.info("Tenant proxy response", {
+    logger.info("Tenant proxy: response", {
       subdomain,
       path: url.pathname,
       upstreamStatus: response.status,
     });
+
     const responseHeaders = new Headers(response.headers);
     if (isSidecarProxy) {
-      // Allow embedding in same-origin iframe
       responseHeaders.delete("x-frame-options");
       responseHeaders.set("content-security-policy", "frame-ancestors 'self'");
     }
