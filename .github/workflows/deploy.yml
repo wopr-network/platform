@@ -85,10 +85,10 @@ jobs:
           cd /opt/core-server
 
           echo "=== Pulling all images ==="
-          docker compose pull --ignore-buildable
+          docker compose pull
 
-          echo "=== Recreating core services ==="
-          docker compose up -d --pull always --force-recreate --no-deps postgres core
+          echo "=== Recreating all services ==="
+          docker compose up -d --force-recreate || echo "::warning::Some containers unhealthy — continuing"
 
           echo "=== Waiting for core health ==="
           for i in $(seq 1 30); do
@@ -99,10 +99,6 @@ jobs:
             echo "  Waiting... ($i/30)"
             sleep 5
           done
-
-          echo "=== Recreating UI + infra services ==="
-          docker compose up -d --pull always --force-recreate --no-deps caddy paperclip-ui wopr-ui nemoclaw-ui || true
-          docker compose up -d --pull always --force-recreate --no-deps holyship holyship-ui || echo "::warning::holyship unhealthy — skipping"
 
           echo "=== Killing pool containers (will auto-replenish with new images) ==="
           docker ps --filter "name=pool-" --format '{{.Names}}' | while read -r name; do
