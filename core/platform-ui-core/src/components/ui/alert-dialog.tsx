@@ -32,18 +32,16 @@ function AlertDialogOverlay({ className, ...props }: React.ComponentProps<typeof
 
 function AlertDialogContent({ className, ...props }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
   return (
-    <AlertDialogPortal container={typeof document !== "undefined" ? document.body : undefined}>
+    <AlertDialogPortal>
       <AlertDialogOverlay />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <AlertDialogPrimitive.Content
-          data-slot="alert-dialog-content"
-          className={cn(
-            "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 z-50 grid w-full max-w-lg gap-4 rounded-lg border p-6 shadow-lg duration-200",
-            className,
-          )}
-          {...props}
-        />
-      </div>
+      <AlertDialogPrimitive.Content
+        data-slot="alert-dialog-content"
+        className={cn(
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg duration-200",
+          className,
+        )}
+        {...props}
+      />
     </AlertDialogPortal>
   );
 }
