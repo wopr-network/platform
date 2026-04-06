@@ -60,12 +60,14 @@ export default function DashboardLayout({
           <Suspense>
             <EmailVerificationResultBanner />
           </Suspense>
-          <main className="flex-1 overflow-auto">{children}</main>
+          <main className="flex-1">
+            {children}
+          </main>
         </div>
       </div>
 
       {/* Mobile layout - hidden on desktop with CSS */}
-      <div className="crt-scanlines flex lg:hidden h-screen flex-col">
+      <div className="crt-scanlines flex lg:hidden h-screen flex-col overflow-auto">
         <header className="flex h-14 shrink-0 items-center border-b border-sidebar-border bg-sidebar px-4 gap-3">
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
@@ -84,7 +86,9 @@ export default function DashboardLayout({
         <Suspense>
           <EmailVerificationResultBanner />
         </Suspense>
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1">
+          {children}
+        </main>
       </div>
       {chatEnabled && !pathname.startsWith("/chat") && <ChatWidget />}
     </Wrapper>
