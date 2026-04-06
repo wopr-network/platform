@@ -60,9 +60,7 @@ export default function DashboardLayout({
           <Suspense>
             <EmailVerificationResultBanner />
           </Suspense>
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
+          <main className="flex-1 overflow-auto">{children}</main>
         </div>
       </div>
 
@@ -86,9 +84,7 @@ export default function DashboardLayout({
         <Suspense>
           <EmailVerificationResultBanner />
         </Suspense>
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </div>
       {chatEnabled && !pathname.startsWith("/chat") && <ChatWidget />}
     </Wrapper>

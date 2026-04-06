@@ -27,31 +27,19 @@ let sessionCheckInFlight = false;
 export function handleUnauthorized(): never {
   if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login") && !sessionCheckInFlight) {
     sessionCheckInFlight = true;
-
-    // Check session validity before redirecting
-    console.warn("[auth] 401 received on", window.location.pathname, "— verifying session...");
     fetch("/api/auth/get-session", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         sessionCheckInFlight = false;
         if (data?.session) {
-          // Session is valid — this 401 is NOT a session expiry
-          console.warn(
-            "[auth] session IS valid (userId:",
-            data.session.userId,
-            ") — 401 is from a missing endpoint or permission issue, NOT session expiry. Staying on page.",
-          );
         } else {
-          // Session truly expired — redirect to login
-          console.warn("[auth] session is expired — redirecting to login");
           const callbackUrl = window.location.pathname + window.location.search;
           const loginUrl = `/login?reason=expired&callbackUrl=${encodeURIComponent(callbackUrl)}`;
           window.location.href = loginUrl;
         }
       })
-      .catch((err) => {
+      .catch((_err) => {
         sessionCheckInFlight = false;
-        console.warn("[auth] failed to verify session:", err.message, "— assuming expired");
         const callbackUrl = window.location.pathname + window.location.search;
         const loginUrl = `/login?reason=expired&callbackUrl=${encodeURIComponent(callbackUrl)}`;
         window.location.href = loginUrl;
