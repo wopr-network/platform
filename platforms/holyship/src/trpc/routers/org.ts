@@ -130,19 +130,24 @@ export const orgRouter = router({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" }).billing.checkout.mutate({
-        methodId: input.priceId,
-        amountUsd: 0, // core resolves from priceId
+      return coreClient({
+        tenantId: input.orgId,
+        userId: ctx.user.id,
+        product: "holyship",
+      }).billing.creditsCheckout.mutate({
+        priceId: input.priceId,
+        successUrl: input.successUrl,
+        cancelUrl: input.cancelUrl,
       });
     }),
 
   orgSetupIntent: orgMemberProcedure
-    .input(z.object({ orgId: z.string().min(1), returnUrl: z.string().url().optional() }))
+    .input(z.object({ orgId: z.string().min(1), returnUrl: z.string().url() }))
     .mutation(async ({ input, ctx }) => {
       return coreClient({
         tenantId: input.orgId,
         userId: ctx.user.id,
         product: "holyship",
-      }).billing.portalSession.mutate({ returnUrl: input.returnUrl ?? "" });
+      }).billing.portalSession.mutate({ returnUrl: input.returnUrl });
     }),
 });
