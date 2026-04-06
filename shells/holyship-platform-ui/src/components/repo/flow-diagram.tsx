@@ -18,13 +18,13 @@ interface FlowDiagramProps {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const NODE_W = 160;
-const NODE_H = 48;
-const GATE_SIZE = 32;
-const ROW_GAP = 80;
-const COL_GAP = 200;
-const PAD_X = 40;
-const PAD_Y = 30;
+const NODE_W = 200;
+const NODE_H = 68;
+const GATE_SIZE = 40;
+const ROW_GAP = 120;
+const COL_GAP = 260;
+const PAD_X = 50;
+const PAD_Y = 40;
 
 const TERMINAL = new Set(["done", "stuck", "cancelled", "budget_exceeded"]);
 
@@ -337,11 +337,11 @@ function buildArrowPath(from: NodePos, to: NodePos, isBackEdge: boolean, gate?: 
 function ArrowDefs() {
   return (
     <defs>
-      <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-        <path d="M 0 0 L 8 3 L 0 6 Z" fill="#64748b" />
+      <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M 0 0 L 10 4 L 0 8 Z" fill="#64748b" />
       </marker>
-      <marker id="arrowhead-back" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-        <path d="M 0 0 L 8 3 L 0 6 Z" fill="#fb923c" />
+      <marker id="arrowhead-back" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+        <path d="M 0 0 L 10 4 L 0 8 Z" fill="#fb923c" />
       </marker>
       <filter id="glow-green">
         <feGaussianBlur stdDeviation="4" result="blur" />
@@ -405,11 +405,11 @@ function StateNode({
       />
       <text
         x={node.x + NODE_W / 2}
-        y={node.y + (subtitle ? NODE_H / 2 - 4 : NODE_H / 2 + 1)}
+        y={node.y + (subtitle ? NODE_H / 2 - 8 : NODE_H / 2)}
         textAnchor="middle"
         dominantBaseline="middle"
         fill={color.text}
-        fontSize={13}
+        fontSize={14}
         fontWeight={600}
         fontFamily="ui-monospace, monospace"
       >
@@ -418,11 +418,11 @@ function StateNode({
       {subtitle && (
         <text
           x={node.x + NODE_W / 2}
-          y={node.y + NODE_H / 2 + 10}
+          y={node.y + NODE_H / 2 + 12}
           textAnchor="middle"
           dominantBaseline="middle"
           fill={color.text}
-          fontSize={9}
+          fontSize={11}
           opacity={0.6}
           fontFamily="ui-sans-serif, system-ui, sans-serif"
         >
@@ -475,7 +475,7 @@ function GateDiamond({ gate: gatePos }: { gate: GatePos }) {
         textAnchor="middle"
         dominantBaseline="middle"
         fill={GATE_STROKE}
-        fontSize={8}
+        fontSize={11}
         fontWeight={600}
         fontFamily="ui-sans-serif, system-ui, sans-serif"
       >
@@ -483,24 +483,24 @@ function GateDiamond({ gate: gatePos }: { gate: GatePos }) {
       </text>
       {/* Gate name label */}
       <text
-        x={cx + s + 6}
-        y={cy - 2}
+        x={cx + s + 8}
+        y={cy - 3}
         textAnchor="start"
         dominantBaseline="middle"
         fill={GATE_STROKE}
-        fontSize={9}
+        fontSize={11}
         fontFamily="ui-sans-serif, system-ui, sans-serif"
       >
         {gateName}
       </text>
       {outcomeLabels.length > 0 && (
         <text
-          x={cx + s + 6}
-          y={cy + 9}
+          x={cx + s + 8}
+          y={cy + 11}
           textAnchor="start"
           dominantBaseline="middle"
           fill="#94a3b8"
-          fontSize={8}
+          fontSize={10}
           fontFamily="ui-sans-serif, system-ui, sans-serif"
         >
           {outcomeLabels.join(" | ")}
@@ -555,12 +555,12 @@ function EdgePath({ edge }: { edge: Edge }) {
       />
       {edge.transition.trigger && !edge.gate && (
         <text
-          x={labelX + 10}
+          x={labelX + 12}
           y={labelY}
           textAnchor="start"
           dominantBaseline="middle"
           fill="#94a3b8"
-          fontSize={9}
+          fontSize={11}
           fontStyle="italic"
           fontFamily="ui-sans-serif, system-ui, sans-serif"
         >
@@ -569,12 +569,12 @@ function EdgePath({ edge }: { edge: Edge }) {
       )}
       {edge.transition.trigger && edge.gate && (
         <text
-          x={labelX + 10}
+          x={labelX + 12}
           y={labelY}
           textAnchor="start"
           dominantBaseline="middle"
           fill="#94a3b8"
-          fontSize={9}
+          fontSize={11}
           fontStyle="italic"
           fontFamily="ui-sans-serif, system-ui, sans-serif"
         >
