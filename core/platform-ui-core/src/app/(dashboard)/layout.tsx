@@ -11,7 +11,6 @@
  */
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { MenuIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Fragment, Suspense, useEffect, useState } from "react";
@@ -61,18 +60,9 @@ export default function DashboardLayout({
           <Suspense>
             <EmailVerificationResultBanner />
           </Suspense>
-          <AnimatePresence mode="wait">
-            <motion.main
-              key={pathname}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="flex-1 overflow-auto"
-            >
-              {children}
-            </motion.main>
-          </AnimatePresence>
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
         </div>
       </div>
 
@@ -96,18 +86,9 @@ export default function DashboardLayout({
         <Suspense>
           <EmailVerificationResultBanner />
         </Suspense>
-        <AnimatePresence mode="wait">
-          <motion.main
-            key={pathname}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="flex-1 overflow-auto"
-          >
-            {children}
-          </motion.main>
-        </AnimatePresence>
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
       </div>
       {chatEnabled && !pathname.startsWith("/chat") && <ChatWidget />}
     </Wrapper>
