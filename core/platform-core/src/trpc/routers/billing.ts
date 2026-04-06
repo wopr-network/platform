@@ -158,7 +158,7 @@ export interface BillingRouterDeps {
   /** Raw DB for aggregation queries. */
   db?: import("../../db/index.js").DrizzleDb;
   /** Assert caller is admin/owner of the tenant. Skips check for personal tenants (tenantId === userId). */
-  assertOrgAdminOrOwner: (tenantId: string, userId: string) => Promise<void>;
+  assertOrgAdminOrOwner: (tenantId: string, userId: string, roles?: string[]) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

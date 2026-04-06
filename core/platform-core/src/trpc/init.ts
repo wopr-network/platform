@@ -61,7 +61,7 @@ export async function createTRPCContext(req: Request): Promise<TRPCContext> {
             .map((r) => r.trim())
             .filter(Boolean)
         : ["service", "platform_admin"];
-      user = { id: `token:${userId}`, roles };
+      user = { id: userId, roles };
       tenantId = req.headers.get("x-tenant-id") ?? "";
     }
   }

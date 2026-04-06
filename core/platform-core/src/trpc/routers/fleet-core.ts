@@ -59,7 +59,7 @@ export interface FleetCoreRouterDeps {
   productConfig: ProductConfig;
   serviceKeyRepo: IServiceKeyRepository | null;
   /** Assert caller is admin/owner of the tenant. Skips check for personal tenants (tenantId === userId). */
-  assertOrgAdminOrOwner: (tenantId: string, userId: string) => Promise<void>;
+  assertOrgAdminOrOwner: (tenantId: string, userId: string, roles?: string[]) => Promise<void>;
   /** Get the FleetManager for a given instance. Product-specific resolution. */
   getFleetForInstance: (instanceId: string) => FleetManagerLike;
   /** Unassign container from node tracking. */
@@ -151,9 +151,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           ctx: ProtectedCtx;
         }) => {
           const tenant = input.orgId ?? tenantFromCtx(ctx);
-          if (!ctx.user.id.startsWith("token:")) {
-            await d.assertOrgAdminOrOwner(tenant, ctx.user.id);
-          }
+          await d.assertOrgAdminOrOwner(tenant, ctx.user.id, ctx.user.roles);
           const profile = await d.profileStore.get(input.id);
           if (!profile) {
             throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
@@ -275,7 +273,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
         const userId = (ctx as ProtectedCtx).user.id;
         logger.info("createInstance: start", { tenant, userId, inputOrgId: input.orgId, ctxTenantId: (ctx as ProtectedCtx).tenantId, productSlug: ctx.productSlug, name: input.name });
-        await d.assertOrgAdminOrOwner(tenant, userId);
+        await d.assertOrgAdminOrOwner(tenant, userId, (ctx as ProtectedCtx).user.roles);
         logger.info("createInstance: auth passed", { tenant, userId });
 
         if (!ctx.productSlug) {
@@ -333,10 +331,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
       .mutation(async ({ input, ctx }) => {
         const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
         const userId = (ctx as ProtectedCtx).user.id;
-        // Service token users (token:*) skip org membership — they're trusted servers
-        if (!userId.startsWith("token:")) {
-          await d.assertOrgAdminOrOwner(tenant, userId);
-        }
+        await d.assertOrgAdminOrOwner(tenant, userId, (ctx as ProtectedCtx).user.roles);
 
         // Validate image against product config allowlist
         if (d.resolveProductConfig) {
