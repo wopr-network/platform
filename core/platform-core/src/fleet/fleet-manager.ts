@@ -520,7 +520,7 @@ export class FleetManager {
 
     const container = await this.docker.createContainer({
       Image: profile.image,
-      name: `wopr-${profile.name.replace(/_/g, "-")}`,
+      name: containerNameFor(profile),
       Env: Object.entries(mergedEnv)
         .filter(([, v]) => v !== "")
         .map(([k, v]) => `${k}=${v}`),
