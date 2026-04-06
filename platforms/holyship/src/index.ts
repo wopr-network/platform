@@ -17,18 +17,16 @@
  *   - Metering, gateway
  */
 
-import { Hono } from "hono";
-import { cors } from "hono/cors";
 import { serve } from "@hono/node-server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import pg from "pg";
-
-import { getConfig } from "./config.js";
-import { setCoreUrl } from "./auth/validate-session.js";
-import { createTRPCContext } from "./trpc/init.js";
 import { createShipItRoutes } from "./api/ship-it.js";
+import { setCoreUrl } from "./auth/validate-session.js";
+import { getConfig } from "./config.js";
 import { DomainEventPersistAdapter } from "./engine/domain-event-adapter.js";
 import { Engine } from "./engine/engine.js";
 import { EventEmitter } from "./engine/event-emitter.js";
@@ -52,6 +50,7 @@ import { createScopedRepos } from "./repositories/scoped-repos.js";
 import { createEngineRoutes } from "./routes/engine.js";
 import { createFlowEditorRoutes } from "./routes/flow-editor.js";
 import { createInterrogationRoutes } from "./routes/interrogation.js";
+import { createTRPCContext } from "./trpc/init.js";
 
 // ---------------------------------------------------------------------------
 // GitHub token resolution

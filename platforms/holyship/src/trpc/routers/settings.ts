@@ -1,9 +1,10 @@
 /**
  * Settings proxy — health is local, everything else delegates to core.
  */
+
+import { z } from "zod";
 import { coreClient } from "../../services/core-client.js";
 import { publicProcedure, router, tenantProcedure } from "../init.js";
-import { z } from "zod";
 
 function forTenant(ctx: { tenantId: string; user: { id: string } }) {
   return coreClient({ tenantId: ctx.tenantId, userId: ctx.user.id, product: "holyship" });

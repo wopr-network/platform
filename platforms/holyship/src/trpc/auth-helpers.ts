@@ -2,8 +2,8 @@
  * Auth helpers — org membership checks via core-client.
  */
 import { TRPCError } from "@trpc/server";
-import { coreClient } from "../services/core-client.js";
 import { logger } from "../logger.js";
+import { coreClient } from "../services/core-client.js";
 
 /**
  * Assert the caller is an admin or owner of the tenant org.

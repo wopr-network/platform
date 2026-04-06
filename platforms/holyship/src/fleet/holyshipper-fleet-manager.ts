@@ -13,8 +13,8 @@
  * Token billing happens at the gateway layer, not per-instance.
  */
 
-import { coreClient } from "../services/core-client.js";
 import { logger } from "../logger.js";
+import { coreClient } from "../services/core-client.js";
 import type { IFleetManager, ProvisionConfig, ProvisionResult } from "./provision-holyshipper.js";
 
 export interface HolyshipperFleetManagerConfig {
@@ -84,10 +84,7 @@ export class HolyshipperFleetManager implements IFleetManager {
       const status = await core.fleet.getInstance.query({ id: containerId });
       const statusAny = status as Record<string, unknown>;
       // The container gets an internal URL (e.g., http://hs-xxxxx:8080)
-      runnerUrl =
-        (statusAny.url as string) ??
-        (statusAny.applicationUrl as string) ??
-        `http://${botName}:8080`;
+      runnerUrl = (statusAny.url as string) ?? (statusAny.applicationUrl as string) ?? `http://${botName}:8080`;
     } catch {
       runnerUrl = `http://${botName}:8080`;
     }

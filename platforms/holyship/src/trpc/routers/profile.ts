@@ -1,9 +1,10 @@
 /**
  * Profile proxy — forwards all profile operations to core.
  */
+
+import { z } from "zod";
 import { coreClient } from "../../services/core-client.js";
 import { protectedProcedure, router } from "../init.js";
-import { z } from "zod";
 
 function forUser(ctx: { user: { id: string } }) {
   return coreClient({ tenantId: ctx.user.id, userId: ctx.user.id, product: "holyship" });

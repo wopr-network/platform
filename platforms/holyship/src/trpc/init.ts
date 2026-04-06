@@ -5,7 +5,7 @@
  * with auth validation against core (not local BetterAuth).
  */
 
-import { TRPCError, initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import type { SessionUser } from "../auth/validate-session.js";
 import { validateSession } from "../auth/validate-session.js";
 

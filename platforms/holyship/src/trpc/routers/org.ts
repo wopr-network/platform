@@ -2,9 +2,10 @@
  * Org proxy — forwards organization operations to core server via core-client.
  * Holyship doesn't manage orgs or org billing; it delegates to core.
  */
+
+import { z } from "zod";
 import { coreClient } from "../../services/core-client.js";
 import { orgMemberProcedure, protectedProcedure, router } from "../init.js";
-import { z } from "zod";
 
 function forUser(ctx: { user: { id: string } }, tenantId?: string) {
   return coreClient({ tenantId: tenantId ?? ctx.user.id, userId: ctx.user.id, product: "holyship" });
@@ -24,28 +25,30 @@ export const orgRouter = router({
     return forUser(ctx).org.listMyOrganizations.query();
   }),
 
-  acceptInvite: protectedProcedure
-    .input(z.object({ token: z.string().min(1) }))
-    .mutation(async ({ ctx, input }) => {
-      return forUser(ctx).org.acceptInvite.mutate(input);
-    }),
+  acceptInvite: protectedProcedure.input(z.object({ token: z.string().min(1) })).mutation(async ({ ctx, input }) => {
+    return forUser(ctx).org.acceptInvite.mutate(input);
+  }),
 
   createOrganization: protectedProcedure
-    .input(z.object({
-      name: z.string().min(1).max(128),
-      slug: z.string().min(3).max(48).optional(),
-    }))
+    .input(
+      z.object({
+        name: z.string().min(1).max(128),
+        slug: z.string().min(3).max(48).optional(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       return forUser(ctx).org.createOrganization.mutate(input);
     }),
 
   updateOrganization: orgMemberProcedure
-    .input(z.object({
-      orgId: z.string().min(1),
-      name: z.string().min(1).max(128).optional(),
-      slug: z.string().min(3).max(48).optional(),
-      billingEmail: z.string().email().max(255).optional().nullable(),
-    }))
+    .input(
+      z.object({
+        orgId: z.string().min(1),
+        name: z.string().min(1).max(128).optional(),
+        slug: z.string().min(3).max(48).optional(),
+        billingEmail: z.string().email().max(255).optional().nullable(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       return forTenant(ctx).org.updateOrganization.mutate(input);
     }),
@@ -57,11 +60,13 @@ export const orgRouter = router({
     }),
 
   inviteMember: orgMemberProcedure
-    .input(z.object({
-      orgId: z.string().min(1),
-      email: z.string().email(),
-      role: z.enum(["admin", "member"]),
-    }))
+    .input(
+      z.object({
+        orgId: z.string().min(1),
+        email: z.string().email(),
+        role: z.enum(["admin", "member"]),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       return forTenant(ctx).org.inviteMember.mutate(input);
     }),
@@ -73,11 +78,13 @@ export const orgRouter = router({
     }),
 
   changeRole: orgMemberProcedure
-    .input(z.object({
-      orgId: z.string().min(1),
-      userId: z.string().min(1),
-      role: z.enum(["admin", "member"]),
-    }))
+    .input(
+      z.object({
+        orgId: z.string().min(1),
+        userId: z.string().min(1),
+        role: z.enum(["admin", "member"]),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       return forTenant(ctx).org.changeRole.mutate(input);
     }),
@@ -95,46 +102,47 @@ export const orgRouter = router({
     }),
 
   // ─── Org billing — all delegated to core ────────────────────────────────
-  orgBillingBalance: orgMemberProcedure
-    .input(z.object({ orgId: z.string().min(1) }))
-    .query(async ({ input, ctx }) => {
-      return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" })
-        .billing.creditsBalance.query();
-    }),
+  orgBillingBalance: orgMemberProcedure.input(z.object({ orgId: z.string().min(1) })).query(async ({ input, ctx }) => {
+    return coreClient({
+      tenantId: input.orgId,
+      userId: ctx.user.id,
+      product: "holyship",
+    }).billing.creditsBalance.query();
+  }),
 
-  orgBillingInfo: orgMemberProcedure
-    .input(z.object({ orgId: z.string().min(1) }))
-    .query(async ({ input, ctx }) => {
-      return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" })
-        .billing.billingInfo.query();
-    }),
+  orgBillingInfo: orgMemberProcedure.input(z.object({ orgId: z.string().min(1) })).query(async ({ input, ctx }) => {
+    return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" }).billing.billingInfo.query();
+  }),
 
-  orgMemberUsage: orgMemberProcedure
-    .input(z.object({ orgId: z.string().min(1) }))
-    .query(async ({ input, ctx }) => {
-      return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" })
-        .billing.creditsHistory.query({});
-    }),
+  orgMemberUsage: orgMemberProcedure.input(z.object({ orgId: z.string().min(1) })).query(async ({ input, ctx }) => {
+    return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" }).billing.creditsHistory.query(
+      {},
+    );
+  }),
 
   orgTopupCheckout: orgMemberProcedure
-    .input(z.object({
-      orgId: z.string().min(1),
-      priceId: z.string().min(1).max(256),
-      successUrl: z.string().url().max(2048),
-      cancelUrl: z.string().url().max(2048),
-    }))
+    .input(
+      z.object({
+        orgId: z.string().min(1),
+        priceId: z.string().min(1).max(256),
+        successUrl: z.string().url().max(2048),
+        cancelUrl: z.string().url().max(2048),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
-      return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" })
-        .billing.checkout.mutate({
-          methodId: input.priceId,
-          amountUsd: 0, // core resolves from priceId
-        });
+      return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" }).billing.checkout.mutate({
+        methodId: input.priceId,
+        amountUsd: 0, // core resolves from priceId
+      });
     }),
 
   orgSetupIntent: orgMemberProcedure
     .input(z.object({ orgId: z.string().min(1), returnUrl: z.string().url().optional() }))
     .mutation(async ({ input, ctx }) => {
-      return coreClient({ tenantId: input.orgId, userId: ctx.user.id, product: "holyship" })
-        .billing.portalSession.mutate({ returnUrl: input.returnUrl ?? "" });
+      return coreClient({
+        tenantId: input.orgId,
+        userId: ctx.user.id,
+        product: "holyship",
+      }).billing.portalSession.mutate({ returnUrl: input.returnUrl ?? "" });
     }),
 });
