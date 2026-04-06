@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { discoveryConfigSchema } from "../discovery/types.js";
+import { friendlyName } from "./friendly-names.js";
 import type { BotApplicationMetrics } from "../gateway/bot-metrics-tracker.js";
 
 /**
@@ -84,7 +85,7 @@ export type BotProfile = z.infer<typeof botProfileSchema>;
 /** Derive the Docker container name from a profile. Deterministic: {product}-{id} */
 export function containerNameFor(profile: Pick<BotProfile, "id" | "productSlug">): string {
   if (!profile.productSlug) throw new Error(`Profile has no productSlug — cannot derive container name`);
-  return `${profile.productSlug}-${profile.id}`;
+  return `${profile.productSlug}-${friendlyName(profile.id)}`;
 }
 
 /** Schema for creating a bot via the API */
