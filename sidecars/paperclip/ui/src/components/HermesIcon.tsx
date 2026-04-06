@@ -1,4 +1,5 @@
 import { cn } from "../lib/utils";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 interface HermesIconProps {
   className?: string;
@@ -11,6 +12,10 @@ interface HermesIconProps {
  * ⚕️ inspired but as the proper caduceus (Hermes' symbol): staff + two snakes + wings.
  */
 export function HermesIcon({ className }: HermesIconProps) {
+  const { isHosted } = useHostedMode();
+
+  // Hide infrastructure-specific adapter icon in hosted mode
+  if (isHosted) return null;
   return (
     <svg
       viewBox="0 0 24 24"
