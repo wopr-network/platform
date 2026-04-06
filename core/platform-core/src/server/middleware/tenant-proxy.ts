@@ -110,11 +110,11 @@ export function buildUpstreamHeaders(incoming: Headers, user: ProxyUserInfo, ten
  * data so that routing survives server restarts without needing
  * Caddy or in-memory state.
  */
-function resolveContainerUrl(
+async function resolveContainerUrl(
   container: PlatformContainer,
   subdomain: string,
   profile: { name: string; productSlug?: string; env?: Record<string, string> },
-): string | null {
+): Promise<string | null> {
   if (!container.fleet) return null;
 
   // Fast path: in-memory route table (populated during provisioning)
@@ -124,9 +124,12 @@ function resolveContainerUrl(
     return `http://${route.upstreamHost}:${route.upstreamPort}`;
   }
 
-  // Fallback: derive from persistent profile data (survives restarts)
+  // Fallback: derive container name from profile via containerNameFor (uses friendlyName)
   if (!profile.productSlug) return null;
-  const containerName = `${profile.productSlug}-${(profile as { id?: string }).id ?? profile.name.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase()}`;
+  const { containerNameFor } = await import("../../fleet/types.js");
+  const profileId = (profile as { id?: string }).id;
+  if (!profileId) return null;
+  const containerName = containerNameFor({ id: profileId, productSlug: profile.productSlug });
   const port = profile.env?.PORT || "3100";
   return `http://${containerName}:${port}`;
 }
@@ -210,7 +213,7 @@ export function createTenantProxyMiddleware(
     }
 
     // Resolve fleet container URL (route table or profile fallback)
-    const upstream = resolveContainerUrl(container, subdomain ?? profile.name, profile);
+    const upstream = await resolveContainerUrl(container, subdomain ?? profile.name, profile);
     const { logger } = await import("../../config/logger.js");
     logger.info("Tenant proxy", {
       subdomain,
