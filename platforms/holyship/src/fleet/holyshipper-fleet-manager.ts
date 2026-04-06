@@ -56,7 +56,6 @@ export class HolyshipperFleetManager implements IFleetManager {
     });
 
     const env: Record<string, string> = {
-      HOLYSHIP_GATEWAY_KEY: this.gatewayKey,
       HOLYSHIP_GATEWAY_URL: this.gatewayUrl,
       HOLYSHIP_ENTITY_ID: entityId,
       PORT: "8080",
@@ -67,9 +66,9 @@ export class HolyshipperFleetManager implements IFleetManager {
       env.GITHUB_TOKEN = config.githubToken;
     }
 
-    // Create bare container via core fleet API — no billing, no provisioning.
-    // Holyship handles its own setup (credentials, checkout).
-    let instance: { id: string; url: string; containerId: string; name: string };
+    // Create bare container via core fleet API — returns a per-instance
+    // gateway service key tied to the tenant for metered billing.
+    let instance: { id: string; url: string; containerId: string; name: string; gatewayKey: string | null };
     try {
       logger.info("[fleet] calling core.fleet.createContainer", {
         botName,
@@ -93,12 +92,15 @@ export class HolyshipperFleetManager implements IFleetManager {
       throw err;
     }
 
+    // Use per-instance key for tenant billing; fall back to static key
+    const instanceGatewayKey = instance.gatewayKey ?? this.gatewayKey;
+
     const containerId = instance.id;
     const runnerUrl = instance.url;
 
     try {
       await this.waitForReady(runnerUrl, botName);
-      await this.postCredentials(runnerUrl, config);
+      await this.postCredentials(runnerUrl, config, instanceGatewayKey);
 
       if (config.owner && config.repo) {
         await this.postCheckout(runnerUrl, config);
@@ -167,9 +169,9 @@ export class HolyshipperFleetManager implements IFleetManager {
     throw new Error(`Container ${botName} did not become ready within ${timeoutMs}ms`);
   }
 
-  private async postCredentials(runnerUrl: string, config: ProvisionConfig): Promise<void> {
+  private async postCredentials(runnerUrl: string, config: ProvisionConfig, gatewayKey: string): Promise<void> {
     const body: Record<string, unknown> = {
-      gateway: { key: this.gatewayKey },
+      gateway: { key: gatewayKey },
       gatewayUrl: this.gatewayUrl,
     };
     if (config.githubToken) {

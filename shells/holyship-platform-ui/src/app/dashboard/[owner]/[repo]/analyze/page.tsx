@@ -3,7 +3,6 @@
 import { use, useCallback, useEffect, useState } from "react";
 
 import { ConfigGrid } from "@/components/repo/config-grid";
-import { FlowEditor } from "@/components/repo/flow-editor";
 import { GapChecklist } from "@/components/repo/gap-checklist";
 import { getRepoConfig, getRepoGaps, interrogateRepo } from "@/lib/holyship-client";
 import type { Gap, RepoConfig } from "@/lib/types";
@@ -88,8 +87,6 @@ export default function AnalyzePage({ params }: { params: Promise<{ owner: strin
       <ConfigGrid config={config} />
 
       <GapChecklist gaps={gaps} owner={owner} repo={repo} onUpdate={loadConfig} />
-
-      <FlowEditor owner={owner} repo={repo} config={config} />
 
       <button
         type="button"
