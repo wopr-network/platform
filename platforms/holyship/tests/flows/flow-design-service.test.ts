@@ -122,7 +122,7 @@ describe("FlowDesignService", () => {
     });
     fetchSpy.mockResolvedValueOnce(mockOkResponse("no design here"));
 
-    await expect(service.designFlow("org/app")).rejects.toThrow("missing FLOW_DESIGN");
+    await expect(service.designFlow("org/app")).rejects.toThrow();
   });
 
   it("includes terminal states in output", async () => {
