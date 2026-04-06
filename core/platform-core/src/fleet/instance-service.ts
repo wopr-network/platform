@@ -203,7 +203,7 @@ export class InstanceService {
     network?: string;
     restartPolicy?: "no" | "always" | "on-failure" | "unless-stopped";
     readonlyRootfs?: boolean;
-  }): Promise<{ id: string; url: string; containerId: string; name: string }> {
+  }): Promise<{ id: string; url: string; containerId: string; name: string; gatewayKey: string | null }> {
     const fleet = this.deps.getFleetManager();
     const instance = await fleet.create({
       tenantId: params.tenantId,
@@ -217,11 +217,27 @@ export class InstanceService {
     });
     // Start the container — fleet.create() only creates, doesn't start
     await instance.start();
+
+    // Generate per-instance gateway service key for metered billing
+    let gatewayKey: string | null = null;
+    const d = this.deps;
+    if (d.serviceKeyRepo) {
+      try {
+        gatewayKey = await d.serviceKeyRepo.generate(params.tenantId, instance.id, params.productSlug);
+      } catch (err) {
+        logger.warn("createContainer: gateway key generation failed", {
+          instanceId: instance.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     return {
       id: instance.id,
       url: instance.url,
       containerId: instance.containerId,
       name: instance.profile.name,
+      gatewayKey,
     };
   }
 }

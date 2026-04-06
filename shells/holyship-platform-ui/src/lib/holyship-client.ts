@@ -37,7 +37,7 @@ export function interrogateRepo(owner: string, repo: string) {
     gapCount: number;
     gaps: { capability: string; title: string; priority: string }[];
     hasClaudeMd: boolean;
-  }>(`/repos/${owner}/${repo}/interrogate`, { method: "POST" });
+  }>(`/repos/${owner}/${repo}/interrogate`, { method: "POST", signal: AbortSignal.timeout(120_000) });
 }
 
 export async function getRepoConfig(owner: string, repo: string) {
@@ -90,6 +90,7 @@ export function runAudit(owner: string, repo: string, categories: AuditCategory[
 export function designFlow(owner: string, repo: string) {
   return request<DesignedFlow>(`/repos/${owner}/${repo}/design-flow`, {
     method: "POST",
+    signal: AbortSignal.timeout(120_000),
   });
 }
 
