@@ -272,7 +272,8 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
       .mutation(async ({ input, ctx }) => {
         const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
         const userId = (ctx as ProtectedCtx).user.id;
-        logger.info("createInstance: start", { tenant, userId, inputOrgId: input.orgId, ctxTenantId: (ctx as ProtectedCtx).tenantId, productSlug: ctx.productSlug, name: input.name });
+        const roles = (ctx as ProtectedCtx).user.roles;
+        logger.info("createInstance: start", { tenant, userId, roles, inputOrgId: input.orgId, ctxTenantId: (ctx as ProtectedCtx).tenantId, productSlug: ctx.productSlug, name: input.name });
         await d.assertOrgAdminOrOwner(tenant, userId, (ctx as ProtectedCtx).user.roles);
         logger.info("createInstance: auth passed", { tenant, userId });
 
