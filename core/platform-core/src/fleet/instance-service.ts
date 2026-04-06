@@ -230,7 +230,7 @@ export class InstanceService {
       productSlug: params.productSlug,
       env: params.env ?? {},
       restartPolicy: params.restartPolicy ?? "no",
-      readonlyRootfs: params.readonlyRootfs ?? false,
+      readonlyRootfs: params.readonlyRootfs,
       network: params.network,
     });
     return {

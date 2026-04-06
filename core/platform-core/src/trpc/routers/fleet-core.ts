@@ -315,6 +315,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           name: z.string().min(1).max(255),
           image: z.string().min(1),
           productSlug: z.string().min(1),
+          orgId: z.string().min(1).optional(),
           env: z.record(z.string(), z.string()).optional(),
           network: z.string().min(1).optional(),
           restartPolicy: z.enum(["no", "always", "on-failure", "unless-stopped"]).optional(),
@@ -322,7 +323,26 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         }),
       )
       .mutation(async ({ input, ctx }) => {
-        const tenant = tenantFromCtx(ctx as ProtectedCtx);
+        const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
+        const userId = (ctx as ProtectedCtx).user.id;
+        await d.assertOrgAdminOrOwner(tenant, userId);
+
+        // Validate image against product config allowlist
+        if (d.resolveProductConfig) {
+          const pc = await d.resolveProductConfig(input.productSlug);
+          if (pc?.fleet) {
+            const allowlist = pc.fleet.imageAllowlist;
+            const configImage = pc.fleet.containerImage;
+            if (allowlist && allowlist.length > 0) {
+              if (!allowlist.some((pattern) => input.image.startsWith(pattern))) {
+                throw new TRPCError({ code: "BAD_REQUEST", message: `Image not in allowlist for ${input.productSlug}` });
+              }
+            } else if (configImage && !input.image.startsWith(configImage.split(":")[0])) {
+              throw new TRPCError({ code: "BAD_REQUEST", message: `Image not allowed for ${input.productSlug}` });
+            }
+          }
+        }
+
         return d.instanceService.createContainer({
           tenantId: tenant,
           name: input.name,
