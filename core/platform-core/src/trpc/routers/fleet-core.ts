@@ -335,7 +335,10 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
             const configImage = pc.fleet.containerImage;
             if (allowlist && allowlist.length > 0) {
               if (!allowlist.some((pattern) => input.image.startsWith(pattern))) {
-                throw new TRPCError({ code: "BAD_REQUEST", message: `Image not in allowlist for ${input.productSlug}` });
+                throw new TRPCError({
+                  code: "BAD_REQUEST",
+                  message: `Image not in allowlist for ${input.productSlug}`,
+                });
               }
             } else if (configImage && !input.image.startsWith(configImage.split(":")[0])) {
               throw new TRPCError({ code: "BAD_REQUEST", message: `Image not allowed for ${input.productSlug}` });
