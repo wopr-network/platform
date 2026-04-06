@@ -477,7 +477,7 @@ export class FleetManager {
       binds.push(`${sharedVolConfig.volumeName}:${sharedVolConfig.mountPath}:ro`);
     }
 
-    const hardened = profile.readonlyRootfs ?? true;
+    const hardened = profile.readonlyRootfs ?? false;
 
     const hostConfig: Docker.ContainerCreateOptions["HostConfig"] = {
       RestartPolicy: {
