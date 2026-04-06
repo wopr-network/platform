@@ -141,7 +141,7 @@ export class FleetManager {
                 restart: profile.restartPolicy,
               },
             });
-            const containerName = `wopr-${profile.name.replace(/_/g, "-")}`;
+            const containerName = containerNameFor(profile);
             const remoteInstance = new Instance({
               docker: this.docker,
               profile,
@@ -496,12 +496,14 @@ export class FleetManager {
         : undefined,
     };
 
-    // Set network: explicit profile.network takes precedence, then NetworkPolicy
+    // Set network: explicit profile.network takes precedence, then NetworkPolicy, then "platform"
     if (profile.network) {
       hostConfig.NetworkMode = profile.network;
     } else if (this.networkPolicy) {
       const networkMode = await this.networkPolicy.prepareForContainer(profile.tenantId);
       hostConfig.NetworkMode = networkMode;
+    } else {
+      hostConfig.NetworkMode = "platform";
     }
 
     // Apply resource limits from tier if provided
@@ -538,7 +540,8 @@ export class FleetManager {
       },
     });
 
-    logger.info(`Created container ${container.id} for bot ${profile.id}`);
+    await container.start();
+    logger.info(`Created and started container ${container.id} for bot ${profile.id}`);
     return container;
   }
 
