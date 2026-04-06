@@ -61,7 +61,9 @@ export default function FlowPage({ params }: { params: Promise<{ owner: string; 
     try {
       const result = await designFlow(owner, repo);
       setPendingFlow(result);
-      // Construct YAML-like summary for the chat
+      // Serialize to YAML so conversational edits work
+      const yaml = JSON.stringify(result, null, 2);
+      setPendingYaml(yaml);
       const stateNames = result.states.map((s) => s.name).join(" -> ");
       setMessages((prev) => [
         ...prev,
