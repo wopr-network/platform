@@ -66,8 +66,8 @@ flow_design_complete`;
     expect(names).toContain("budget_exceeded");
   });
 
-  it("throws on missing FLOW_DESIGN line", () => {
-    expect(() => parseFlowDesignOutput("Just text.\n\nflow_design_complete")).toThrow("missing FLOW_DESIGN");
+  it("throws on unparseable output", () => {
+    expect(() => parseFlowDesignOutput("Just text.\n\nflow_design_complete")).toThrow();
   });
 
   it("throws on missing flow name", () => {

@@ -224,6 +224,25 @@ export function renderFlowDesignPrompt(repoFullName: string, config: RepoConfig)
 }
 
 /**
+ * Sanitize raw LLM output into parseable JSON.
+ * Models often emit control characters (raw newlines, tabs) inside string
+ * values, markdown fences around JSON, or trailing commas.
+ */
+function sanitizeJsonString(raw: string): string {
+  // Strip markdown fences
+  let s = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/, "")
+    .trim();
+  // Replace control characters inside JSON strings: literal \n \r \t with escaped versions.
+  // We do this by scanning for string regions (between unescaped quotes) and escaping within.
+  s = s.replace(/"(?:[^"\\]|\\.)*"/g, (match) =>
+    match.replaceAll("\n", "\\n").replaceAll("\r", "\\r").replaceAll("\t", "\\t"),
+  );
+  return s;
+}
+
+/**
  * Parse the AI's flow design output into structured data.
  */
 export function parseFlowDesignOutput(output: string): FlowDesignResult {
@@ -237,11 +256,7 @@ export function parseFlowDesignOutput(output: string): FlowDesignResult {
     const jsonStart = flowIdx + "FLOW_DESIGN:".length;
     const notesIdx = output.indexOf("DESIGN_NOTES:", jsonStart);
     const jsonStr = (notesIdx !== -1 ? output.slice(jsonStart, notesIdx) : output.slice(jsonStart)).trim();
-    // Strip markdown fences if the model wrapped them
-    const cleaned = jsonStr
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```\s*$/, "")
-      .trim();
+    const cleaned = sanitizeJsonString(jsonStr);
     design = JSON.parse(cleaned) as FlowDesignOutput;
 
     if (notesIdx !== -1) {
@@ -249,10 +264,7 @@ export function parseFlowDesignOutput(output: string): FlowDesignResult {
     }
   } else {
     // Fallback: try parsing the entire output as JSON (model may have skipped the prefix)
-    const cleaned = output
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```\s*$/, "")
-      .trim();
+    const cleaned = sanitizeJsonString(output);
     design = JSON.parse(cleaned) as FlowDesignOutput;
   }
 
