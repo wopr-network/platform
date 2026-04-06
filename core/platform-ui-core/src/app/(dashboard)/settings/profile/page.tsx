@@ -3,17 +3,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { CameraIcon, CheckIcon } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -493,37 +482,44 @@ export default function ProfilePage() {
               Destroy all running instances and start fresh. Your account, credits, and settings are preserved.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">Reset instance</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reset your instance?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently destroy{" "}
-                    {instances.length === 1 ? "your instance" : `all ${instances.length} instances`} and their data
-                    (agent history, issues, documents). Your account and credits are kept. Type <strong>reset</strong>{" "}
-                    to confirm.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <Input placeholder="reset" value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} />
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    disabled={resetConfirm !== "reset" || resetting}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleResetInstance();
-                    }}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          <CardContent className="space-y-4">
+            {resetConfirm === "" ? (
+              <Button variant="destructive" onClick={() => setResetConfirm("pending")}>
+                Reset instance
+              </Button>
+            ) : (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
+                <p className="text-sm text-destructive font-medium">
+                  This will permanently destroy{" "}
+                  {instances.length === 1 ? "your instance" : `all ${instances.length} instances`} and their data
+                  (agent history, issues, documents). Your account and credits are kept.
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Type <strong className="text-destructive">reset</strong> to confirm.
+                </p>
+                <Input
+                  placeholder="reset"
+                  value={resetConfirm === "pending" ? "" : resetConfirm}
+                  onChange={(e) => setResetConfirm(e.target.value)}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setResetConfirm("")}
                   >
-                    {resetting ? "Destroying..." : "Reset instance"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={resetConfirm !== "reset" || resetting}
+                    onClick={handleResetInstance}
+                  >
+                    {resetting ? "Destroying..." : "Confirm reset"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -535,39 +531,42 @@ export default function ProfilePage() {
             Permanently delete your account and all associated data. This action cannot be undone.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">Delete account</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete your account, all instances, and data. Type{" "}
-                  <strong>delete my account</strong> to confirm.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
+        <CardContent className="space-y-4">
+          {deleteConfirm === "" ? (
+            <Button variant="destructive" onClick={() => setDeleteConfirm("pending")}>
+              Delete account
+            </Button>
+          ) : (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
+              <p className="text-sm text-destructive font-medium">
+                This will permanently delete your account, all instances, and data. This cannot be undone.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Type <strong className="text-destructive">delete my account</strong> to confirm.
+              </p>
               <Input
                 placeholder="delete my account"
-                value={deleteConfirm}
+                value={deleteConfirm === "pending" ? "" : deleteConfirm}
                 onChange={(e) => setDeleteConfirm(e.target.value)}
+                autoFocus
               />
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setDeleteConfirm("")}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
                   disabled={deleteConfirm !== "delete my account"}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleDelete();
-                  }}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={handleDelete}
                 >
                   Delete permanently
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
