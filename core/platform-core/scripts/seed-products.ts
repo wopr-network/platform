@@ -20,7 +20,6 @@ interface NavItem {
 
 interface FleetPreset {
   containerImage: string;
-  lifecycle: "managed" | "ephemeral";
   billingModel: "monthly" | "per_use" | "none";
   maxInstances: number;
 }
@@ -79,7 +78,7 @@ const PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "ghcr.io/wopr-network/wopr:latest",
-      lifecycle: "managed",
+
       billingModel: "monthly",
       maxInstances: 5,
     },
@@ -108,7 +107,7 @@ const PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "ghcr.io/wopr-network/paperclip:managed",
-      lifecycle: "managed",
+
       billingModel: "monthly",
       maxInstances: 5,
     },
@@ -140,7 +139,6 @@ const PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "ghcr.io/wopr-network/holyship:latest",
-      lifecycle: "ephemeral",
       billingModel: "none",
       maxInstances: 50,
     },
@@ -169,7 +167,7 @@ const PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "ghcr.io/wopr-network/nemoclaw:latest",
-      lifecycle: "managed",
+
       billingModel: "monthly",
       maxInstances: 5,
     },
@@ -234,7 +232,6 @@ async function seed(): Promise<void> {
       .values({
         productId: product.id,
         containerImage: fleet.containerImage,
-        lifecycle: fleet.lifecycle,
         billingModel: fleet.billingModel,
         maxInstances: fleet.maxInstances,
       })
@@ -242,7 +239,6 @@ async function seed(): Promise<void> {
         target: productFleetConfig.productId,
         set: {
           containerImage: fleet.containerImage,
-          lifecycle: fleet.lifecycle,
           billingModel: fleet.billingModel,
           maxInstances: fleet.maxInstances,
           updatedAt: new Date(),
@@ -252,7 +248,7 @@ async function seed(): Promise<void> {
     // Upsert default features (no-op if already exists)
     await db.insert(productFeatures).values({ productId: product.id }).onConflictDoNothing();
 
-    console.log(`  done (${navItems.length} nav items, fleet: ${fleet.lifecycle}/${fleet.billingModel})`);
+    console.log(`  done (${navItems.length} nav items, fleet: ${fleet.billingModel})`);
   }
 
   await pool.end();

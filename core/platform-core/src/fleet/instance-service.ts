@@ -50,9 +50,11 @@ export interface InstanceServiceDeps {
   pool: { claim(key: string): Promise<PoolClaim | null> } | null;
   docker: import("dockerode") | null;
   provisionSecret: string | null;
-  /** Resolve fleet manager for cold-create fallback */
+  /** Resolve fleet manager for cold-create fallback and direct container creation */
   getFleetManager: () => {
-    create: (params: Record<string, unknown>) => Promise<{ id: string; profile: { name: string; tenantId: string } }>;
+    create: (
+      params: Record<string, unknown>,
+    ) => Promise<{ id: string; url: string; containerId: string; profile: { name: string; tenantId: string } }>;
   };
 }
 
@@ -71,11 +73,10 @@ export class InstanceService {
     const image = fleetConfig?.containerImage;
     if (!image) throw new Error(`No container image configured for product ${productSlug}`);
     const containerPort = fleetConfig?.containerPort ?? 3000;
-    const isEphemeral = fleetConfig?.lifecycle === "ephemeral";
 
-    // 1. Credit check — ephemeral instances skip (they bill per-token at the gateway)
+    // 1. Credit check
     const balance = await d.creditLedger.balance(tenantId);
-    if (!isEphemeral && balance.lessThan(Credit.fromCents(17))) {
+    if (balance.lessThan(Credit.fromCents(17))) {
       throw new Error(`Insufficient credits: ${balance.toCentsRounded()}¢ (need 17¢ minimum)`);
     }
 
@@ -192,18 +193,51 @@ export class InstanceService {
     }
 
     // 6. Start billing — activate the daily charge clock
-    if (!isEphemeral) {
-      try {
-        await d.botInstanceRepo.setBillingState(instanceId, "active");
-        logger.info("Instance: billing started", { instanceId });
-      } catch (err) {
-        logger.warn("Instance: startBilling failed", {
-          instanceId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+    try {
+      await d.botInstanceRepo.setBillingState(instanceId, "active");
+      logger.info("Instance: billing started", { instanceId });
+    } catch (err) {
+      logger.warn("Instance: startBilling failed", {
+        instanceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return { id: instanceId, name, tenantId, gatewayKey, provisioned };
+  }
+
+  /**
+   * Create a bare container — no billing, no provisioning, no credit check.
+   *
+   * Products that manage their own lifecycle (e.g., holyship workers) call this
+   * instead of create(). They get a container on a node and handle setup themselves.
+   */
+  async createContainer(params: {
+    tenantId: string;
+    name: string;
+    image: string;
+    productSlug: string;
+    env?: Record<string, string>;
+    network?: string;
+    restartPolicy?: "no" | "always" | "on-failure" | "unless-stopped";
+    readonlyRootfs?: boolean;
+  }): Promise<{ id: string; url: string; containerId: string; name: string }> {
+    const fleet = this.deps.getFleetManager();
+    const instance = await fleet.create({
+      tenantId: params.tenantId,
+      name: params.name,
+      image: params.image,
+      productSlug: params.productSlug,
+      env: params.env ?? {},
+      restartPolicy: params.restartPolicy ?? "no",
+      readonlyRootfs: params.readonlyRootfs,
+      network: params.network,
+    });
+    return {
+      id: instance.id,
+      url: instance.url,
+      containerId: instance.containerId,
+      name: instance.profile.name,
+    };
   }
 }

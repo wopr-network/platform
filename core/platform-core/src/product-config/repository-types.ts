@@ -86,14 +86,12 @@ export interface ProductFeatures {
 // ProductFleetConfig
 // ---------------------------------------------------------------------------
 
-export type FleetLifecycle = "managed" | "ephemeral";
 export type FleetBillingModel = "monthly" | "per_use" | "none";
 
 export interface ProductFleetConfig {
   productId: string;
   containerImage: string;
   containerPort: number;
-  lifecycle: FleetLifecycle;
   billingModel: FleetBillingModel;
   maxInstances: number;
   imageAllowlist: string[] | null;

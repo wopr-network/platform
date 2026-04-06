@@ -13,8 +13,8 @@ import type { BotProfile, BotStatus, ContainerStats } from "./types.js";
  * FleetManager is the factory: pull image, create container, return Instance.
  * Instance owns its lifecycle: start, stop, remove, setupBilling, setupProxy.
  *
- * Ephemeral instances (e.g., holyshippers) skip billing and proxy setup.
- * They bill per-token at the gateway layer, not per-instance.
+ * Products that manage their own lifecycle (e.g., holyship workers) call
+ * fleet directly and handle setup themselves — they don't call setupBilling/setupProxy.
  */
 
 export interface InstanceDeps {
@@ -23,7 +23,7 @@ export interface InstanceDeps {
   containerId: string;
   containerName: string;
   url: string;
-  /** Optional — non-ephemeral instances use these for billing/proxy/events */
+  /** Optional — managed instances use these for billing/proxy/events */
   instanceRepo?: IBotInstanceRepository;
   proxyManager?: ProxyManagerInterface;
   eventEmitter?: FleetEventEmitter;
@@ -112,7 +112,7 @@ export class Instance {
   /**
    * Start billing for this instance ($5/month prorated daily).
    * Call after creation for persistent, billable instances (e.g., Paperclip).
-   * Ephemeral instances (e.g., Holy Ship) skip this — they bill per-token at the gateway.
+   * Workers (e.g., holyshippers) don't call this — they bill per-token at the gateway.
    */
   async startBilling(): Promise<void> {
     if (!this.instanceRepo) {
@@ -397,13 +397,9 @@ export class Instance {
 
   /**
    * Register this instance in the billing system.
-   * Skip for ephemeral instances — they bill per-token, not per-instance.
+   * Only call for managed instances — workers bill per-token at the gateway.
    */
   async setupBilling(): Promise<void> {
-    if (this.profile.ephemeral) {
-      logger.info("Skipping billing setup (ephemeral)", { id: this.id });
-      return;
-    }
     if (!this.instanceRepo) {
       logger.warn("No instance repo — billing setup skipped", { id: this.id });
       return;
@@ -414,13 +410,9 @@ export class Instance {
 
   /**
    * Register a proxy route for tenant subdomain routing.
-   * Skip for ephemeral instances — they're accessed directly via Docker DNS.
+   * Only call for managed instances — workers are accessed directly via Docker DNS.
    */
   async setupProxy(): Promise<void> {
-    if (this.profile.ephemeral) {
-      logger.info("Skipping proxy setup (ephemeral)", { id: this.id });
-      return;
-    }
     if (!this.proxyManager) {
       logger.warn("No proxy manager — proxy setup skipped", { id: this.id });
       return;

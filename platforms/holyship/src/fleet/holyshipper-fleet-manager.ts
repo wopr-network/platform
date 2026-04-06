@@ -1,5 +1,5 @@
 /**
- * HolyshipperFleetManager — provisions ephemeral holyshipper containers via core's fleet API.
+ * HolyshipperFleetManager — provisions holyshipper worker containers via core's fleet API.
  *
  * Each invocation gets a fresh container:
  *   1. core-client fleet.createInstance → core provisions the container
@@ -9,7 +9,7 @@
  *   5. Container is now ready for dispatch + gate evaluation
  *   6. core-client fleet.controlInstance(destroy) → core removes the container
  *
- * Containers are ephemeral (no billing record, writable filesystem).
+ * Containers are short-lived workers (no billing record, writable filesystem).
  * Token billing happens at the gateway layer, not per-instance.
  */
 
@@ -18,6 +18,8 @@ import { coreClient } from "../services/core-client.js";
 import type { IFleetManager, ProvisionConfig, ProvisionResult } from "./provision-holyshipper.js";
 
 export interface HolyshipperFleetManagerConfig {
+  /** GHCR image for holyshipper workers. */
+  image: string;
   /** Gateway URL for inference (e.g., "http://core:3001/v1"). */
   gatewayUrl: string;
   /** Gateway service key for authentication. */
@@ -27,11 +29,13 @@ export interface HolyshipperFleetManagerConfig {
 }
 
 export class HolyshipperFleetManager implements IFleetManager {
+  private readonly image: string;
   private readonly gatewayUrl: string;
   private readonly gatewayKey: string;
   private readonly network: string | undefined;
 
   constructor(config: HolyshipperFleetManagerConfig) {
+    this.image = config.image;
     this.gatewayUrl = config.gatewayUrl;
     this.gatewayKey = config.gatewayKey;
     this.network = config.network;
@@ -63,31 +67,20 @@ export class HolyshipperFleetManager implements IFleetManager {
       env.GITHUB_TOKEN = config.githubToken;
     }
 
-    // Create container via core fleet API.
-    // Core resolves the image from holyship's product config (via X-Product header).
-    const instance = await core.fleet.createInstance.mutate({
+    // Create bare container via core fleet API — no billing, no provisioning.
+    // Holyship handles its own setup (credentials, checkout).
+    const instance = await core.fleet.createContainer.mutate({
       name: botName,
-      description: `Ephemeral worker for entity ${entityId}`,
+      image: this.image,
+      productSlug: "holyship",
       env,
-      extra: {
-        ephemeral: true,
-        network: this.network,
-      },
+      network: this.network,
+      restartPolicy: "no",
+      readonlyRootfs: false,
     });
 
     const containerId = instance.id;
-
-    // Derive runner URL from instance metadata.
-    // Core's fleet assigns a URL during provisioning — get it from status.
-    let runnerUrl: string;
-    try {
-      const status = await core.fleet.getInstance.query({ id: containerId });
-      const statusAny = status as Record<string, unknown>;
-      // The container gets an internal URL (e.g., http://hs-xxxxx:8080)
-      runnerUrl = (statusAny.url as string) ?? (statusAny.applicationUrl as string) ?? `http://${botName}:8080`;
-    } catch {
-      runnerUrl = `http://${botName}:8080`;
-    }
+    const runnerUrl = instance.url;
 
     try {
       await this.waitForReady(runnerUrl, botName);

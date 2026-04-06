@@ -12,7 +12,6 @@ export interface NavItemPreset {
 
 export interface FleetPreset {
   containerImage: string;
-  lifecycle: "managed" | "ephemeral";
   billingModel: "monthly" | "per_use" | "none";
   maxInstances: number;
   /** Container port the sidecar listens on. */
@@ -99,7 +98,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "registry.wopr.bot/wopr:managed",
-      lifecycle: "managed",
+
       billingModel: "monthly",
       maxInstances: 5,
       containerPort: 3000,
@@ -141,7 +140,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "registry.wopr.bot/paperclip:managed",
-      lifecycle: "managed",
+
       billingModel: "monthly",
       maxInstances: 5,
       containerPort: 3100,
@@ -187,7 +186,6 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "registry.wopr.bot/holyshipper:managed",
-      lifecycle: "ephemeral",
       billingModel: "none",
       maxInstances: 50,
       containerPort: 3005,
@@ -229,7 +227,7 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     ],
     fleet: {
       containerImage: "registry.wopr.bot/nemoclaw:managed",
-      lifecycle: "managed",
+
       billingModel: "monthly",
       maxInstances: 5,
       containerPort: 3000,

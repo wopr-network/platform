@@ -274,6 +274,7 @@ async function main() {
     try {
       const { HolyshipperFleetManager } = await import("./fleet/holyshipper-fleet-manager.js");
       holyshipperFleetManager = new HolyshipperFleetManager({
+        image: config.HOLYSHIP_WORKER_IMAGE,
         gatewayUrl,
         gatewayKey: config.HOLYSHIP_GATEWAY_KEY,
         network: config.DOCKER_NETWORK,
