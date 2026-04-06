@@ -5,7 +5,7 @@
 FROM node:24-slim AS build
 RUN npm install -g pnpm
 WORKDIR /build
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/worker-runtime/package.json packages/worker-runtime/
 COPY packages/worker-runtime/tsconfig.json packages/worker-runtime/
 COPY packages/worker-runtime/src packages/worker-runtime/src
@@ -15,22 +15,35 @@ RUN pnpm -C packages/worker-runtime run build
 # Runtime stage
 FROM node:24-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  git bash curl ca-certificates \
+  git bash curl ca-certificates gpg \
+  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+     | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+     > /etc/apt/sources.list.d/github-cli.list \
+  && apt-get update && apt-get install -y --no-install-recommends gh \
   && rm -rf /var/lib/apt/lists/*
 
 # Non-root user
 RUN groupadd -r holyshipper && useradd -r -g holyshipper -m -d /home/holyshipper holyshipper
 
 WORKDIR /app
-COPY --from=build /build/node_modules ./node_modules
-COPY --from=build /build/packages/worker-runtime/dist ./packages/worker-runtime/dist
-COPY --from=build /build/packages/worker-runtime/package.json ./packages/worker-runtime/
-COPY --from=build /build/package.json ./
+RUN chown holyshipper:holyshipper /app
+COPY --chown=holyshipper:holyshipper --from=build /build/node_modules ./node_modules
+COPY --chown=holyshipper:holyshipper --from=build /build/packages/worker-runtime/dist ./packages/worker-runtime/dist
+COPY --chown=holyshipper:holyshipper --from=build /build/packages/worker-runtime/package.json ./packages/worker-runtime/
+COPY --chown=holyshipper:holyshipper --from=build /build/package.json ./
 
-RUN mkdir -p /data && chown holyshipper:holyshipper /data
+RUN mkdir -p /data /workspace && chown holyshipper:holyshipper /data /workspace
+
+# Install OpenCode binary (AI agent runtime)
+RUN curl -fsSL https://opencode.ai/install | bash \
+  && mv /root/.opencode/bin/opencode /usr/local/bin/opencode \
+  && chmod +x /usr/local/bin/opencode \
+  && rm -rf /root/.opencode
+
 RUN mkdir -p /home/holyshipper/.config/opencode && chown -R holyshipper:holyshipper /home/holyshipper
 
 ENV NODE_ENV=production PORT=8080 HOME=/home/holyshipper
 EXPOSE 8080
 USER holyshipper
-CMD ["node", "packages/worker-runtime/dist/index.js"]
+CMD ["node", "packages/worker-runtime/dist/main.js"]

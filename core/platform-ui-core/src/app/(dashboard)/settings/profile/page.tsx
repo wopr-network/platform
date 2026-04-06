@@ -491,8 +491,8 @@ export default function ProfilePage() {
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 space-y-3">
                 <p className="text-sm text-destructive font-medium">
                   This will permanently destroy{" "}
-                  {instances.length === 1 ? "your instance" : `all ${instances.length} instances`} and their data
-                  (agent history, issues, documents). Your account and credits are kept.
+                  {instances.length === 1 ? "your instance" : `all ${instances.length} instances`} and their data (agent
+                  history, issues, documents). Your account and credits are kept.
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Type <strong className="text-destructive">reset</strong> to confirm.
@@ -504,10 +504,7 @@ export default function ProfilePage() {
                   autoFocus
                 />
                 <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setResetConfirm("")}
-                  >
+                  <Button variant="outline" onClick={() => setResetConfirm("")}>
                     Cancel
                   </Button>
                   <Button
@@ -551,17 +548,10 @@ export default function ProfilePage() {
                 autoFocus
               />
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setDeleteConfirm("")}
-                >
+                <Button variant="outline" onClick={() => setDeleteConfirm("")}>
                   Cancel
                 </Button>
-                <Button
-                  variant="destructive"
-                  disabled={deleteConfirm !== "delete my account"}
-                  onClick={handleDelete}
-                >
+                <Button variant="destructive" disabled={deleteConfirm !== "delete my account"} onClick={handleDelete}>
                   Delete permanently
                 </Button>
               </div>
