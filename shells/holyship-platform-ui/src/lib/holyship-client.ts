@@ -187,3 +187,25 @@ export interface EntityDetail {
 export async function getEntityDetail(entityId: string) {
   return request<EntityDetail>(`/engine/entities/${entityId}/detail`);
 }
+
+// ─── Ship It ───
+
+export interface ShipItResponse {
+  ok: boolean;
+  entityId: string;
+  state: string;
+}
+
+export async function shipIssue(owner: string, repo: string, issueNumber: number, flow?: string) {
+  return request<ShipItResponse>("/ship-it", {
+    method: "POST",
+    body: JSON.stringify({ owner, repo, issueNumber, ...(flow ? { flow } : {}) }),
+  });
+}
+
+export async function shipIssueByUrl(issueUrl: string, flow?: string) {
+  return request<ShipItResponse>("/ship-it", {
+    method: "POST",
+    body: JSON.stringify({ issueUrl, ...(flow ? { flow } : {}) }),
+  });
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 interface Repo {
@@ -29,7 +30,8 @@ export default function ShipItPage() {
 
   // Shipping state
   const [shippingIds, setShippingIds] = useState<Set<number>>(new Set());
-  const [shipped, setShipped] = useState<Set<number>>(new Set());
+  const [shipped, setShipped] = useState<Map<number, string>>(new Map());
+  const [error, setError] = useState<string | null>(null);
 
   // Auto-ship
   const [autoShipLabel, setAutoShipLabel] = useState("");
@@ -73,6 +75,7 @@ export default function ShipItPage() {
   async function shipIssue(issue: Issue) {
     const [owner, repo] = selectedRepo.split("/");
     setShippingIds((prev) => new Set(prev).add(issue.number));
+    setError(null);
     try {
       const res = await fetch("/api/ship-it", {
         method: "POST",
@@ -80,9 +83,13 @@ export default function ShipItPage() {
         body: JSON.stringify({ owner, repo, issueNumber: issue.number }),
       });
       const data = await res.json();
-      if (data.ok) {
-        setShipped((prev) => new Set(prev).add(issue.number));
+      if (data.ok || data.entityId) {
+        setShipped((prev) => new Map(prev).set(issue.number, data.entityId));
+      } else {
+        setError(data.error ?? "Ship failed");
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ship failed");
     } finally {
       setShippingIds((prev) => {
         const next = new Set(prev);
@@ -96,6 +103,7 @@ export default function ShipItPage() {
   async function shipByUrl() {
     if (!issueUrl.trim()) return;
     setShippingIds((prev) => new Set(prev).add(-1));
+    setError(null);
     try {
       const res = await fetch("/api/ship-it", {
         method: "POST",
@@ -103,7 +111,14 @@ export default function ShipItPage() {
         body: JSON.stringify({ issueUrl }),
       });
       const data = await res.json();
-      if (data.ok) setIssueUrl("");
+      if (data.ok || data.entityId) {
+        setIssueUrl("");
+        setShipped((prev) => new Map(prev).set(-1, data.entityId));
+      } else {
+        setError(data.error ?? "Ship failed");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ship failed");
     } finally {
       setShippingIds((prev) => {
         const next = new Set(prev);
@@ -155,6 +170,28 @@ export default function ShipItPage() {
           {showUrlInput ? "Hide URL input" : "Paste URL instead"}
         </button>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/5 p-3 mb-6 text-sm text-red-400">{error}</div>
+      )}
+
+      {/* Shipped banner */}
+      {shipped.size > 0 && (
+        <div className="rounded-lg border border-green-500/40 bg-green-500/5 p-3 mb-6 flex items-center justify-between">
+          <span className="text-sm text-green-400">
+            {shipped.size} issue{shipped.size !== 1 ? "s" : ""} shipped to the pipeline
+          </span>
+          {selectedRepo && (
+            <Link
+              href={`/dashboard/${encodeURIComponent(selectedRepo.split("/")[0])}/${encodeURIComponent(selectedRepo.split("/")[1])}/pipeline`}
+              className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+            >
+              View Pipeline
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Fallback URL input */}
       {showUrlInput && (
@@ -284,16 +321,23 @@ export default function ShipItPage() {
                   <span className="text-xs text-muted-foreground">{daysAgo(issue.created_at)}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => shipIssue(issue)}
-                disabled={isShipping || isShipped}
-                className={`ml-4 rounded-lg px-5 py-2 text-sm font-bold ${
-                  isShipped ? "bg-green-600 text-white" : "bg-primary text-primary-foreground hover:bg-primary/90"
-                } disabled:opacity-70`}
-              >
-                {isShipped ? "Holy Ship!" : isShipping ? "Shipping..." : "Ship It"}
-              </button>
+              {isShipped ? (
+                <Link
+                  href={`/dashboard/${encodeURIComponent(selectedRepo.split("/")[0])}/${encodeURIComponent(selectedRepo.split("/")[1])}/pipeline`}
+                  className="ml-4 rounded-lg bg-green-600 px-5 py-2 text-sm font-bold text-white hover:bg-green-700"
+                >
+                  View in Pipeline
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => shipIssue(issue)}
+                  disabled={isShipping}
+                  className="ml-4 rounded-lg px-5 py-2 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70"
+                >
+                  {isShipping ? "Shipping..." : "Ship It"}
+                </button>
+              )}
             </div>
           );
         })}
