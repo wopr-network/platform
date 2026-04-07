@@ -4,7 +4,7 @@
  * Pure Drizzle — no raw SQL. Schema is the single source of truth.
  */
 
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { PlatformDb } from "../../db/index.js";
 import { poolConfig } from "../../db/schema/pool-config.js";
 import { poolInstances } from "../../db/schema/pool-instances.js";
