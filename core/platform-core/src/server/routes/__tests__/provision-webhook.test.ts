@@ -101,9 +101,24 @@ function makeFleet(): FleetServices {
   };
 }
 
+const mockInstanceService = {
+  create: vi.fn().mockResolvedValue({
+    id: "inst-001",
+    name: "myapp",
+    tenantId: "tenant-1",
+    nodeId: "local",
+    containerUrl: "http://test-myapp:3000",
+    gatewayKey: "key-abc",
+    provisioned: true,
+  }),
+  createContainer: vi.fn(),
+};
+
 function buildApp(opts?: { fleet?: FleetServices | null; config?: Partial<ProvisionWebhookConfig> }) {
+  const fleet = opts?.fleet !== undefined ? opts.fleet : makeFleet();
   const container = createTestContainer({
-    fleet: opts?.fleet !== undefined ? opts.fleet : makeFleet(),
+    fleet,
+    instanceService: fleet ? (mockInstanceService as never) : null,
   });
   const config = makeConfig(opts?.config);
   return createProvisionWebhookRoutes(container, config);
@@ -164,7 +179,7 @@ describe("createProvisionWebhookRoutes", () => {
 
   // ---- Fleet not configured ----
 
-  it("returns 501 when fleet not configured (container.fleet is null)", async () => {
+  it("returns 501 when instanceService not configured", async () => {
     const app = buildApp({ fleet: null });
     const res = await request(
       app,
@@ -178,7 +193,7 @@ describe("createProvisionWebhookRoutes", () => {
 
     expect(res.status).toBe(501);
     const json = await res.json();
-    expect(json.error).toBe("Fleet management not configured");
+    expect(json.error).toBe("Instance service not configured");
   });
 
   it("returns 501 on destroy when fleet not configured", async () => {
@@ -212,8 +227,8 @@ describe("createProvisionWebhookRoutes", () => {
   // ---- Create endpoint ----
 
   it("handles create webhook with valid auth and payload", async () => {
-    const fleet = makeFleet();
-    const app = buildApp({ fleet });
+    mockInstanceService.create.mockClear();
+    const app = buildApp();
     const res = await request(
       app,
       "POST",
@@ -228,22 +243,17 @@ describe("createProvisionWebhookRoutes", () => {
     expect(json.instanceId).toBe("inst-001");
     expect(json.subdomain).toBe("myapp");
     expect(json.containerUrl).toBe("http://test-myapp:3000");
+    expect(json.nodeId).toBe("local");
 
-    // Verify fleet.create was called with generic env var names
-    expect(fleet.manager.create).toHaveBeenCalledTimes(1);
-    const createCall = (fleet.manager.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(createCall.env.HOSTED_MODE).toBe("true");
-    expect(createCall.env.DEPLOYMENT_MODE).toBe("hosted_proxy");
-    expect(createCall.env.DEPLOYMENT_EXPOSURE).toBe("private");
-    expect(createCall.env.MIGRATION_AUTO_APPLY).toBe("true");
-    // Verify NO product-specific prefixes
-    expect(createCall.env.PAPERCLIP_HOSTED_MODE).toBeUndefined();
-    expect(createCall.env.PAPERCLIP_DEPLOYMENT_MODE).toBeUndefined();
-
-    // Verify proxy route was registered
-    expect(
-      (fleet.fleetResolver as unknown as { registerRoute: ReturnType<typeof vi.fn> }).registerRoute,
-    ).toHaveBeenCalledTimes(1);
+    // Verify instanceService.create was called (single path)
+    expect(mockInstanceService.create).toHaveBeenCalledTimes(1);
+    expect(mockInstanceService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-1",
+        name: "myapp",
+        productSlug: "test",
+      }),
+    );
   });
 
   it("returns 422 on create when required fields are missing", async () => {
@@ -338,27 +348,34 @@ describe("createProvisionWebhookRoutes", () => {
 
   // ---- Generic env var names ----
 
-  it("uses generic env var names with no PAPERCLIP_ prefix anywhere", async () => {
-    const fleet = makeFleet();
-    const app = buildApp({ fleet });
+  it("delegates to instanceService.create with product config", async () => {
+    mockInstanceService.create.mockClear();
+    const app = buildApp();
     await request(
       app,
       "POST",
       "/create",
-      { tenantId: "tenant-1", subdomain: "myapp", product: "test" },
+      {
+        tenantId: "tenant-1",
+        subdomain: "myapp",
+        product: "test",
+        adminUser: { id: "user-1", email: "admin@test.com" },
+        agents: [{ name: "CEO", role: "ceo" }],
+      },
       { Authorization: `Bearer ${SECRET}` },
     );
 
-    const createCall = (fleet.manager.create as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    const envKeys = Object.keys(createCall.env);
-    for (const key of envKeys) {
-      expect(key).not.toMatch(/^PAPERCLIP_/);
-    }
-    // Verify expected generic names are present
-    expect(envKeys).toContain("HOSTED_MODE");
-    expect(envKeys).toContain("DEPLOYMENT_MODE");
-    expect(envKeys).toContain("DEPLOYMENT_EXPOSURE");
-    expect(envKeys).toContain("MIGRATION_AUTO_APPLY");
-    expect(envKeys).toContain("PROVISION_SECRET");
+    expect(mockInstanceService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "tenant-1",
+        userId: "user-1",
+        userEmail: "admin@test.com",
+        name: "myapp",
+        productSlug: "test",
+        extra: expect.objectContaining({
+          ceoName: "CEO",
+        }),
+      }),
+    );
   });
 });

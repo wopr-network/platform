@@ -14,7 +14,6 @@ import type { ProductConfig } from "../product-config/index.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { ContainerPlacementStrategy } from "./container-placement.js";
 import type { FleetResolver } from "./fleet-resolver.js";
-import type { Instance } from "./instance.js";
 import type { NodeRegistry } from "./node-registry.js";
 import type { IProfileStore } from "./profile-store.js";
 
@@ -291,10 +290,13 @@ export class InstanceService {
     const instance = await fleet.create({
       tenantId: params.tenantId,
       name: params.name,
+      description: "",
       image: params.image,
       productSlug: params.productSlug,
       env: params.env ?? {},
       restartPolicy: params.restartPolicy ?? "no",
+      releaseChannel: "stable",
+      updatePolicy: "manual",
       readonlyRootfs: params.readonlyRootfs,
       network: params.network,
     });

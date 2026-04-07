@@ -9,12 +9,12 @@
  * every product gets the same timing-safe auth and DI-based fleet access
  * without copy-pasting.
  *
- * Uses NodeRegistry + ContainerPlacementStrategy for multi-node placement.
- * All env var names are generic (no product-specific prefixes).
+ * Create delegates to InstanceService (single path for instance lifecycle).
+ * Destroy and budget remain here as thin HTTP handlers.
  */
 
 import { timingSafeEqual } from "node:crypto";
-import { checkHealth, deprovisionContainer, provisionContainer, updateBudget } from "@wopr-network/provision-client";
+import { deprovisionContainer, updateBudget } from "@wopr-network/provision-client";
 import { Hono } from "hono";
 
 import { logger } from "../../config/logger.js";
@@ -50,18 +50,6 @@ function assertSecret(authHeader: string | undefined, secret: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Health check wait loop
-// ---------------------------------------------------------------------------
-
-async function waitForHealth(containerUrl: string, retries = 10, intervalMs = 2000): Promise<boolean> {
-  for (let i = 0; i < retries; i++) {
-    if (await checkHealth(containerUrl)) return true;
-    await new Promise((r) => setTimeout(r, intervalMs));
-  }
-  return false;
-}
-
-// ---------------------------------------------------------------------------
 // Route factory
 // ---------------------------------------------------------------------------
 
@@ -79,154 +67,76 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
 
   // ------------------------------------------------------------------
   // POST /create — create a new managed instance
+  // Delegates to InstanceService — the single path for instance lifecycle.
   // ------------------------------------------------------------------
   app.post("/create", async (c) => {
     if (!assertSecret(c.req.header("authorization"), config.provisionSecret)) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
-    if (!container.fleet) {
-      return c.json({ error: "Fleet management not configured" }, 501);
+    if (!container.instanceService) {
+      return c.json({ error: "Instance service not configured" }, 501);
     }
 
     const body = await c.req.json();
-    const { tenantId, subdomain, adminUser, agents, budgetCents, apiKey, product: bodyProduct } = body;
+    const { tenantId, subdomain, adminUser, agents, product: bodyProduct } = body;
 
     if (!tenantId || !subdomain) {
       return c.json({ error: "Missing required fields: tenantId, subdomain" }, 422);
     }
 
-    // Resolve product fleet config per-request.
-    // Priority: request body "product" → X-Product header → boot-time fallback.
     const productSlug = bodyProduct ?? c.req.header("x-product") ?? null;
-    let instanceImage = config.instanceImage;
-    let containerPort = config.containerPort;
-    let maxInstances = config.maxInstancesPerTenant;
     if (!productSlug) {
       return c.json({ error: "Product slug required (X-Product header or request body)" }, 400);
     }
-    if (productSlug && container.productConfigService) {
-      const productConfig = await container.productConfigService.getBySlug(productSlug);
-      if (productConfig?.fleet) {
-        instanceImage = productConfig.fleet.containerImage || instanceImage;
-        containerPort = productConfig.fleet.containerPort || containerPort;
-        maxInstances = productConfig.fleet.maxInstances ?? maxInstances;
-      }
+
+    // Resolve product config — InstanceService needs it for image, port, domain
+    const productConfig = container.productConfigService
+      ? await container.productConfigService.getBySlug(productSlug)
+      : null;
+    if (!productConfig) {
+      return c.json({ error: `Unknown product: ${productSlug}` }, 400);
     }
 
-    // Billing gate — require positive credit balance before provisioning
-    const balance = await container.creditLedger.balance(tenantId);
-    if (typeof balance === "object" && "isZero" in balance) {
-      const bal = balance as { isZero(): boolean; isNegative(): boolean };
-      if (bal.isZero() || bal.isNegative()) {
-        return c.json({ error: "Insufficient credits: add funds before creating an instance" }, 402);
-      }
-    }
-
-    // Instance limit gate
-    const { profileStore, nodeRegistry, placementStrategy, fleetResolver, serviceKeyRepo } = container.fleet;
-
-    if (maxInstances > 0) {
-      const profiles = await profileStore.list();
-      const tenantInstances = profiles.filter((p) => p.tenantId === tenantId);
-      if (tenantInstances.length >= maxInstances) {
-        return c.json({ error: `Instance limit reached: maximum ${maxInstances} per tenant` }, 403);
-      }
-    }
-
-    // Select target node via placement strategy
-    const nodes = nodeRegistry.list();
-    const containerCounts = nodeRegistry.getContainerCounts();
-    const targetNode = placementStrategy.selectNode(nodes, containerCounts);
-    const fleet = targetNode.fleet;
-
-    logger.info(`Placing container on node: ${targetNode.config.name} (${targetNode.config.id})`);
-
-    // Create the Docker container — image comes from product config
-    if (!productSlug) {
-      return c.json({ error: "Product slug is required: set 'product' in body or X-Product header" }, 422);
-    }
-    const instance = await fleet.create({
-      tenantId,
-      name: subdomain,
-      description: `Managed instance for ${subdomain}`,
-      image: instanceImage,
-      productSlug,
-      env: {
-        PORT: String(containerPort),
-        PROVISION_SECRET: config.provisionSecret,
-        HOSTED_MODE: "true",
-        DEPLOYMENT_MODE: "hosted_proxy",
-        DEPLOYMENT_EXPOSURE: "private",
-        MIGRATION_AUTO_APPLY: "true",
-      },
-      restartPolicy: "unless-stopped",
-      releaseChannel: "stable",
-      updatePolicy: "manual",
-    });
-
-    // Start the container and get the Instance handle
-    const inst = await fleet.getInstance(instance.id);
-    await inst.start();
-
-    // Track container → node assignment
-    nodeRegistry.assignContainer(instance.id, targetNode.config.id);
-
-    // Register proxy route — container name comes from the Instance (single source of truth)
-    const upstreamHost = nodeRegistry.resolveUpstreamHost(instance.id, inst.containerName);
-    await fleetResolver.registerRoute(instance.id, subdomain, upstreamHost, containerPort);
-
-    // Wait for container to become healthy
-    const containerUrl = `http://${upstreamHost}:${containerPort}`;
-    const healthy = await waitForHealth(containerUrl);
-    if (!healthy) {
-      logger.warn(`Container not healthy after creation: ${subdomain}`);
-      // Clean up — remove container, route, and gateway key
-      await serviceKeyRepo.revokeByInstance(instance.id);
-      try {
-        await fleet.remove(instance.id);
-      } catch (err) {
-        logger.warn("Cleanup after unhealthy container failed", { err });
-      }
-      nodeRegistry.unassignContainer(instance.id);
-      await fleetResolver.removeRoute(instance.id);
-      return c.json({ error: "Container failed health check" }, 503);
-    }
-
-    // Generate a gateway service key for this instance (product + tenant + instance)
-    const gatewayKey = serviceKeyRepo
-      ? await serviceKeyRepo.generate(tenantId, instance.id, productSlug ?? undefined)
-      : (apiKey ?? "");
-
-    // Configure via provision-client (company, admin user, starter agents)
-    const tenantName = body.tenantName ?? subdomain;
-    const result = await provisionContainer(containerUrl, config.provisionSecret, {
-      tenantId,
-      tenantName,
-      gatewayUrl: config.gatewayUrl ?? "",
-      apiKey: gatewayKey,
-      budgetCents: budgetCents ?? 0,
-      adminUser: adminUser ?? {
-        id: tenantId,
-        email: `${subdomain}@platform.local`,
+    try {
+      const result = await container.instanceService.create({
+        tenantId,
+        userId: adminUser?.id ?? tenantId,
+        userEmail: adminUser?.email ?? `${subdomain}@platform.local`,
         name: subdomain,
-      },
-      agents,
-    });
+        productSlug,
+        productConfig,
+        extra: {
+          ceoName: agents?.[0]?.name,
+          agents,
+        },
+      });
 
-    logger.info(`Created instance: ${subdomain} (${instance.id}) on node ${targetNode.config.name}`);
-
-    return c.json(
-      {
-        ok: true,
-        instanceId: instance.id,
+      logger.info("Provision webhook: instance created", {
+        instanceId: result.id,
         subdomain,
-        containerUrl,
-        nodeId: targetNode.config.id,
-        ...result,
-      },
-      201,
-    );
+        nodeId: result.nodeId,
+        provisioned: result.provisioned,
+      });
+
+      return c.json(
+        {
+          ok: true,
+          instanceId: result.id,
+          subdomain,
+          containerUrl: result.containerUrl,
+          nodeId: result.nodeId,
+          provisioned: result.provisioned,
+        },
+        201,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Provision webhook: create failed", { tenantId, subdomain, productSlug, error: message });
+      if (message.includes("Insufficient credits")) return c.json({ error: message }, 402);
+      if (message.includes("Instance limit")) return c.json({ error: message }, 403);
+      return c.json({ error: message }, 500);
+    }
   });
 
   // ------------------------------------------------------------------
