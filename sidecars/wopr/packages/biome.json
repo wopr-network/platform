@@ -1,48 +1,16 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.9/schema.json",
+  "extends": ["../../../biome.json"],
   "vcs": {
     "enabled": true,
     "clientKind": "git",
-    "useIgnoreFile": false,
-    "root": "."
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 120,
-    "attributePosition": "auto"
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double",
-      "semicolons": "always",
-      "trailingCommas": "all",
-      "arrowParentheses": "always"
-    }
+    "useIgnoreFile": false
   },
   "linter": {
-    "enabled": true,
     "rules": {
-      "recommended": true,
-      "correctness": {
-        "noUnusedVariables": "error",
-        "noUnusedImports": "error"
-      },
       "suspicious": {
-        "noExplicitAny": "warn",
         "noConsole": "off"
-      },
-      "style": {
-        "useConst": "error",
-        "noNonNullAssertion": "warn"
       }
-    }
-  },
-  "css": {
-    "parser": {
-      "cssModules": true,
-      "tailwindDirectives": true
     }
   },
   "overrides": [
@@ -59,36 +27,6 @@
           }
         }
       }
-    },
-    {
-      "includes": [
-        "packages/plugin-cron/**"
-      ],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noConsole": "off"
-          }
-        }
-      }
-    },
-    {
-      "includes": [
-        "packages/plugin-webui/**/*.css"
-      ],
-      "css": {
-        "parser": {
-          "cssModules": true
-        }
-      }
     }
-  ],
-  "assist": {
-    "enabled": true,
-    "actions": {
-      "source": {
-        "organizeImports": "off"
-      }
-    }
-  }
+  ]
 }
