@@ -274,6 +274,13 @@
       "when": 1775714400000,
       "tag": "0038_product_api_infra",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1775800800000,
+      "tag": "0039_pool_config_unique_index",
+      "breakpoints": true
     }
   ]
 }
