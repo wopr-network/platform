@@ -52,12 +52,15 @@ jobs:
           build holyshipper    managed sidecars/holyshipper/Dockerfile.managed        sidecars/holyshipper/
           build nemoclaw       managed sidecars/nemoclaw/Dockerfile                  sidecars/nemoclaw/
 
+          # Services
+          build chain-server   latest  services/platform-crypto-server/Dockerfile    .
+
           # Infrastructure
           build caddy-cf       latest  ops/core-server/Dockerfile.caddy              ops/core-server/
 
           echo ""
           echo "=== Summary ==="
-          echo "Built: ${#BUILT[@]} / 11"
+          echo "Built: ${#BUILT[@]} / 12"
           echo "Failed: $FAILED"
           for img in "${BUILT[@]}"; do echo "  ✓ $img"; done
 
@@ -111,6 +114,29 @@ jobs:
 
           echo "Deploy complete"
           DEPLOY
+
+      - name: Deploy chain server
+        run: |
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@167.71.118.221 bash -s "$REGISTRY_PASSWORD" <<'CHAIN_DEPLOY'
+          set -euo pipefail
+          echo "$1" | docker login registry.wopr.bot -u wopr --password-stdin
+          docker pull registry.wopr.bot/chain-server:latest
+          cd /opt/chain-server
+          docker compose up -d crypto --force-recreate
+          echo "=== Waiting for crypto health ==="
+          for i in $(seq 1 12); do
+            if docker exec chain-crypto curl -sf http://localhost:3100/chains > /dev/null 2>&1; then
+              echo "Chain server healthy"
+              break
+            fi
+            echo "  Waiting... ($i/12)"
+            sleep 5
+          done
+          docker image prune -f
+          echo "Chain deploy complete"
+          CHAIN_DEPLOY
+        env:
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Verify pool replenishment
         run: |
