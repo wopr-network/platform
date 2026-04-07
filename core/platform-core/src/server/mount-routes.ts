@@ -281,14 +281,29 @@ export async function mountRoutes(
       return next();
     });
     app.use("/api/*", async (c, next) => {
+      const { logger: apiAuthLogger } = await import("../config/logger.js");
       // BetterAuth routes must bypass internal auth — they handle browser sessions directly
-      if (c.req.path.startsWith("/api/auth")) return next();
+      if (c.req.path.startsWith("/api/auth")) {
+        apiAuthLogger.debug("api/* bypass: auth route", { path: c.req.path });
+        return next();
+      }
       // Health check endpoint must be public (used by docker healthcheck / LB)
       if (c.req.path === "/api/health" || c.req.path === "/health") return next();
       // Product config endpoint — UIs call this on boot to get brand config
-      if (c.req.path.startsWith("/api/products")) return next();
+      if (c.req.path.startsWith("/api/products")) {
+        apiAuthLogger.debug("api/* bypass: products", { path: c.req.path });
+        return next();
+      }
+      // Settings/profile use browser session auth (handled in the route handlers)
+      if (c.req.path.startsWith("/api/settings")) {
+        apiAuthLogger.debug("api/* bypass: settings", { path: c.req.path });
+        return next();
+      }
       // Chat SSE streams use browser session auth, not internal service auth
-      if (c.req.path.startsWith("/api/chat")) return next();
+      if (c.req.path.startsWith("/api/chat")) {
+        apiAuthLogger.debug("api/* bypass: chat", { path: c.req.path });
+        return next();
+      }
       // Onboarding chat uses browser session auth (platform service key generated server-side)
       if (c.req.path.startsWith("/api/onboarding-chat")) return next();
       // Webhooks use their own signature verification (Stripe/crypto), not service tokens
