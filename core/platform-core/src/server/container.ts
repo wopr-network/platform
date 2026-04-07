@@ -438,7 +438,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   if (bootConfig.features.hotPool && fleet) {
     const { HotPool } = await import("./services/hot-pool.js");
     const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
-    const poolRepo = new DrizzlePoolRepository(pool);
+    const poolRepo = new DrizzlePoolRepository(db);
 
     const secrets = bootConfig.secrets;
     const hotPool = new HotPool(fleet.docker, poolRepo, {

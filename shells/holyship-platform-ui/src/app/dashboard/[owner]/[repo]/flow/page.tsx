@@ -64,7 +64,13 @@ export default function FlowPage({ params }: { params: Promise<{ owner: string; 
     setMessages((prev) => [...prev, { role: "ai", text: "" }]);
 
     try {
+      let hitJson = false;
       const result = await designFlowStreaming(owner, repo, (chunk) => {
+        // Stop showing text once we hit the JSON/YAML block
+        if (chunk.includes("FLOW_DESIGN:") || chunk.includes("{") || hitJson) {
+          hitJson = true;
+          return;
+        }
         setMessages((prev) => {
           const updated = [...prev];
           const msg = updated[aiMsgIndex];
@@ -110,7 +116,13 @@ export default function FlowPage({ params }: { params: Promise<{ owner: string; 
 
     try {
       const yamlToSend = pendingYaml ?? currentYaml ?? "";
+      let hitJson = false;
       const result = await editFlowStreaming(owner, repo, message, yamlToSend, (chunk) => {
+        // Stop showing text once we hit the YAML/JSON block
+        if (chunk.includes("UPDATED_YAML:") || chunk.includes("FLOW_DESIGN:") || chunk.includes("{") || hitJson) {
+          hitJson = true;
+          return;
+        }
         setMessages((prev) => {
           const updated = [...prev];
           const msg = updated[aiMsgIndex];

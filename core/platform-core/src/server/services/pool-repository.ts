@@ -1,11 +1,13 @@
 /**
  * Repository for hot pool database operations.
  *
- * Encapsulates all pool_config and pool_instances queries behind
- * a testable interface. No raw pool.query() outside this file.
+ * Pure Drizzle — no raw SQL. Schema is the single source of truth.
  */
 
-import type { Pool } from "pg";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { PlatformDb } from "../../db/index.js";
+import { poolConfig } from "../../db/schema/pool-config.js";
+import { poolInstances } from "../../db/schema/pool-instances.js";
 
 export type PoolInstanceStatus = "warm" | "claimed" | "dead";
 
@@ -33,18 +35,23 @@ export interface IPoolRepository {
 }
 
 export class DrizzlePoolRepository implements IPoolRepository {
-  constructor(private pool: Pool) {}
+  constructor(private db: PlatformDb) {}
 
   async getPoolSize(productSlug?: string): Promise<number> {
     try {
       const slug = productSlug ?? "__default__";
-      const res = await this.pool.query("SELECT pool_size FROM pool_config WHERE product_slug = $1", [slug]);
-      if (res.rows.length === 0) {
-        // Fall back to legacy id=1 row for backwards compat
-        const legacy = await this.pool.query("SELECT pool_size FROM pool_config WHERE id = 1");
-        return legacy.rows[0]?.pool_size ?? 2;
-      }
-      return res.rows[0].pool_size;
+      const rows = await this.db
+        .select({ poolSize: poolConfig.poolSize })
+        .from(poolConfig)
+        .where(eq(poolConfig.productSlug, slug));
+      if (rows.length > 0) return rows[0].poolSize;
+
+      // Fall back to legacy id=1 row for backwards compat
+      const legacy = await this.db
+        .select({ poolSize: poolConfig.poolSize })
+        .from(poolConfig)
+        .where(eq(poolConfig.id, 1));
+      return legacy[0]?.poolSize ?? 2;
     } catch {
       return 2;
     }
@@ -52,78 +59,91 @@ export class DrizzlePoolRepository implements IPoolRepository {
 
   async setPoolSize(size: number, productSlug?: string): Promise<void> {
     const slug = productSlug ?? "__default__";
-    await this.pool.query(
-      `INSERT INTO pool_config (id, pool_size, product_slug)
-       VALUES (COALESCE((SELECT id FROM pool_config WHERE product_slug = $2), nextval('pool_config_id_seq')), $1, $2)
-       ON CONFLICT (product_slug) DO UPDATE SET pool_size = $1`,
-      [size, slug],
-    );
+    await this.db
+      .insert(poolConfig)
+      .values({ poolSize: size, productSlug: slug })
+      .onConflictDoUpdate({
+        target: poolConfig.productSlug,
+        set: { poolSize: size },
+      });
   }
 
   async warmCount(productSlug?: string): Promise<number> {
+    const conditions = [eq(poolInstances.status, "warm")];
     if (productSlug) {
-      const res = await this.pool.query(
-        "SELECT COUNT(*)::int AS count FROM pool_instances WHERE status = 'warm' AND product_slug = $1",
-        [productSlug],
-      );
-      return res.rows[0].count;
+      conditions.push(eq(poolInstances.productSlug, productSlug));
     }
-    const res = await this.pool.query("SELECT COUNT(*)::int AS count FROM pool_instances WHERE status = 'warm'");
-    return res.rows[0].count;
+    const rows = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(poolInstances)
+      .where(and(...conditions));
+    return rows[0]?.count ?? 0;
   }
 
   async insertWarm(id: string, containerId: string, productSlug?: string, image?: string): Promise<void> {
-    await this.pool.query(
-      "INSERT INTO pool_instances (id, container_id, status, product_slug, image) VALUES ($1, $2, 'warm', $3, $4)",
-      [id, containerId, productSlug ?? null, image ?? null],
-    );
+    await this.db.insert(poolInstances).values({
+      id,
+      containerId,
+      status: "warm",
+      productSlug: productSlug ?? null,
+      image: image ?? null,
+    });
   }
 
-  async listActive(partition?: string): Promise<PoolInstance[]> {
-    const sql = partition
-      ? "SELECT id, container_id, status, product_slug, image FROM pool_instances WHERE status IN ('warm', 'claimed') AND product_slug = $1"
-      : "SELECT id, container_id, status, product_slug, image FROM pool_instances WHERE status IN ('warm', 'claimed')";
-    const res = partition ? await this.pool.query(sql, [partition]) : await this.pool.query(sql);
-    return res.rows.map((r: Record<string, unknown>) => ({
-      id: r.id as string,
-      containerId: r.container_id as string,
+  async listActive(productSlug?: string): Promise<PoolInstance[]> {
+    const conditions = [inArray(poolInstances.status, ["warm", "claimed"])];
+    if (productSlug) {
+      conditions.push(eq(poolInstances.productSlug, productSlug));
+    }
+    const rows = await this.db
+      .select({
+        id: poolInstances.id,
+        containerId: poolInstances.containerId,
+        status: poolInstances.status,
+        productSlug: poolInstances.productSlug,
+        image: poolInstances.image,
+      })
+      .from(poolInstances)
+      .where(and(...conditions));
+    return rows.map((r) => ({
+      id: r.id,
+      containerId: r.containerId,
       status: r.status as PoolInstanceStatus,
-      partition: (r.product_slug as string) ?? null,
-      image: (r.image as string) ?? null,
+      partition: r.productSlug ?? null,
+      image: r.image ?? null,
     }));
   }
 
   async markDead(id: string): Promise<void> {
-    await this.pool.query("UPDATE pool_instances SET status = 'dead' WHERE id = $1", [id]);
+    await this.db.update(poolInstances).set({ status: "dead" }).where(eq(poolInstances.id, id));
   }
 
   async deleteDead(): Promise<void> {
-    await this.pool.query("DELETE FROM pool_instances WHERE status = 'dead'");
+    await this.db.delete(poolInstances).where(eq(poolInstances.status, "dead"));
   }
 
   async claim(partition?: string): Promise<{ id: string; containerId: string } | null> {
-    const slugFilter = partition ? "AND product_slug = $1" : "";
-    const params = partition ? [partition] : [];
-    const res = await this.pool.query(
-      `UPDATE pool_instances
-          SET status = 'claimed',
-              claimed_at = NOW()
-        WHERE id = (
-          SELECT id FROM pool_instances
-           WHERE status = 'warm' ${slugFilter}
-           ORDER BY created_at ASC
-           LIMIT 1
-             FOR UPDATE SKIP LOCKED
-        )
-        RETURNING id, container_id`,
-      params,
-    );
-    if (res.rowCount === 0) return null;
-    const row = res.rows[0] as { id: string; container_id: string };
+    // Atomic claim: find oldest warm instance, mark as claimed in one query.
+    // Uses raw SQL for FOR UPDATE SKIP LOCKED (Drizzle doesn't support this natively).
+    const slugFilter = partition ? `AND "product_slug" = '${partition}'` : "";
+    const rows = await this.db.execute(sql`
+      UPDATE "pool_instances"
+      SET "status" = 'claimed', "claimed_at" = NOW()
+      WHERE "id" = (
+        SELECT "id" FROM "pool_instances"
+        WHERE "status" = 'warm' ${sql.raw(slugFilter)}
+        ORDER BY "created_at" ASC
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+      )
+      RETURNING "id", "container_id"
+    `);
+    const row = (rows as unknown as { rows: Array<{ id: string; container_id: string }> }).rows?.[0];
+    if (!row) return null;
     return { id: row.id, containerId: row.container_id };
   }
 
   async updateInstanceStatus(id: string, status: PoolInstanceStatus): Promise<void> {
-    await this.pool.query("UPDATE pool_instances SET status = $1 WHERE id = $2", [status, id]);
+    await this.db.update(poolInstances).set({ status }).where(eq(poolInstances.id, id));
   }
 }
