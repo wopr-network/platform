@@ -3,6 +3,8 @@ packages:
   - "platforms/*"
   - "shells/*"
   - "services/*"
+  - "sidecars/wopr"
+  - "sidecars/wopr/packages/*"
   - "sidecars/paperclip"
   - "sidecars/paperclip/packages/*"
   - "sidecars/paperclip/packages/adapters/*"

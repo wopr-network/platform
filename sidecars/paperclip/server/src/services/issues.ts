@@ -882,6 +882,17 @@ export function issueService(db: Db) {
       return enriched;
     },
 
+    getByNumber: async (issueNumber: number) => {
+      const row = await db
+        .select()
+        .from(issues)
+        .where(eq(issues.issueNumber, issueNumber))
+        .then((rows) => rows[0] ?? null);
+      if (!row) return null;
+      const [enriched] = await withIssueLabels(db, [row]);
+      return enriched;
+    },
+
     create: async (companyId: string, data: IssueCreateInput) => {
       const { labelIds: inputLabelIds, inheritExecutionWorkspaceFromIssueId, ...issueData } = data;
       const isolatedWorkspacesEnabled = (await instanceSettings.getExperimental()).enableIsolatedWorkspaces;

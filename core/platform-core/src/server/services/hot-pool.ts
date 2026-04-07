@@ -15,7 +15,6 @@ import { logger } from "../../config/logger.js";
 import { friendlyName } from "../../fleet/friendly-names.js";
 import type { IPoolRepository } from "./pool-repository.js";
 
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------

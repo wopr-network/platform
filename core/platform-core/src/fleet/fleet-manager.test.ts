@@ -85,6 +85,7 @@ const PROFILE_PARAMS = {
   name: "test-bot",
   description: "A test bot",
   image: "ghcr.io/wopr-network/wopr:stable",
+  productSlug: "wopr",
   env: { TOKEN: "abc123" },
   restartPolicy: "unless-stopped" as const,
   releaseChannel: "stable" as const,
@@ -119,7 +120,7 @@ describe("FleetManager", () => {
       expect(docker.createContainer).toHaveBeenCalledWith(
         expect.objectContaining({
           Image: "ghcr.io/wopr-network/wopr:stable",
-          name: "wopr-test-bot",
+          name: expect.stringMatching(/^wopr-/),
         }),
       );
     });
@@ -210,6 +211,9 @@ describe("FleetManager", () => {
     it("returns offline status when no container exists", async () => {
       await store.save({ id: "bot-id", ...PROFILE_PARAMS });
       docker.listContainers.mockResolvedValue([]);
+      docker.getContainer.mockReturnValue({
+        inspect: vi.fn().mockRejectedValue(new Error("no such container")),
+      });
 
       const status = await fleet.status("bot-id");
 
@@ -464,14 +468,14 @@ describe("FleetManager", () => {
       );
     });
 
-    it("does not set NetworkMode when no NetworkPolicy is provided", async () => {
+    it("defaults to 'platform' NetworkMode when no NetworkPolicy is provided", async () => {
       // fleet (from outer beforeEach) has no networkPolicy
       await fleet.create(PROFILE_PARAMS);
 
       expect(docker.createContainer).toHaveBeenCalledWith(
         expect.objectContaining({
-          HostConfig: expect.not.objectContaining({
-            NetworkMode: expect.anything(),
+          HostConfig: expect.objectContaining({
+            NetworkMode: "platform",
           }),
         }),
       );
@@ -597,6 +601,7 @@ describe("FleetManager", () => {
         name: "test-bot",
         description: "",
         image: "ghcr.io/wopr-network/wopr:latest",
+        productSlug: "wopr",
         env: { FOO: "bar" },
         restartPolicy: "unless-stopped",
         releaseChannel: "stable",
@@ -643,6 +648,7 @@ describe("FleetManager", () => {
         name: "local-bot",
         description: "",
         image: "ghcr.io/wopr-network/wopr:latest",
+        productSlug: "wopr",
         env: {},
         restartPolicy: "unless-stopped",
         releaseChannel: "stable",

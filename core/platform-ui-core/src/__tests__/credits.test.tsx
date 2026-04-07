@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { CreditBalance, CreditHistoryResponse } from "@/lib/api";
+import { trpcVanillaProxy } from "./setup.js";
 
 // Mock framer-motion to prevent animation/rAF issues in JSDOM.
 vi.mock("framer-motion", () => {
@@ -121,8 +122,17 @@ vi.mock("@/lib/trpc", () => ({
           refetch: vi.fn(),
         }),
       },
+      creditsDailySummary: {
+        useQuery: vi.fn().mockReturnValue({
+          data: { rows: [] },
+          isLoading: false,
+          error: null,
+          refetch: vi.fn(),
+        }),
+      },
     },
   },
+  trpcVanilla: trpcVanillaProxy,
   TRPCProvider: ({ children }: { children?: unknown }) => children,
 }));
 

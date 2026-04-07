@@ -1,0 +1,43 @@
+{
+  "name": "@wopr-network/wopr-plugin-sandbox",
+  "version": "1.0.1",
+  "description": "Docker-based session isolation for WOPR — container lifecycle, per-session context, tool policy engine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "lint": "biome check src/",
+    "build": "tsc",
+    "test": "vitest run --passWithNoTests",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "wopr",
+    "wopr-plugin",
+    "plugin",
+    "sandbox",
+    "docker",
+    "isolation"
+  ],
+  "author": "WOPR",
+  "license": "MIT",
+  "dependencies": {
+    "@wopr-network/plugin-types": "workspace:*",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wopr-network/wopr-plugins.git",
+    "directory": "packages/plugin-sandbox"
+  },
+  "homepage": "https://github.com/wopr-network/wopr-plugins/tree/main/packages/plugin-sandbox#readme"
+}

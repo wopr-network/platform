@@ -1,72 +1,113 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CreditHistoryResponse } from "@/lib/api";
+import { trpcVanillaProxy } from "./setup.js";
 
-const mockGetCreditHistory = vi.fn<(cursor?: string) => Promise<CreditHistoryResponse>>();
+// Mock tRPC hook return value
+const mockUseQuery = vi.fn();
+const mockRefetch = vi.fn();
 
-vi.mock("@/lib/api", () => ({
-  getCreditHistory: (...args: unknown[]) => mockGetCreditHistory(args[0] as string | undefined),
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    billing: {
+      creditsDailySummary: {
+        useQuery: (...args: unknown[]) => mockUseQuery(...args),
+      },
+    },
+  },
+  trpcVanilla: trpcVanillaProxy,
 }));
 
 // Must import AFTER vi.mock
 const { TransactionHistory } = await import("@/components/billing/transaction-history");
 
+const NANO = 1_000_000_000;
+
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(QueryClientProvider, { client: queryClient }, children);
+  };
+}
+
 describe("TransactionHistory", () => {
   beforeEach(() => {
-    mockGetCreditHistory.mockReset();
+    mockUseQuery.mockReset();
+    mockRefetch.mockReset();
   });
 
   it("shows loading skeletons initially", () => {
-    // Never resolve — keeps component in loading state
-    mockGetCreditHistory.mockReturnValue(new Promise(() => {}));
-    render(<TransactionHistory />);
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: null,
+      refetch: mockRefetch,
+    });
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     expect(screen.getByText("Transaction History")).toBeInTheDocument();
-    // 4 skeleton rows are rendered (no transaction text visible)
     expect(screen.queryByText("No transactions yet.")).toBeNull();
   });
 
   it("renders empty state when no transactions", async () => {
-    mockGetCreditHistory.mockResolvedValue({ transactions: [], nextCursor: null });
-    render(<TransactionHistory />);
+    mockUseQuery.mockReturnValue({
+      data: { rows: [] },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
+    });
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
       expect(screen.getByText("No transactions yet.")).toBeInTheDocument();
     });
   });
 
   it("renders transaction descriptions", async () => {
-    mockGetCreditHistory.mockResolvedValue({
-      transactions: [
-        {
-          id: "tx-1",
-          type: "purchase",
-          description: "Credit top-up",
-          amount: 25.0,
-          createdAt: "2025-06-15T10:00:00Z",
-        },
-      ],
-      nextCursor: null,
+    mockUseQuery.mockReturnValue({
+      data: {
+        rows: [
+          {
+            id: "tx-1",
+            entryType: "purchase",
+            description: "Credit top-up",
+            signedAmountNano: 25 * NANO,
+            entryCount: 1,
+            postedAt: "2025-06-15T10:00:00Z",
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
     });
-    render(<TransactionHistory />);
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
       expect(screen.getByText("Credit top-up")).toBeInTheDocument();
     });
   });
 
   it("renders positive amounts with + prefix and emerald color", async () => {
-    mockGetCreditHistory.mockResolvedValue({
-      transactions: [
-        {
-          id: "tx-1",
-          type: "purchase",
-          description: "Top-up",
-          amount: 50.0,
-          createdAt: "2025-06-15T10:00:00Z",
-        },
-      ],
-      nextCursor: null,
+    mockUseQuery.mockReturnValue({
+      data: {
+        rows: [
+          {
+            id: "tx-1",
+            entryType: "purchase",
+            description: "Top-up",
+            signedAmountNano: 50 * NANO,
+            entryCount: 1,
+            postedAt: "2025-06-15T10:00:00Z",
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
     });
-    render(<TransactionHistory />);
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
       const amountEl = screen.getByText("+$50.00");
       expect(amountEl).toBeInTheDocument();
@@ -75,19 +116,24 @@ describe("TransactionHistory", () => {
   });
 
   it("renders negative amounts with - prefix and red color", async () => {
-    mockGetCreditHistory.mockResolvedValue({
-      transactions: [
-        {
-          id: "tx-1",
-          type: "bot_runtime",
-          description: "Bot usage",
-          amount: -3.5,
-          createdAt: "2025-06-15T10:00:00Z",
-        },
-      ],
-      nextCursor: null,
+    mockUseQuery.mockReturnValue({
+      data: {
+        rows: [
+          {
+            id: "tx-1",
+            entryType: "bot_runtime",
+            description: "Bot usage",
+            signedAmountNano: -3.5 * NANO,
+            entryCount: 1,
+            postedAt: "2025-06-15T10:00:00Z",
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
     });
-    render(<TransactionHistory />);
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
       const amountEl = screen.getByText("-$3.50");
       expect(amountEl).toBeInTheDocument();
@@ -96,61 +142,72 @@ describe("TransactionHistory", () => {
   });
 
   it("renders correct type badge labels", async () => {
-    mockGetCreditHistory.mockResolvedValue({
-      transactions: [
-        {
-          id: "tx-1",
-          type: "purchase",
-          description: "a",
-          amount: 10,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-        {
-          id: "tx-2",
-          type: "signup_credit",
-          description: "b",
-          amount: 5,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-        {
-          id: "tx-3",
-          type: "bot_runtime",
-          description: "c",
-          amount: -2,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-        {
-          id: "tx-4",
-          type: "refund",
-          description: "d",
-          amount: 3,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-        {
-          id: "tx-5",
-          type: "bonus",
-          description: "e",
-          amount: 1,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-        {
-          id: "tx-6",
-          type: "adjustment",
-          description: "f",
-          amount: -1,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-        {
-          id: "tx-7",
-          type: "community_dividend",
-          description: "g",
-          amount: 2,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-      ],
-      nextCursor: null,
+    mockUseQuery.mockReturnValue({
+      data: {
+        rows: [
+          {
+            id: "tx-1",
+            entryType: "purchase",
+            description: "a",
+            signedAmountNano: 10 * NANO,
+            entryCount: 1,
+            postedAt: "2025-01-01T00:00:00Z",
+          },
+          {
+            id: "tx-2",
+            entryType: "signup_credit",
+            description: "b",
+            signedAmountNano: 5 * NANO,
+            entryCount: 1,
+            postedAt: "2025-01-01T00:00:00Z",
+          },
+          {
+            id: "tx-3",
+            entryType: "bot_runtime",
+            description: "c",
+            signedAmountNano: -2 * NANO,
+            entryCount: 1,
+            postedAt: "2025-01-01T00:00:00Z",
+          },
+          {
+            id: "tx-4",
+            entryType: "refund",
+            description: "d",
+            signedAmountNano: 3 * NANO,
+            entryCount: 1,
+            postedAt: "2025-01-01T00:00:00Z",
+          },
+          {
+            id: "tx-5",
+            entryType: "bonus",
+            description: "e",
+            signedAmountNano: 1 * NANO,
+            entryCount: 1,
+            postedAt: "2025-01-01T00:00:00Z",
+          },
+          {
+            id: "tx-6",
+            entryType: "adjustment",
+            description: "f",
+            signedAmountNano: -1 * NANO,
+            entryCount: 1,
+            postedAt: "2025-01-01T00:00:00Z",
+          },
+          {
+            id: "tx-7",
+            entryType: "community_dividend",
+            description: "g",
+            signedAmountNano: 2 * NANO,
+            entryCount: 1,
+            postedAt: "2025-01-01T00:00:00Z",
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
     });
-    render(<TransactionHistory />);
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
       expect(screen.getByText("Purchase")).toBeInTheDocument();
       expect(screen.getByText("Signup credit")).toBeInTheDocument();
@@ -163,28 +220,37 @@ describe("TransactionHistory", () => {
   });
 
   it("renders formatted dates", async () => {
-    mockGetCreditHistory.mockResolvedValue({
-      transactions: [
-        {
-          id: "tx-1",
-          type: "purchase",
-          description: "Top-up",
-          amount: 10,
-          createdAt: "2025-06-15T10:00:00Z",
-        },
-      ],
-      nextCursor: null,
+    mockUseQuery.mockReturnValue({
+      data: {
+        rows: [
+          {
+            id: "tx-1",
+            entryType: "purchase",
+            description: "Top-up",
+            signedAmountNano: 10 * NANO,
+            entryCount: 1,
+            postedAt: "2025-06-15T10:00:00Z",
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: mockRefetch,
     });
-    render(<TransactionHistory />);
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
-      // toLocaleDateString("en-US", { month: "short", day: "numeric" }) → "Jun 15"
       expect(screen.getByText("Jun 15")).toBeInTheDocument();
     });
   });
 
   it("shows error state with retry button", async () => {
-    mockGetCreditHistory.mockRejectedValue(new Error("Network error"));
-    render(<TransactionHistory />);
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("Network error"),
+      refetch: mockRefetch,
+    });
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
       expect(screen.getByText("Failed to load transactions.")).toBeInTheDocument();
       expect(screen.getByText("Retry")).toBeInTheDocument();
@@ -193,132 +259,19 @@ describe("TransactionHistory", () => {
 
   it("retries loading on retry button click", async () => {
     const user = userEvent.setup();
-    // First call fails, second succeeds
-    mockGetCreditHistory
-      .mockRejectedValueOnce(new Error("fail"))
-      .mockResolvedValueOnce({ transactions: [], nextCursor: null });
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("fail"),
+      refetch: mockRefetch,
+    });
 
-    render(<TransactionHistory />);
+    render(<TransactionHistory />, { wrapper: createWrapper() });
     await waitFor(() => {
       expect(screen.getByText("Retry")).toBeInTheDocument();
     });
 
     await user.click(screen.getByText("Retry"));
-    await waitFor(() => {
-      expect(screen.getByText("No transactions yet.")).toBeInTheDocument();
-    });
-    expect(mockGetCreditHistory).toHaveBeenCalledTimes(2);
-  });
-
-  it("shows 'Load more' button when cursor exists", async () => {
-    mockGetCreditHistory.mockResolvedValue({
-      transactions: [
-        {
-          id: "tx-1",
-          type: "purchase",
-          description: "Top-up",
-          amount: 10,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-      ],
-      nextCursor: "next-page-cursor",
-    });
-    render(<TransactionHistory />);
-    await waitFor(() => {
-      expect(screen.getByText("Load more")).toBeInTheDocument();
-    });
-  });
-
-  it("does not show 'Load more' when cursor is null", async () => {
-    mockGetCreditHistory.mockResolvedValue({
-      transactions: [
-        {
-          id: "tx-1",
-          type: "purchase",
-          description: "Top-up",
-          amount: 10,
-          createdAt: "2025-01-01T00:00:00Z",
-        },
-      ],
-      nextCursor: null,
-    });
-    render(<TransactionHistory />);
-    await waitFor(() => {
-      expect(screen.getByText("Top-up")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("Load more")).toBeNull();
-  });
-
-  it("loads more transactions on 'Load more' click", async () => {
-    const user = userEvent.setup();
-    mockGetCreditHistory
-      .mockResolvedValueOnce({
-        transactions: [
-          {
-            id: "tx-1",
-            type: "purchase",
-            description: "First batch",
-            amount: 10,
-            createdAt: "2025-01-01T00:00:00Z",
-          },
-        ],
-        nextCursor: "cursor-2",
-      })
-      .mockResolvedValueOnce({
-        transactions: [
-          {
-            id: "tx-2",
-            type: "refund",
-            description: "Second batch",
-            amount: 5,
-            createdAt: "2025-01-02T00:00:00Z",
-          },
-        ],
-        nextCursor: null,
-      });
-
-    render(<TransactionHistory />);
-    await waitFor(() => {
-      expect(screen.getByText("First batch")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText("Load more"));
-    await waitFor(() => {
-      expect(screen.getByText("Second batch")).toBeInTheDocument();
-    });
-    // Both batches visible
-    expect(screen.getByText("First batch")).toBeInTheDocument();
-    // Cursor was passed to second call
-    expect(mockGetCreditHistory).toHaveBeenCalledWith("cursor-2");
-  });
-
-  it("shows inline error when load-more fails but keeps existing transactions", async () => {
-    const user = userEvent.setup();
-    mockGetCreditHistory
-      .mockResolvedValueOnce({
-        transactions: [
-          {
-            id: "tx-1",
-            type: "purchase",
-            description: "Existing",
-            amount: 10,
-            createdAt: "2025-01-01T00:00:00Z",
-          },
-        ],
-        nextCursor: "cursor-2",
-      })
-      .mockRejectedValueOnce(new Error("fail"));
-
-    render(<TransactionHistory />);
-    await waitFor(() => {
-      expect(screen.getByText("Existing")).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByText("Load more"));
-    await waitFor(() => {
-      expect(screen.getByText("Failed to load more transactions.")).toBeInTheDocument();
-    });
-    // Original transaction still visible
-    expect(screen.getByText("Existing")).toBeInTheDocument();
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -24,7 +24,10 @@ export async function fetchPluginDependencies(instanceUrl: string, pluginName: s
     const data = (await response.json()) as { manifest?: { dependencies?: string[] } };
     return data.manifest?.dependencies ?? [];
   } catch (err) {
-    logger.warn("fetchPluginDependencies: fetch error", { url, error: err instanceof Error ? err.message : String(err) });
+    logger.warn("fetchPluginDependencies: fetch error", {
+      url,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return [];
   }
 }

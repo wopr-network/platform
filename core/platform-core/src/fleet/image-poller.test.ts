@@ -15,6 +15,7 @@ function makeProfile(overrides: Partial<BotProfile> = {}): BotProfile {
     name: "test-bot",
     description: "A test bot",
     image: "ghcr.io/wopr-network/wopr:stable",
+    productSlug: "wopr",
     env: {},
     restartPolicy: "unless-stopped",
     releaseChannel: "stable",

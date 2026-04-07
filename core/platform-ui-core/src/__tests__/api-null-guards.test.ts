@@ -22,6 +22,7 @@ interface MockTrpcVanilla {
   billing: {
     creditsBalance: MockQuery;
     creditsHistory: MockQuery;
+    creditsDailySummary: MockQuery;
     creditOptions: MockQuery;
     affiliateStats: MockQuery;
     affiliateReferrals: MockQuery;
@@ -61,6 +62,7 @@ vi.mock("@/lib/trpc", () => ({
     billing: {
       creditsBalance: { query: vi.fn() },
       creditsHistory: { query: vi.fn() },
+      creditsDailySummary: { query: vi.fn() },
       creditOptions: { query: vi.fn() },
       affiliateStats: { query: vi.fn() },
       affiliateReferrals: { query: vi.fn() },
@@ -154,7 +156,7 @@ describe("API null guards", () => {
   it("getCreditHistory handles empty response", async () => {
     const { trpcVanilla } = await import("@/lib/trpc");
     const { billing } = trpcVanilla as unknown as MockTrpcVanilla;
-    billing.creditsHistory.query.mockResolvedValue({});
+    billing.creditsDailySummary.query.mockResolvedValue({});
 
     const { getCreditHistory } = await import("@/lib/api");
     const result = await getCreditHistory();

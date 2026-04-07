@@ -13,7 +13,7 @@ describe("dispatchPluginInstall", () => {
   it("dispatches install to daemon and returns dispatched:true on success", async () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve("") });
 
-    const result = await dispatchPluginInstall("bot-1", "@wopr-network/plugin-discord");
+    const result = await dispatchPluginInstall("http://wopr-bot-1:3000", "@wopr-network/plugin-discord");
 
     expect(result).toEqual({ dispatched: true });
     expect(mockFetch).toHaveBeenCalledWith(
@@ -33,7 +33,7 @@ describe("dispatchPluginInstall", () => {
       text: () => Promise.resolve("package not found"),
     });
 
-    const result = await dispatchPluginInstall("bot-1", "nonexistent-pkg");
+    const result = await dispatchPluginInstall("http://wopr-bot-1:3000", "nonexistent-pkg");
 
     expect(result).toEqual({ dispatched: false, dispatchError: "daemon returned 404: package not found" });
   });
@@ -41,7 +41,7 @@ describe("dispatchPluginInstall", () => {
   it("returns dispatched:false on connection error (bot offline)", async () => {
     mockFetch.mockRejectedValue(new Error("fetch failed"));
 
-    const result = await dispatchPluginInstall("bot-1", "@wopr-network/plugin-discord");
+    const result = await dispatchPluginInstall("http://wopr-bot-1:3000", "@wopr-network/plugin-discord");
 
     expect(result).toEqual({ dispatched: false, dispatchError: "fetch failed" });
   });
@@ -49,7 +49,7 @@ describe("dispatchPluginInstall", () => {
   it("handles non-Error thrown values", async () => {
     mockFetch.mockRejectedValue("string error");
 
-    const result = await dispatchPluginInstall("bot-1", "pkg");
+    const result = await dispatchPluginInstall("http://wopr-bot-1:3000", "pkg");
 
     expect(result).toEqual({ dispatched: false, dispatchError: "string error" });
   });

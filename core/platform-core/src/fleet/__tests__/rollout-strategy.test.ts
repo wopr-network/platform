@@ -15,6 +15,7 @@ function makeBots(count: number): BotProfile[] {
     name: `bot-${i}`,
     description: "",
     image: "ghcr.io/wopr-network/test:latest",
+    productSlug: "wopr",
     env: {},
     restartPolicy: "unless-stopped" as const,
     releaseChannel: "stable" as const,

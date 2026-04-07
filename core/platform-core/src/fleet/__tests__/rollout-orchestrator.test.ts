@@ -12,6 +12,7 @@ function makeProfile(id: string, volumeName?: string): BotProfile {
     name: `bot-${id}`,
     description: "",
     image: "ghcr.io/wopr-network/paperclip:managed",
+    productSlug: "wopr",
     env: {},
     restartPolicy: "unless-stopped",
     releaseChannel: "stable",

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { discoveryConfigSchema } from "../discovery/types.js";
-import { friendlyName } from "./friendly-names.js";
 import type { BotApplicationMetrics } from "../gateway/bot-metrics-tracker.js";
+import { friendlyName } from "./friendly-names.js";
 
 /**
  * Docker named volume format: starts with alphanumeric, then alphanumeric plus `_`, `.`, `-`.

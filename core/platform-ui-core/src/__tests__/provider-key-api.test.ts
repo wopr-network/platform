@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { trpcVanillaProxy } from "./setup.js";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -21,7 +22,7 @@ vi.mock("@/lib/fetch-utils", () => ({
 }));
 
 vi.mock("@/lib/trpc", () => ({
-  trpcVanilla: {},
+  trpcVanilla: trpcVanillaProxy,
 }));
 
 import { removeProviderKey, saveProviderKey } from "@/lib/api";

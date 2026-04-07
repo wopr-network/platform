@@ -12,7 +12,7 @@ describe("dispatchPluginConfig", () => {
   it("dispatches config to daemon and returns dispatched:true on success", async () => {
     mockFetch.mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve("") });
 
-    const result = await dispatchPluginConfig("bot-1", "discord", { token: "abc" });
+    const result = await dispatchPluginConfig("http://wopr-bot-1:3000", "discord", { token: "abc" });
 
     expect(result).toEqual({ dispatched: true });
     expect(mockFetch).toHaveBeenCalledWith(
@@ -32,7 +32,7 @@ describe("dispatchPluginConfig", () => {
       text: () => Promise.resolve("invalid config"),
     });
 
-    const result = await dispatchPluginConfig("bot-1", "discord", {});
+    const result = await dispatchPluginConfig("http://wopr-bot-1:3000", "discord", {});
 
     expect(result).toEqual({ dispatched: false, dispatchError: "daemon returned 400: invalid config" });
   });
@@ -40,7 +40,7 @@ describe("dispatchPluginConfig", () => {
   it("returns dispatched:false on connection error (bot offline)", async () => {
     mockFetch.mockRejectedValue(new Error("connect ECONNREFUSED"));
 
-    const result = await dispatchPluginConfig("bot-1", "discord", {});
+    const result = await dispatchPluginConfig("http://wopr-bot-1:3000", "discord", {});
 
     expect(result).toEqual({ dispatched: false, dispatchError: "connect ECONNREFUSED" });
   });
@@ -48,7 +48,7 @@ describe("dispatchPluginConfig", () => {
   it("handles non-Error thrown values", async () => {
     mockFetch.mockRejectedValue("string error");
 
-    const result = await dispatchPluginConfig("bot-1", "discord", {});
+    const result = await dispatchPluginConfig("http://wopr-bot-1:3000", "discord", {});
 
     expect(result).toEqual({ dispatched: false, dispatchError: "string error" });
   });

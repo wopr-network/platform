@@ -105,15 +105,12 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
     if (!productSlug) {
       return c.json({ error: "Product slug required (X-Product header or request body)" }, 400);
     }
-    let containerPrefix = productSlug;
-
     if (productSlug && container.productConfigService) {
       const productConfig = await container.productConfigService.getBySlug(productSlug);
       if (productConfig?.fleet) {
         instanceImage = productConfig.fleet.containerImage || instanceImage;
         containerPort = productConfig.fleet.containerPort || containerPort;
         maxInstances = productConfig.fleet.maxInstances ?? maxInstances;
-        containerPrefix = productSlug;
       }
     }
 
@@ -168,15 +165,14 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
       updatePolicy: "manual",
     });
 
-    // Start the container
+    // Start the container and get the Instance handle
     const inst = await fleet.getInstance(instance.id);
     await inst.start();
 
     // Track container → node assignment
     nodeRegistry.assignContainer(instance.id, targetNode.config.id);
 
-    // Register proxy route — get container name from the Instance (Docker inspect)
-    const inst = await fleet.getInstance(instance.id);
+    // Register proxy route — container name comes from the Instance (single source of truth)
     const upstreamHost = nodeRegistry.resolveUpstreamHost(instance.id, inst.containerName);
     await fleetResolver.registerRoute(instance.id, subdomain, upstreamHost, containerPort);
 

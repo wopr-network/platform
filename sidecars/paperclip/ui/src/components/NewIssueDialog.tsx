@@ -269,7 +269,11 @@ function issueExecutionWorkspaceModeForExistingWorkspace(mode: string | null | u
 export function NewIssueDialog() {
   const { newIssueOpen, newIssueDefaults, closeNewIssue } = useDialog();
   const { companies, selectedCompanyId, selectedCompany } = useCompany();
-  const healthQuery = useQuery({ queryKey: ["health"], queryFn: () => import("../api/health").then((m) => m.healthApi.get()), staleTime: 300_000 });
+  const healthQuery = useQuery({
+    queryKey: ["health"],
+    queryFn: () => import("../api/health").then((m) => m.healthApi.get()),
+    staleTime: 300_000,
+  });
   const isHosted = healthQuery.data?.hostedMode === true;
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
@@ -632,9 +636,17 @@ export function NewIssueDialog() {
   }
 
   function handleSubmit() {
-    console.log("[NewIssue] handleSubmit", { effectiveCompanyId, title: title.trim(), isPending: createIssue.isPending });
+    console.log("[NewIssue] handleSubmit", {
+      effectiveCompanyId,
+      title: title.trim(),
+      isPending: createIssue.isPending,
+    });
     if (!effectiveCompanyId || !title.trim() || createIssue.isPending) {
-      console.warn("[NewIssue] blocked", { noCompany: !effectiveCompanyId, noTitle: !title.trim(), pending: createIssue.isPending });
+      console.warn("[NewIssue] blocked", {
+        noCompany: !effectiveCompanyId,
+        noTitle: !title.trim(),
+        pending: createIssue.isPending,
+      });
       return;
     }
     const assigneeAdapterOverrides = buildAssigneeAdapterOverrides({

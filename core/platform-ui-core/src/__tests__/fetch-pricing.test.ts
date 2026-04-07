@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { trpcVanillaProxy } from "./setup.js";
 
 // Must mock before importing
 vi.mock("@/lib/api-config", () => ({
@@ -8,7 +9,7 @@ vi.mock("@/lib/api-config", () => ({
 
 // Mock trpc and fetch-utils so api.ts can import without issues
 vi.mock("@/lib/trpc", () => ({
-  trpcVanilla: {},
+  trpcVanilla: trpcVanillaProxy,
 }));
 
 vi.mock("@/lib/fetch-utils", () => ({

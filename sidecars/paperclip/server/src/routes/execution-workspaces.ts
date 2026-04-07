@@ -122,11 +122,9 @@ export function executionWorkspaceRoutes(db: Db) {
     const effectiveRuntimeConfig = existing.config?.workspaceRuntime ?? projectWorkspaceRuntime ?? null;
 
     if ((action === "start" || action === "restart") && !effectiveRuntimeConfig) {
-      res
-        .status(422)
-        .json({
-          error: "Execution workspace has no runtime service configuration or inherited project workspace default",
-        });
+      res.status(422).json({
+        error: "Execution workspace has no runtime service configuration or inherited project workspace default",
+      });
       return;
     }
 

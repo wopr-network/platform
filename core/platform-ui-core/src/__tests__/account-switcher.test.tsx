@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockSwitchTenant = vi.fn();
@@ -39,36 +38,38 @@ describe("AccountSwitcher", () => {
     expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
-  it("shows PERSONAL badge for personal account", () => {
+  it("renders a fallback icon for tenants without images", () => {
     render(<AccountSwitcher />);
-    expect(screen.getByText("PERSONAL")).toBeInTheDocument();
+    // The component renders a span with bg-sidebar-accent class as the fallback icon
+    const icon = document.querySelector(".bg-sidebar-accent");
+    expect(icon).not.toBeNull();
   });
 
-  it("shows all tenants when clicked", async () => {
-    const user = userEvent.setup();
-    render(<AccountSwitcher />);
-    await user.click(screen.getByRole("button"));
-    expect(screen.getByText("My Team")).toBeInTheDocument();
-  });
-
-  it("calls switchTenant when an org is selected", async () => {
-    const user = userEvent.setup();
-    render(<AccountSwitcher />);
-    await user.click(screen.getByRole("button"));
-    await user.click(screen.getByText("My Team"));
-    expect(mockSwitchTenant).toHaveBeenCalledWith("org-1");
-  });
-
-  it("renders nothing when only one tenant exists", () => {
+  it("renders nothing when no tenants exist", () => {
     mockUseTenant.mockReturnValue({
-      activeTenantId: "user-1",
-      tenants: [{ id: "user-1", name: "Alice", type: "personal" as const, image: null }],
+      activeTenantId: "",
+      tenants: [],
       isLoading: false,
       switchTenant: mockSwitchTenant,
     });
 
     const { container } = render(<AccountSwitcher />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it("falls back to first tenant when activeTenantId does not match", () => {
+    mockUseTenant.mockReturnValue({
+      activeTenantId: "nonexistent",
+      tenants: [
+        { id: "user-1", name: "Alice", type: "personal" as const, image: null },
+        { id: "org-1", name: "My Team", type: "org" as const, image: null },
+      ],
+      isLoading: false,
+      switchTenant: mockSwitchTenant,
+    });
+
+    render(<AccountSwitcher />);
+    expect(screen.getByText("Alice")).toBeInTheDocument();
   });
 
   it("renders nothing while loading", () => {

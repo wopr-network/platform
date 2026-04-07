@@ -54,6 +54,7 @@ const goalSvcMock = {
 };
 const projectSvcMock = {
   create: vi.fn(),
+  createWorkspace: vi.fn().mockResolvedValue({ id: "ws-1", name: "Default" }),
 };
 const issueSvcMock = {
   create: vi.fn(),

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { trpcVanillaProxy } from "./setup.js";
 
 vi.mock("@/lib/api-config", () => ({
   API_BASE_URL: "https://test-api.local/api",
@@ -6,7 +7,7 @@ vi.mock("@/lib/api-config", () => ({
 }));
 
 vi.mock("@/lib/trpc", () => ({
-  trpcVanilla: {},
+  trpcVanilla: trpcVanillaProxy,
 }));
 
 const mockHandleUnauthorized = vi.fn(() => {

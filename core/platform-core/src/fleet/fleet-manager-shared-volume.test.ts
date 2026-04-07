@@ -57,6 +57,7 @@ const BASE_PARAMS = {
   name: "test-bot",
   description: "test",
   image: "ghcr.io/wopr-network/wopr:latest",
+  productSlug: "wopr",
   env: {},
   restartPolicy: "unless-stopped" as const,
   releaseChannel: "stable" as const,

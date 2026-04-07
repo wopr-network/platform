@@ -106,7 +106,13 @@ export class FleetManager {
   ): Promise<Instance> {
     const id = params.id ?? randomUUID();
     const hasExplicitId = "id" in params && params.id !== undefined;
-    logger.info("Fleet.create: starting", { id, productSlug: params.productSlug, image: params.image, hasExplicitId, hasPool: !!this.pool });
+    logger.info("Fleet.create: starting", {
+      id,
+      productSlug: params.productSlug,
+      image: params.image,
+      hasExplicitId,
+      hasPool: !!this.pool,
+    });
     const doCreate = async (): Promise<Instance> => {
       const profile: BotProfile = { ...params, id };
 
@@ -125,13 +131,24 @@ export class FleetManager {
           const claimed = await this.pool.claim(params.productSlug);
           if (claimed) {
             const cname = containerNameFor({ id, productSlug: params.productSlug });
-            logger.info("Fleet.create: pool claimed, renaming", { id, containerId: claimed.containerId, newName: cname });
+            logger.info("Fleet.create: pool claimed, renaming", {
+              id,
+              containerId: claimed.containerId,
+              newName: cname,
+            });
             const container = this.docker.getContainer(claimed.containerId);
             await container.rename({ name: cname });
-            logger.info("Fleet.create: pool claim complete", { id, productSlug: params.productSlug, containerName: cname });
+            logger.info("Fleet.create: pool claim complete", {
+              id,
+              productSlug: params.productSlug,
+              containerName: cname,
+            });
             poolClaimed = true;
           } else {
-            logger.info("Fleet.create: pool empty, falling back to direct create", { id, productSlug: params.productSlug });
+            logger.info("Fleet.create: pool empty, falling back to direct create", {
+              id,
+              productSlug: params.productSlug,
+            });
           }
         }
 
@@ -165,7 +182,11 @@ export class FleetManager {
           } else {
             logger.info("Fleet.create: pulling image", { id, image: profile.image });
             await this.pullImage(profile.image);
-            logger.info("Fleet.create: creating container", { id, containerName: containerNameFor(profile), network: profile.network ?? "platform" });
+            logger.info("Fleet.create: creating container", {
+              id,
+              containerName: containerNameFor(profile),
+              network: profile.network ?? "platform",
+            });
             await this.createContainer(profile, resourceLimits);
             logger.info("Fleet.create: container created and started", { id });
           }

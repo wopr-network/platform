@@ -191,8 +191,16 @@ export function issueRoutes(db: Db, storage: StorageService) {
   }
 
   async function normalizeIssueIdentifier(rawId: string): Promise<string> {
+    // Handle identifiers like "MUL-1", "PAP-39"
     if (/^[A-Z]+-\d+$/i.test(rawId)) {
       const issue = await svc.getByIdentifier(rawId);
+      if (issue) {
+        return issue.id;
+      }
+    }
+    // Handle plain issue numbers like "1", "42"
+    if (/^\d+$/.test(rawId)) {
+      const issue = await svc.getByNumber(Number(rawId));
       if (issue) {
         return issue.id;
       }

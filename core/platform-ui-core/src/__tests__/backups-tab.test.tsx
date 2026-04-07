@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { trpcVanillaProxy } from "./setup.js";
 
 vi.mock("@/lib/api", () => ({
   listSnapshots: vi.fn(),
@@ -20,7 +21,7 @@ vi.mock("@/lib/fetch-utils", () => ({
 }));
 
 vi.mock("@/lib/trpc", () => ({
-  trpcVanilla: {},
+  trpcVanilla: trpcVanillaProxy,
 }));
 
 vi.mock("sonner", () => ({

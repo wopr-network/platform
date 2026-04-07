@@ -18,11 +18,7 @@ import type { IOrgMemberRepository } from "../tenancy/org-member-repository.js";
  * ```
  */
 export function createAssertOrgAdminOrOwner(orgMemberRepo: IOrgMemberRepository) {
-  return async function assertOrgAdminOrOwner(
-    tenantId: string,
-    userId: string,
-    roles?: string[],
-  ): Promise<void> {
+  return async function assertOrgAdminOrOwner(tenantId: string, userId: string, roles?: string[]): Promise<void> {
     if (tenantId === userId) return;
     if (roles?.includes("platform_admin")) return;
     const member = await orgMemberRepo.findMember(tenantId, userId);

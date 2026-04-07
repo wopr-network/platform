@@ -1,6 +1,29 @@
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
+// Mock @/lib/trpc globally — trpcVanilla is used by api.ts functions (getProfile, etc.)
+// and most tests mock fetch/apiFetch instead. This proxy returns empty results for any
+// trpcVanilla.namespace.procedure.query/mutate() call chain.
+export const trpcVanillaProxy: unknown = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      if (prop === "query") return vi.fn().mockResolvedValue({});
+      if (prop === "mutate") return vi.fn().mockResolvedValue({});
+      if (prop === "useQuery") return vi.fn().mockReturnValue({ data: undefined, isLoading: false, error: null });
+      if (prop === "useMutation")
+        return vi.fn().mockReturnValue({ mutate: vi.fn(), mutateAsync: vi.fn(), isLoading: false });
+      return trpcVanillaProxy;
+    },
+  },
+);
+
+vi.mock("@/lib/trpc", () => ({
+  trpc: trpcVanillaProxy,
+  trpcVanilla: trpcVanillaProxy,
+  TRPCProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 // Default fetch mock: reject all API calls so components fall back to mock data immediately.
 // Individual tests can override with vi.stubGlobal("fetch", ...) as needed.
 vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network request not allowed in tests")));

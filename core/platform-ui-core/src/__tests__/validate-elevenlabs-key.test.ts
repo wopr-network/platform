@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { trpcVanillaProxy } from "./setup.js";
 
 const mockTestProviderKey = vi.fn();
 const mockSaveProviderKey = vi.fn();
@@ -30,7 +31,7 @@ vi.mock("@/lib/fetch-utils", () => ({
 }));
 
 vi.mock("@/lib/trpc", () => ({
-  trpcVanilla: {},
+  trpcVanilla: trpcVanillaProxy,
 }));
 
 import { validateElevenLabsKey } from "@/lib/api";

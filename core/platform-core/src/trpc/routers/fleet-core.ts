@@ -273,7 +273,15 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         const tenant = input.orgId ?? tenantFromCtx(ctx as ProtectedCtx);
         const userId = (ctx as ProtectedCtx).user.id;
         const roles = (ctx as ProtectedCtx).user.roles;
-        logger.info("createInstance: start", { tenant, userId, roles, inputOrgId: input.orgId, ctxTenantId: (ctx as ProtectedCtx).tenantId, productSlug: ctx.productSlug, name: input.name });
+        logger.info("createInstance: start", {
+          tenant,
+          userId,
+          roles,
+          inputOrgId: input.orgId,
+          ctxTenantId: (ctx as ProtectedCtx).tenantId,
+          productSlug: ctx.productSlug,
+          name: input.name,
+        });
         await d.assertOrgAdminOrOwner(tenant, userId, (ctx as ProtectedCtx).user.roles);
         logger.info("createInstance: auth passed", { tenant, userId });
 
@@ -302,7 +310,11 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           logger.info("createInstance: success", { instanceId: result.id, tenant });
           return result;
         } catch (err) {
-          logger.error("createInstance: failed", { error: err instanceof Error ? err.message : String(err), tenant, userId });
+          logger.error("createInstance: failed", {
+            error: err instanceof Error ? err.message : String(err),
+            tenant,
+            userId,
+          });
           if (err instanceof Error && err.message.startsWith("Insufficient credits")) {
             throw new TRPCError({ code: "PRECONDITION_FAILED", message: err.message });
           }

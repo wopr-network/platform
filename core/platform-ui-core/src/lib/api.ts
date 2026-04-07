@@ -808,27 +808,14 @@ export interface Organization {
 // --- Settings API ---
 
 export async function getProfile(): Promise<UserProfile> {
-  const data = await trpcVanilla.profile.getProfile.query(undefined);
-  return {
-    id: data.id,
-    name: data.name,
-    email: data.email,
-    avatarUrl: data.image ?? null,
-    oauthConnections: [],
-  };
+  return apiFetch<UserProfile>("/settings/profile");
 }
 
 export async function updateProfile(data: Partial<Pick<UserProfile, "name" | "email">>): Promise<UserProfile> {
-  const result = await trpcVanilla.profile.updateProfile.mutate({
-    ...(data.name !== undefined && { name: data.name }),
+  return apiFetch<UserProfile>("/settings/profile", {
+    method: "PATCH",
+    body: JSON.stringify(data),
   });
-  return {
-    id: result.id,
-    name: result.name,
-    email: result.email,
-    avatarUrl: result.image ?? null,
-    oauthConnections: [],
-  };
 }
 
 export async function uploadAvatar(file: File): Promise<UserProfile> {
@@ -838,22 +825,23 @@ export async function uploadAvatar(file: File): Promise<UserProfile> {
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
-  const result = await trpcVanilla.profile.updateProfile.mutate({ image: dataUrl });
-  return {
-    id: result.id,
-    name: result.name,
-    email: result.email,
-    avatarUrl: result.image ?? null,
-    oauthConnections: [],
-  };
+  return apiFetch<UserProfile>("/settings/profile", {
+    method: "PATCH",
+    body: JSON.stringify({ image: dataUrl }),
+  });
 }
 
 export async function changePassword(data: { currentPassword: string; newPassword: string }): Promise<void> {
-  await trpcVanilla.profile.changePassword.mutate(data);
+  await apiFetch<void>("/settings/change-password", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function deleteAccount(): Promise<void> {
-  await trpcVanilla.profile.deleteAccount.mutate(undefined);
+  await apiFetch<void>("/settings/delete-account", {
+    method: "DELETE",
+  });
 }
 
 export async function listProviderKeys(): Promise<ProviderKey[]> {
