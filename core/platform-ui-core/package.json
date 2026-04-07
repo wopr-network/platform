@@ -45,6 +45,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@noble/hashes": "^2.0.1",
+    "@radix-ui/react-portal": "^1.1.10",
     "@scure/bip32": "^2.0.1",
     "@scure/bip39": "^2.0.1",
     "@stripe/react-stripe-js": "^6.0.0",
