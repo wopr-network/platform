@@ -180,7 +180,9 @@ describe("handleFriendCommand", () => {
 
     it("should reject invalid capabilities", async () => {
       const { ctx } = createMockCtx();
-      const { stdout, stderr } = await captureConsole(() => handleFriendCommand(ctx as any, ["grant", "hope", "admin"]));
+      const { stdout, stderr } = await captureConsole(() =>
+        handleFriendCommand(ctx as any, ["grant", "hope", "admin"]),
+      );
       const allOutput = [...stdout, ...stderr].join("\n");
       expect(allOutput.includes("Invalid capability")).toBeTruthy();
     });
@@ -189,7 +191,9 @@ describe("handleFriendCommand", () => {
       cleanup = useTestDataDir();
       const { ctx } = createMockCtx();
       // Will fail because friend not found in empty test state, but should not reject the cap
-      const { stdout, stderr } = await captureConsole(() => handleFriendCommand(ctx as any, ["grant", "hope", "inject"]));
+      const { stdout, stderr } = await captureConsole(() =>
+        handleFriendCommand(ctx as any, ["grant", "hope", "inject"]),
+      );
       const allOutput = [...stdout, ...stderr].join("\n");
       // Should not contain "Invalid capability"
       expect(!allOutput.includes("Invalid capability")).toBeTruthy();
@@ -198,7 +202,9 @@ describe("handleFriendCommand", () => {
     it("should accept message capability", async () => {
       cleanup = useTestDataDir();
       const { ctx } = createMockCtx();
-      const { stdout, stderr } = await captureConsole(() => handleFriendCommand(ctx as any, ["grant", "hope", "message"]));
+      const { stdout, stderr } = await captureConsole(() =>
+        handleFriendCommand(ctx as any, ["grant", "hope", "message"]),
+      );
       const allOutput = [...stdout, ...stderr].join("\n");
       expect(!allOutput.includes("Invalid capability")).toBeTruthy();
     });
@@ -260,14 +266,12 @@ describe("handleFriendCommand", () => {
       cleanup = useTestDataDir();
       const { ctx: ctx1 } = createMockCtx();
       // addAutoAcceptRule is called but no console output in current source; verify no throw
-      await expect(
-        handleFriendCommand(ctx1 as any, ["auto-accept", "add", "test-pattern-cli"])
-      ).resolves.not.toThrow();
+      await expect(handleFriendCommand(ctx1 as any, ["auto-accept", "add", "test-pattern-cli"])).resolves.not.toThrow();
 
       const { ctx: ctx2 } = createMockCtx();
       // removeAutoAcceptRule succeeds silently in current source; verify no throw
       await expect(
-        handleFriendCommand(ctx2 as any, ["auto-accept", "remove", "test-pattern-cli"])
+        handleFriendCommand(ctx2 as any, ["auto-accept", "remove", "test-pattern-cli"]),
       ).resolves.not.toThrow();
     });
   });

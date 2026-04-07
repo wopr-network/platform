@@ -56,7 +56,7 @@ describe("BlueBubblesClient", () => {
       c.ping();
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("http://192.168.1.100:1234/api/v1"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });
@@ -84,7 +84,7 @@ describe("BlueBubblesClient", () => {
           query: { guid: password },
           transports: expect.arrayContaining(["websocket"]),
           reconnection: true,
-        })
+        }),
       );
     });
 
@@ -145,7 +145,7 @@ describe("BlueBubblesClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         `${serverUrl}/api/v1/ping?password=${encodeURIComponent(password)}`,
-        expect.objectContaining({ method: "GET" })
+        expect.objectContaining({ method: "GET" }),
       );
       expect(result).toBe(true);
     });
@@ -173,7 +173,7 @@ describe("BlueBubblesClient", () => {
         expect.objectContaining({
           method: "POST",
           body: expect.stringContaining("Hello world"),
-        })
+        }),
       );
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -207,7 +207,7 @@ describe("BlueBubblesClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/api/v1/message/react"),
-        expect.objectContaining({ method: "POST" })
+        expect.objectContaining({ method: "POST" }),
       );
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -229,9 +229,7 @@ describe("BlueBubblesClient", () => {
       const result = await client.downloadAttachment("attachment-guid-123");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `/api/v1/attachment/${encodeURIComponent("attachment-guid-123")}/download`
-        )
+        expect.stringContaining(`/api/v1/attachment/${encodeURIComponent("attachment-guid-123")}/download`),
       );
       expect(result).toBeInstanceOf(Buffer);
       expect(result.length).toBe(4);
@@ -244,9 +242,7 @@ describe("BlueBubblesClient", () => {
         statusText: "Not Found",
       });
 
-      await expect(client.downloadAttachment("guid")).rejects.toThrow(
-        "Attachment download failed"
-      );
+      await expect(client.downloadAttachment("guid")).rejects.toThrow("Attachment download failed");
     });
   });
 
@@ -260,7 +256,7 @@ describe("BlueBubblesClient", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/api/v1/server/info"),
-        expect.objectContaining({ method: "GET" })
+        expect.objectContaining({ method: "GET" }),
       );
       expect(result.data?.private_api).toBe(true);
     });
@@ -275,10 +271,8 @@ describe("BlueBubblesClient", () => {
       await client.markChatRead("iMessage;-;+15551234567");
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining(
-          `/api/v1/chat/${encodeURIComponent("iMessage;-;+15551234567")}/read`
-        ),
-        expect.objectContaining({ method: "POST" })
+        expect.stringContaining(`/api/v1/chat/${encodeURIComponent("iMessage;-;+15551234567")}/read`),
+        expect.objectContaining({ method: "POST" }),
       );
     });
   });

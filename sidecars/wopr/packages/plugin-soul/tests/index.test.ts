@@ -188,12 +188,7 @@ describe("wopr-plugin-soul", () => {
       const updateTool = config.tools[1];
 
       const result = await updateTool.handler({ content: "New soul content" });
-      expect(mockSession.setContext).toHaveBeenCalledWith(
-        "test-session",
-        "SOUL.md",
-        "New soul content",
-        "session",
-      );
+      expect(mockSession.setContext).toHaveBeenCalledWith("test-session", "SOUL.md", "New soul content", "session");
       expect(result.content[0].text).toBe("SOUL.md replaced entirely");
     });
 
@@ -214,9 +209,7 @@ describe("wopr-plugin-soul", () => {
     });
 
     it("should update existing section in SOUL.md", async () => {
-      mockSession.getContext.mockResolvedValue(
-        "# SOUL.md\n\n## Boundaries\n\nOld content\n",
-      );
+      mockSession.getContext.mockResolvedValue("# SOUL.md\n\n## Boundaries\n\nOld content\n");
       const { buildSoulA2ATools } = await import("../src/soul-a2a-tools.js");
       const config = buildSoulA2ATools(mockCtx as any, "test-session");
       const updateTool = config.tools[1];
@@ -242,9 +235,7 @@ describe("wopr-plugin-soul", () => {
     });
 
     it("should handle section names with regex-special characters", async () => {
-      mockSession.getContext.mockResolvedValue(
-        "# SOUL.md\n\n## Goals (v2)\n\nOld goals\n",
-      );
+      mockSession.getContext.mockResolvedValue("# SOUL.md\n\n## Goals (v2)\n\nOld goals\n");
       const { buildSoulA2ATools } = await import("../src/soul-a2a-tools.js");
       const config = buildSoulA2ATools(mockCtx as any, "test-session");
       const updateTool = config.tools[1];

@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  updateEditorContext,
-  getEditorContext,
-  clearEditorContext,
-  formatEditorContext,
-} from "../src/context.js";
+import { updateEditorContext, getEditorContext, clearEditorContext, formatEditorContext } from "../src/context.js";
 import type { AcpChatMessageParams } from "../src/types.js";
 
 describe("context", () => {
@@ -90,10 +85,7 @@ describe("context", () => {
       updateEditorContext("test-session", {
         sessionId: "test-session",
         context: {
-          files: [
-            { path: "a.ts", content: "const a = 1;", language: "typescript" },
-            { path: "b.ts" },
-          ],
+          files: [{ path: "a.ts", content: "const a = 1;", language: "typescript" }, { path: "b.ts" }],
         },
       });
       const ctx = getEditorContext("test-session");
@@ -170,9 +162,7 @@ describe("context", () => {
         },
       };
       const result = formatEditorContext(params);
-      expect(result).toContain(
-        "Selected text in main.ts (lines 10-15):"
-      );
+      expect(result).toContain("Selected text in main.ts (lines 10-15):");
       expect(result).toContain("```");
       expect(result).toContain("function foo() {}");
     });
@@ -256,9 +246,7 @@ describe("context", () => {
             text: "abc",
           },
           files: [{ path: "a.ts", content: "full file" }],
-          diagnostics: [
-            { path: "a.ts", line: 1, severity: "info", message: "hint" },
-          ],
+          diagnostics: [{ path: "a.ts", line: 1, severity: "info", message: "hint" }],
         },
       };
       const result = formatEditorContext(params);

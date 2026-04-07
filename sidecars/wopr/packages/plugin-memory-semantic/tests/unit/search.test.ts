@@ -220,12 +220,8 @@ describe("mergeHybridResults", () => {
   });
 
   it("should prefer keyword snippet and content when both exist for same ID", () => {
-    const vector = [
-      makeVectorResult({ id: "shared", snippet: "vector snip", content: "vector full" }),
-    ];
-    const keyword = [
-      makeKeywordResult({ id: "shared", snippet: "keyword snip", content: "keyword full" }),
-    ];
+    const vector = [makeVectorResult({ id: "shared", snippet: "vector snip", content: "vector full" })];
+    const keyword = [makeKeywordResult({ id: "shared", snippet: "keyword snip", content: "keyword full" })];
 
     const merged = mergeHybridResults({
       vector,

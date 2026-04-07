@@ -2,10 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // We must import the module functions before setting up mocks
 // because channel-provider uses module-level state
-import {
-  twitchChannelProvider,
-  setChatManager,
-} from "../../src/channel-provider.js";
+import { twitchChannelProvider, setChatManager } from "../../src/channel-provider.js";
 import type {
   ChannelCommand,
   ChannelMessageParser,
@@ -137,14 +134,8 @@ describe("twitchChannelProvider", () => {
     it("sends a mention message for friend-request payload", async () => {
       const payload: ChannelNotificationPayload = { type: "friend-request", from: "alice" };
       await twitchChannelProvider.sendNotification!("twitch:mychannel", payload);
-      expect(mockChatManager.sendMessage).toHaveBeenCalledWith(
-        "#mychannel",
-        expect.stringContaining("alice"),
-      );
-      expect(mockChatManager.sendMessage).toHaveBeenCalledWith(
-        "#mychannel",
-        expect.stringContaining("!accept"),
-      );
+      expect(mockChatManager.sendMessage).toHaveBeenCalledWith("#mychannel", expect.stringContaining("alice"));
+      expect(mockChatManager.sendMessage).toHaveBeenCalledWith("#mychannel", expect.stringContaining("!accept"));
     });
 
     it("embeds a unique short ID in the notification message", async () => {
@@ -267,9 +258,9 @@ describe("twitchChannelProvider", () => {
     it("throws if chatManager is not set", async () => {
       setChatManager(null);
       const payload: ChannelNotificationPayload = { type: "friend-request", from: "alice" };
-      await expect(
-        twitchChannelProvider.sendNotification!("twitch:mychannel", payload),
-      ).rejects.toThrow("Twitch chat not connected");
+      await expect(twitchChannelProvider.sendNotification!("twitch:mychannel", payload)).rejects.toThrow(
+        "Twitch chat not connected",
+      );
     });
 
     it("handler ignores messages from wrong channel (finding 1: channel scope)", async () => {

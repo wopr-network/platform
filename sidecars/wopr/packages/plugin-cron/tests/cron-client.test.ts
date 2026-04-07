@@ -16,7 +16,8 @@ describe("CronClient", () => {
   it("getCrons calls GET /crons", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ crons: [{ name: "test", schedule: "* * * * *", session: "s1", message: "hello" }] }),
+      json: () =>
+        Promise.resolve({ crons: [{ name: "test", schedule: "* * * * *", session: "s1", message: "hello" }] }),
     });
     vi.stubGlobal("fetch", mockFetch);
 
@@ -36,10 +37,7 @@ describe("CronClient", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     await client.addCron({ name: "test", schedule: "* * * * *", session: "s1", message: "hello" });
-    expect(mockFetch).toHaveBeenCalledWith(
-      "http://localhost:4040/crons",
-      expect.objectContaining({ method: "POST" }),
-    );
+    expect(mockFetch).toHaveBeenCalledWith("http://localhost:4040/crons", expect.objectContaining({ method: "POST" }));
 
     vi.unstubAllGlobals();
   });

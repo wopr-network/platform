@@ -64,10 +64,7 @@ describe("migrateRegistriesToSQL", () => {
   });
 
   it("skips duplicates without failing", async () => {
-    writeFileSync(
-      join(testDir, "registries.json"),
-      JSON.stringify([{ name: "dup", url: "https://example.com" }]),
-    );
+    writeFileSync(join(testDir, "registries.json"), JSON.stringify([{ name: "dup", url: "https://example.com" }]));
     vi.mocked(addRegistry).mockRejectedValue(new Error('Registry "dup" already exists'));
 
     const { migrateRegistriesToSQL } = await import("../src/skills-migrate.js");

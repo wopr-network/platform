@@ -30,21 +30,15 @@ describe("PluginConfigSchema", () => {
   });
 
   it("should reject invalid kind", () => {
-    expect(() =>
-      PluginConfigSchema.parse({ servers: [{ name: "bad", kind: "grpc", url: "http://x" }] }),
-    ).toThrow();
+    expect(() => PluginConfigSchema.parse({ servers: [{ name: "bad", kind: "grpc", url: "http://x" }] })).toThrow();
   });
 
   it("should reject stdio without cmd", () => {
-    expect(() =>
-      PluginConfigSchema.parse({ servers: [{ name: "bad", kind: "stdio" }] }),
-    ).toThrow();
+    expect(() => PluginConfigSchema.parse({ servers: [{ name: "bad", kind: "stdio" }] })).toThrow();
   });
 
   it("should reject SSE without url", () => {
-    expect(() =>
-      PluginConfigSchema.parse({ servers: [{ name: "bad", kind: "sse" }] }),
-    ).toThrow();
+    expect(() => PluginConfigSchema.parse({ servers: [{ name: "bad", kind: "sse" }] })).toThrow();
   });
 
   it("should accept optional env for stdio", () => {

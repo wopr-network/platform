@@ -169,9 +169,7 @@ describe("VideoGen Plugin", () => {
     const p = plugin as WOPRPlugin;
     const { ctx, mockProvider } = createMockContext();
     await p.init!(ctx);
-    expect(mockProvider.registerCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "video" }),
-    );
+    expect(mockProvider.registerCommand).toHaveBeenCalledWith(expect.objectContaining({ name: "video" }));
     await p.shutdown!();
   });
 
@@ -389,9 +387,7 @@ describe("VideoGen A2A tools", () => {
   });
 
   it("generate_video tool returns error on failure", async () => {
-    (ctx.inject as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      JSON.stringify({ error: "quota_exceeded" }),
-    );
+    (ctx.inject as ReturnType<typeof vi.fn>).mockResolvedValueOnce(JSON.stringify({ error: "quota_exceeded" }));
     const tool = getTool("generate_video");
     const result = await tool.handler({ prompt: "a sunset" });
     expect(result.isError).toBe(true);

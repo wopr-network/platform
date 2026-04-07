@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  buildRouterStatusResponse,
-  buildListRoutesResponse,
-  buildRoutingStatsResponse,
-} from "../src/webmcp-tools.js";
+import { buildRouterStatusResponse, buildListRoutesResponse, buildRoutingStatsResponse } from "../src/webmcp-tools.js";
 import type { RoutingStats } from "../src/stats.js";
 
 describe("buildRouterStatusResponse", () => {
@@ -44,12 +40,8 @@ describe("buildRouterStatusResponse", () => {
 describe("buildListRoutesResponse", () => {
   it("should list incoming and outgoing routes", () => {
     const config = {
-      routes: [
-        { sourceSession: "session-a", targetSessions: ["session-b", "session-c"], channelType: "discord" },
-      ],
-      outgoingRoutes: [
-        { sourceSession: "session-a", channelType: "discord", channelId: "ch1" },
-      ],
+      routes: [{ sourceSession: "session-a", targetSessions: ["session-b", "session-c"], channelType: "discord" }],
+      outgoingRoutes: [{ sourceSession: "session-a", channelType: "discord", channelId: "ch1" }],
     };
     const result = buildListRoutesResponse(config);
     const incoming = result.incoming as any[];

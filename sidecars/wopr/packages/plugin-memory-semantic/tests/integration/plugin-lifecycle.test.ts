@@ -138,7 +138,9 @@ describe("plugin lifecycle", () => {
     expect(ctx._handlers.get("session:beforeInject")?.length ?? 0).toBe(0);
     expect(ctx._handlers.get("session:afterInject")?.length ?? 0).toBe(0);
     expect(ctx._handlers.get("memory:search")?.length ?? 0).toBe(0);
-    expect(ctx._handlers.get("memory:filesChanged")?.length ?? 0).toBeLessThan(countsBefore.get("memory:filesChanged")!);
+    expect(ctx._handlers.get("memory:filesChanged")?.length ?? 0).toBeLessThan(
+      countsBefore.get("memory:filesChanged")!,
+    );
   });
 
   describe("when plugin is not initialized", () => {

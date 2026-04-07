@@ -35,9 +35,7 @@ describe("nostrChannelProvider", () => {
     const { nostrChannelProvider, setPublisher } = await import("../../src/channel-provider.js");
     setPublisher(null);
 
-    await expect(nostrChannelProvider.send("dm:abc", "hello")).rejects.toThrow(
-      "Nostr publisher not initialized",
-    );
+    await expect(nostrChannelProvider.send("dm:abc", "hello")).rejects.toThrow("Nostr publisher not initialized");
   });
 
   it("send throws on unsupported channel format", async () => {

@@ -78,9 +78,7 @@ describe("syncSessionFiles", () => {
       log,
       sessionApi: undefined,
     });
-    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(
-      expect.stringContaining("ctx.session not available"),
-    );
+    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringContaining("ctx.session not available"));
   });
 
   it("indexes all sessions when needsFullReindex=true", async () => {
@@ -157,22 +155,27 @@ describe("syncSessionFiles", () => {
 
     const { storage: s } = await runSync({ storage });
 
-    const deleteCalls = vi.mocked(s.raw).mock.calls.filter((c) =>
-      c[0].includes("DELETE FROM memory_files") && JSON.stringify(c[1]).includes("stale-session"),
-    );
+    const deleteCalls = vi
+      .mocked(s.raw)
+      .mock.calls.filter(
+        (c) => c[0].includes("DELETE FROM memory_files") && JSON.stringify(c[1]).includes("stale-session"),
+      );
     expect(deleteCalls.length).toBeGreaterThan(0);
   });
 
   it("only indexes dirty sessions when dirtyFiles is non-empty and needsFullReindex=false", async () => {
     vi.mocked(listSessionNames).mockResolvedValue(["session-a", "session-b"]);
-    vi.mocked(buildSessionEntryFromSql).mockImplementation(async (name) => ({
-      path: `sessions/${name}`,
-      absPath: `sql://sessions/${name}`,
-      mtimeMs: 1000,
-      size: 100,
-      hash: `hash-${name}`,
-      content: "content",
-    } as any));
+    vi.mocked(buildSessionEntryFromSql).mockImplementation(
+      async (name) =>
+        ({
+          path: `sessions/${name}`,
+          absPath: `sql://sessions/${name}`,
+          mtimeMs: 1000,
+          size: 100,
+          hash: `hash-${name}`,
+          content: "content",
+        }) as any,
+    );
 
     const storage = mockStorage();
     vi.mocked(storage.raw).mockResolvedValue([]); // no existing records

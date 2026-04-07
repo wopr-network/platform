@@ -122,9 +122,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should include limit in the search request", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -135,9 +133,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should default limit to 10 when not provided", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -148,9 +144,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should cap limit at 100", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -163,34 +157,24 @@ describe("registerMemoryTools", () => {
     it("should throw when query parameter is missing", async () => {
       registerMemoryTools(registry, API_BASE);
       const tool = getTool(registry, "searchMemory");
-      await expect(tool.handler({}, VALID_AUTH)).rejects.toThrow(
-        "Parameter 'query' is required",
-      );
+      await expect(tool.handler({}, VALID_AUTH)).rejects.toThrow("Parameter 'query' is required");
     });
 
     it("should throw when query is a non-string truthy value", async () => {
       registerMemoryTools(registry, API_BASE);
       const tool = getTool(registry, "searchMemory");
-      await expect(tool.handler({ query: 2024 }, VALID_AUTH)).rejects.toThrow(
-        "Parameter 'query' is required",
-      );
-      await expect(tool.handler({ query: { q: "foo" } }, VALID_AUTH)).rejects.toThrow(
-        "Parameter 'query' is required",
-      );
+      await expect(tool.handler({ query: 2024 }, VALID_AUTH)).rejects.toThrow("Parameter 'query' is required");
+      await expect(tool.handler({ query: { q: "foo" } }, VALID_AUTH)).rejects.toThrow("Parameter 'query' is required");
     });
 
     it("should throw when query is an empty string", async () => {
       registerMemoryTools(registry, API_BASE);
       const tool = getTool(registry, "searchMemory");
-      await expect(tool.handler({ query: "" }, VALID_AUTH)).rejects.toThrow(
-        "Parameter 'query' is required",
-      );
+      await expect(tool.handler({ query: "" }, VALID_AUTH)).rejects.toThrow("Parameter 'query' is required");
     });
 
     it("should strip invalid XML control characters from query", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -204,9 +188,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should cap query at 2000 characters", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -219,9 +201,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should floor non-integer limit values", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -232,9 +212,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should default limit to 10 when Infinity is passed", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -245,9 +223,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should include bearer token when auth.token is present", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -261,15 +237,11 @@ describe("registerMemoryTools", () => {
     it("should reject when auth token is missing", async () => {
       registerMemoryTools(registry, API_BASE);
       const tool = getTool(registry, "searchMemory");
-      await expect(tool.handler({ query: "test" }, {} as AuthContext)).rejects.toThrow(
-        /auth token is required/i,
-      );
+      await expect(tool.handler({ query: "test" }, {} as AuthContext)).rejects.toThrow(/auth token is required/i);
     });
 
     it("should wrap query in XML delimiters to prevent prompt injection", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -285,23 +257,19 @@ describe("registerMemoryTools", () => {
     });
 
     it("should escape XML special characters in query", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
       await tool.handler({ query: '<script>alert("xss")</script> & "quotes"' }, VALID_AUTH);
 
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(body.message).toContain('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; &amp; &quot;quotes&quot;');
+      expect(body.message).toContain("&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt; &amp; &quot;quotes&quot;");
       expect(body.message).not.toContain("<script>");
     });
 
     it("should instruct model to treat query as opaque data", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -312,9 +280,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should include instanceId in XML when provided", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE, "tenant-42");
 
       const tool = getTool(registry, "searchMemory");
@@ -325,9 +291,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should escape instanceId in XML", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE, 'tenant<"evil">');
 
       const tool = getTool(registry, "searchMemory");
@@ -338,9 +302,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should omit instance_id tag when instanceId is not provided", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ session: "default", response: "ok" }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "searchMemory");
@@ -354,7 +316,15 @@ describe("registerMemoryTools", () => {
   describe("searchMemory with searchFn (direct search, no LLM)", () => {
     it("should call searchFn directly instead of LLM inject", async () => {
       const mockResults = [
-        { path: "test.md", startLine: 1, endLine: 5, score: 0.9, snippet: "hello", content: "hello world", source: "memory" },
+        {
+          path: "test.md",
+          startLine: 1,
+          endLine: 5,
+          score: 0.9,
+          snippet: "hello",
+          content: "hello world",
+          source: "memory",
+        },
       ];
       const searchFn = vi.fn().mockResolvedValue(mockResults);
       registerMemoryTools(registry, API_BASE, "instance-1", searchFn);
@@ -449,9 +419,7 @@ describe("registerMemoryTools", () => {
     it("should return empty collections when no memory plugins loaded", async () => {
       mockFetch.mockResolvedValue(
         mockJsonResponse({
-          plugins: [
-            { name: "discord", description: "Discord bot", enabled: true, loaded: true },
-          ],
+          plugins: [{ name: "discord", description: "Discord bot", enabled: true, loaded: true }],
         }),
       );
       registerMemoryTools(registry, API_BASE);
@@ -463,9 +431,7 @@ describe("registerMemoryTools", () => {
     });
 
     it("should include bearer token in auth header", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ plugins: [] }),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ plugins: [] }));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "listMemoryCollections");
@@ -497,10 +463,7 @@ describe("registerMemoryTools", () => {
         capabilities: string[];
       };
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/memory-semantic/health",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/memory-semantic/health", expect.any(Object));
       expect(result.name).toBe("memory-semantic");
       expect(result.loaded).toBe(true);
       expect(result.capabilities).toEqual(["vector-search", "auto-recall"]);
@@ -550,9 +513,7 @@ describe("registerMemoryTools", () => {
 
   describe("error handling", () => {
     it("should throw on non-ok response with error from body", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ error: "Plugin not found" }, false, 404),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ error: "Plugin not found" }, false, 404));
       registerMemoryTools(registry, API_BASE);
 
       const tool = getTool(registry, "getMemoryStats");
@@ -588,10 +549,7 @@ describe("registerMemoryTools", () => {
       const tool = getTool(registry, "listMemoryCollections");
       await tool.handler({}, VALID_AUTH);
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "http://localhost:7437/api/plugins",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("http://localhost:7437/api/plugins", expect.any(Object));
     });
   });
 });
@@ -605,9 +563,7 @@ describe("daemonRequest timeout", () => {
   });
 
   it("should pass AbortSignal.timeout to fetch", async () => {
-    mockFetch.mockResolvedValue(
-      mockJsonResponse({ session: "default", response: "ok" }),
-    );
+    mockFetch.mockResolvedValue(mockJsonResponse({ session: "default", response: "ok" }));
     registerMemoryTools(registry, "/api");
 
     const tool = registry.get("searchMemory")!;
@@ -656,9 +612,7 @@ describe("WebMCP auth validation", () => {
   it("searchMemory rejects when auth.token is empty string", async () => {
     registerMemoryTools(registry, "/api", "inst-1");
     const handler = getTool(registry, "searchMemory").handler;
-    await expect(handler({ query: "test" }, { token: "" } as AuthContext)).rejects.toThrow(
-      /auth token is required/i,
-    );
+    await expect(handler({ query: "test" }, { token: "" } as AuthContext)).rejects.toThrow(/auth token is required/i);
   });
 
   it("searchMemory rejects when auth.token is whitespace", async () => {
@@ -696,10 +650,7 @@ describe("WebMCP instanceId derivation", () => {
 
     mockFetch.mockResolvedValue(mockJsonResponse({ session: "s1", response: "[]" }));
 
-    await handler(
-      { query: "test" },
-      { token: "valid-token", instanceId: "auth-instance" } as AuthContext,
-    );
+    await handler({ query: "test" }, { token: "valid-token", instanceId: "auth-instance" } as AuthContext);
 
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.message).toContain("auth-instance");

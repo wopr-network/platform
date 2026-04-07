@@ -93,7 +93,9 @@ describe("plugin lifecycle", () => {
     // mock state from previous calls to plugin.init().
     mockClient = createMockClient();
     const { Client } = await import("discord.js");
-    vi.mocked(Client as any).mockImplementation(function () { return mockClient; });
+    vi.mocked(Client as any).mockImplementation(function () {
+      return mockClient;
+    });
     vi.mocked(subscribeSessionEvents).mockReturnValue(vi.fn());
     vi.mocked(subscribeStreamEvents).mockReturnValue(vi.fn());
   });

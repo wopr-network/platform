@@ -70,11 +70,7 @@ vi.mock("express", () => {
 // ── Import plugin AFTER mocks ─────────────────────────────────────────────────
 
 import plugin from "../../src/index.js";
-import {
-  buildFriendRequestFlexMessage,
-  clearPendingNotifications,
-  handleEvent,
-} from "../../src/index.js";
+import { buildFriendRequestFlexMessage, clearPendingNotifications, handleEvent } from "../../src/index.js";
 import type { WOPRPluginContext } from "../../src/types.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

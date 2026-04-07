@@ -6,11 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  type AuthContext,
-  type WebMCPRegistry,
-  registerTelegramTools,
-} from "../src/webmcp-telegram.js";
+import { type AuthContext, type WebMCPRegistry, registerTelegramTools } from "../src/webmcp-telegram.js";
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -79,10 +75,7 @@ describe("registerTelegramTools", () => {
       const tool = getTool(registry, "getTelegramStatus");
       const result = await tool.handler({}, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/telegram/status",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/telegram/status", expect.any(Object));
       expect(result).toEqual(status);
     });
 
@@ -119,10 +112,7 @@ describe("registerTelegramTools", () => {
       const tool = getTool(registry, "listTelegramChats");
       const result = await tool.handler({}, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/telegram/chats",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/telegram/chats", expect.any(Object));
       expect(result).toEqual(chats);
     });
 
@@ -147,10 +137,7 @@ describe("registerTelegramTools", () => {
       const tool = getTool(registry, "getTelegramMessageStats");
       const result = await tool.handler({}, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/telegram/stats",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/telegram/stats", expect.any(Object));
       expect(result).toEqual(stats);
     });
 
@@ -168,9 +155,7 @@ describe("registerTelegramTools", () => {
 
   describe("error handling", () => {
     it("should throw on non-ok response with error from body", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ error: "Telegram plugin not loaded" }, false, 404),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ error: "Telegram plugin not loaded" }, false, 404));
       registerTelegramTools(registry, API_BASE);
 
       const tool = getTool(registry, "getTelegramStatus");

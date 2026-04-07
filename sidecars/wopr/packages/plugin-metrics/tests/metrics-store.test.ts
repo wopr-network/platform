@@ -60,9 +60,7 @@ function createMockStorage(): StorageApi {
       // Handle COUNT DISTINCT (getDistinctInstanceCount)
       if (sql.includes("COUNT(DISTINCT instance_id)")) {
         const instanceIds = new Set(
-          rows
-            .filter((r) => r.instance_id !== null && r.instance_id !== undefined)
-            .map((r) => r.instance_id),
+          rows.filter((r) => r.instance_id !== null && r.instance_id !== undefined).map((r) => r.instance_id),
         );
         return [{ count: instanceIds.size }];
       }

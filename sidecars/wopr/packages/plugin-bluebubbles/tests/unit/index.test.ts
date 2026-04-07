@@ -87,34 +87,45 @@ function makeMockCtx(configOverrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeMessage(overrides: Partial<{
-  guid: string;
-  text: string;
-  isFromMe: boolean;
-  itemType: number;
-  associatedMessageGuid: string | null;
-  chats: Array<{ guid: string; displayName: string }>;
-  handle: { address: string };
-  attachments: Array<{
+function makeMessage(
+  overrides: Partial<{
     guid: string;
-    transferName: string;
-    totalBytes: number;
-    transferState: number;
-    mimeType: string;
-    uti: string;
-    isOutgoing: boolean;
-    height: number;
-    width: number;
-  }>;
-  associatedMessageType: string | null;
-}> = {}) {
+    text: string;
+    isFromMe: boolean;
+    itemType: number;
+    associatedMessageGuid: string | null;
+    chats: Array<{ guid: string; displayName: string }>;
+    handle: { address: string };
+    attachments: Array<{
+      guid: string;
+      transferName: string;
+      totalBytes: number;
+      transferState: number;
+      mimeType: string;
+      uti: string;
+      isOutgoing: boolean;
+      height: number;
+      width: number;
+    }>;
+    associatedMessageType: string | null;
+  }> = {},
+) {
   return {
     guid: "msg-guid-1",
     text: "Hello there",
     subject: "",
     handle: { address: "+15551234567", country: "us", service: "iMessage", originalROWID: 1 },
     handleId: 1,
-    chats: [{ guid: "iMessage;-;+15551234567", chatIdentifier: "+15551234567", groupId: "", displayName: "", participants: [], lastMessage: undefined }],
+    chats: [
+      {
+        guid: "iMessage;-;+15551234567",
+        chatIdentifier: "+15551234567",
+        groupId: "",
+        displayName: "",
+        participants: [],
+        lastMessage: undefined,
+      },
+    ],
     attachments: [],
     associatedMessageGuid: null,
     associatedMessageType: null,
@@ -276,39 +287,29 @@ describe("init()", () => {
   });
 
   it("pings server and connects socket when credentials are provided", async () => {
-    mockFetch
-      .mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) })
-      .mockResolvedValueOnce({
-        json: async () => ({ status: 200, data: { private_api: false } }),
-      });
+    mockFetch.mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) }).mockResolvedValueOnce({
+      json: async () => ({ status: 200, data: { private_api: false } }),
+    });
 
     const ctx = makeMockCtx();
     await plugin.init!(ctx as any);
 
     // Should have called ping and getServerInfo
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/v1/ping"),
-      expect.any(Object)
-    );
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/api/v1/ping"), expect.any(Object));
   });
 
   it("resolves serverUrl from BLUEBUBBLES_URL environment variable", async () => {
     process.env.BLUEBUBBLES_URL = "http://envhost:5678";
     process.env.BLUEBUBBLES_PASSWORD = "env-password";
 
-    mockFetch
-      .mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) })
-      .mockResolvedValueOnce({
-        json: async () => ({ status: 200, data: { private_api: false } }),
-      });
+    mockFetch.mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) }).mockResolvedValueOnce({
+      json: async () => ({ status: 200, data: { private_api: false } }),
+    });
 
     const ctx = makeMockCtx({ serverUrl: undefined, password: undefined });
     await plugin.init!(ctx as any);
 
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("http://envhost:5678"),
-      expect.any(Object)
-    );
+    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("http://envhost:5678"), expect.any(Object));
 
     delete process.env.BLUEBUBBLES_URL;
     delete process.env.BLUEBUBBLES_PASSWORD;
@@ -329,11 +330,9 @@ describe("shutdown()", () => {
   });
 
   it("disconnects socket after successful init", async () => {
-    mockFetch
-      .mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) })
-      .mockResolvedValueOnce({
-        json: async () => ({ status: 200, data: { private_api: false } }),
-      });
+    mockFetch.mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) }).mockResolvedValueOnce({
+      json: async () => ({ status: 200, data: { private_api: false } }),
+    });
 
     const ctx = makeMockCtx();
     await plugin.init!(ctx as any);
@@ -372,11 +371,9 @@ describe("handleNewMessage()", () => {
     globalThis.fetch = mockFetch;
     vi.clearAllMocks();
 
-    mockFetch
-      .mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) })
-      .mockResolvedValueOnce({
-        json: async () => ({ status: 200, data: { private_api: false } }),
-      });
+    mockFetch.mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) }).mockResolvedValueOnce({
+      json: async () => ({ status: 200, data: { private_api: false } }),
+    });
 
     ctx = makeMockCtx();
     await plugin.init!(ctx as any);
@@ -395,7 +392,16 @@ describe("handleNewMessage()", () => {
     const message = makeMessage({
       text: "Hello bot",
       isFromMe: false,
-      chats: [{ guid: "iMessage;-;+15551234567", chatIdentifier: "+15551234567", groupId: "", displayName: "", participants: [], lastMessage: undefined }],
+      chats: [
+        {
+          guid: "iMessage;-;+15551234567",
+          chatIdentifier: "+15551234567",
+          groupId: "",
+          displayName: "",
+          participants: [],
+          lastMessage: undefined,
+        },
+      ],
       handle: { address: "+15551234567", country: "us", service: "iMessage", originalROWID: 1 },
     });
 
@@ -404,7 +410,7 @@ describe("handleNewMessage()", () => {
     expect(ctx.inject).toHaveBeenCalledWith(
       "bluebubbles-iMessage;-;+15551234567",
       expect.stringContaining("Hello bot"),
-      expect.objectContaining({ from: "+15551234567" })
+      expect.objectContaining({ from: "+15551234567" }),
     );
   });
 
@@ -461,7 +467,7 @@ describe("handleNewMessage()", () => {
     expect(ctx.inject).toHaveBeenCalledWith(
       expect.any(String),
       expect.stringContaining("photo.jpg"),
-      expect.any(Object)
+      expect.any(Object),
     );
   });
 
@@ -470,11 +476,9 @@ describe("handleNewMessage()", () => {
     await plugin.shutdown!();
     vi.clearAllMocks();
 
-    mockFetch
-      .mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) })
-      .mockResolvedValueOnce({
-        json: async () => ({ status: 200, data: { private_api: false } }),
-      });
+    mockFetch.mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) }).mockResolvedValueOnce({
+      json: async () => ({ status: 200, data: { private_api: false } }),
+    });
 
     ctx = makeMockCtx({
       dmPolicy: "allowlist",
@@ -496,11 +500,9 @@ describe("handleUpdatedMessage()", () => {
   it("does not call inject for tapback reactions (informational only)", async () => {
     const mockFetch = vi.fn();
     globalThis.fetch = mockFetch;
-    mockFetch
-      .mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) })
-      .mockResolvedValueOnce({
-        json: async () => ({ status: 200, data: { private_api: false } }),
-      });
+    mockFetch.mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) }).mockResolvedValueOnce({
+      json: async () => ({ status: 200, data: { private_api: false } }),
+    });
 
     const ctx = makeMockCtx();
     await plugin.init!(ctx as any);
@@ -526,11 +528,9 @@ describe("sendResponse()", () => {
     globalThis.fetch = mockFetch;
     vi.clearAllMocks();
 
-    mockFetch
-      .mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) })
-      .mockResolvedValueOnce({
-        json: async () => ({ status: 200, data: { private_api: false } }),
-      });
+    mockFetch.mockResolvedValueOnce({ json: async () => ({ status: 200, message: "pong" }) }).mockResolvedValueOnce({
+      json: async () => ({ status: 200, data: { private_api: false } }),
+    });
 
     const ctx = makeMockCtx();
     await plugin.init!(ctx as any);
@@ -546,7 +546,7 @@ describe("sendResponse()", () => {
     await sendResponse("iMessage;-;+15551234567", "Short reply");
 
     const sendTextCalls = mockFetch.mock.calls.filter((call: any[]) =>
-      String(call[0]).includes("/api/v1/message/text")
+      String(call[0]).includes("/api/v1/message/text"),
     );
     expect(sendTextCalls.length).toBe(1);
     const body = JSON.parse(sendTextCalls[0][1].body);
@@ -556,8 +556,7 @@ describe("sendResponse()", () => {
   it("splits long message into multiple chunks at sentence boundaries", async () => {
     // Create a message that is definitely over 4000 chars
     // Each "sentence" is ~100 chars, so 50 of them = ~5000 chars total, requiring 2 chunks
-    const longText =
-      "This is a very long sentence that takes up some space and needs to be split. ".repeat(60);
+    const longText = "This is a very long sentence that takes up some space and needs to be split. ".repeat(60);
     // longText is ~4680 chars, should need at least 2 chunks
 
     // Mock enough sendText responses
@@ -568,7 +567,7 @@ describe("sendResponse()", () => {
     await sendResponse("iMessage;-;+15551234567", longText);
 
     const sendTextCalls = mockFetch.mock.calls.filter((call: any[]) =>
-      String(call[0]).includes("/api/v1/message/text")
+      String(call[0]).includes("/api/v1/message/text"),
     );
     expect(sendTextCalls.length).toBeGreaterThan(1);
   });

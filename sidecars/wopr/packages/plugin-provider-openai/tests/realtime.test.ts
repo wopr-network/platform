@@ -131,7 +131,9 @@ describe("RealtimeClient", () => {
       transcript: "Hello there",
     });
 
-    const transcriptEvent = events.find((e) => e.type === "transcript") as Extract<RealtimeEvent, { type: "transcript" }> | undefined;
+    const transcriptEvent = events.find((e) => e.type === "transcript") as
+      | Extract<RealtimeEvent, { type: "transcript" }>
+      | undefined;
     expect(transcriptEvent).toBeDefined();
     expect(transcriptEvent!.text).toBe("Hello there");
     expect(transcriptEvent!.role).toBe("assistant");
@@ -175,7 +177,9 @@ describe("RealtimeClient", () => {
       arguments: '{"city":"NYC"}',
     });
 
-    const toolEvent = events.find((e) => e.type === "tool_call") as Extract<RealtimeEvent, { type: "tool_call" }> | undefined;
+    const toolEvent = events.find((e) => e.type === "tool_call") as
+      | Extract<RealtimeEvent, { type: "tool_call" }>
+      | undefined;
     expect(toolEvent).toBeDefined();
     expect(toolEvent!.callId).toBe("call-1");
     expect(toolEvent!.name).toBe("get_weather");
@@ -223,9 +227,7 @@ describe("RealtimeClient", () => {
     const connectPromise = client.connect({});
     const ws = MockWebSocket.instances[0];
 
-    expect(ws.url).toBe(
-      "wss://api.wopr.bot/v1/realtime?model=gpt-realtime"
-    );
+    expect(ws.url).toBe("wss://api.wopr.bot/v1/realtime?model=gpt-realtime");
     expect(ws.headers["Authorization"]).toBe("Bearer wopr_abc");
 
     ws._open();

@@ -49,7 +49,9 @@ describe("ensureDir", () => {
   });
 
   it("swallows mkdirSync errors and still returns dir", () => {
-    mockFsSync.mkdirSync.mockImplementation(() => { throw new Error("EACCES"); });
+    mockFsSync.mkdirSync.mockImplementation(() => {
+      throw new Error("EACCES");
+    });
     const result = ensureDir("/readonly/dir");
     expect(result).toBe("/readonly/dir");
   });

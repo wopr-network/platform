@@ -25,9 +25,7 @@ vi.mock("../src/registries-repository.js", () => ({
 
 vi.mock("../src/registry-fetcher.js", () => ({
   fetchAllRegistries: vi.fn(async () => ({
-    skills: [
-      { name: "remote-skill", description: "Remote", source: "github:owner/repo/skill", registry: "default" },
-    ],
+    skills: [{ name: "remote-skill", description: "Remote", source: "github:owner/repo/skill", registry: "default" }],
     errors: [],
   })),
 }));

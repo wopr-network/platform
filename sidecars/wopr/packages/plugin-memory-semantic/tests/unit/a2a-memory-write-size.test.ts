@@ -53,10 +53,7 @@ describe("memory_write content size limit", () => {
 
   it("accepts content exactly at 1 MB", async () => {
     const ok = "x".repeat(MEMORY_WRITE_MAX_BYTES);
-    const result = await ctx.tools.memory_write.handler(
-      { file: "test.md", content: ok },
-      { sessionName: "default" },
-    );
+    const result = await ctx.tools.memory_write.handler({ file: "test.md", content: ok }, { sessionName: "default" });
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("Wrote");
   });

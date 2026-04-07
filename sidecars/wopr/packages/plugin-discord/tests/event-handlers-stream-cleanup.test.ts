@@ -73,9 +73,10 @@ describe("executeInjectInternal stream cleanup", () => {
 
   function makeStreamMock(finalizeResult: "resolve" | "reject") {
     const mockStream = {
-      finalize: finalizeResult === "reject"
-        ? vi.fn().mockRejectedValue(new Error("finalize failed"))
-        : vi.fn().mockResolvedValue(undefined),
+      finalize:
+        finalizeResult === "reject"
+          ? vi.fn().mockRejectedValue(new Error("finalize failed"))
+          : vi.fn().mockResolvedValue(undefined),
       append: vi.fn(),
     };
     (MockDiscordMessageStream as any)._mockInstance = mockStream;

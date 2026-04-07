@@ -1,9 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  resolveSandboxScope,
-  resolveSandboxDockerConfig,
-  resolveSandboxPruneConfig,
-} from "../src/config.js";
+import { resolveSandboxScope, resolveSandboxDockerConfig, resolveSandboxPruneConfig } from "../src/config.js";
 import {
   DEFAULT_SANDBOX_IMAGE,
   DEFAULT_SANDBOX_CONTAINER_PREFIX,
@@ -29,9 +25,7 @@ describe("config", () => {
     });
 
     it("explicit scope takes priority over perSession", () => {
-      expect(resolveSandboxScope({ scope: "shared", perSession: true })).toBe(
-        "shared"
-      );
+      expect(resolveSandboxScope({ scope: "shared", perSession: true })).toBe("shared");
     });
   });
 
@@ -159,10 +153,7 @@ describe("config", () => {
           binds: ["/host/b:/container/b"],
         },
       });
-      expect(result.binds).toEqual([
-        "/host/a:/container/a",
-        "/host/b:/container/b",
-      ]);
+      expect(result.binds).toEqual(["/host/a:/container/a", "/host/b:/container/b"]);
     });
 
     it("returns undefined binds when both are empty", () => {

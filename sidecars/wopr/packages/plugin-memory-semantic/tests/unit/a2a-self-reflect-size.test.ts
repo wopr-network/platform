@@ -43,40 +43,28 @@ describe("self_reflect content size limit", () => {
 
   it("rejects reflection exceeding 64 KB", async () => {
     const oversized = "x".repeat(65_537);
-    const result = await ctx.tools.self_reflect.handler(
-      { reflection: oversized },
-      { sessionName: "default" },
-    );
+    const result = await ctx.tools.self_reflect.handler({ reflection: oversized }, { sessionName: "default" });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("exceeds maximum allowed size");
   });
 
   it("rejects tattoo exceeding 64 KB", async () => {
     const oversized = "x".repeat(65_537);
-    const result = await ctx.tools.self_reflect.handler(
-      { tattoo: oversized },
-      { sessionName: "default" },
-    );
+    const result = await ctx.tools.self_reflect.handler({ tattoo: oversized }, { sessionName: "default" });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("exceeds maximum allowed size");
   });
 
   it("accepts reflection within 64 KB", async () => {
     const ok = "x".repeat(65_536);
-    const result = await ctx.tools.self_reflect.handler(
-      { reflection: ok },
-      { sessionName: "default" },
-    );
+    const result = await ctx.tools.self_reflect.handler({ reflection: ok }, { sessionName: "default" });
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("Reflection added");
   });
 
   it("accepts tattoo within 64 KB", async () => {
     const ok = "x".repeat(65_536);
-    const result = await ctx.tools.self_reflect.handler(
-      { tattoo: ok },
-      { sessionName: "default" },
-    );
+    const result = await ctx.tools.self_reflect.handler({ tattoo: ok }, { sessionName: "default" });
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("Tattoo added");
   });
@@ -96,10 +84,7 @@ describe("self_reflect content size limit", () => {
     // Each '🤔' emoji is 4 bytes. 16_385 * 4 = 65_540 > 65_536
     const oversized = "🤔".repeat(16_385);
     expect(Buffer.byteLength(oversized, "utf-8")).toBeGreaterThan(65_536);
-    const result = await ctx.tools.self_reflect.handler(
-      { reflection: oversized },
-      { sessionName: "default" },
-    );
+    const result = await ctx.tools.self_reflect.handler({ reflection: oversized }, { sessionName: "default" });
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("exceeds maximum allowed size");
   });
@@ -108,10 +93,7 @@ describe("self_reflect content size limit", () => {
     // Each '🤔' emoji is 4 bytes. 16_384 * 4 = 65_536 — exactly at limit
     const ok = "🤔".repeat(16_384);
     expect(Buffer.byteLength(ok, "utf-8")).toBe(65_536);
-    const result = await ctx.tools.self_reflect.handler(
-      { reflection: ok },
-      { sessionName: "default" },
-    );
+    const result = await ctx.tools.self_reflect.handler({ reflection: ok }, { sessionName: "default" });
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain("Reflection added");
   });

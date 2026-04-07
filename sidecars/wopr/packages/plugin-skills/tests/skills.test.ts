@@ -2,13 +2,8 @@ import { vi, describe, it, expect } from "vitest";
 
 // We need to test the pure functions from skills.ts without mocking the module itself.
 // Use dynamic import to get a fresh copy.
-const {
-  formatSkillsXml,
-  buildSkillsPrompt,
-  buildSkillCommandSpecs,
-  describeInstallStep,
-  checkSkillDependencies,
-} = await import("../src/skills.js");
+const { formatSkillsXml, buildSkillsPrompt, buildSkillCommandSpecs, describeInstallStep, checkSkillDependencies } =
+  await import("../src/skills.js");
 
 type Skill = import("../src/skills.js").Skill;
 type SkillInstallStep = import("../src/skills.js").SkillInstallStep;
@@ -21,7 +16,13 @@ describe("skills", () => {
 
     it("formats single skill as XML", () => {
       const skills: Skill[] = [
-        { name: "test-skill", description: "A test skill", path: "/skills/test-skill/SKILL.md", baseDir: "/skills/test-skill", source: "managed" },
+        {
+          name: "test-skill",
+          description: "A test skill",
+          path: "/skills/test-skill/SKILL.md",
+          baseDir: "/skills/test-skill",
+          source: "managed",
+        },
       ];
       const xml = formatSkillsXml(skills);
       expect(xml).toContain("<available_skills>");

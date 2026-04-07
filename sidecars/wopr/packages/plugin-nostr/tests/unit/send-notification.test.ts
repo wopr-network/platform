@@ -33,14 +33,8 @@ describe("nostrChannelProvider.sendNotification", () => {
       from: "alice",
     });
 
-    expect(mockPublisher.publishDM).toHaveBeenCalledWith(
-      expect.stringContaining("alice"),
-      "owner123pubkey",
-    );
-    expect(mockPublisher.publishDM).toHaveBeenCalledWith(
-      expect.stringMatching(/ACCEPT|DENY/i),
-      "owner123pubkey",
-    );
+    expect(mockPublisher.publishDM).toHaveBeenCalledWith(expect.stringContaining("alice"), "owner123pubkey");
+    expect(mockPublisher.publishDM).toHaveBeenCalledWith(expect.stringMatching(/ACCEPT|DENY/i), "owner123pubkey");
   });
 
   it("registers one-shot message parser when callbacks provided", async () => {
@@ -50,10 +44,14 @@ describe("nostrChannelProvider.sendNotification", () => {
     const onAccept = vi.fn().mockResolvedValue(undefined);
     const onDeny = vi.fn().mockResolvedValue(undefined);
 
-    await nostrChannelProvider.sendNotification!("dm:owner123pubkey", {
-      type: "friend-request",
-      from: "alice",
-    }, { onAccept, onDeny });
+    await nostrChannelProvider.sendNotification!(
+      "dm:owner123pubkey",
+      {
+        type: "friend-request",
+        from: "alice",
+      },
+      { onAccept, onDeny },
+    );
 
     const parsers = nostrChannelProvider.getMessageParsers();
     expect(parsers.length).toBe(1);
@@ -67,10 +65,14 @@ describe("nostrChannelProvider.sendNotification", () => {
     const onAccept = vi.fn().mockResolvedValue(undefined);
     const onDeny = vi.fn().mockResolvedValue(undefined);
 
-    await nostrChannelProvider.sendNotification!("dm:owner123pubkey", {
-      type: "friend-request",
-      from: "alice",
-    }, { onAccept, onDeny });
+    await nostrChannelProvider.sendNotification!(
+      "dm:owner123pubkey",
+      {
+        type: "friend-request",
+        from: "alice",
+      },
+      { onAccept, onDeny },
+    );
 
     const parser = nostrChannelProvider.getMessageParsers()[0];
     await parser.handler({
@@ -94,10 +96,14 @@ describe("nostrChannelProvider.sendNotification", () => {
     const onAccept = vi.fn().mockResolvedValue(undefined);
     const onDeny = vi.fn().mockResolvedValue(undefined);
 
-    await nostrChannelProvider.sendNotification!("dm:owner123pubkey", {
-      type: "friend-request",
-      from: "alice",
-    }, { onAccept, onDeny });
+    await nostrChannelProvider.sendNotification!(
+      "dm:owner123pubkey",
+      {
+        type: "friend-request",
+        from: "alice",
+      },
+      { onAccept, onDeny },
+    );
 
     const parser = nostrChannelProvider.getMessageParsers()[0];
     await parser.handler({
@@ -120,10 +126,14 @@ describe("nostrChannelProvider.sendNotification", () => {
 
     const onAccept = vi.fn().mockResolvedValue(undefined);
 
-    await nostrChannelProvider.sendNotification!("dm:owner123pubkey", {
-      type: "friend-request",
-      from: "alice",
-    }, { onAccept });
+    await nostrChannelProvider.sendNotification!(
+      "dm:owner123pubkey",
+      {
+        type: "friend-request",
+        from: "alice",
+      },
+      { onAccept },
+    );
 
     const parser = nostrChannelProvider.getMessageParsers()[0];
     await parser.handler({
@@ -143,10 +153,14 @@ describe("nostrChannelProvider.sendNotification", () => {
     const { nostrChannelProvider, setPublisher } = await import("../../src/channel-provider.js");
     setPublisher(mockPublisher as never);
 
-    await nostrChannelProvider.sendNotification!("dm:owner123pubkey", {
-      type: "friend-request",
-      from: "alice",
-    }, { onAccept: vi.fn().mockResolvedValue(undefined) });
+    await nostrChannelProvider.sendNotification!(
+      "dm:owner123pubkey",
+      {
+        type: "friend-request",
+        from: "alice",
+      },
+      { onAccept: vi.fn().mockResolvedValue(undefined) },
+    );
 
     expect(nostrChannelProvider.getMessageParsers().length).toBe(1);
 
@@ -159,9 +173,9 @@ describe("nostrChannelProvider.sendNotification", () => {
     const { nostrChannelProvider, setPublisher } = await import("../../src/channel-provider.js");
     setPublisher(null);
 
-    await expect(
-      nostrChannelProvider.sendNotification!("dm:abc", { type: "friend-request" }),
-    ).rejects.toThrow("Nostr publisher not initialized");
+    await expect(nostrChannelProvider.sendNotification!("dm:abc", { type: "friend-request" })).rejects.toThrow(
+      "Nostr publisher not initialized",
+    );
   });
 
   it("no-ops for non-dm channelId", async () => {

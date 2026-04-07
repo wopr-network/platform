@@ -249,7 +249,7 @@ describe("wopr-plugin-websearch", () => {
             { title: "Result 1", link: "https://example.com/1", snippet: "Snippet 1" },
             { title: "Result 2", link: "https://example.com/2", snippet: "Snippet 2" },
           ],
-        })
+        }),
       );
 
       const config = buildWebSearchA2ATools({});
@@ -269,11 +269,9 @@ describe("wopr-plugin-websearch", () => {
       mockFetch.mockReturnValueOnce(
         mockOkResponse({
           web: {
-            results: [
-              { title: "Brave Result", url: "https://brave.com/1", description: "Brave snippet" },
-            ],
+            results: [{ title: "Brave Result", url: "https://brave.com/1", description: "Brave snippet" }],
           },
-        })
+        }),
       );
 
       const config = buildWebSearchA2ATools({});
@@ -291,11 +289,9 @@ describe("wopr-plugin-websearch", () => {
 
       mockFetch.mockReturnValueOnce(
         mockOkResponse({
-          citations: [
-            { title: "xAI Result", url: "https://xai.com/1" },
-          ],
+          citations: [{ title: "xAI Result", url: "https://xai.com/1" }],
           choices: [{ message: { content: "[]" } }],
-        })
+        }),
       );
 
       const config = buildWebSearchA2ATools({});
@@ -317,11 +313,9 @@ describe("wopr-plugin-websearch", () => {
       mockFetch.mockReturnValueOnce(
         mockOkResponse({
           web: {
-            results: [
-              { title: "Fallback Result", url: "https://brave.com/1", description: "From Brave" },
-            ],
+            results: [{ title: "Fallback Result", url: "https://brave.com/1", description: "From Brave" }],
           },
-        })
+        }),
       );
 
       const config = buildWebSearchA2ATools({});
@@ -345,7 +339,7 @@ describe("wopr-plugin-websearch", () => {
               { title: "Also Bad", url: "http://169.254.169.254/metadata", description: "Cloud metadata" },
             ],
           },
-        })
+        }),
       );
 
       const config = buildWebSearchA2ATools({});
@@ -379,7 +373,7 @@ describe("wopr-plugin-websearch", () => {
         mockOkResponse({
           choices: [{ message: { content: "[]" } }],
           citations: [{ title: "xAI First", url: "https://xai.com" }],
-        })
+        }),
       );
 
       const config = buildWebSearchA2ATools({ providerOrder: ["xai", "brave"] });
@@ -394,7 +388,7 @@ describe("wopr-plugin-websearch", () => {
       mockFetch.mockReturnValueOnce(
         mockOkResponse({
           web: { results: [{ title: "Config Result", url: "https://example.com", description: "From config" }] },
-        })
+        }),
       );
 
       const config = buildWebSearchA2ATools({
@@ -414,9 +408,7 @@ describe("wopr-plugin-websearch", () => {
   // ---------------------------------------------------------------------------
   describe("GoogleSearchProvider", () => {
     it("should require cx in config", () => {
-      expect(
-        () => new GoogleSearchProvider({ apiKey: "key" })
-      ).toThrow("requires 'cx'");
+      expect(() => new GoogleSearchProvider({ apiKey: "key" })).toThrow("requires 'cx'");
     });
 
     it("should construct with valid config", () => {
@@ -426,7 +418,7 @@ describe("wopr-plugin-websearch", () => {
 
     it("should make correct API call", async () => {
       mockFetch.mockReturnValueOnce(
-        mockOkResponse({ items: [{ title: "T", link: "https://example.com", snippet: "S" }] })
+        mockOkResponse({ items: [{ title: "T", link: "https://example.com", snippet: "S" }] }),
       );
 
       const p = new GoogleSearchProvider({ apiKey: "my-key", extra: { cx: "my-cx" } });
@@ -476,7 +468,7 @@ describe("wopr-plugin-websearch", () => {
       mockFetch.mockReturnValueOnce(
         mockOkResponse({
           web: { results: [{ title: "B", url: "https://example.com", description: "D" }] },
-        })
+        }),
       );
 
       const p = new BraveSearchProvider({ apiKey: "brave-key" });
@@ -525,11 +517,9 @@ describe("wopr-plugin-websearch", () => {
     it("should prefer citations over parsed text", async () => {
       mockFetch.mockReturnValueOnce(
         mockOkResponse({
-          citations: [
-            { title: "Citation", url: "https://xai.com/c1" },
-          ],
+          citations: [{ title: "Citation", url: "https://xai.com/c1" }],
           choices: [{ message: { content: '[{"title":"Parsed","url":"https://xai.com/p1","snippet":"S"}]' } }],
-        })
+        }),
       );
 
       const p = new XaiSearchProvider({ apiKey: "key" });
@@ -549,7 +539,7 @@ describe("wopr-plugin-websearch", () => {
               },
             },
           ],
-        })
+        }),
       );
 
       const p = new XaiSearchProvider({ apiKey: "key" });
@@ -563,7 +553,7 @@ describe("wopr-plugin-websearch", () => {
       mockFetch.mockReturnValueOnce(
         mockOkResponse({
           choices: [{ message: { content: "No JSON here at all" } }],
-        })
+        }),
       );
 
       const p = new XaiSearchProvider({ apiKey: "key" });
@@ -572,9 +562,7 @@ describe("wopr-plugin-websearch", () => {
     });
 
     it("should send correct request body", async () => {
-      mockFetch.mockReturnValueOnce(
-        mockOkResponse({ choices: [{ message: { content: "[]" } }] })
-      );
+      mockFetch.mockReturnValueOnce(mockOkResponse({ choices: [{ message: { content: "[]" } }] }));
 
       const p = new XaiSearchProvider({ apiKey: "xai-key" });
       await p.search("test", 3);

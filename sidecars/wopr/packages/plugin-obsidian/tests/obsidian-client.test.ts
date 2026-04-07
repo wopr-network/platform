@@ -62,7 +62,9 @@ describe("ObsidianClient", () => {
   });
 
   it("search returns results", async () => {
-    const results = [{ filename: "Notes/A.md", score: 0.9, matches: [{ match: { start: 0, end: 5 }, context: "hello" }] }];
+    const results = [
+      { filename: "Notes/A.md", score: 0.9, matches: [{ match: { start: 0, end: 5 }, context: "hello" }] },
+    ];
     mockFetch.mockResolvedValueOnce(makeResponse(results));
     const out = await client.search("hello");
     expect(out).toHaveLength(1);

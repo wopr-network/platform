@@ -79,15 +79,27 @@ vi.mock("discord.js", async () => {
   const { EventEmitter } = await import("events");
 
   class SlashCommandBuilder {
-    setName(_n: string) { return this; }
-    setDescription(_d: string) { return this; }
-    toJSON() { return {}; }
+    setName(_n: string) {
+      return this;
+    }
+    setDescription(_d: string) {
+      return this;
+    }
+    toJSON() {
+      return {};
+    }
   }
 
   class REST {
-    setToken(_t: string) { return this; }
-    get(_r: string) { return Promise.resolve([]); }
-    put(_r: string, _o: unknown) { return Promise.resolve(undefined); }
+    setToken(_t: string) {
+      return this;
+    }
+    get(_r: string) {
+      return Promise.resolve([]);
+    }
+    put(_r: string, _o: unknown) {
+      return Promise.resolve(undefined);
+    }
   }
 
   // Client constructor — returns a shared singleton that tests can reference
@@ -142,7 +154,7 @@ function createMockContext(overrides: Record<string, unknown> = {}) {
     })),
     getMainConfig: vi.fn(() => null),
     hasCapability: vi.fn((cap: string) => cap === "stt" || cap === "tts"),
-    getCapabilityProviders: vi.fn((cap: string) => cap === "stt" ? [mockSTT] : cap === "tts" ? [mockTTS] : []),
+    getCapabilityProviders: vi.fn((cap: string) => (cap === "stt" ? [mockSTT] : cap === "tts" ? [mockTTS] : [])),
     inject: vi.fn(),
     logMessage: vi.fn(),
     log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -166,10 +178,7 @@ describe("Voice Pipeline Integration", () => {
       const ctx = createMockContext();
       await plugin.init(ctx);
 
-      expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
-        "wopr-plugin-channel-discord-voice",
-        expect.any(Object),
-      );
+      expect(ctx.registerConfigSchema).toHaveBeenCalledWith("wopr-plugin-channel-discord-voice", expect.any(Object));
     });
 
     it("should call discord login with configured token", async () => {
@@ -271,9 +280,7 @@ describe("Voice Pipeline Integration", () => {
       const ctx = createMockContext({ unregisterConfigSchema });
       await plugin.init(ctx);
       await plugin.shutdown();
-      expect(unregisterConfigSchema).toHaveBeenCalledWith(
-        "wopr-plugin-channel-discord-voice",
-      );
+      expect(unregisterConfigSchema).toHaveBeenCalledWith("wopr-plugin-channel-discord-voice");
     });
   });
 
@@ -290,9 +297,7 @@ describe("Voice Pipeline Integration", () => {
     });
 
     it("should mark token field as secret in config schema", () => {
-      const tokenField = plugin.manifest!.configSchema!.fields.find(
-        (f) => f.name === "token",
-      );
+      const tokenField = plugin.manifest!.configSchema!.fields.find((f) => f.name === "token");
       expect(tokenField).toBeDefined();
       expect(tokenField!.secret).toBe(true);
     });
@@ -323,7 +328,7 @@ describe("Voice Pipeline Integration", () => {
     it("should handle missing STT provider gracefully", async () => {
       const ctx = createMockContext({
         hasCapability: vi.fn((cap: string) => cap === "tts"),
-        getCapabilityProviders: vi.fn((cap: string) => cap === "tts" ? [{ synthesize: vi.fn() }] : []),
+        getCapabilityProviders: vi.fn((cap: string) => (cap === "tts" ? [{ synthesize: vi.fn() }] : [])),
       });
       await plugin.init(ctx);
       expect(ctx.hasCapability).toHaveBeenCalledWith("stt");
@@ -332,7 +337,7 @@ describe("Voice Pipeline Integration", () => {
     it("should handle missing TTS provider gracefully", async () => {
       const ctx = createMockContext({
         hasCapability: vi.fn((cap: string) => cap === "stt"),
-        getCapabilityProviders: vi.fn((cap: string) => cap === "stt" ? [{ transcribe: vi.fn() }] : []),
+        getCapabilityProviders: vi.fn((cap: string) => (cap === "stt" ? [{ transcribe: vi.fn() }] : [])),
       });
       await plugin.init(ctx);
       expect(ctx.hasCapability).toHaveBeenCalledWith("tts");

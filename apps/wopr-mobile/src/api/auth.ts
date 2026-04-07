@@ -10,10 +10,7 @@ export interface Session {
   user: AuthUser;
 }
 
-export async function signIn(
-  email: string,
-  password: string,
-): Promise<Session> {
+export async function signIn(email: string, password: string): Promise<Session> {
   const res = await apiFetch("/api/auth/sign-in/email", {
     method: "POST",
     body: JSON.stringify({ email, password }),

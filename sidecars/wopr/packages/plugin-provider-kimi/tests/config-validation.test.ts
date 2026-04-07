@@ -62,9 +62,7 @@ describe("config validation", () => {
   });
 
   it("includes kimiPath field", () => {
-    const kimiPathField = configSchema.fields.find(
-      (f: any) => f.name === "kimiPath"
-    );
+    const kimiPathField = configSchema.fields.find((f: any) => f.name === "kimiPath");
     expect(kimiPathField).toBeDefined();
     expect(kimiPathField.type).toBe("text");
     expect(kimiPathField.label).toBe("Kimi CLI Path");
@@ -72,17 +70,13 @@ describe("config validation", () => {
   });
 
   it("kimiPath field has a placeholder", () => {
-    const kimiPathField = configSchema.fields.find(
-      (f: any) => f.name === "kimiPath"
-    );
+    const kimiPathField = configSchema.fields.find((f: any) => f.name === "kimiPath");
     expect(kimiPathField.placeholder).toBeDefined();
     expect(typeof kimiPathField.placeholder).toBe("string");
   });
 
   it("kimiPath field has a description", () => {
-    const kimiPathField = configSchema.fields.find(
-      (f: any) => f.name === "kimiPath"
-    );
+    const kimiPathField = configSchema.fields.find((f: any) => f.name === "kimiPath");
     expect(kimiPathField.description).toBeDefined();
     expect(kimiPathField.description).toContain("Kimi CLI");
   });

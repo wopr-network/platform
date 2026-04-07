@@ -158,12 +158,7 @@ describe("EventHandler", () => {
 
   it("handles kind 1 mention — injects and publishes reply when enablePublicReplies=true", async () => {
     const { EventHandler } = await import("../../src/event-handler.js");
-    const handler = new EventHandler(
-      botSk,
-      { enablePublicReplies: true },
-      mockCtx,
-      mockPublisher as never,
-    );
+    const handler = new EventHandler(botSk, { enablePublicReplies: true }, mockCtx, mockPublisher as never);
     const event = makeMentionEvent();
 
     await handler.handleEvent(event);
@@ -174,12 +169,7 @@ describe("EventHandler", () => {
 
   it("ignores kind 1 mention when enablePublicReplies=false", async () => {
     const { EventHandler } = await import("../../src/event-handler.js");
-    const handler = new EventHandler(
-      botSk,
-      { enablePublicReplies: false },
-      mockCtx,
-      mockPublisher as never,
-    );
+    const handler = new EventHandler(botSk, { enablePublicReplies: false }, mockCtx, mockPublisher as never);
     const event = makeMentionEvent();
 
     await handler.handleEvent(event);

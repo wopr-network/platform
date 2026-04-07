@@ -27,8 +27,7 @@ export function useBots() {
       if (!res.ok) throw new Error(`Failed to fetch bots (${res.status})`);
       const data = (await res.json()) as TRPCBatchResponse;
       // tRPC batch response: { result: { data: { json: { bots: [...] } } } }
-      const result =
-        data?.result?.data?.json ?? (data as { bots?: BotInstance[] });
+      const result = data?.result?.data?.json ?? (data as { bots?: BotInstance[] });
       setBots(result.bots ?? []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load bots");

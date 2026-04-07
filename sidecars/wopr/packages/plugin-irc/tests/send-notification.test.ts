@@ -7,9 +7,7 @@ import {
   handleNotificationReply,
   clearPendingNotifications,
 } from "../src/channel-provider.js";
-import type {
-  IrcChannelProvider,
-} from "../src/types.js";
+import type { IrcChannelProvider } from "../src/types.js";
 
 function createMockClient() {
   return {
@@ -37,9 +35,9 @@ describe("sendNotification", () => {
   });
 
   it("throws when client is not initialized", async () => {
-    await expect(
-      provider.sendNotification("owner", { type: "friend-request", from: "alice" }),
-    ).rejects.toThrow("IRC client not initialized");
+    await expect(provider.sendNotification("owner", { type: "friend-request", from: "alice" })).rejects.toThrow(
+      "IRC client not initialized",
+    );
   });
 
   it("sends PRIVMSG to the channel with friend request text", async () => {
@@ -47,10 +45,7 @@ describe("sendNotification", () => {
     setChannelProviderClient(mockClient);
 
     await provider.sendNotification("owner", { type: "friend-request", from: "alice" });
-    expect(mockClient.say).toHaveBeenCalledWith(
-      "owner",
-      "Friend request from alice. Reply ACCEPT or DENY.",
-    );
+    expect(mockClient.say).toHaveBeenCalledWith("owner", "Friend request from alice. Reply ACCEPT or DENY.");
   });
 
   it("uses pubkey when from is not provided", async () => {
@@ -58,10 +53,7 @@ describe("sendNotification", () => {
     setChannelProviderClient(mockClient);
 
     await provider.sendNotification("owner", { type: "friend-request", pubkey: "abc123" });
-    expect(mockClient.say).toHaveBeenCalledWith(
-      "owner",
-      "Friend request from abc123. Reply ACCEPT or DENY.",
-    );
+    expect(mockClient.say).toHaveBeenCalledWith("owner", "Friend request from abc123. Reply ACCEPT or DENY.");
   });
 
   it("uses 'unknown peer' when neither from nor pubkey is provided", async () => {
@@ -69,10 +61,7 @@ describe("sendNotification", () => {
     setChannelProviderClient(mockClient);
 
     await provider.sendNotification("owner", { type: "friend-request" });
-    expect(mockClient.say).toHaveBeenCalledWith(
-      "owner",
-      "Friend request from unknown peer. Reply ACCEPT or DENY.",
-    );
+    expect(mockClient.say).toHaveBeenCalledWith("owner", "Friend request from unknown peer. Reply ACCEPT or DENY.");
   });
 });
 

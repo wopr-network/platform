@@ -32,9 +32,7 @@ describe("createSessionDestroyHandler", () => {
     });
 
     await handler("test-session", "timeout");
-    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(
-      expect.stringContaining("ctx.session not available"),
-    );
+    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringContaining("ctx.session not available"));
   });
 
   it("returns early for empty conversation", async () => {
@@ -74,18 +72,14 @@ describe("createSessionDestroyHandler", () => {
       expect.stringContaining("Alice"),
       "session",
     );
-    expect(vi.mocked(log.info)).toHaveBeenCalledWith(
-      expect.stringContaining("[session-hook]"),
-    );
+    expect(vi.mocked(log.info)).toHaveBeenCalledWith(expect.stringContaining("[session-hook]"));
   });
 
   it("appends to existing content", async () => {
     const log = mockLogger();
     const sessionApi = mockSessionApi();
     sessionApi.getContext.mockResolvedValue("# Existing content\n\n");
-    sessionApi.readConversationLog.mockResolvedValue([
-      { from: "Alice", content: "New message", type: "message" },
-    ]);
+    sessionApi.readConversationLog.mockResolvedValue([{ from: "Alice", content: "New message", type: "message" }]);
 
     const handler = await createSessionDestroyHandler({
       sessionsDir: "/sessions",
@@ -128,9 +122,7 @@ describe("createSessionDestroyHandler", () => {
   it("skips system sender messages", async () => {
     const log = mockLogger();
     const sessionApi = mockSessionApi();
-    sessionApi.readConversationLog.mockResolvedValue([
-      { from: "system", content: "internal", type: "message" },
-    ]);
+    sessionApi.readConversationLog.mockResolvedValue([{ from: "system", content: "internal", type: "message" }]);
 
     const handler = await createSessionDestroyHandler({
       sessionsDir: "/sessions",
@@ -145,9 +137,7 @@ describe("createSessionDestroyHandler", () => {
   it("logs warning on setContext failure", async () => {
     const log = mockLogger();
     const sessionApi = mockSessionApi();
-    sessionApi.readConversationLog.mockResolvedValue([
-      { from: "Alice", content: "Hello", type: "message" },
-    ]);
+    sessionApi.readConversationLog.mockResolvedValue([{ from: "Alice", content: "Hello", type: "message" }]);
     sessionApi.setContext.mockRejectedValue(new Error("write failed"));
 
     const handler = await createSessionDestroyHandler({
@@ -157,8 +147,6 @@ describe("createSessionDestroyHandler", () => {
     });
 
     await handler("test-session", "timeout");
-    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(
-      expect.stringContaining("[session-hook]"),
-    );
+    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringContaining("[session-hook]"));
   });
 });

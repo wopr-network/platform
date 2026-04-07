@@ -9,13 +9,21 @@ function createCollection<V>(entries: [string, V][]): Map<string, V> & { map: <T
   return map;
 }
 
-function createMockClient(options: {
-  ready?: boolean;
-  username?: string;
-  ping?: number;
-  uptime?: number | null;
-  guilds?: Array<{ id: string; name: string; memberCount: number; iconURL: string | null; channels: Array<{ id: string; name: string; type: number; position: number }> }>;
-} = {}) {
+function createMockClient(
+  options: {
+    ready?: boolean;
+    username?: string;
+    ping?: number;
+    uptime?: number | null;
+    guilds?: Array<{
+      id: string;
+      name: string;
+      memberCount: number;
+      iconURL: string | null;
+      channels: Array<{ id: string; name: string; type: number; position: number }>;
+    }>;
+  } = {},
+) {
   const guildEntries: [string, any][] = (options.guilds || []).map((g) => {
     const channelEntries: [string, any][] = g.channels.map((ch) => [ch.id, ch]);
     return [
@@ -176,9 +184,7 @@ describe("DiscordExtension WebMCP methods", () => {
 
     it("should count only discord sessions", () => {
       const client = createMockClient({
-        guilds: [
-          { id: "g1", name: "Guild", memberCount: 10, iconURL: null, channels: [] },
-        ],
+        guilds: [{ id: "g1", name: "Guild", memberCount: 10, iconURL: null, channels: [] }],
       });
       const ctx = createMockCtx(["discord:guild:#general", "discord:guild:#random", "cli:default", "web:session1"]);
       const ext = createDiscordExtension(

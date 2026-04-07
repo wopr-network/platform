@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  textToComponentsV2,
-  textToComponentsV2Edit,
-  mediaGalleryToComponentsV2,
-} from "../src/components-v2.js";
+import { textToComponentsV2, textToComponentsV2Edit, mediaGalleryToComponentsV2 } from "../src/components-v2.js";
 import { MessageFlags } from "discord.js";
 
 describe("components-v2", () => {

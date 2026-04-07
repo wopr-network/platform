@@ -351,18 +351,18 @@ describe("validateAgentPayload", () => {
 describe("handleWake", () => {
   it("injects message into session on valid payload", async () => {
     const ctx = makeHandlerCtx();
-    const result = await handleWake(
-      { text: "event happened", session: "main" },
-      ctx
-    );
+    const result = await handleWake({ text: "event happened", session: "main" }, ctx);
     expect(result.ok).toBe(true);
     expect(result.action).toBe("wake");
     expect(result.sessionKey).toBe("main");
     expect(ctx.inject).toHaveBeenCalledOnce();
-    expect(ctx.emit).toHaveBeenCalledWith("webhook:wake", expect.objectContaining({
-      text: "event happened",
-      session: "main",
-    }));
+    expect(ctx.emit).toHaveBeenCalledWith(
+      "webhook:wake",
+      expect.objectContaining({
+        text: "event happened",
+        session: "main",
+      }),
+    );
   });
 
   it("returns error on invalid payload", async () => {
@@ -384,10 +384,7 @@ describe("handleWake", () => {
     const ctx = makeHandlerCtx({
       inject: vi.fn().mockRejectedValue(new Error("session not found")),
     });
-    const result = await handleWake(
-      { text: "hello", session: "nonexistent" },
-      ctx
-    );
+    const result = await handleWake({ text: "hello", session: "nonexistent" }, ctx);
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Injection failed");
   });
@@ -400,10 +397,7 @@ describe("handleWake", () => {
 describe("handleAgent", () => {
   it("returns accepted with sessionKey on valid payload", async () => {
     const ctx = makeHandlerCtx();
-    const result = await handleAgent(
-      { message: "run analysis" },
-      ctx
-    );
+    const result = await handleAgent({ message: "run analysis" }, ctx);
     expect(result.ok).toBe(true);
     expect(result.action).toBe("agent");
     expect(result.sessionKey).toBeDefined();
@@ -418,10 +412,7 @@ describe("handleAgent", () => {
 
   it("uses provided sessionKey", async () => {
     const ctx = makeHandlerCtx();
-    const result = await handleAgent(
-      { message: "test", sessionKey: "custom-key" },
-      ctx
-    );
+    const result = await handleAgent({ message: "test", sessionKey: "custom-key" }, ctx);
     expect(result.ok).toBe(true);
     expect(result.sessionKey).toBe("custom-key");
   });
@@ -434,13 +425,7 @@ describe("handleAgent", () => {
 describe("handleMapped", () => {
   it("returns error when no mappings match", async () => {
     const ctx = makeHandlerCtx();
-    const result = await handleMapped(
-      "unknown",
-      { source: "test" },
-      {},
-      makeUrl("/hooks/unknown"),
-      ctx
-    );
+    const result = await handleMapped("unknown", { source: "test" }, {}, makeUrl("/hooks/unknown"), ctx);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("No mapping found");
   });
@@ -462,13 +447,7 @@ describe("handleMapped", () => {
         ],
       },
     });
-    const result = await handleMapped(
-      "custom",
-      { event: "test-event" },
-      {},
-      makeUrl("/hooks/custom"),
-      ctx
-    );
+    const result = await handleMapped("custom", { event: "test-event" }, {}, makeUrl("/hooks/custom"), ctx);
     expect(result.ok).toBe(true);
     expect(result.action).toBe("agent");
   });
@@ -491,13 +470,7 @@ describe("handleMapped", () => {
         ],
       },
     });
-    const result = await handleMapped(
-      "notify",
-      { msg: "hello" },
-      {},
-      makeUrl("/hooks/notify"),
-      ctx
-    );
+    const result = await handleMapped("notify", { msg: "hello" }, {}, makeUrl("/hooks/notify"), ctx);
     expect(result.ok).toBe(true);
     expect(result.action).toBe("wake");
   });
@@ -510,12 +483,7 @@ describe("handleMapped", () => {
 describe("handleGitHub", () => {
   it("handles ping event", async () => {
     const ctx = makeHandlerCtx({ githubConfig: {} });
-    const result = await handleGitHub(
-      {},
-      "{}",
-      { "x-github-event": "ping" },
-      ctx
-    );
+    const result = await handleGitHub({}, "{}", { "x-github-event": "ping" }, ctx);
     expect(result.ok).toBe(true);
     expect(result.action).toBe("skipped");
   });
@@ -530,9 +498,7 @@ describe("handleGitHub", () => {
   it("verifies signature when secret is configured", async () => {
     const secret = "gh-secret";
     const body = '{"action":"opened"}';
-    const sig =
-      "sha256=" +
-      createHmac("sha256", secret).update(Buffer.from(body, "utf-8")).digest("hex");
+    const sig = "sha256=" + createHmac("sha256", secret).update(Buffer.from(body, "utf-8")).digest("hex");
     const ctx = makeHandlerCtx({
       githubConfig: {
         webhookSecret: secret,
@@ -555,7 +521,7 @@ describe("handleGitHub", () => {
         "x-hub-signature-256": sig,
         "x-github-event": "pull_request",
       },
-      ctx
+      ctx,
     );
     expect(result.ok).toBe(true);
   });
@@ -571,7 +537,7 @@ describe("handleGitHub", () => {
         "x-hub-signature-256": "sha256=" + "a".repeat(64),
         "x-github-event": "pull_request",
       },
-      ctx
+      ctx,
     );
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Invalid signature");
@@ -592,7 +558,7 @@ describe("handleGitHub", () => {
       },
       "{}",
       { "x-github-event": "pull_request" },
-      ctx
+      ctx,
     );
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Unauthorized organization");
@@ -619,7 +585,7 @@ describe("handleGitHub", () => {
       },
       "{}",
       { "x-github-event": "pull_request" },
-      ctx
+      ctx,
     );
     expect(result.ok).toBe(true);
     expect(result.action).toBe("wake");
@@ -635,7 +601,7 @@ describe("handleGitHub", () => {
       },
       "{}",
       { "x-github-event": "release" },
-      ctx
+      ctx,
     );
     expect(result.ok).toBe(false);
     expect(result.error).toBe("no_target_session");
@@ -653,7 +619,7 @@ describe("handleGitHub", () => {
       },
       "{}",
       { "x-github-event": "release" },
-      ctx
+      ctx,
     );
     expect(result.ok).toBe(true);
     expect(result.action).toBe("wake");
@@ -678,7 +644,7 @@ describe("handleGitHub", () => {
       },
       "{}",
       { "x-github-event": "pull_request" },
-      ctx
+      ctx,
     );
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Injection failed");

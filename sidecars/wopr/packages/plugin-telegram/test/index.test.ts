@@ -49,7 +49,9 @@ vi.mock("grammy", () => {
   }
   class InputFile {}
   class Context {}
-  function webhookCallback() { return vi.fn(); }
+  function webhookCallback() {
+    return vi.fn();
+  }
   return { Bot, InputFile, Context, webhookCallback };
 });
 
@@ -227,9 +229,7 @@ describe("wopr-plugin-telegram", () => {
 
       vi.mocked(fs.realpathSync).mockReturnValue("/etc/passwd");
 
-      expect(() => validateTokenFilePath(tokenPath)).toThrow(
-        /outside allowed directories/
-      );
+      expect(() => validateTokenFilePath(tokenPath)).toThrow(/outside allowed directories/);
     });
 
     it("should follow symlinks via realpathSync", () => {
@@ -239,9 +239,7 @@ describe("wopr-plugin-telegram", () => {
       // Symlink resolves to an outside path
       vi.mocked(fs.realpathSync).mockReturnValue("/etc/shadow");
 
-      expect(() => validateTokenFilePath(tokenPath)).toThrow(
-        /outside allowed directories/
-      );
+      expect(() => validateTokenFilePath(tokenPath)).toThrow(/outside allowed directories/);
     });
   });
 
@@ -256,7 +254,7 @@ describe("wopr-plugin-telegram", () => {
 
       expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
         "telegram",
-        expect.objectContaining({ title: "Telegram Integration" })
+        expect.objectContaining({ title: "Telegram Integration" }),
       );
       expect(ctx.getAgentIdentity).toHaveBeenCalled();
       expect(mockBotStart).toHaveBeenCalled();
@@ -271,9 +269,7 @@ describe("wopr-plugin-telegram", () => {
 
       await plugin.init(ctx);
 
-      expect(mockLogWarn).toHaveBeenCalledWith(
-        expect.stringContaining("No Telegram bot token configured")
-      );
+      expect(mockLogWarn).toHaveBeenCalledWith(expect.stringContaining("No Telegram bot token configured"));
       expect(mockBotStart).not.toHaveBeenCalled();
     });
 
@@ -283,10 +279,7 @@ describe("wopr-plugin-telegram", () => {
       const ctx = makeContext();
       await plugin.init(ctx);
 
-      expect(mockLogError).toHaveBeenCalledWith(
-        "Failed to start Telegram bot:",
-        expect.any(Error)
-      );
+      expect(mockLogError).toHaveBeenCalledWith("Failed to start Telegram bot:", expect.any(Error));
     });
 
     it("should use TELEGRAM_BOT_TOKEN env var as fallback", async () => {
@@ -314,7 +307,7 @@ describe("wopr-plugin-telegram", () => {
 
       expect(mockLogWarn).toHaveBeenCalledWith(
         "Failed to refresh identity:",
-        expect.stringContaining("identity error")
+        expect.stringContaining("identity error"),
       );
     });
 
@@ -371,9 +364,7 @@ describe("wopr-plugin-telegram", () => {
       await plugin.init(ctx);
 
       // Extract the message handler registered via bot.on("message", handler)
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       expect(onCall).toBeDefined();
       messageHandler = onCall![1];
     });
@@ -427,7 +418,7 @@ describe("wopr-plugin-telegram", () => {
       expect(mockSendMessage).toHaveBeenCalledWith(
         12345,
         "bot response",
-        expect.objectContaining({ parse_mode: "HTML" })
+        expect.objectContaining({ parse_mode: "HTML" }),
       );
     });
 
@@ -443,9 +434,7 @@ describe("wopr-plugin-telegram", () => {
       });
       await freshPlugin.init(woprCtx);
 
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       const handler = onCall![1];
 
       const grammyCtx = makeGrammyCtx();
@@ -544,9 +533,7 @@ describe("wopr-plugin-telegram", () => {
       });
       await freshPlugin.init(woprCtx);
 
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       const handler = onCall![1];
 
       const grammyCtx = makeGrammyCtx({
@@ -566,7 +553,7 @@ describe("wopr-plugin-telegram", () => {
       expect(woprCtx.inject).toHaveBeenCalledWith(
         "telegram-group:-100123",
         expect.stringContaining("hello there"),
-        expect.any(Object)
+        expect.any(Object),
       );
 
       await freshPlugin.shutdown();
@@ -590,7 +577,7 @@ describe("wopr-plugin-telegram", () => {
 
     function makeGrammyCtxForPolicy(
       chatOverrides: Record<string, any> = {},
-      fromOverrides: Record<string, any> = {}
+      fromOverrides: Record<string, any> = {},
     ): any {
       return {
         message: {
@@ -618,9 +605,7 @@ describe("wopr-plugin-telegram", () => {
       });
       await freshPlugin.init(ctx);
 
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       messageHandler = onCall![1];
       return freshPlugin;
     }
@@ -706,9 +691,7 @@ describe("wopr-plugin-telegram", () => {
 
     it("should block group messages with disabled group policy", async () => {
       const p = await initWithConfig({ groupPolicy: "disabled" });
-      const grammyCtx = makeGrammyCtxForPolicy(
-        { id: -100123, type: "group", title: "Test" },
-      );
+      const grammyCtx = makeGrammyCtxForPolicy({ id: -100123, type: "group", title: "Test" });
       // Need mention for group
       grammyCtx.message.text = "@testbot hello";
       await messageHandler(grammyCtx);
@@ -718,9 +701,7 @@ describe("wopr-plugin-telegram", () => {
 
     it("should allow all group messages with open group policy", async () => {
       const p = await initWithConfig({ groupPolicy: "open" });
-      const grammyCtx = makeGrammyCtxForPolicy(
-        { id: -100123, type: "group", title: "Test" },
-      );
+      const grammyCtx = makeGrammyCtxForPolicy({ id: -100123, type: "group", title: "Test" });
       grammyCtx.message.text = "@testbot hello";
       await messageHandler(grammyCtx);
       expect(mockSendMessage).toHaveBeenCalled();
@@ -732,9 +713,7 @@ describe("wopr-plugin-telegram", () => {
         groupPolicy: "allowlist",
         groupAllowFrom: ["12345"],
       });
-      const grammyCtx = makeGrammyCtxForPolicy(
-        { id: -100123, type: "group", title: "Test" },
-      );
+      const grammyCtx = makeGrammyCtxForPolicy({ id: -100123, type: "group", title: "Test" });
       grammyCtx.message.text = "@testbot hello";
       await messageHandler(grammyCtx);
       expect(mockSendMessage).toHaveBeenCalled();
@@ -746,9 +725,7 @@ describe("wopr-plugin-telegram", () => {
         groupPolicy: "allowlist",
         allowFrom: ["12345"],
       });
-      const grammyCtx = makeGrammyCtxForPolicy(
-        { id: -100123, type: "group", title: "Test" },
-      );
+      const grammyCtx = makeGrammyCtxForPolicy({ id: -100123, type: "group", title: "Test" });
       grammyCtx.message.text = "@testbot hello";
       await messageHandler(grammyCtx);
       expect(mockSendMessage).toHaveBeenCalled();
@@ -768,9 +745,7 @@ describe("wopr-plugin-telegram", () => {
       woprCtx = makeContext();
       await plugin.init(woprCtx);
 
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       messageHandler = onCall![1];
     });
 
@@ -809,9 +784,7 @@ describe("wopr-plugin-telegram", () => {
 
       const calls = mockSendMessage.mock.calls;
       // First call should have reply_to_message_id
-      expect(calls[0][2]).toEqual(
-        expect.objectContaining({ reply_to_message_id: 42 })
-      );
+      expect(calls[0][2]).toEqual(expect.objectContaining({ reply_to_message_id: 42 }));
       // Second call should not
       if (calls.length > 1) {
         expect(calls[1][2].reply_to_message_id).toBeUndefined();
@@ -832,7 +805,7 @@ describe("wopr-plugin-telegram", () => {
       expect(mockSendMessage).toHaveBeenCalledWith(
         12345,
         "bot response",
-        expect.objectContaining({ parse_mode: "HTML" })
+        expect.objectContaining({ parse_mode: "HTML" }),
       );
     });
 
@@ -851,10 +824,7 @@ describe("wopr-plugin-telegram", () => {
       // but the messageHandler itself will throw
       await messageHandler(grammyCtx);
 
-      expect(mockLogError).toHaveBeenCalledWith(
-        "Failed to send Telegram message:",
-        expect.any(Error)
-      );
+      expect(mockLogError).toHaveBeenCalledWith("Failed to send Telegram message:", expect.any(Error));
     });
   });
 
@@ -875,9 +845,7 @@ describe("wopr-plugin-telegram", () => {
       });
       await plugin.init(woprCtx);
 
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       messageHandler = onCall![1];
     });
 
@@ -900,7 +868,7 @@ describe("wopr-plugin-telegram", () => {
             type: "telegram",
             id: "dm:12345",
           }),
-        })
+        }),
       );
     });
 
@@ -930,7 +898,7 @@ describe("wopr-plugin-telegram", () => {
             id: "group:-100123",
             name: "Test Group",
           }),
-        })
+        }),
       );
     });
 
@@ -945,11 +913,7 @@ describe("wopr-plugin-telegram", () => {
 
       await messageHandler(grammyCtx);
 
-      expect(woprCtx.inject).toHaveBeenCalledWith(
-        "telegram-dm:12345",
-        "[Alice]: Hello",
-        expect.any(Object)
-      );
+      expect(woprCtx.inject).toHaveBeenCalledWith("telegram-dm:12345", "[Alice]: Hello", expect.any(Object));
     });
 
     it("should fall back to username when first_name is missing", async () => {
@@ -966,7 +930,7 @@ describe("wopr-plugin-telegram", () => {
       expect(woprCtx.inject).toHaveBeenCalledWith(
         "telegram-dm:12345",
         expect.stringContaining("[bob42]"),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });
@@ -985,7 +949,7 @@ describe("wopr-plugin-telegram", () => {
       expect(STANDARD_REACTIONS.has("\u{1F44D}")).toBe(true); // thumbs up
       expect(STANDARD_REACTIONS.has("\u{1F525}")).toBe(true); // fire
       expect(STANDARD_REACTIONS.has("\u{1F440}")).toBe(true); // eyes
-      expect(STANDARD_REACTIONS.has("\u{2764}")).toBe(true);  // heart
+      expect(STANDARD_REACTIONS.has("\u{2764}")).toBe(true); // heart
     });
 
     it("should not include non-standard emoji in STANDARD_REACTIONS", () => {
@@ -1020,9 +984,7 @@ describe("wopr-plugin-telegram", () => {
       });
       await freshPlugin.init(woprCtx);
 
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       const handler = onCall![1];
 
       const grammyCtx = {
@@ -1053,9 +1015,7 @@ describe("wopr-plugin-telegram", () => {
       });
       await freshPlugin.init(woprCtx);
 
-      const onCall = mockBotOn.mock.calls.find(
-        (call: any[]) => call[0] === "message"
-      );
+      const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "message");
       const handler = onCall![1];
 
       const grammyCtx = {
@@ -1113,9 +1073,7 @@ describe("wopr-plugin-telegram", () => {
 
       await plugin.init(ctx);
 
-      expect(mockLogWarn).toHaveBeenCalledWith(
-        expect.stringContaining("No Telegram bot token configured")
-      );
+      expect(mockLogWarn).toHaveBeenCalledWith(expect.stringContaining("No Telegram bot token configured"));
       expect(mockBotStart).not.toHaveBeenCalled();
     });
 

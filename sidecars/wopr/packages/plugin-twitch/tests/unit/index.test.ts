@@ -109,9 +109,7 @@ describe("wopr-plugin-twitch lifecycle", () => {
     await plugin.init(ctx as never);
 
     expect(ctx.registerConfigSchema).toHaveBeenCalledWith("wopr-plugin-twitch", expect.any(Object));
-    expect(ctx.registerChannelProvider).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "twitch" }),
-    );
+    expect(ctx.registerChannelProvider).toHaveBeenCalledWith(expect.objectContaining({ id: "twitch" }));
   });
 
   it("init warns and returns early when not configured", async () => {

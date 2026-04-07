@@ -36,7 +36,9 @@ function createMockContext(configOverride: Record<string, unknown> = {}) {
     registerUiComponent: vi.fn(),
     registerConfigSchema: vi.fn(),
     unregisterConfigSchema: vi.fn(),
-    registerA2AServer: vi.fn((config: any) => { registeredA2AServer = config; }),
+    registerA2AServer: vi.fn((config: any) => {
+      registeredA2AServer = config;
+    }),
     unregisterExtension: vi.fn(),
   };
 
@@ -65,10 +67,7 @@ describe("matchesRoute (exported)", () => {
 
   it("should return false when channelType does not match", () => {
     expect(
-      matchesRoute(
-        { channelType: "discord" },
-        { session: "a", channel: { type: "slack", id: "1" }, message: "m" },
-      ),
+      matchesRoute({ channelType: "discord" }, { session: "a", channel: { type: "slack", id: "1" }, message: "m" }),
     ).toBe(false);
   });
 
@@ -78,10 +77,7 @@ describe("matchesRoute (exported)", () => {
 
   it("should return false when channelId does not match", () => {
     expect(
-      matchesRoute(
-        { channelId: "ch1" },
-        { session: "a", channel: { type: "discord", id: "ch2" }, message: "m" },
-      ),
+      matchesRoute({ channelId: "ch1" }, { session: "a", channel: { type: "discord", id: "ch2" }, message: "m" }),
     ).toBe(false);
   });
 
@@ -178,9 +174,7 @@ describe("router plugin", () => {
       await new Promise((r) => setTimeout(r, 50));
 
       await plugin.shutdown();
-      expect(ctx.log.info).toHaveBeenCalledWith(
-        expect.stringContaining("shutting down")
-      );
+      expect(ctx.log.info).toHaveBeenCalledWith(expect.stringContaining("shutting down"));
     });
 
     it("should handle shutdown when server is already null", async () => {
@@ -192,9 +186,7 @@ describe("router plugin", () => {
   describe("onIncoming middleware", () => {
     it("should pass through message when no routes match", async () => {
       const { ctx, getRegisteredMiddleware } = createMockContext({
-        routes: [
-          { sourceSession: "other-session", targetSessions: ["target1"] },
-        ],
+        routes: [{ sourceSession: "other-session", targetSessions: ["target1"] }],
       });
       await plugin.init(ctx);
       const mw = getRegisteredMiddleware()!;
@@ -647,13 +639,13 @@ describe("router plugin", () => {
     });
 
     it("should log error and increment errors when channel send throws", async () => {
-      const failSend = vi.fn(async () => { throw new Error("send failed"); });
+      const failSend = vi.fn(async () => {
+        throw new Error("send failed");
+      });
       const { ctx, getRegisteredMiddleware } = createMockContext({
         outgoingRoutes: [{ sourceSession: "session-a" }],
       });
-      ctx.getChannelsForSession.mockReturnValue([
-        { channel: { type: "discord", id: "ch1" }, send: failSend },
-      ]);
+      ctx.getChannelsForSession.mockReturnValue([{ channel: { type: "discord", id: "ch1" }, send: failSend }]);
       await plugin.init(ctx);
       const mw = getRegisteredMiddleware()!;
 

@@ -125,9 +125,7 @@ describe("handleBeforeInject", () => {
 
     await handleBeforeInject(state as any, log, { message: "test query" });
 
-    expect(log.error).toHaveBeenCalledWith(
-      expect.stringContaining("embedding timeout"),
-    );
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("embedding timeout"));
   });
 });
 
@@ -172,7 +170,7 @@ describe("handleAfterInject", () => {
     const log = makeLog();
     const payload = {
       session: "my-session",
-      message: "short",  // < 10 chars trimmed, should be skipped
+      message: "short", // < 10 chars trimmed, should be skipped
       response: "This is a sufficiently long response for indexing",
     };
 
@@ -227,7 +225,10 @@ describe("handleAfterInject", () => {
     };
     const queue = makeQueue();
     vi.mocked(multiScaleChunk).mockReturnValue([
-      { entry: { id: "chunk-1", path: "p", startLine: 0, endLine: 0, source: "ms", snippet: "s", content: "c" }, text: "chunk text" },
+      {
+        entry: { id: "chunk-1", path: "p", startLine: 0, endLine: 0, source: "ms", snippet: "s", content: "c" },
+        text: "chunk text",
+      },
     ] as any);
 
     const payload = {
@@ -247,7 +248,12 @@ describe("handleAfterInject", () => {
     state.config.autoCapture.enabled = true;
     const queue = makeQueue();
     vi.mocked(extractFromConversation).mockReturnValue([
-      { text: "Remember: project uses TypeScript", category: "preference" as any, confidence: 0.9, trigger: "remember" },
+      {
+        text: "Remember: project uses TypeScript",
+        category: "preference" as any,
+        confidence: 0.9,
+        trigger: "remember",
+      },
     ] as any);
 
     const payload = {
@@ -259,9 +265,7 @@ describe("handleAfterInject", () => {
     await handleAfterInject(state as any, makeLog(), queue as any, payload);
 
     // Should have calls for realtime indexing + capture
-    const captureCall = queue.enqueue.mock.calls.find(
-      ([, src]: [any, string]) => src.startsWith("auto-capture"),
-    );
+    const captureCall = queue.enqueue.mock.calls.find(([, src]: [any, string]) => src.startsWith("auto-capture"));
     expect(captureCall).toBeDefined();
     expect(captureCall![0][0].entry.source).toBe("auto-capture");
     expect(captureCall![0][0].entry.id).toMatch(/^cap-/);
@@ -287,7 +291,9 @@ describe("handleAfterInject", () => {
     const log = makeLog();
     const queue = makeQueue();
     // Force contentHash to throw
-    vi.mocked(contentHash).mockImplementation(() => { throw new Error("hash boom"); });
+    vi.mocked(contentHash).mockImplementation(() => {
+      throw new Error("hash boom");
+    });
 
     const payload = {
       session: "err-sess",
@@ -297,9 +303,7 @@ describe("handleAfterInject", () => {
 
     await handleAfterInject(state as any, log, queue as any, payload);
 
-    expect(log.error).toHaveBeenCalledWith(
-      expect.stringContaining("hash boom"),
-    );
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("hash boom"));
 
     // Restore normal mock
     vi.mocked(contentHash).mockImplementation((s: string) => `hash-${s.slice(0, 10)}`);

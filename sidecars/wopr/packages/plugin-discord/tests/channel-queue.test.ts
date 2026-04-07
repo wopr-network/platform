@@ -45,8 +45,12 @@ vi.mock("discord.js", () => {
     Partials: { Channel: 0, Message: 1 },
     ChannelType: { GuildText: 0, DM: 1, PublicThread: 11, GuildCategory: 4 },
     SlashCommandBuilder: class MockSlashCommandBuilder {
-      setName() { return this; }
-      setDescription() { return this; }
+      setName() {
+        return this;
+      }
+      setDescription() {
+        return this;
+      }
       addStringOption(fn: Function) {
         const opt: Record<string, any> = {};
         opt.setName = () => opt;
@@ -65,11 +69,17 @@ vi.mock("discord.js", () => {
         fn(opt);
         return this;
       }
-      toJSON() { return {}; }
+      toJSON() {
+        return {};
+      }
     },
     REST: class MockREST {
-      setToken() { return this; }
-      put() { return Promise.resolve(undefined); }
+      setToken() {
+        return this;
+      }
+      put() {
+        return Promise.resolve(undefined);
+      }
     },
     Routes: {
       applicationCommands: vi.fn().mockReturnValue("/commands"),
@@ -124,10 +134,7 @@ vi.mock("node:stream/promises", () => ({
  * Helper: initialize the plugin, capturing the event handlers registered on the mock client.
  * Returns the messageCreate and typingStart handlers.
  */
-async function setupPlugin(options: {
-  injectDelay?: number;
-  injectResponse?: string;
-} = {}) {
+async function setupPlugin(options: { injectDelay?: number; injectResponse?: string } = {}) {
   const mockClient = createMockClient();
 
   // The plugin creates its own Client via new Client().

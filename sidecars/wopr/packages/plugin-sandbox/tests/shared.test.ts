@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  slugifySessionKey,
-  resolveSandboxWorkspaceDir,
-  resolveSandboxScopeKey,
-} from "../src/shared.js";
+import { slugifySessionKey, resolveSandboxWorkspaceDir, resolveSandboxScopeKey } from "../src/shared.js";
 import path from "node:path";
 
 describe("shared", () => {
@@ -78,15 +74,11 @@ describe("shared", () => {
     });
 
     it("returns session key for session scope", () => {
-      expect(resolveSandboxScopeKey("session", "my-session")).toBe(
-        "my-session"
-      );
+      expect(resolveSandboxScopeKey("session", "my-session")).toBe("my-session");
     });
 
     it("trims whitespace from session key", () => {
-      expect(resolveSandboxScopeKey("session", "  my-session  ")).toBe(
-        "my-session"
-      );
+      expect(resolveSandboxScopeKey("session", "  my-session  ")).toBe("my-session");
     });
 
     it("falls back to 'main' for empty session key", () => {

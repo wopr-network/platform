@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "description": "Shared semantic-release config for wopr-network plugins",
   "main": "index.js",
-  "files": ["index.js"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "index.js"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.0",

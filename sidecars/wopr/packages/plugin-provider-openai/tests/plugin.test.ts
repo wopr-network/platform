@@ -61,8 +61,7 @@ describe("plugin registration", () => {
     await plugin.init!(ctx);
 
     expect(ctx.registerProvider).toHaveBeenCalledTimes(1);
-    const provider = (ctx.registerProvider as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
+    const provider = (ctx.registerProvider as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(provider.id).toBe("openai");
     expect(provider.name).toBe("OpenAI");
     expect(typeof provider.validateCredentials).toBe("function");
@@ -77,7 +76,7 @@ describe("plugin registration", () => {
     expect(ctx.registerConfigSchema).toHaveBeenCalledTimes(1);
     expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
       "provider-openai",
-      expect.objectContaining({ title: "OpenAI" })
+      expect.objectContaining({ title: "OpenAI" }),
     );
   });
 
@@ -85,9 +84,7 @@ describe("plugin registration", () => {
     const ctx = createMockContext();
     await plugin.init!(ctx);
 
-    expect(ctx.log.info).toHaveBeenCalledWith(
-      "Registering OpenAI provider..."
-    );
+    expect(ctx.log.info).toHaveBeenCalledWith("Registering OpenAI provider...");
     expect(ctx.log.info).toHaveBeenCalledWith("OpenAI provider registered");
   });
 
@@ -106,8 +103,7 @@ describe("config schema", () => {
   beforeEach(async () => {
     const ctx = createMockContext();
     await plugin.init!(ctx);
-    schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock
-      .calls[0][1];
+    schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock.calls[0][1];
   });
 
   it("has title and description", () => {
@@ -171,8 +167,7 @@ describe("message translation", () => {
 
     const ctx = createMockContext();
     await plugin.init!(ctx);
-    provider = (ctx.registerProvider as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
+    provider = (ctx.registerProvider as ReturnType<typeof vi.fn>).mock.calls[0][0];
   });
 
   describe("provider metadata", () => {
@@ -194,11 +189,7 @@ describe("message translation", () => {
     it("getAuthMethods returns oauth, env, and api-key options", () => {
       const methods = provider.getAuthMethods();
       expect(methods).toHaveLength(3);
-      expect(methods.map((m: any) => m.id)).toEqual([
-        "oauth",
-        "env",
-        "api-key",
-      ]);
+      expect(methods.map((m: any) => m.id)).toEqual(["oauth", "env", "api-key"]);
       // api-key is always available (manual entry)
       const apiKeyMethod = methods.find((m: any) => m.id === "api-key");
       expect(apiKeyMethod.available).toBe(true);
@@ -298,9 +289,7 @@ describe("message translation", () => {
       expect(events[3]).toEqual({
         type: "assistant",
         message: {
-          content: [
-            { type: "tool_use", name: "bash", input: { command: "echo hello" } },
-          ],
+          content: [{ type: "tool_use", name: "bash", input: { command: "echo hello" } }],
         },
       });
       expect(events[4]).toEqual({
@@ -337,9 +326,7 @@ describe("message translation", () => {
         events.push(event);
       }
 
-      const errorEvent = events.find(
-        (e) => e.type === "result" && e.subtype === "error"
-      );
+      const errorEvent = events.find((e) => e.type === "result" && e.subtype === "error");
       expect(errorEvent).toBeDefined();
       expect(errorEvent.errors[0].message).toBe("Rate limit exceeded");
     });
@@ -381,25 +368,17 @@ describe("message translation", () => {
       }
 
       // Reasoning event
-      const reasoning = events.find(
-        (e) => e.type === "system" && e.subtype === "reasoning"
-      );
+      const reasoning = events.find((e) => e.type === "system" && e.subtype === "reasoning");
       expect(reasoning).toBeDefined();
       expect(reasoning.content).toBe("Thinking about the problem...");
 
       // File change event
-      const fileChange = events.find(
-        (e) =>
-          e.type === "assistant" &&
-          e.message?.content?.[0]?.name === "file_change"
-      );
+      const fileChange = events.find((e) => e.type === "assistant" && e.message?.content?.[0]?.name === "file_change");
       expect(fileChange).toBeDefined();
 
       // MCP tool call event
       const mcpCall = events.find(
-        (e) =>
-          e.type === "assistant" &&
-          e.message?.content?.[0]?.name === "mcp__myserver__mytool"
+        (e) => e.type === "assistant" && e.message?.content?.[0]?.name === "mcp__myserver__mytool",
       );
       expect(mcpCall).toBeDefined();
     });
@@ -557,8 +536,7 @@ describe("hosted mode", () => {
 
     const ctx = createMockContext();
     await plugin.init!(ctx);
-    provider = (ctx.registerProvider as ReturnType<typeof vi.fn>).mock
-      .calls[0][0];
+    provider = (ctx.registerProvider as ReturnType<typeof vi.fn>).mock.calls[0][0];
   });
 
   it("passes baseUrl and tenantToken to Codex SDK in hosted mode", async () => {
@@ -586,9 +564,7 @@ describe("hosted mode", () => {
 
     // Codex SDK should receive baseUrl and tenantToken as apiKey
     expect(lastCodexConstructorArgs).toBeDefined();
-    expect(lastCodexConstructorArgs.baseUrl).toBe(
-      "https://api.wopr.bot/v1/openai"
-    );
+    expect(lastCodexConstructorArgs.baseUrl).toBe("https://api.wopr.bot/v1/openai");
     expect(lastCodexConstructorArgs.apiKey).toBe("wopr_tenant_abc");
   });
 
@@ -642,9 +618,7 @@ describe("hosted mode", () => {
     }
 
     expect(lastCodexConstructorArgs).toBeDefined();
-    expect(lastCodexConstructorArgs.baseUrl).toBe(
-      "https://api.wopr.bot/v1/openai"
-    );
+    expect(lastCodexConstructorArgs.baseUrl).toBe("https://api.wopr.bot/v1/openai");
     expect(lastCodexConstructorArgs.apiKey).toBe("sk-test-key-123");
   });
 
@@ -652,17 +626,14 @@ describe("hosted mode", () => {
     const ctx = createMockContext();
     await plugin.init!(ctx);
 
-    const schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock
-      .calls[0][1] as ConfigSchema;
+    const schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock.calls[0][1] as ConfigSchema;
 
     const baseUrlField = schema.fields.find((f) => f.name === "baseUrl");
     expect(baseUrlField).toBeDefined();
     expect(baseUrlField!.type).toBe("text");
     expect(baseUrlField!.required).toBe(false);
 
-    const tenantTokenField = schema.fields.find(
-      (f) => f.name === "tenantToken"
-    );
+    const tenantTokenField = schema.fields.find((f) => f.name === "tenantToken");
     expect(tenantTokenField).toBeDefined();
     expect(tenantTokenField!.type).toBe("password");
     expect(tenantTokenField!.required).toBe(false);
@@ -699,8 +670,7 @@ describe("realtime-voice capability", () => {
   it("config schema includes enableRealtime checkbox field", async () => {
     const ctx = createMockContext();
     await plugin.init!(ctx);
-    const schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock
-      .calls[0][1];
+    const schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock.calls[0][1];
     const field = schema.fields.find((f: any) => f.name === "enableRealtime");
     expect(field).toBeDefined();
     expect(field!.type).toBe("checkbox");
@@ -710,8 +680,7 @@ describe("realtime-voice capability", () => {
   it("config schema includes realtimeVoice select field", async () => {
     const ctx = createMockContext();
     await plugin.init!(ctx);
-    const schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock
-      .calls[0][1];
+    const schema = (ctx.registerConfigSchema as ReturnType<typeof vi.fn>).mock.calls[0][1];
     const field = schema.fields.find((f: any) => f.name === "realtimeVoice");
     expect(field).toBeDefined();
     expect(field!.type).toBe("select");

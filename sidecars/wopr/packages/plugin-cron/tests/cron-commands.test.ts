@@ -55,9 +55,7 @@ describe("cronCommandHandler", () => {
   });
 
   it("should handle 'list' with crons", async () => {
-    mocks.getCrons.mockResolvedValue([
-      { name: "myjob", schedule: "* * * * *", session: "sess1", message: "hello" },
-    ]);
+    mocks.getCrons.mockResolvedValue([{ name: "myjob", schedule: "* * * * *", session: "sess1", message: "hello" }]);
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     await cronCommandHandler(mockCtx, ["list"]);
     expect(logSpy).toHaveBeenCalledWith("Crons:");

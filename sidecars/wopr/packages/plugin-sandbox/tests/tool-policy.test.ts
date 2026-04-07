@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  isToolAllowed,
-  resolveSandboxToolPolicy,
-  filterToolsByPolicy,
-} from "../src/tool-policy.js";
+import { isToolAllowed, resolveSandboxToolPolicy, filterToolsByPolicy } from "../src/tool-policy.js";
 import { DEFAULT_TOOL_ALLOW, DEFAULT_TOOL_DENY } from "../src/constants.js";
 
 describe("tool-policy", () => {
@@ -13,51 +9,32 @@ describe("tool-policy", () => {
     });
 
     it("denies a tool that matches deny list", () => {
-      expect(
-        isToolAllowed({ deny: ["http_fetch"] }, "http_fetch")
-      ).toBe(false);
+      expect(isToolAllowed({ deny: ["http_fetch"] }, "http_fetch")).toBe(false);
     });
 
     it("allows a tool not in deny list", () => {
-      expect(
-        isToolAllowed({ deny: ["http_fetch"] }, "exec_command")
-      ).toBe(true);
+      expect(isToolAllowed({ deny: ["http_fetch"] }, "exec_command")).toBe(true);
     });
 
     it("deny takes precedence over allow", () => {
-      expect(
-        isToolAllowed(
-          { allow: ["http_fetch"], deny: ["http_fetch"] },
-          "http_fetch"
-        )
-      ).toBe(false);
+      expect(isToolAllowed({ allow: ["http_fetch"], deny: ["http_fetch"] }, "http_fetch")).toBe(false);
     });
 
     it("allows a tool matching allow list", () => {
-      expect(
-        isToolAllowed({ allow: ["exec_command"] }, "exec_command")
-      ).toBe(true);
+      expect(isToolAllowed({ allow: ["exec_command"] }, "exec_command")).toBe(true);
     });
 
     it("denies a tool not in allow list when allow list is non-empty", () => {
-      expect(
-        isToolAllowed({ allow: ["exec_command"] }, "http_fetch")
-      ).toBe(false);
+      expect(isToolAllowed({ allow: ["exec_command"] }, "http_fetch")).toBe(false);
     });
 
     it("is case-insensitive", () => {
-      expect(
-        isToolAllowed({ allow: ["exec_command"] }, "EXEC_COMMAND")
-      ).toBe(true);
-      expect(
-        isToolAllowed({ deny: ["HTTP_FETCH"] }, "http_fetch")
-      ).toBe(false);
+      expect(isToolAllowed({ allow: ["exec_command"] }, "EXEC_COMMAND")).toBe(true);
+      expect(isToolAllowed({ deny: ["HTTP_FETCH"] }, "http_fetch")).toBe(false);
     });
 
     it("trims whitespace from tool name", () => {
-      expect(
-        isToolAllowed({ allow: ["exec_command"] }, "  exec_command  ")
-      ).toBe(true);
+      expect(isToolAllowed({ allow: ["exec_command"] }, "  exec_command  ")).toBe(true);
     });
 
     // Glob/wildcard patterns
@@ -70,43 +47,25 @@ describe("tool-policy", () => {
     });
 
     it("supports prefix glob patterns", () => {
-      expect(
-        isToolAllowed({ allow: ["memory_*"] }, "memory_read")
-      ).toBe(true);
-      expect(
-        isToolAllowed({ allow: ["memory_*"] }, "memory_write")
-      ).toBe(true);
-      expect(
-        isToolAllowed({ allow: ["memory_*"] }, "exec_command")
-      ).toBe(false);
+      expect(isToolAllowed({ allow: ["memory_*"] }, "memory_read")).toBe(true);
+      expect(isToolAllowed({ allow: ["memory_*"] }, "memory_write")).toBe(true);
+      expect(isToolAllowed({ allow: ["memory_*"] }, "exec_command")).toBe(false);
     });
 
     it("supports suffix glob patterns", () => {
-      expect(
-        isToolAllowed({ deny: ["*_fetch"] }, "http_fetch")
-      ).toBe(false);
-      expect(
-        isToolAllowed({ deny: ["*_fetch"] }, "data_fetch")
-      ).toBe(false);
-      expect(
-        isToolAllowed({ deny: ["*_fetch"] }, "exec_command")
-      ).toBe(true);
+      expect(isToolAllowed({ deny: ["*_fetch"] }, "http_fetch")).toBe(false);
+      expect(isToolAllowed({ deny: ["*_fetch"] }, "data_fetch")).toBe(false);
+      expect(isToolAllowed({ deny: ["*_fetch"] }, "exec_command")).toBe(true);
     });
 
     it("supports middle glob patterns", () => {
-      expect(
-        isToolAllowed({ allow: ["session*list"] }, "sessions_list")
-      ).toBe(true);
-      expect(
-        isToolAllowed({ allow: ["session*list"] }, "session_some_list")
-      ).toBe(true);
+      expect(isToolAllowed({ allow: ["session*list"] }, "sessions_list")).toBe(true);
+      expect(isToolAllowed({ allow: ["session*list"] }, "session_some_list")).toBe(true);
     });
 
     it("handles empty patterns in array gracefully", () => {
       // Empty string patterns get filtered out
-      expect(isToolAllowed({ allow: ["", "exec_command"] }, "exec_command")).toBe(
-        true
-      );
+      expect(isToolAllowed({ allow: ["", "exec_command"] }, "exec_command")).toBe(true);
     });
 
     it("handles non-array allow/deny gracefully", () => {
@@ -182,10 +141,10 @@ describe("tool-policy", () => {
 
   describe("filterToolsByPolicy", () => {
     it("separates tools into allowed and denied", () => {
-      const result = filterToolsByPolicy(
-        ["exec_command", "http_fetch", "read", "config_set"],
-        { allow: ["exec_command", "read"], deny: ["config_set"] }
-      );
+      const result = filterToolsByPolicy(["exec_command", "http_fetch", "read", "config_set"], {
+        allow: ["exec_command", "read"],
+        deny: ["config_set"],
+      });
       expect(result.allowed).toEqual(["exec_command", "read"]);
       expect(result.denied).toEqual(["http_fetch", "config_set"]);
     });
@@ -209,15 +168,10 @@ describe("tool-policy", () => {
     });
 
     it("works with glob patterns", () => {
-      const result = filterToolsByPolicy(
-        ["memory_read", "memory_write", "exec_command", "http_fetch"],
-        { allow: ["memory_*", "exec_command"] }
-      );
-      expect(result.allowed).toEqual([
-        "memory_read",
-        "memory_write",
-        "exec_command",
-      ]);
+      const result = filterToolsByPolicy(["memory_read", "memory_write", "exec_command", "http_fetch"], {
+        allow: ["memory_*", "exec_command"],
+      });
+      expect(result.allowed).toEqual(["memory_read", "memory_write", "exec_command"]);
       expect(result.denied).toEqual(["http_fetch"]);
     });
   });

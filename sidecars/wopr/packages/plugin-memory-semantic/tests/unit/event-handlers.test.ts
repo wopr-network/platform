@@ -130,9 +130,7 @@ describe("handleFilesChanged", () => {
           action: "update",
           absPath: "/abs/foo.ts",
           source: "git",
-          chunks: [
-            { id: "chunk-1", text: "This is a valid chunk with enough text", startLine: 1, endLine: 5 },
-          ],
+          chunks: [{ id: "chunk-1", text: "This is a valid chunk with enough text", startLine: 1, endLine: 5 }],
         },
       ],
     };
@@ -184,9 +182,7 @@ describe("handleFilesChanged", () => {
           action: "update",
           absPath: "/abs/e.ts",
           source: "editor",
-          chunks: [
-            { id: "valid-2", text: "Another chunk that is long enough to pass", startLine: 0, endLine: 3 },
-          ],
+          chunks: [{ id: "valid-2", text: "Another chunk that is long enough to pass", startLine: 0, endLine: 3 }],
         },
       ],
     });
@@ -236,7 +232,10 @@ describe("handleFilesChanged", () => {
     (state.config as any).chunking.multiScale = { enabled: true, scales: [{ tokens: 100, overlap: 20 }] };
     const queue = makeQueue();
     vi.mocked(multiScaleChunk).mockReturnValue([
-      { entry: { id: "ms-1", path: "p", startLine: 0, endLine: 0, source: "ms", snippet: "s", content: "c" }, text: "ms chunk" },
+      {
+        entry: { id: "ms-1", path: "p", startLine: 0, endLine: 0, source: "ms", snippet: "s", content: "c" },
+        text: "ms chunk",
+      },
     ] as any);
 
     await handleFilesChanged(state as any, makeLog(), queue as any, {

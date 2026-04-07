@@ -152,17 +152,18 @@ describe("IRC Plugin", () => {
   it("registers config schema on init", async () => {
     const ctx = createMockContext();
     await plugin.init!(ctx as never);
-    expect(ctx.registerConfigSchema).toHaveBeenCalledWith("wopr-plugin-irc", expect.objectContaining({
-      title: "IRC Integration",
-    }));
+    expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
+      "wopr-plugin-irc",
+      expect.objectContaining({
+        title: "IRC Integration",
+      }),
+    );
   });
 
   it("registers channel provider on init", async () => {
     const ctx = createMockContext();
     await plugin.init!(ctx as never);
-    expect(ctx.registerChannelProvider).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "irc" }),
-    );
+    expect(ctx.registerChannelProvider).toHaveBeenCalledWith(expect.objectContaining({ id: "irc" }));
   });
 
   it("does not connect when config is missing required fields", async () => {

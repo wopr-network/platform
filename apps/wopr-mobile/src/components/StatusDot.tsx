@@ -8,11 +8,7 @@ const COLORS: Record<string, string> = {
 };
 
 export function StatusDot({ status }: { status: string }) {
-  return (
-    <View
-      style={[styles.dot, { backgroundColor: COLORS[status] ?? "#6b7280" }]}
-    />
-  );
+  return <View style={[styles.dot, { backgroundColor: COLORS[status] ?? "#6b7280" }]} />;
 }
 
 const styles = StyleSheet.create({

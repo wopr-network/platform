@@ -55,7 +55,14 @@ import { setLogger } from "../src/logger.js";
 import { initSkillsStorage, resetSkillsStorageInit, setPluginContext } from "../src/skills-repository.js";
 import { migrateSkillsToSQL } from "../src/skills-migrate.js";
 import { createSkillsRouter } from "../src/routes.js";
-import { discoverSkills, formatSkillsXml, installSkillFromGitHub, installSkillFromUrl, enableSkillAsync, disableSkillAsync } from "../src/skills.js";
+import {
+  discoverSkills,
+  formatSkillsXml,
+  installSkillFromGitHub,
+  installSkillFromUrl,
+  enableSkillAsync,
+  disableSkillAsync,
+} from "../src/skills.js";
 
 function createMockCtx() {
   return {

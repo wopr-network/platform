@@ -43,8 +43,12 @@ class DiscordMessageUnit {
   get content(): string {
     return this.state.status === "finalized" ? "" : this.state.content;
   }
-  get isFinalized(): boolean { return this.state.status === "finalized"; }
-  get overflow(): string { return this._overflow; }
+  get isFinalized(): boolean {
+    return this.state.status === "finalized";
+  }
+  get overflow(): string {
+    return this._overflow;
+  }
   get discordMsg(): any | null {
     return this.state.status === "sent" ? this.state.discordMsg : null;
   }
@@ -115,14 +119,22 @@ class DiscordMessageUnit {
     if (this.state.status === "sending") {
       try {
         const discordMsg = await this.state.promise;
-        this.state = { status: "sent", content: this.state.content, discordMsg, lastEditLength: this.state.content.length };
+        this.state = {
+          status: "sent",
+          content: this.state.content,
+          discordMsg,
+          lastEditLength: this.state.content.length,
+        };
       } catch {
         this.state = { status: "finalized" };
         return;
       }
     }
     const content = this.state.content.trim();
-    if (!content) { this.state = { status: "finalized" }; return; }
+    if (!content) {
+      this.state = { status: "finalized" };
+      return;
+    }
     const prevState = this.state;
     this.state = { status: "finalized" };
     if (prevState.status === "sent") {
@@ -181,10 +193,14 @@ class DiscordMessageStream {
       await this.flushWithOverflowHandling();
 
       if (!this.finalized) {
-        try { await this.channel.sendTyping(); } catch {}
+        try {
+          await this.channel.sendTyping();
+        } catch {}
       }
-    } catch {}
-    finally { this.processing = false; }
+    } catch {
+    } finally {
+      this.processing = false;
+    }
   }
 
   private async flushWithOverflowHandling(): Promise<void> {
@@ -203,7 +219,10 @@ class DiscordMessageStream {
 
   async finalize(): Promise<void> {
     if (this.finalized) return;
-    if (this.flushTimer) { clearInterval(this.flushTimer); this.flushTimer = null; }
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
     if (this.processing) {
       let waitCount = 0;
       while (this.processing && waitCount < 100) {
@@ -222,17 +241,15 @@ class DiscordMessageStream {
     await this.currentUnit.finalize();
   }
 
-  getLastMessage(): any | null { return this.currentUnit.discordMsg; }
+  getLastMessage(): any | null {
+    return this.currentUnit.discordMsg;
+  }
 }
 
 // --------------------------------------------------------------------------
 // handleChunk function (mirrored from src/index.ts)
 // --------------------------------------------------------------------------
-function handleChunk(
-  msg: StreamMessage,
-  streamKey: string,
-  streams: Map<string, DiscordMessageStream>,
-): void {
+function handleChunk(msg: StreamMessage, streamKey: string, streams: Map<string, DiscordMessageStream>): void {
   const stream = streams.get(streamKey);
   if (!stream) return;
 
@@ -289,9 +306,9 @@ describe("StreamRegistry - Dual Maps & handleChunk", () => {
       channel,
       reply: vi.fn().mockResolvedValue(sentMsg),
     });
-    channel.send = vi.fn().mockResolvedValue(
-      createMockMessage({ id: "sent-follow-up", edit: vi.fn().mockResolvedValue(undefined) })
-    );
+    channel.send = vi
+      .fn()
+      .mockResolvedValue(createMockMessage({ id: "sent-follow-up", edit: vi.fn().mockResolvedValue(undefined) }));
     streams = new Map();
     eventBusStreams = new Map();
   });

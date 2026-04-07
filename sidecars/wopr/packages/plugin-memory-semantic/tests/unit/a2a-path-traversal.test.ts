@@ -51,31 +51,20 @@ describe("A2A tools path traversal protection", () => {
 
   describe("memory_read", () => {
     it("rejects path traversal in file parameter", async () => {
-      const result = await ctx.tools.memory_read.handler(
-        { file: "../../etc/passwd" },
-        { sessionName: "default" },
-      );
+      const result = await ctx.tools.memory_read.handler({ file: "../../etc/passwd" }, { sessionName: "default" });
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("Path outside allowed directory");
     });
 
     it("rejects absolute-path traversal in file parameter", async () => {
-      const absolutePath = process.platform === "win32"
-        ? "C:\\Windows\\system32\\drivers\\etc\\hosts"
-        : "/etc/passwd";
-      const result = await ctx.tools.memory_read.handler(
-        { file: absolutePath },
-        { sessionName: "default" },
-      );
+      const absolutePath = process.platform === "win32" ? "C:\\Windows\\system32\\drivers\\etc\\hosts" : "/etc/passwd";
+      const result = await ctx.tools.memory_read.handler({ file: absolutePath }, { sessionName: "default" });
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("Path outside allowed directory");
     });
 
     it("allows normal filenames", async () => {
-      const result = await ctx.tools.memory_read.handler(
-        { file: "safe.md" },
-        { sessionName: "default" },
-      );
+      const result = await ctx.tools.memory_read.handler({ file: "safe.md" }, { sessionName: "default" });
       expect(result.isError).toBeUndefined();
       expect(result.content[0].text).toBe("safe content");
     });
@@ -103,19 +92,13 @@ describe("A2A tools path traversal protection", () => {
 
   describe("memory_get", () => {
     it("rejects path traversal in path parameter", async () => {
-      const result = await ctx.tools.memory_get.handler(
-        { path: "../../etc/passwd" },
-        { sessionName: "default" },
-      );
+      const result = await ctx.tools.memory_get.handler({ path: "../../etc/passwd" }, { sessionName: "default" });
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("Path outside allowed directory");
     });
 
     it("allows normal paths", async () => {
-      const result = await ctx.tools.memory_get.handler(
-        { path: "memory/safe.md" },
-        { sessionName: "default" },
-      );
+      const result = await ctx.tools.memory_get.handler({ path: "memory/safe.md" }, { sessionName: "default" });
       expect(result.isError).toBeUndefined();
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.path).toBe("memory/safe.md");
@@ -131,9 +114,7 @@ describe("A2A tools path traversal protection", () => {
         // Create session dir for valid names so it doesn't fail on missing dir
         const dir = join(sessionsDir, name, "memory");
         mkdirSync(dir, { recursive: true });
-        await expect(
-          tool.handler({ file: "SELF.md" }, { sessionName: name })
-        ).resolves.toBeDefined();
+        await expect(tool.handler({ file: "SELF.md" }, { sessionName: name })).resolves.toBeDefined();
       }
     });
 
@@ -189,7 +170,17 @@ describe("A2A tools path traversal protection", () => {
 
     it("rejects names with special characters", async () => {
       const tool = ctx.tools["memory_read"];
-      for (const name of ["foo bar", "foo/bar", "foo:bar", "foo*bar", "foo?bar", "foo<bar", "foo>bar", "foo|bar", "foo\"bar"]) {
+      for (const name of [
+        "foo bar",
+        "foo/bar",
+        "foo:bar",
+        "foo*bar",
+        "foo?bar",
+        "foo<bar",
+        "foo>bar",
+        "foo|bar",
+        'foo"bar',
+      ]) {
         const result = await tool.handler({ file: "SELF.md" }, { sessionName: name });
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toContain("Invalid session name");

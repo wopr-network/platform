@@ -10,11 +10,7 @@
  * - Session override persistence (thinkingLevel, verbose, usageMode, model)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createMockClient,
-  createMockInteraction,
-  createMockTextChannel,
-} from "./mocks/discord-client.js";
+import { createMockClient, createMockInteraction, createMockTextChannel } from "./mocks/discord-client.js";
 import { createMockContext } from "./mocks/wopr-context.js";
 
 // ---------------------------------------------------------------------------
@@ -45,8 +41,12 @@ vi.mock("discord.js", () => {
     Partials: { Channel: 0, Message: 1 },
     ChannelType: { GuildText: 0, DM: 1, PublicThread: 11, GuildCategory: 4 },
     SlashCommandBuilder: class MockSlashCommandBuilder {
-      setName() { return this; }
-      setDescription() { return this; }
+      setName() {
+        return this;
+      }
+      setDescription() {
+        return this;
+      }
       addStringOption(fn: Function) {
         const opt: Record<string, any> = {};
         opt.setName = () => opt;
@@ -65,11 +65,17 @@ vi.mock("discord.js", () => {
         fn(opt);
         return this;
       }
-      toJSON() { return {}; }
+      toJSON() {
+        return {};
+      }
     },
     REST: class MockREST {
-      setToken() { return this; }
-      put() { return Promise.resolve(undefined); }
+      setToken() {
+        return this;
+      }
+      put() {
+        return Promise.resolve(undefined);
+      }
     },
     Routes: {
       applicationCommands: vi.fn().mockReturnValue("/commands"),
@@ -122,11 +128,13 @@ vi.mock("node:stream/promises", () => ({
 // ---------------------------------------------------------------------------
 // Setup helper
 // ---------------------------------------------------------------------------
-async function setupPlugin(options: {
-  injectDelay?: number;
-  injectResponse?: string;
-  providerModels?: { provider: string; id: string; name: string }[];
-} = {}) {
+async function setupPlugin(
+  options: {
+    injectDelay?: number;
+    injectResponse?: string;
+    providerModels?: { provider: string; id: string; name: string }[];
+  } = {},
+) {
   const mockClient = createMockClient();
   (globalThis as any).__testMockClient = mockClient;
 
@@ -181,7 +189,11 @@ async function setupPlugin(options: {
   };
 }
 
-function createSlashInteraction(commandName: string, optionsData: Record<string, any> = {}, overrides: Record<string, any> = {}) {
+function createSlashInteraction(
+  commandName: string,
+  optionsData: Record<string, any> = {},
+  overrides: Record<string, any> = {},
+) {
   const channel = createMockTextChannel({ id: "cmd-channel-123", name: "general" });
   return createMockInteraction({
     commandName,
@@ -369,11 +381,7 @@ describe("Slash Command System", () => {
 
       // Then inject and edit reply
       await vi.advanceTimersByTimeAsync(200);
-      expect(ctx.inject).toHaveBeenCalledWith(
-        expect.any(String),
-        "Tell me a joke",
-        expect.any(Object),
-      );
+      expect(ctx.inject).toHaveBeenCalledWith(expect.any(String), "Tell me a joke", expect.any(Object));
       expect(interaction.editReply).toHaveBeenCalled();
 
       await shutdown();
@@ -565,15 +573,19 @@ describe("Slash Command System", () => {
       });
 
       // Create interaction for the registered command
-      const interaction = createSlashInteraction("custom-cmd", {}, {
-        options: {
-          getString: vi.fn().mockReturnValue(null),
-          getBoolean: vi.fn().mockReturnValue(null),
-          getInteger: vi.fn().mockReturnValue(null),
-          getNumber: vi.fn().mockReturnValue(null),
-          data: [],
+      const interaction = createSlashInteraction(
+        "custom-cmd",
+        {},
+        {
+          options: {
+            getString: vi.fn().mockReturnValue(null),
+            getBoolean: vi.fn().mockReturnValue(null),
+            getInteger: vi.fn().mockReturnValue(null),
+            getNumber: vi.fn().mockReturnValue(null),
+            data: [],
+          },
         },
-      });
+      );
       await handleInteraction(interaction);
 
       // The handler should have been called
@@ -595,15 +607,19 @@ describe("Slash Command System", () => {
         handler: silentHandler,
       });
 
-      const interaction = createSlashInteraction("silent-cmd", {}, {
-        options: {
-          getString: vi.fn().mockReturnValue(null),
-          getBoolean: vi.fn().mockReturnValue(null),
-          getInteger: vi.fn().mockReturnValue(null),
-          getNumber: vi.fn().mockReturnValue(null),
-          data: [],
+      const interaction = createSlashInteraction(
+        "silent-cmd",
+        {},
+        {
+          options: {
+            getString: vi.fn().mockReturnValue(null),
+            getBoolean: vi.fn().mockReturnValue(null),
+            getInteger: vi.fn().mockReturnValue(null),
+            getNumber: vi.fn().mockReturnValue(null),
+            data: [],
+          },
         },
-      });
+      );
       await handleInteraction(interaction);
 
       // Should send default acknowledgment since handler didn't reply

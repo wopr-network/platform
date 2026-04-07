@@ -65,8 +65,6 @@ describe("createSessionDestroyHandler (SQL)", () => {
 
     // Should not throw
     await handler("no-api-session", "timeout");
-    expect(mockLog.warn).toHaveBeenCalledWith(
-      expect.stringContaining("ctx.session not available"),
-    );
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining("ctx.session not available"));
   });
 });

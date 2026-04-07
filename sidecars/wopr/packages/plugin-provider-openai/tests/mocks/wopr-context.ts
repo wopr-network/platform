@@ -2,12 +2,7 @@
  * Mock WOPRPluginContext for testing wopr-plugin-provider-openai.
  */
 import { vi } from "vitest";
-import type {
-  WOPRPluginContext,
-  WOPREventBus,
-  WOPRHookManager,
-  ConfigSchema,
-} from "@wopr-network/plugin-types";
+import type { WOPRPluginContext, WOPREventBus, WOPRHookManager, ConfigSchema } from "@wopr-network/plugin-types";
 
 export function createMockEventBus(): WOPREventBus {
   const handlers = new Map<string, Function[]>();
@@ -31,9 +26,7 @@ export function createMockEventBus(): WOPREventBus {
   } as unknown as WOPREventBus;
 }
 
-export function createMockContext(
-  overrides: Partial<WOPRPluginContext> = {}
-): WOPRPluginContext {
+export function createMockContext(overrides: Partial<WOPRPluginContext> = {}): WOPRPluginContext {
   const registeredProviders: unknown[] = [];
   const registeredSchemas = new Map<string, ConfigSchema>();
 
@@ -68,11 +61,9 @@ export function createMockContext(
     }),
     unregisterLLMProvider: vi.fn(),
     getProvider: vi.fn(),
-    registerConfigSchema: vi.fn(
-      (pluginId: string, schema: ConfigSchema) => {
-        registeredSchemas.set(pluginId, schema);
-      }
-    ),
+    registerConfigSchema: vi.fn((pluginId: string, schema: ConfigSchema) => {
+      registeredSchemas.set(pluginId, schema);
+    }),
     unregisterConfigSchema: vi.fn(),
     getConfigSchema: vi.fn(),
     registerProvider: vi.fn(),

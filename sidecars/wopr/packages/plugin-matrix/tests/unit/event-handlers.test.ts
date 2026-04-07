@@ -43,7 +43,13 @@ describe("handleRoomMessage", () => {
     mockClient.getUserId.mockResolvedValue("@bot:example.org");
     const event = makeEvent({ sender: "@bot:example.org" });
 
-    await handleRoomMessage("!room:example.org", event, mockClient as never, mockCtx as never, mockQueueManager as never);
+    await handleRoomMessage(
+      "!room:example.org",
+      event,
+      mockClient as never,
+      mockCtx as never,
+      mockQueueManager as never,
+    );
 
     expect(mockQueueManager.queueInject).not.toHaveBeenCalled();
   });
@@ -51,7 +57,13 @@ describe("handleRoomMessage", () => {
   it("skips events without msgtype", async () => {
     const event = makeEvent({ content: {} });
 
-    await handleRoomMessage("!room:example.org", event, mockClient as never, mockCtx as never, mockQueueManager as never);
+    await handleRoomMessage(
+      "!room:example.org",
+      event,
+      mockClient as never,
+      mockCtx as never,
+      mockQueueManager as never,
+    );
 
     expect(mockQueueManager.queueInject).not.toHaveBeenCalled();
   });
@@ -61,7 +73,13 @@ describe("handleRoomMessage", () => {
 
     const event = makeEvent({ content: { msgtype: "m.text", body: "Hey there" } });
 
-    await handleRoomMessage("!room:example.org", event, mockClient as never, mockCtx as never, mockQueueManager as never);
+    await handleRoomMessage(
+      "!room:example.org",
+      event,
+      mockClient as never,
+      mockCtx as never,
+      mockQueueManager as never,
+    );
 
     expect(mockQueueManager.queueInject).toHaveBeenCalled();
   });
@@ -77,7 +95,13 @@ describe("handleRoomMessage", () => {
       },
     });
 
-    await handleRoomMessage("!room:example.org", event, mockClient as never, mockCtx as never, mockQueueManager as never);
+    await handleRoomMessage(
+      "!room:example.org",
+      event,
+      mockClient as never,
+      mockCtx as never,
+      mockQueueManager as never,
+    );
 
     expect(mockQueueManager.queueInject).toHaveBeenCalled();
   });
@@ -93,7 +117,13 @@ describe("handleRoomMessage", () => {
       },
     });
 
-    await handleRoomMessage("!room:example.org", event, mockClient as never, mockCtx as never, mockQueueManager as never);
+    await handleRoomMessage(
+      "!room:example.org",
+      event,
+      mockClient as never,
+      mockCtx as never,
+      mockQueueManager as never,
+    );
 
     expect(mockQueueManager.queueInject).not.toHaveBeenCalled();
   });
@@ -109,7 +139,13 @@ describe("handleRoomMessage", () => {
       },
     });
 
-    await handleRoomMessage("!room:example.org", event, mockClient as never, mockCtx as never, mockQueueManager as never);
+    await handleRoomMessage(
+      "!room:example.org",
+      event,
+      mockClient as never,
+      mockCtx as never,
+      mockQueueManager as never,
+    );
 
     expect(mockQueueManager.queueInject).toHaveBeenCalledWith(
       "!room:example.org",
@@ -130,7 +166,13 @@ describe("handleRoomMessage", () => {
       },
     });
 
-    await handleRoomMessage("!room:example.org", event, mockClient as never, mockCtx as never, mockQueueManager as never);
+    await handleRoomMessage(
+      "!room:example.org",
+      event,
+      mockClient as never,
+      mockCtx as never,
+      mockQueueManager as never,
+    );
 
     expect(mockQueueManager.queueInject).toHaveBeenCalledWith(
       "!room:example.org",

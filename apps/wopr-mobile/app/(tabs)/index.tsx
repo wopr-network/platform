@@ -1,11 +1,5 @@
 import { useRouter } from "expo-router";
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
 import { BotCard } from "../../src/components/BotCard";
 import { useBots } from "../../src/hooks/useBots";
 
@@ -35,16 +29,10 @@ export default function BotListScreen() {
       contentContainerStyle={styles.content}
       data={bots}
       keyExtractor={(b) => b.id}
-      renderItem={({ item }) => (
-        <BotCard bot={item} onPress={() => router.push(`/chat/${item.id}`)} />
-      )}
+      renderItem={({ item }) => <BotCard bot={item} onPress={() => router.push(`/chat/${item.id}`)} />}
       onRefresh={refresh}
       refreshing={isLoading}
-      ListEmptyComponent={
-        <Text style={styles.empty}>
-          No bots yet. Create one on the web dashboard.
-        </Text>
-      }
+      ListEmptyComponent={<Text style={styles.empty}>No bots yet. Create one on the web dashboard.</Text>}
     />
   );
 }

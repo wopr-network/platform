@@ -92,10 +92,7 @@ describe("identity tools", () => {
     registerIdentityTools(ctx);
 
     const tool = ctx._tools.get("identity_update");
-    const result = await tool.handler(
-      { name: "NewBot", creature: "Dog" },
-      { sessionName: "test-session" },
-    );
+    const result = await tool.handler({ name: "NewBot", creature: "Dog" }, { sessionName: "test-session" });
     expect(result.content[0].text).toContain("Identity updated");
     expect(ctx.session.setContext).toHaveBeenCalledWith(
       "test-session",

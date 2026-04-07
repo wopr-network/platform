@@ -45,8 +45,12 @@ class DiscordMessageUnit {
     return this.state.content;
   }
 
-  get isFinalized(): boolean { return this.state.status === "finalized"; }
-  get overflow(): string { return this._overflow; }
+  get isFinalized(): boolean {
+    return this.state.status === "finalized";
+  }
+  get overflow(): string {
+    return this._overflow;
+  }
   get discordMsg(): any | null {
     return this.state.status === "sent" ? this.state.discordMsg : null;
   }
@@ -123,14 +127,22 @@ class DiscordMessageUnit {
     if (this.state.status === "sending") {
       try {
         const discordMsg = await this.state.promise;
-        this.state = { status: "sent", content: this.state.content, discordMsg, lastEditLength: this.state.content.length };
+        this.state = {
+          status: "sent",
+          content: this.state.content,
+          discordMsg,
+          lastEditLength: this.state.content.length,
+        };
       } catch {
         this.state = { status: "finalized" };
         return;
       }
     }
     const content = this.state.content.trim();
-    if (!content) { this.state = { status: "finalized" }; return; }
+    if (!content) {
+      this.state = { status: "finalized" };
+      return;
+    }
     const prevState = this.state;
     this.state = { status: "finalized" };
     if (prevState.status === "sent") {
@@ -165,7 +177,9 @@ class DiscordMessageStream {
   }
 
   private async refreshTyping(): Promise<void> {
-    try { await this.channel.sendTyping(); } catch {}
+    try {
+      await this.channel.sendTyping();
+    } catch {}
   }
 
   append(text: string): void {
@@ -174,7 +188,9 @@ class DiscordMessageStream {
   }
 
   /** Expose for testing */
-  get pendingCount(): number { return this.pendingContent.length; }
+  get pendingCount(): number {
+    return this.pendingContent.length;
+  }
 
   async processPending(): Promise<void> {
     if (this.processing || this.finalized || this.pendingContent.length === 0) return;
@@ -200,8 +216,8 @@ class DiscordMessageStream {
       if (!this.finalized) {
         await this.refreshTyping();
       }
-    } catch {}
-    finally {
+    } catch {
+    } finally {
       this.processing = false;
     }
   }
@@ -276,9 +292,9 @@ describe("DiscordMessageStream - Timing & Coordination", () => {
       channel,
       reply: vi.fn().mockResolvedValue(sentMsg),
     });
-    channel.send = vi.fn().mockResolvedValue(
-      createMockMessage({ id: "sent-follow-up", edit: vi.fn().mockResolvedValue(undefined) })
-    );
+    channel.send = vi
+      .fn()
+      .mockResolvedValue(createMockMessage({ id: "sent-follow-up", edit: vi.fn().mockResolvedValue(undefined) }));
   });
 
   afterEach(() => {

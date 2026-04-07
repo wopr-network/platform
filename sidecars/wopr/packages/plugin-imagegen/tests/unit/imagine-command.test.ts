@@ -30,40 +30,30 @@ describe("handleImagineCommand", () => {
   it("replies with usage message when prompt is empty", async () => {
     const cmdCtx = makeCmdCtx([]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
-    expect(cmdCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Please provide a prompt"),
-    );
+    expect(cmdCtx.reply).toHaveBeenCalledWith(expect.stringContaining("Please provide a prompt"));
   });
 
   it("replies with usage message when args join to whitespace only", async () => {
     const cmdCtx = makeCmdCtx(["   "]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
-    expect(cmdCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Please provide a prompt"),
-    );
+    expect(cmdCtx.reply).toHaveBeenCalledWith(expect.stringContaining("Please provide a prompt"));
   });
 
   it("replies with length error when prompt exceeds maxPromptLength", async () => {
     const longPrompt = "a".repeat(1001);
     const cmdCtx = makeCmdCtx([longPrompt]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
-    expect(cmdCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("too long"),
-    );
+    expect(cmdCtx.reply).toHaveBeenCalledWith(expect.stringContaining("too long"));
   });
 
   it("replies with size format error when --size is invalid", async () => {
     const cmdCtx = makeCmdCtx(["a cat", "--size", "big"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
-    expect(cmdCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Invalid size format"),
-    );
+    expect(cmdCtx.reply).toHaveBeenCalledWith(expect.stringContaining("Invalid size format"));
   });
 
   it("replies with image URL when inject returns JSON with imageUrl", async () => {
-    vi.mocked(mockPluginCtx.inject).mockResolvedValue(
-      JSON.stringify({ imageUrl: "https://example.com/image.png" }),
-    );
+    vi.mocked(mockPluginCtx.inject).mockResolvedValue(JSON.stringify({ imageUrl: "https://example.com/image.png" }));
     const cmdCtx = makeCmdCtx(["a cat in a tuxedo"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
     expect(cmdCtx.reply).toHaveBeenCalledWith("https://example.com/image.png");
@@ -79,40 +69,28 @@ describe("handleImagineCommand", () => {
   });
 
   it("replies with credits message when inject returns insufficient_credits error", async () => {
-    vi.mocked(mockPluginCtx.inject).mockResolvedValue(
-      JSON.stringify({ error: "insufficient_credits" }),
-    );
+    vi.mocked(mockPluginCtx.inject).mockResolvedValue(JSON.stringify({ error: "insufficient_credits" }));
     const cmdCtx = makeCmdCtx(["a cat"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
-    expect(cmdCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("credits"),
-    );
+    expect(cmdCtx.reply).toHaveBeenCalledWith(expect.stringContaining("credits"));
   });
 
   it("replies with generic error message when inject returns an error", async () => {
-    vi.mocked(mockPluginCtx.inject).mockResolvedValue(
-      JSON.stringify({ error: "provider_unavailable" }),
-    );
+    vi.mocked(mockPluginCtx.inject).mockResolvedValue(JSON.stringify({ error: "provider_unavailable" }));
     const cmdCtx = makeCmdCtx(["a cat"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
-    expect(cmdCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Image generation failed"),
-    );
+    expect(cmdCtx.reply).toHaveBeenCalledWith(expect.stringContaining("Image generation failed"));
   });
 
   it("replies with 'something went wrong' when inject throws", async () => {
     vi.mocked(mockPluginCtx.inject).mockRejectedValue(new Error("Network timeout"));
     const cmdCtx = makeCmdCtx(["a cat"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
-    expect(cmdCtx.reply).toHaveBeenCalledWith(
-      expect.stringContaining("Something went wrong"),
-    );
+    expect(cmdCtx.reply).toHaveBeenCalledWith(expect.stringContaining("Something went wrong"));
   });
 
   it("applies config defaults when no flags specified", async () => {
-    vi.mocked(mockPluginCtx.inject).mockResolvedValue(
-      JSON.stringify({ imageUrl: "https://example.com/img.png" }),
-    );
+    vi.mocked(mockPluginCtx.inject).mockResolvedValue(JSON.stringify({ imageUrl: "https://example.com/img.png" }));
     const cmdCtx = makeCmdCtx(["a cat"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
 
@@ -134,9 +112,7 @@ describe("handleImagineCommand", () => {
   });
 
   it("uses flags over config defaults when flags are specified", async () => {
-    vi.mocked(mockPluginCtx.inject).mockResolvedValue(
-      JSON.stringify({ imageUrl: "https://example.com/img.png" }),
-    );
+    vi.mocked(mockPluginCtx.inject).mockResolvedValue(JSON.stringify({ imageUrl: "https://example.com/img.png" }));
     const cmdCtx = makeCmdCtx(["a cat", "--model", "sdxl", "--size", "512x512", "--style", "anime"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
 
@@ -158,23 +134,15 @@ describe("handleImagineCommand", () => {
   });
 
   it("uses channel-specific session key for inject", async () => {
-    vi.mocked(mockPluginCtx.inject).mockResolvedValue(
-      JSON.stringify({ imageUrl: "https://example.com/img.png" }),
-    );
+    vi.mocked(mockPluginCtx.inject).mockResolvedValue(JSON.stringify({ imageUrl: "https://example.com/img.png" }));
     const cmdCtx = makeCmdCtx(["a cat"], { channelType: "slack", channel: "C123ABC" });
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
 
-    expect(mockPluginCtx.inject).toHaveBeenCalledWith(
-      "imagegen:slack:C123ABC",
-      expect.any(String),
-      expect.any(Object),
-    );
+    expect(mockPluginCtx.inject).toHaveBeenCalledWith("imagegen:slack:C123ABC", expect.any(String), expect.any(Object));
   });
 
   it("includes capability marker in inject message", async () => {
-    vi.mocked(mockPluginCtx.inject).mockResolvedValue(
-      JSON.stringify({ imageUrl: "https://example.com/img.png" }),
-    );
+    vi.mocked(mockPluginCtx.inject).mockResolvedValue(JSON.stringify({ imageUrl: "https://example.com/img.png" }));
     const cmdCtx = makeCmdCtx(["a beautiful sunset"]);
     await handleImagineCommand(cmdCtx as any, mockPluginCtx, defaultConfig);
 

@@ -56,7 +56,11 @@ describe("cron-tick", () => {
       const tick = createCronTickLoop(mockCtx);
       await tick();
 
-      expect(mockCtx.inject).toHaveBeenCalledWith("main", "hello", { from: "cron", silent: true, source: { type: "cron", trustLevel: "owner", identity: { pluginName: "wopr-plugin-cron" } } });
+      expect(mockCtx.inject).toHaveBeenCalledWith("main", "hello", {
+        from: "cron",
+        silent: true,
+        source: { type: "cron", trustLevel: "owner", identity: { pluginName: "wopr-plugin-cron" } },
+      });
     });
 
     it("records a successful run in history", async () => {
@@ -80,18 +84,36 @@ describe("cron-tick", () => {
 
     it("executes a one-time job when runAt has passed", async () => {
       vi.mocked(getCrons).mockResolvedValue([
-        { name: "once-1", schedule: "once", session: "main", message: "one-time", once: true, runAt: Date.now() - 1000 },
+        {
+          name: "once-1",
+          schedule: "once",
+          session: "main",
+          message: "one-time",
+          once: true,
+          runAt: Date.now() - 1000,
+        },
       ]);
 
       const tick = createCronTickLoop(mockCtx);
       await tick();
 
-      expect(mockCtx.inject).toHaveBeenCalledWith("main", "one-time", { from: "cron", silent: true, source: { type: "cron", trustLevel: "owner", identity: { pluginName: "wopr-plugin-cron" } } });
+      expect(mockCtx.inject).toHaveBeenCalledWith("main", "one-time", {
+        from: "cron",
+        silent: true,
+        source: { type: "cron", trustLevel: "owner", identity: { pluginName: "wopr-plugin-cron" } },
+      });
     });
 
     it("removes one-time jobs after execution", async () => {
       vi.mocked(getCrons).mockResolvedValue([
-        { name: "once-1", schedule: "once", session: "main", message: "one-time", once: true, runAt: Date.now() - 1000 },
+        {
+          name: "once-1",
+          schedule: "once",
+          session: "main",
+          message: "one-time",
+          once: true,
+          runAt: Date.now() - 1000,
+        },
       ]);
 
       const tick = createCronTickLoop(mockCtx);

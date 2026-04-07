@@ -4,17 +4,13 @@ import { createMockContext } from "../mocks/wopr-context.js";
 
 describe("configSchema best practices", () => {
   it("nsec field has secret: true", () => {
-    const nsecField = plugin.manifest.configSchema?.fields.find(
-      (f) => f.name === "nsec",
-    );
+    const nsecField = plugin.manifest.configSchema?.fields.find((f) => f.name === "nsec");
     expect(nsecField).toBeDefined();
     expect(nsecField!.secret).toBe(true);
   });
 
   it("nsec field has setupFlow: paste", () => {
-    const nsecField = plugin.manifest.configSchema?.fields.find(
-      (f) => f.name === "nsec",
-    );
+    const nsecField = plugin.manifest.configSchema?.fields.find((f) => f.name === "nsec");
     expect(nsecField).toBeDefined();
     expect(nsecField!.setupFlow).toBe("paste");
   });

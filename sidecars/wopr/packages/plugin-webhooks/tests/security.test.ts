@@ -247,18 +247,14 @@ describe("generateToken", () => {
 describe("verifyGitHubSignature", () => {
   const secret = "test-secret";
   const payload = Buffer.from('{"action":"opened"}');
-  const validSig =
-    "sha256=" +
-    createHmac("sha256", secret).update(payload).digest("hex");
+  const validSig = "sha256=" + createHmac("sha256", secret).update(payload).digest("hex");
 
   it("returns true for valid signature", () => {
     expect(verifyGitHubSignature(payload, validSig, secret)).toBe(true);
   });
 
   it("returns false for invalid signature", () => {
-    expect(
-      verifyGitHubSignature(payload, "sha256=" + "a".repeat(64), secret)
-    ).toBe(false);
+    expect(verifyGitHubSignature(payload, "sha256=" + "a".repeat(64), secret)).toBe(false);
   });
 
   it("returns false for missing signature", () => {
@@ -270,21 +266,15 @@ describe("verifyGitHubSignature", () => {
   });
 
   it("returns false for signature without sha256= prefix", () => {
-    expect(
-      verifyGitHubSignature(payload, "abc123", secret)
-    ).toBe(false);
+    expect(verifyGitHubSignature(payload, "abc123", secret)).toBe(false);
   });
 
   it("returns false for invalid hex in signature", () => {
-    expect(
-      verifyGitHubSignature(payload, "sha256=zzzz" + "0".repeat(60), secret)
-    ).toBe(false);
+    expect(verifyGitHubSignature(payload, "sha256=zzzz" + "0".repeat(60), secret)).toBe(false);
   });
 
   it("returns false for wrong-length hex", () => {
-    expect(
-      verifyGitHubSignature(payload, "sha256=abcdef", secret)
-    ).toBe(false);
+    expect(verifyGitHubSignature(payload, "sha256=abcdef", secret)).toBe(false);
   });
 });
 
@@ -295,8 +285,14 @@ describe("verifyGitHubSignature", () => {
 function createMockRepo(): Repository<{ id: string; count: number; resetAt: number }> {
   const store = new Map<string, { id: string; count: number; resetAt: number }>();
   const mockRepo: Repository<{ id: string; count: number; resetAt: number }> = {
-    insert: vi.fn(async (data) => { store.set(data.id, { ...data }); return data; }),
-    insertMany: vi.fn(async (items) => { for (const d of items) store.set(d.id, { ...d }); return items; }),
+    insert: vi.fn(async (data) => {
+      store.set(data.id, { ...data });
+      return data;
+    }),
+    insertMany: vi.fn(async (items) => {
+      for (const d of items) store.set(d.id, { ...d });
+      return items;
+    }),
     findById: vi.fn(async (id) => store.get(id) ?? null),
     findFirst: vi.fn(async () => null),
     findMany: vi.fn(async () => [...store.values()]),
@@ -312,7 +308,12 @@ function createMockRepo(): Repository<{ id: string; count: number; resetAt: numb
     deleteMany: vi.fn(async (filter) => {
       let count = 0;
       for (const [k, v] of store) {
-        if (typeof filter?.resetAt === "object" && filter.resetAt !== null && "$lt" in filter.resetAt && v.resetAt < (filter.resetAt as { $lt: number }).$lt) {
+        if (
+          typeof filter?.resetAt === "object" &&
+          filter.resetAt !== null &&
+          "$lt" in filter.resetAt &&
+          v.resetAt < (filter.resetAt as { $lt: number }).$lt
+        ) {
           store.delete(k);
           count++;
         }
@@ -321,7 +322,9 @@ function createMockRepo(): Repository<{ id: string; count: number; resetAt: numb
     }),
     count: vi.fn(async () => store.size),
     exists: vi.fn(async (id) => store.has(id)),
-    query: vi.fn(() => { throw new Error("not implemented"); }),
+    query: vi.fn(() => {
+      throw new Error("not implemented");
+    }),
     raw: vi.fn(async () => []),
     transaction: vi.fn(async (fn) => fn(mockRepo)),
   } as unknown as Repository<{ id: string; count: number; resetAt: number }>;

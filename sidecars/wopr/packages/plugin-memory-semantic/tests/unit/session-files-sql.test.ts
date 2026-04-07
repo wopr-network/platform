@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { listSessionNames, buildSessionEntryFromSql, getRecentSessionContentFromSql } from "../../src/core-memory/session-files.js";
+import {
+  listSessionNames,
+  buildSessionEntryFromSql,
+  getRecentSessionContentFromSql,
+} from "../../src/core-memory/session-files.js";
 
 describe("session-files SQL", () => {
   const mockLog = {
@@ -17,17 +21,11 @@ describe("session-files SQL", () => {
 
   it("listSessionNames queries SQL for active sessions", async () => {
     const mockStorage = {
-      raw: vi.fn().mockResolvedValue([
-        { name: "session-1" },
-        { name: "session-2" },
-      ]),
+      raw: vi.fn().mockResolvedValue([{ name: "session-1" }, { name: "session-2" }]),
     };
     const names = await listSessionNames(mockStorage as any, mockLog as any);
     expect(names).toEqual(["session-1", "session-2"]);
-    expect(mockStorage.raw).toHaveBeenCalledWith(
-      expect.stringContaining("SELECT"),
-      expect.anything(),
-    );
+    expect(mockStorage.raw).toHaveBeenCalledWith(expect.stringContaining("SELECT"), expect.anything());
   });
 
   it("listSessionNames logs warning on SQL failure", async () => {
@@ -37,10 +35,7 @@ describe("session-files SQL", () => {
     };
     const names = await listSessionNames(mockStorage as any, mockLog as any);
     expect(names).toEqual([]);
-    expect(mockLog.warn).toHaveBeenCalledWith(
-      expect.stringContaining("[session-files]"),
-      expect.any(Error),
-    );
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining("[session-files]"), expect.any(Error));
   });
 
   it("buildSessionEntryFromSql formats ConversationEntry[] into SessionFileEntry", async () => {
@@ -67,10 +62,7 @@ describe("session-files SQL", () => {
     mockSessionApi.readConversationLog.mockRejectedValue(new Error("db error"));
     const entry = await buildSessionEntryFromSql("broken", mockSessionApi, mockLog as any);
     expect(entry).toBeNull();
-    expect(mockLog.warn).toHaveBeenCalledWith(
-      expect.stringContaining("[session-files]"),
-      expect.any(Error),
-    );
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining("[session-files]"), expect.any(Error));
   });
 
   it("getRecentSessionContentFromSql returns last N messages", async () => {
@@ -91,9 +83,6 @@ describe("session-files SQL", () => {
     mockSessionApi.readConversationLog.mockRejectedValue(new Error("db error"));
     const content = await getRecentSessionContentFromSql("broken", mockSessionApi, mockLog as any);
     expect(content).toBeNull();
-    expect(mockLog.warn).toHaveBeenCalledWith(
-      expect.stringContaining("[session-files]"),
-      expect.any(Error),
-    );
+    expect(mockLog.warn).toHaveBeenCalledWith(expect.stringContaining("[session-files]"), expect.any(Error));
   });
 });

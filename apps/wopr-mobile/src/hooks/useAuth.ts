@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AuthUser } from "../api/auth";
-import {
-  signIn as apiSignIn,
-  signOut as apiSignOut,
-  getSession,
-} from "../api/auth";
+import { signIn as apiSignIn, signOut as apiSignOut, getSession } from "../api/auth";
 
 export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);

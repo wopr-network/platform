@@ -61,9 +61,7 @@ describe("watcher - startWatcher failure path", () => {
     const log = mockLogger();
     await startWatcher({ dirs: ["/workspace"], debounceMs: 100, onSync: vi.fn(), log });
     expect(isWatching()).toBe(false);
-    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(
-      expect.stringContaining("[memory-watcher]"),
-    );
+    expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringContaining("[memory-watcher]"));
   });
 });
 
@@ -88,9 +86,7 @@ describe("watcher - WatcherCallback type", () => {
   it("accepts an async callback and resolves", async () => {
     const log = mockLogger();
     const onSync = vi.fn().mockResolvedValue(undefined);
-    await expect(
-      startWatcher({ dirs: ["/workspace"], debounceMs: 50, onSync, log }),
-    ).resolves.not.toThrow();
+    await expect(startWatcher({ dirs: ["/workspace"], debounceMs: 50, onSync, log })).resolves.not.toThrow();
     expect(isWatching()).toBe(true);
   });
 });

@@ -6,7 +6,13 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createEmbeddingProvider, createOpenAiEmbeddingProvider, createGeminiEmbeddingProvider, createLocalEmbeddingProvider, sanitizeAndNormalizeEmbedding } from "../../src/embeddings.js";
+import {
+  createEmbeddingProvider,
+  createOpenAiEmbeddingProvider,
+  createGeminiEmbeddingProvider,
+  createLocalEmbeddingProvider,
+  sanitizeAndNormalizeEmbedding,
+} from "../../src/embeddings.js";
 import { DEFAULT_CONFIG, type SemanticMemoryConfig } from "../../src/types.js";
 
 function snapshotEnv(keys: string[]): () => void {
@@ -94,9 +100,9 @@ describe("createOpenAiEmbeddingProvider", () => {
   it("should throw when no API key is available", async () => {
     delete process.env.OPENAI_API_KEY;
 
-    await expect(
-      createOpenAiEmbeddingProvider(makeConfig({ apiKey: undefined })),
-    ).rejects.toThrow("No API key found for OpenAI");
+    await expect(createOpenAiEmbeddingProvider(makeConfig({ apiKey: undefined }))).rejects.toThrow(
+      "No API key found for OpenAI",
+    );
   });
 
   it("should ignore config.apiKey and only use env var", async () => {
@@ -122,9 +128,9 @@ describe("createGeminiEmbeddingProvider", () => {
     delete process.env.GOOGLE_API_KEY;
     delete process.env.GEMINI_API_KEY;
 
-    await expect(
-      createGeminiEmbeddingProvider(makeConfig({ apiKey: undefined })),
-    ).rejects.toThrow("No API key found for Gemini");
+    await expect(createGeminiEmbeddingProvider(makeConfig({ apiKey: undefined }))).rejects.toThrow(
+      "No API key found for Gemini",
+    );
   });
 
   it("should ignore config.apiKey and only use env var", async () => {
@@ -154,13 +160,9 @@ describe("Gemini error payload truncation (WOP-1554)", () => {
   it("should truncate long error payloads to 200 chars", async () => {
     process.env.GOOGLE_API_KEY = "test-key";
     const longPayload = "x".repeat(500);
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(longPayload, { status: 400 }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(longPayload, { status: 400 }));
     try {
-      const provider = await createGeminiEmbeddingProvider(
-        makeConfig({ provider: "gemini" }),
-      );
+      const provider = await createGeminiEmbeddingProvider(makeConfig({ provider: "gemini" }));
       await expect(provider.embedQuery("hello")).rejects.toThrow(
         /Gemini embeddings failed: 400 x{200}\.\.\.\[truncated\]/,
       );
@@ -172,16 +174,10 @@ describe("Gemini error payload truncation (WOP-1554)", () => {
   it("should preserve short error payloads as-is", async () => {
     process.env.GOOGLE_API_KEY = "test-key";
     const shortPayload = "Bad request";
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(shortPayload, { status: 400 }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(shortPayload, { status: 400 }));
     try {
-      const provider = await createGeminiEmbeddingProvider(
-        makeConfig({ provider: "gemini" }),
-      );
-      await expect(provider.embedQuery("hello")).rejects.toThrow(
-        `Gemini embeddings failed: 400 Bad request`,
-      );
+      const provider = await createGeminiEmbeddingProvider(makeConfig({ provider: "gemini" }));
+      await expect(provider.embedQuery("hello")).rejects.toThrow(`Gemini embeddings failed: 400 Bad request`);
     } finally {
       fetchSpy.mockRestore();
     }
@@ -192,13 +188,9 @@ describe("Gemini error payload truncation (WOP-1554)", () => {
     const apiKey = "AIzaSyDEADBEEF1234567890SECRETKEY";
     // Place the key after the 200-char mark so truncation removes it
     const payloadWithKey = "a".repeat(201) + apiKey;
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(payloadWithKey, { status: 400 }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(payloadWithKey, { status: 400 }));
     try {
-      const provider = await createGeminiEmbeddingProvider(
-        makeConfig({ provider: "gemini" }),
-      );
+      const provider = await createGeminiEmbeddingProvider(makeConfig({ provider: "gemini" }));
       await expect(provider.embedQuery("hello")).rejects.toSatisfy((err: Error) => {
         return !err.message.includes(apiKey);
       });
@@ -216,9 +208,7 @@ describe("Gemini error payload truncation (WOP-1554)", () => {
       return new Response(longPayload, { status: 500 });
     });
     try {
-      const provider = await createGeminiEmbeddingProvider(
-        makeConfig({ provider: "gemini" }),
-      );
+      const provider = await createGeminiEmbeddingProvider(makeConfig({ provider: "gemini" }));
       await expect(provider.embedBatch(["hello", "world"])).rejects.toThrow(
         /Gemini batch embeddings failed: 500 y{200}\.\.\.\[truncated\]/,
       );
@@ -233,9 +223,7 @@ describe("createLocalEmbeddingProvider", () => {
     vi.mock("node-llama-cpp", () => {
       throw new Error("Cannot find module 'node-llama-cpp'");
     });
-    await expect(
-      createLocalEmbeddingProvider(makeConfig({ provider: "local" })),
-    ).rejects.toThrow(/node-llama-cpp/);
+    await expect(createLocalEmbeddingProvider(makeConfig({ provider: "local" }))).rejects.toThrow(/node-llama-cpp/);
     vi.unmock("node-llama-cpp");
   });
 });
@@ -255,17 +243,17 @@ describe("createEmbeddingProvider", () => {
     // Without an API key it should throw the OpenAI-specific error
     delete process.env.OPENAI_API_KEY;
 
-    await expect(
-      createEmbeddingProvider(makeConfig({ provider: "openai", apiKey: undefined })),
-    ).rejects.toThrow("No API key found for OpenAI");
+    await expect(createEmbeddingProvider(makeConfig({ provider: "openai", apiKey: undefined }))).rejects.toThrow(
+      "No API key found for OpenAI",
+    );
   });
 
   it("should route to Gemini provider when provider is 'gemini'", async () => {
     delete process.env.GOOGLE_API_KEY;
     delete process.env.GEMINI_API_KEY;
 
-    await expect(
-      createEmbeddingProvider(makeConfig({ provider: "gemini", apiKey: undefined })),
-    ).rejects.toThrow("No API key found for Gemini");
+    await expect(createEmbeddingProvider(makeConfig({ provider: "gemini", apiKey: undefined }))).rejects.toThrow(
+      "No API key found for Gemini",
+    );
   });
 });

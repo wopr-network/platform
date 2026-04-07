@@ -11,49 +11,49 @@ export type ChatCompletionChunk = OpenAI.ChatCompletionChunk;
  *   data: [DONE]\n\n
  */
 export async function* parseSSEStream(response: Response): AsyncIterable<ChatCompletionChunk> {
-	const reader = response.body?.getReader();
-	if (!reader) throw new Error("Response body is null");
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Response body is null");
 
-	const decoder = new TextDecoder();
-	let buffer = "";
+  const decoder = new TextDecoder();
+  let buffer = "";
 
-	try {
-		while (true) {
-			const { done, value } = await reader.read();
-			if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-			buffer += decoder.decode(value, { stream: true });
-			const lines = buffer.split("\n");
-			// Keep incomplete last line in buffer
-			buffer = lines.pop() ?? "";
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      // Keep incomplete last line in buffer
+      buffer = lines.pop() ?? "";
 
-			for (const line of lines) {
-				if (line.startsWith("data: ")) {
-					const data = line.slice(6).trim();
-					if (data === "[DONE]") return;
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") return;
 
-					try {
-						yield JSON.parse(data) as ChatCompletionChunk;
-					} catch {
-						// Skip malformed chunks
-					}
-				}
-			}
-		}
-	} finally {
-		reader.releaseLock();
-	}
+          try {
+            yield JSON.parse(data) as ChatCompletionChunk;
+          } catch {
+            // Skip malformed chunks
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 /** Wrapper that provides Symbol.asyncIterator for the stream. */
 export class Stream<T> implements AsyncIterable<T> {
-	private iterator: AsyncIterable<T>;
+  private iterator: AsyncIterable<T>;
 
-	constructor(iterator: AsyncIterable<T>) {
-		this.iterator = iterator;
-	}
+  constructor(iterator: AsyncIterable<T>) {
+    this.iterator = iterator;
+  }
 
-	[Symbol.asyncIterator](): AsyncIterator<T> {
-		return this.iterator[Symbol.asyncIterator]();
-	}
+  [Symbol.asyncIterator](): AsyncIterator<T> {
+    return this.iterator[Symbol.asyncIterator]();
+  }
 }

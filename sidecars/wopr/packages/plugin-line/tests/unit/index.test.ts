@@ -185,7 +185,10 @@ describe("init()", () => {
   it("registers config schema", async () => {
     const ctx = buildMockContext({});
     await plugin.init!(ctx);
-    expect(ctx.registerConfigSchema).toHaveBeenCalledWith("wopr-plugin-line", expect.objectContaining({ title: "LINE Integration" }));
+    expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
+      "wopr-plugin-line",
+      expect.objectContaining({ title: "LINE Integration" }),
+    );
   });
 
   it("registers channel provider even without credentials", async () => {
@@ -240,7 +243,9 @@ describe("shutdown()", () => {
     const ctx = buildMockContext({ channelAccessToken: "token", channelSecret: "secret" });
     await plugin.init!(ctx);
     await plugin.shutdown!();
-    expect((ctx as unknown as { unregisterConfigSchema: ReturnType<typeof vi.fn> }).unregisterConfigSchema).toHaveBeenCalledWith("wopr-plugin-line");
+    expect(
+      (ctx as unknown as { unregisterConfigSchema: ReturnType<typeof vi.fn> }).unregisterConfigSchema,
+    ).toHaveBeenCalledWith("wopr-plugin-line");
   });
 
   it("is idempotent — second shutdown does not throw", async () => {
@@ -339,7 +344,11 @@ describe("handleEvent()", () => {
   it("sticker message: injects [sticker: packageId/stickerId]", async () => {
     const event = buildMessageEvent("sticker", { packageId: "789", stickerId: "456" }, "Uuser123");
     await handleEvent(event as never);
-    expect(mockCtx.inject).toHaveBeenCalledWith(expect.any(String), "[Uuser123]: [sticker: 789/456]", expect.any(Object));
+    expect(mockCtx.inject).toHaveBeenCalledWith(
+      expect.any(String),
+      "[Uuser123]: [sticker: 789/456]",
+      expect.any(Object),
+    );
   });
 
   it("image message: injects [image]", async () => {
@@ -362,7 +371,12 @@ describe("handleEvent()", () => {
   });
 
   it("non-message event (follow): is ignored", async () => {
-    const followEvent = { type: "follow", source: { type: "user", userId: "Uuser123" }, timestamp: Date.now(), mode: "active" };
+    const followEvent = {
+      type: "follow",
+      source: { type: "user", userId: "Uuser123" },
+      timestamp: Date.now(),
+      mode: "active",
+    };
     await handleEvent(followEvent as never);
     expect(mockCtx.inject).not.toHaveBeenCalled();
   });
@@ -398,7 +412,10 @@ describe("sendReply()", () => {
 
   it("short message with reply token: calls replyMessage", async () => {
     await sendReply("Hello!", "reply-token-xyz", "Uuser123");
-    expect(mockReplyMessage).toHaveBeenCalledWith({ replyToken: "reply-token-xyz", messages: [{ type: "text", text: "Hello!" }] });
+    expect(mockReplyMessage).toHaveBeenCalledWith({
+      replyToken: "reply-token-xyz",
+      messages: [{ type: "text", text: "Hello!" }],
+    });
     expect(mockPushMessage).not.toHaveBeenCalled();
   });
 
@@ -422,7 +439,10 @@ describe("sendReply()", () => {
     const { HTTPFetchError } = await import("@line/bot-sdk");
     mockReplyMessage.mockRejectedValueOnce(new HTTPFetchError(400, "Reply token expired"));
     await sendReply("Hello!", "expired-reply-token", "Uuser123");
-    expect(mockReplyMessage).toHaveBeenCalledWith({ replyToken: "expired-reply-token", messages: [{ type: "text", text: "Hello!" }] });
+    expect(mockReplyMessage).toHaveBeenCalledWith({
+      replyToken: "expired-reply-token",
+      messages: [{ type: "text", text: "Hello!" }],
+    });
     expect(mockPushMessage).toHaveBeenCalledWith({ to: "Uuser123", messages: [{ type: "text", text: "Hello!" }] });
   });
 });
@@ -435,9 +455,16 @@ describe("Signature validation error handler", () => {
     await plugin.init!(ctx);
 
     // Find the 4-arg error handler registered via app.use()
-    const useCall = mockAppUse.mock.calls.find((call: unknown[]) => typeof call[0] === "function" && (call[0] as (...args: unknown[]) => void).length === 4);
+    const useCall = mockAppUse.mock.calls.find(
+      (call: unknown[]) => typeof call[0] === "function" && (call[0] as (...args: unknown[]) => void).length === 4,
+    );
     expect(useCall).toBeDefined();
-    const errorHandler = useCall![0] as (err: Error, req: unknown, res: { status: (n: number) => { send: (s: string) => void } }, next: () => void) => void;
+    const errorHandler = useCall![0] as (
+      err: Error,
+      req: unknown,
+      res: { status: (n: number) => { send: (s: string) => void } },
+      next: () => void,
+    ) => void;
 
     const { SignatureValidationFailed } = await import("@line/bot-sdk");
     const sigError = new SignatureValidationFailed("Invalid", "badsig");

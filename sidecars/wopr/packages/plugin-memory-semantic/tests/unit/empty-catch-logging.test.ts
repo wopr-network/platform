@@ -33,13 +33,27 @@ describe("search.ts dims-read catch logging", () => {
       });
 
       const debugCalls = debugSpy.mock.calls.map((c) => c[0]);
-      const matchingCall = debugCalls.find((msg) => typeof msg === "string" && msg.includes("Failed to read saved HNSW map for dims"));
+      const matchingCall = debugCalls.find(
+        (msg) => typeof msg === "string" && msg.includes("Failed to read saved HNSW map for dims"),
+      );
       expect(matchingCall).toBeDefined();
     } finally {
       debugSpy.mockRestore();
-      try { unlinkSync(mapPath); } catch { /* non-fatal: cleanup */ }
-      try { unlinkSync(hnswPath); } catch { /* non-fatal: cleanup */ }
-      try { (await import("node:fs/promises")).rmdir(tmpDir); } catch { /* non-fatal: cleanup */ }
+      try {
+        unlinkSync(mapPath);
+      } catch {
+        /* non-fatal: cleanup */
+      }
+      try {
+        unlinkSync(hnswPath);
+      } catch {
+        /* non-fatal: cleanup */
+      }
+      try {
+        (await import("node:fs/promises")).rmdir(tmpDir);
+      } catch {
+        /* non-fatal: cleanup */
+      }
     }
   });
 });

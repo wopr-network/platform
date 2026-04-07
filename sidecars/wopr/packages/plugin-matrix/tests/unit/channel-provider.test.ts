@@ -8,7 +8,12 @@ import {
   setCachedBotUsername,
   setChannelProviderClient,
 } from "../../src/channel-provider.js";
-import { ACCEPT_EMOJI, DENY_EMOJI, clearAllPendingNotifications, getPendingNotification } from "../../src/notification-reactions.js";
+import {
+  ACCEPT_EMOJI,
+  DENY_EMOJI,
+  clearAllPendingNotifications,
+  getPendingNotification,
+} from "../../src/notification-reactions.js";
 import { createMockMatrixClient } from "../mocks/matrix-client.js";
 
 describe("matrixChannelProvider", () => {
@@ -66,14 +71,19 @@ describe("matrixChannelProvider", () => {
 
     await matrixChannelProvider.send("!room:example.org", "Hello");
     expect(mockClient.sendMessage).toHaveBeenCalledTimes(1);
-    expect(mockClient.sendMessage).toHaveBeenCalledWith("!room:example.org", expect.objectContaining({ msgtype: "m.text" }));
+    expect(mockClient.sendMessage).toHaveBeenCalledWith(
+      "!room:example.org",
+      expect.objectContaining({ msgtype: "m.text" }),
+    );
 
     setChannelProviderClient(null);
   });
 
   it("send() throws when client not initialized", async () => {
     setChannelProviderClient(null);
-    await expect(matrixChannelProvider.send("!room:example.org", "Hello")).rejects.toThrow("Matrix client not initialized");
+    await expect(matrixChannelProvider.send("!room:example.org", "Hello")).rejects.toThrow(
+      "Matrix client not initialized",
+    );
   });
 });
 

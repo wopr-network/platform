@@ -45,7 +45,10 @@ describe("wopr-plugin-mcp", () => {
     const ctx = createMockCtx();
     await plugin.init!(ctx);
 
-    expect(ctx.registerConfigSchema).toHaveBeenCalledWith("wopr-plugin-mcp", expect.objectContaining({ title: "MCP Bridge" }));
+    expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
+      "wopr-plugin-mcp",
+      expect.objectContaining({ title: "MCP Bridge" }),
+    );
   });
 
   it("should register mcp extension on init", async () => {

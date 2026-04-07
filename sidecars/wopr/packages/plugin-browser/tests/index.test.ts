@@ -176,10 +176,7 @@ describe("wopr-plugin-browser", () => {
     it("should log headless mode", async () => {
       const ctx = mockCtx();
       await plugin.init(ctx as any);
-      expect(ctx.log.info).toHaveBeenCalledWith(
-        expect.stringContaining("Browser plugin initialized"),
-        true
-      );
+      expect(ctx.log.info).toHaveBeenCalledWith(expect.stringContaining("Browser plugin initialized"), true);
     });
 
     it("should skip registerA2AServer if not available", async () => {
@@ -192,10 +189,7 @@ describe("wopr-plugin-browser", () => {
       const ctx = mockCtx();
       ctx.getConfig.mockReturnValue({ headless: false });
       await plugin.init(ctx as any);
-      expect(ctx.log.info).toHaveBeenCalledWith(
-        expect.stringContaining("Browser plugin initialized"),
-        false
-      );
+      expect(ctx.log.info).toHaveBeenCalledWith(expect.stringContaining("Browser plugin initialized"), false);
     });
   });
 
@@ -472,9 +466,7 @@ describe("wopr-plugin-browser", () => {
 
       await saveProfile({
         name: "test",
-        cookies: [
-          { name: "token", value: "xyz", domain: ".example.com", path: "/" },
-        ],
+        cookies: [{ name: "token", value: "xyz", domain: ".example.com", path: "/" }],
         localStorage: {},
         updatedAt: 3000,
       });
@@ -502,7 +494,7 @@ describe("wopr-plugin-browser", () => {
 
       // localStorage insertMany should be called with 2 rows
       const lsInsertCall = mockRepo.insertMany.mock.calls.find((call: any) =>
-        call[0]?.some?.((row: any) => row.origin === "https://example.com")
+        call[0]?.some?.((row: any) => row.origin === "https://example.com"),
       );
       expect(lsInsertCall).toBeDefined();
       expect(lsInsertCall[0]).toHaveLength(2);

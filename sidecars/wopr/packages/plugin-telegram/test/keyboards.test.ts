@@ -62,7 +62,9 @@ vi.mock("grammy", () => {
   }
   class InputFile {}
   class Context {}
-  function webhookCallback() { return vi.fn(); }
+  function webhookCallback() {
+    return vi.fn();
+  }
   return { Bot, InlineKeyboard, InputFile, Context, webhookCallback };
 });
 
@@ -329,9 +331,7 @@ describe("callback query handling", () => {
     await plugin.init(woprCtx);
 
     // Extract the callback handler registered via bot.on("callback_query:data", handler)
-    const onCall = mockBotOn.mock.calls.find(
-      (call: any[]) => call[0] === "callback_query:data"
-    );
+    const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "callback_query:data");
     expect(onCall).toBeDefined();
     callbackHandler = onCall![1];
   });
@@ -360,9 +360,7 @@ describe("callback query handling", () => {
   }
 
   it("should register a callback_query:data handler", () => {
-    const onCall = mockBotOn.mock.calls.find(
-      (call: any[]) => call[0] === "callback_query:data"
-    );
+    const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "callback_query:data");
     expect(onCall).toBeDefined();
   });
 
@@ -374,7 +372,7 @@ describe("callback query handling", () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       12345,
       expect.stringContaining("WOPR Telegram Commands"),
-      expect.objectContaining({ reply_markup: expect.anything() })
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 
@@ -385,7 +383,7 @@ describe("callback query handling", () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       12345,
       expect.stringContaining("Select a model"),
-      expect.objectContaining({ reply_markup: expect.anything() })
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 
@@ -395,11 +393,7 @@ describe("callback query handling", () => {
     expect(cbCtx.answerCallbackQuery).toHaveBeenCalledWith({
       text: "Switching to opus...",
     });
-    expect(woprCtx.inject).toHaveBeenCalledWith(
-      "telegram-dm:12345",
-      "[Alice]: /model opus",
-      expect.any(Object)
-    );
+    expect(woprCtx.inject).toHaveBeenCalledWith("telegram-dm:12345", "[Alice]: /model opus", expect.any(Object));
   });
 
   it("should answer callback query for session_new", async () => {
@@ -412,7 +406,7 @@ describe("callback query handling", () => {
     expect(woprCtx.inject).toHaveBeenCalledWith(
       expect.stringContaining("telegram-"),
       expect.stringContaining("/session"),
-      expect.any(Object)
+      expect.any(Object),
     );
   });
 
@@ -423,7 +417,7 @@ describe("callback query handling", () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       12345,
       expect.stringContaining("Session Status"),
-      expect.objectContaining({ reply_markup: expect.anything() })
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 
@@ -436,7 +430,7 @@ describe("callback query handling", () => {
     expect(woprCtx.inject).toHaveBeenCalledWith(
       "telegram-dm:12345",
       expect.stringContaining("/session telegram-dm:12345"),
-      expect.any(Object)
+      expect.any(Object),
     );
   });
 
@@ -476,9 +470,7 @@ describe("callback query handling", () => {
     });
     await freshPlugin.init(ctx);
 
-    const onCall = mockBotOn.mock.calls.find(
-      (call: any[]) => call[0] === "callback_query:data"
-    );
+    const onCall = mockBotOn.mock.calls.find((call: any[]) => call[0] === "callback_query:data");
     const handler = onCall![1];
 
     const cbCtx = makeCallbackCtx("help");
@@ -498,7 +490,7 @@ describe("callback query handling", () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       12345,
       expect.stringContaining("Failed to switch model"),
-      expect.any(Object)
+      expect.any(Object),
     );
   });
 
@@ -506,11 +498,7 @@ describe("callback query handling", () => {
     woprCtx.inject.mockRejectedValueOnce(new Error("inject failed"));
     const cbCtx = makeCallbackCtx("session_new");
     await callbackHandler(cbCtx);
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      12345,
-      "Failed to create new session.",
-      expect.any(Object)
-    );
+    expect(mockSendMessage).toHaveBeenCalledWith(12345, "Failed to create new session.", expect.any(Object));
   });
 
   it("should include main keyboard in status response", async () => {
@@ -548,9 +536,7 @@ describe("commands with inline keyboards", () => {
   });
 
   it("/help command should include inline keyboard", async () => {
-    const helpCall = mockBotCommand.mock.calls.find(
-      (call: any[]) => call[0] === "help"
-    );
+    const helpCall = mockBotCommand.mock.calls.find((call: any[]) => call[0] === "help");
     expect(helpCall).toBeDefined();
 
     const handler = helpCall![1];
@@ -565,14 +551,12 @@ describe("commands with inline keyboards", () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       12345,
       expect.stringContaining("WOPR Telegram Commands"),
-      expect.objectContaining({ reply_markup: expect.anything() })
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 
   it("/status command should include inline keyboard", async () => {
-    const statusCall = mockBotCommand.mock.calls.find(
-      (call: any[]) => call[0] === "status"
-    );
+    const statusCall = mockBotCommand.mock.calls.find((call: any[]) => call[0] === "status");
     expect(statusCall).toBeDefined();
 
     const handler = statusCall![1];
@@ -587,7 +571,7 @@ describe("commands with inline keyboards", () => {
     expect(mockSendMessage).toHaveBeenCalledWith(
       12345,
       expect.stringContaining("Session Status"),
-      expect.objectContaining({ reply_markup: expect.anything() })
+      expect.objectContaining({ reply_markup: expect.anything() }),
     );
   });
 });

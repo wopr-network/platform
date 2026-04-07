@@ -1,21 +1,25 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the @opencode-ai/sdk before importing the plugin
-vi.mock("@opencode-ai/sdk", () => ({
-  createOpencodeClient: vi.fn(() => ({
-    global: {
-      health: vi.fn().mockResolvedValue({ data: { healthy: true } }),
-    },
-    session: {
-      create: vi.fn().mockResolvedValue({ data: { id: "test-session-123" } }),
-      prompt: vi.fn().mockResolvedValue({
-        data: {
-          parts: [{ type: "text", text: "Hello from OpenCode" }],
-        },
-      }),
-    },
-  })),
-}), { virtual: true });
+vi.mock(
+  "@opencode-ai/sdk",
+  () => ({
+    createOpencodeClient: vi.fn(() => ({
+      global: {
+        health: vi.fn().mockResolvedValue({ data: { healthy: true } }),
+      },
+      session: {
+        create: vi.fn().mockResolvedValue({ data: { id: "test-session-123" } }),
+        prompt: vi.fn().mockResolvedValue({
+          data: {
+            parts: [{ type: "text", text: "Hello from OpenCode" }],
+          },
+        }),
+      },
+    })),
+  }),
+  { virtual: true },
+);
 
 // Mock winston to avoid console noise in tests
 vi.mock("winston", () => {
@@ -88,7 +92,7 @@ describe("wopr-plugin-provider-opencode", () => {
       expect(ctx.registerConfigSchema).toHaveBeenCalledTimes(1);
       expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
         "provider-opencode",
-        expect.objectContaining({ title: "OpenCode" })
+        expect.objectContaining({ title: "OpenCode" }),
       );
     });
 
@@ -175,9 +179,7 @@ describe("wopr-plugin-provider-opencode", () => {
       await plugin.init(ctx);
 
       const schema = ctx.registerConfigSchema.mock.calls[0][1];
-      const serverUrlField = schema.fields.find(
-        (f: any) => f.name === "serverUrl"
-      );
+      const serverUrlField = schema.fields.find((f: any) => f.name === "serverUrl");
       expect(serverUrlField).toBeDefined();
       expect(serverUrlField.type).toBe("text");
       expect(serverUrlField.required).toBe(true);
@@ -240,9 +242,7 @@ describe("wopr-plugin-provider-opencode", () => {
     });
 
     it("should validate credentials via health check", async () => {
-      const result = await provider.validateCredentials(
-        "http://localhost:4096"
-      );
+      const result = await provider.validateCredentials("http://localhost:4096");
       expect(result).toBe(true);
     });
 
@@ -277,9 +277,7 @@ describe("wopr-plugin-provider-opencode", () => {
       // Should have init event, assistant message, and result
       expect(events.length).toBeGreaterThanOrEqual(2);
 
-      const initEvent = events.find(
-        (e) => e.type === "system" && e.subtype === "init"
-      );
+      const initEvent = events.find((e) => e.type === "system" && e.subtype === "init");
       expect(initEvent).toBeDefined();
       expect(initEvent.session_id).toBe("test-session-123");
 

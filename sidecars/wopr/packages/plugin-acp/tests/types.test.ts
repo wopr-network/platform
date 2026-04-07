@@ -111,18 +111,14 @@ describe("types / schemas", () => {
           sessionId: "s1",
           message: "fix this",
           context: {
-            files: [
-              { path: "a.ts", content: "const a=1;", language: "typescript" },
-            ],
+            files: [{ path: "a.ts", content: "const a=1;", language: "typescript" }],
             selection: {
               path: "a.ts",
               startLine: 1,
               endLine: 1,
               text: "const a=1;",
             },
-            diagnostics: [
-              { path: "a.ts", line: 1, severity: "error", message: "err" },
-            ],
+            diagnostics: [{ path: "a.ts", line: 1, severity: "error", message: "err" }],
             cursorPosition: { path: "a.ts", line: 1, column: 5 },
           },
         },
@@ -150,9 +146,7 @@ describe("types / schemas", () => {
         params: {
           message: "test",
           context: {
-            diagnostics: [
-              { path: "a.ts", line: 1, severity: "fatal", message: "err" },
-            ],
+            diagnostics: [{ path: "a.ts", line: 1, severity: "fatal", message: "err" }],
           },
         },
       };

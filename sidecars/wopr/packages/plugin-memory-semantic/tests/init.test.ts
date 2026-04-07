@@ -121,9 +121,7 @@ describe("initialize failure paths", () => {
 
     await initialize(api, state, queue, log);
 
-    expect(api.log.error).toHaveBeenCalledWith(
-      expect.stringContaining("DB locked"),
-    );
+    expect(api.log.error).toHaveBeenCalledWith(expect.stringContaining("DB locked"));
     expect(state.initialized).toBe(false);
   });
 
@@ -132,50 +130,36 @@ describe("initialize failure paths", () => {
 
     await initialize(api, state, queue, log);
 
-    expect(api.log.error).toHaveBeenCalledWith(
-      expect.stringContaining("FTS5 not available"),
-    );
+    expect(api.log.error).toHaveBeenCalledWith(expect.stringContaining("FTS5 not available"));
     expect(state.initialized).toBe(false);
   });
 
   it("logs error when MemoryIndexManager.create throws", async () => {
-    vi.mocked(MemoryIndexManager.create).mockRejectedValue(
-      new Error("corrupt index file"),
-    );
+    vi.mocked(MemoryIndexManager.create).mockRejectedValue(new Error("corrupt index file"));
 
     await initialize(api, state, queue, log);
 
-    expect(api.log.error).toHaveBeenCalledWith(
-      expect.stringContaining("corrupt index file"),
-    );
+    expect(api.log.error).toHaveBeenCalledWith(expect.stringContaining("corrupt index file"));
     expect(state.initialized).toBe(false);
     expect(state.memoryManager).toBeNull();
   });
 
   it("logs error when createEmbeddingProvider throws", async () => {
-    vi.mocked(createEmbeddingProvider).mockRejectedValue(
-      new Error("No API key found for OpenAI"),
-    );
+    vi.mocked(createEmbeddingProvider).mockRejectedValue(new Error("No API key found for OpenAI"));
 
     await initialize(api, state, queue, log);
 
-    expect(api.log.error).toHaveBeenCalledWith(
-      expect.stringContaining("No API key found"),
-    );
+    expect(api.log.error).toHaveBeenCalledWith(expect.stringContaining("No API key found"));
     expect(state.initialized).toBe(false);
     expect(state.embeddingProvider).toBeNull();
   });
 
   it("logs error when createSemanticSearchManager throws", async () => {
-    vi.mocked(createSemanticSearchManager).mockRejectedValue(
-      new Error("dimension mismatch: expected 1536, got 384"),
-    );
+    vi.mocked(createSemanticSearchManager).mockRejectedValue(new Error("dimension mismatch: expected 1536, got 384"));
 
     await initialize(api, state, queue, log);
 
-    expect(api.log.error).toHaveBeenCalledWith(
-      expect.stringContaining("dimension mismatch"),
-    );
+    expect(api.log.error).toHaveBeenCalledWith(expect.stringContaining("dimension mismatch"));
     expect(state.initialized).toBe(false);
     expect(state.searchManager).toBeNull();
   });
@@ -224,8 +208,6 @@ describe("initialize failure paths", () => {
       model: "test",
     } as Partial<Parameters<typeof initialize>[4]>);
 
-    expect(api.log.warn).toHaveBeenCalledWith(
-      expect.stringContaining("multi-tenant isolation DISABLED"),
-    );
+    expect(api.log.warn).toHaveBeenCalledWith(expect.stringContaining("multi-tenant isolation DISABLED"));
   });
 }); // end describe

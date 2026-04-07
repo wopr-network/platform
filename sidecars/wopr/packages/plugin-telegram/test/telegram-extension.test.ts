@@ -142,9 +142,7 @@ describe("TelegramExtension", () => {
         () => createMockCtx(["telegram-dm:12345"]),
       );
       const chats = ext.listChats();
-      expect(chats).toEqual([
-        { id: "12345", type: "dm", name: "DM 12345" },
-      ]);
+      expect(chats).toEqual([{ id: "12345", type: "dm", name: "DM 12345" }]);
     });
 
     it("should parse group sessions into chat info", () => {
@@ -153,9 +151,7 @@ describe("TelegramExtension", () => {
         () => createMockCtx(["telegram-group:-100123"]),
       );
       const chats = ext.listChats();
-      expect(chats).toEqual([
-        { id: "-100123", type: "group", name: "Group -100123" },
-      ]);
+      expect(chats).toEqual([{ id: "-100123", type: "group", name: "Group -100123" }]);
     });
 
     it("should only include telegram sessions, not other channels", () => {

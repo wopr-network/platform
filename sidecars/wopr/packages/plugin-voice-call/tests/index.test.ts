@@ -57,15 +57,9 @@ describe("wopr-plugin-voice-call", () => {
   it("should init and register config schema, channel provider, extension", async () => {
     const ctx = createMockContext();
     await plugin.init!(ctx as any);
-    expect(ctx.registerConfigSchema).toHaveBeenCalledWith(
-      "wopr-plugin-voice-call",
-      expect.any(Object),
-    );
+    expect(ctx.registerConfigSchema).toHaveBeenCalledWith("wopr-plugin-voice-call", expect.any(Object));
     expect(ctx.registerChannelProvider).toHaveBeenCalled();
-    expect(ctx.registerExtension).toHaveBeenCalledWith(
-      "voice-call",
-      expect.any(Object),
-    );
+    expect(ctx.registerExtension).toHaveBeenCalledWith("voice-call", expect.any(Object));
   });
 
   it("should register A2A tools when registerA2AServer exists", async () => {
@@ -84,9 +78,7 @@ describe("wopr-plugin-voice-call", () => {
     const ctx = createMockContext();
     await plugin.init!(ctx as any);
     await plugin.shutdown!();
-    expect(ctx.unregisterConfigSchema).toHaveBeenCalledWith(
-      "wopr-plugin-voice-call",
-    );
+    expect(ctx.unregisterConfigSchema).toHaveBeenCalledWith("wopr-plugin-voice-call");
     expect(ctx.unregisterChannelProvider).toHaveBeenCalledWith("voice-call");
     expect(ctx.unregisterExtension).toHaveBeenCalledWith("voice-call");
   });

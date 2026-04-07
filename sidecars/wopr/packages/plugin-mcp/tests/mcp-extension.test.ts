@@ -51,7 +51,9 @@ describe("createMCPExtension", () => {
     const savedConfigs: unknown[] = [];
     const ctx = {
       getConfig: () => ({ servers: [] }),
-      saveConfig: vi.fn(async (config: unknown) => { savedConfigs.push(config); }),
+      saveConfig: vi.fn(async (config: unknown) => {
+        savedConfigs.push(config);
+      }),
     };
     const bridge = {
       connect: vi.fn(),

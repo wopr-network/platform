@@ -126,14 +126,16 @@ describe.skipIf(!hasSqlite)("ensureEmbeddingColumn", () => {
 
   it("returns early when db has no exec method", () => {
     const log = makeLog();
-    expect(() =>
-      ensureEmbeddingColumn({ prepare: vi.fn() } as any, log),
-    ).not.toThrow();
+    expect(() => ensureEmbeddingColumn({ prepare: vi.fn() } as any, log)).not.toThrow();
   });
 
   it("logs warning on SQL error", () => {
     const brokenDb = {
-      prepare: () => ({ all: () => { throw new Error("boom"); } }),
+      prepare: () => ({
+        all: () => {
+          throw new Error("boom");
+        },
+      }),
       exec: vi.fn(),
     };
     const log = makeLog();
@@ -299,7 +301,11 @@ describe.skipIf(!hasSqlite)("loadChunkMetadata", () => {
 
   it("logs error when query fails", async () => {
     const brokenDb = {
-      prepare: () => ({ iterate: () => { throw new Error("query failed"); } }),
+      prepare: () => ({
+        iterate: () => {
+          throw new Error("query failed");
+        },
+      }),
     };
     const api = { getExtension: () => brokenDb };
     const log = makeLog();
@@ -314,10 +320,12 @@ describe.skipIf(!hasSqlite)("loadChunkMetadata", () => {
     try {
       // Seed the file DB with a row to verify data is returned via owned path
       const setupDb = new DatabaseSync(join(tempDir, "memory", "index.sqlite"));
-      setupDb.prepare(
-        `INSERT INTO chunks (id, path, source, start_line, end_line, hash, text, updated_at)
+      setupDb
+        .prepare(
+          `INSERT INTO chunks (id, path, source, start_line, end_line, hash, text, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      ).run("file-id1", "/from-file.ts", "file", 1, 5, "h", "file content", Date.now());
+        )
+        .run("file-id1", "/from-file.ts", "file", 1, 5, "h", "file content", Date.now());
       setupDb.close();
 
       const api = { getExtension: () => undefined }; // force owned=true path
@@ -417,8 +425,14 @@ describe.skipIf(!hasSqlite)("persistNewEntryToDb", () => {
     createChunksTable(db);
     const api = { getExtension: () => db };
     const entry = {
-      id: "e2", path: "/f.ts", source: "file", startLine: 1, endLine: 5,
-      snippet: "s", content: "content v1", embedding: [0.1],
+      id: "e2",
+      path: "/f.ts",
+      source: "file",
+      startLine: 1,
+      endLine: 5,
+      snippet: "s",
+      content: "content v1",
+      embedding: [0.1],
     };
     const searchManager = { getEntry: () => entry };
     const log = makeLog();
@@ -438,28 +452,42 @@ describe.skipIf(!hasSqlite)("persistNewEntryToDb", () => {
     const api = { getExtension: () => db };
     const searchManager = { getEntry: () => undefined };
     const log = makeLog();
-    expect(() =>
-      persistNewEntryToDb(api as any, "x", searchManager as any, { id: "m" }, undefined, log),
-    ).not.toThrow();
+    expect(() => persistNewEntryToDb(api as any, "x", searchManager as any, { id: "m" }, undefined, log)).not.toThrow();
   });
 
   it("silently returns when embeddingProvider is null", () => {
     const db = makeDb();
     createChunksTable(db);
     const api = { getExtension: () => db };
-    const entry = { id: "e3", path: "/f.ts", source: "file", startLine: 1, endLine: 5, snippet: "s", content: "c", embedding: [0.1] };
+    const entry = {
+      id: "e3",
+      path: "/f.ts",
+      source: "file",
+      startLine: 1,
+      endLine: 5,
+      snippet: "s",
+      content: "c",
+      embedding: [0.1],
+    };
     const searchManager = { getEntry: () => entry };
     const log = makeLog();
-    expect(() =>
-      persistNewEntryToDb(api as any, "e3", searchManager as any, null, undefined, log),
-    ).not.toThrow();
+    expect(() => persistNewEntryToDb(api as any, "e3", searchManager as any, null, undefined, log)).not.toThrow();
   });
 
   it("silently returns when embedding is empty", () => {
     const db = makeDb();
     createChunksTable(db);
     const api = { getExtension: () => db };
-    const entry = { id: "e4", path: "/f.ts", source: "file", startLine: 1, endLine: 5, snippet: "s", content: "c", embedding: [] };
+    const entry = {
+      id: "e4",
+      path: "/f.ts",
+      source: "file",
+      startLine: 1,
+      endLine: 5,
+      snippet: "s",
+      content: "c",
+      embedding: [],
+    };
     const searchManager = { getEntry: () => entry };
     const log = makeLog();
     persistNewEntryToDb(api as any, "e4", searchManager as any, { id: "m" }, undefined, log);
@@ -469,7 +497,16 @@ describe.skipIf(!hasSqlite)("persistNewEntryToDb", () => {
 
   it("silently returns when no db", () => {
     const api = { getExtension: () => undefined };
-    const entry = { id: "e5", path: "/f.ts", source: "file", startLine: 1, endLine: 5, snippet: "s", content: "c", embedding: [0.1] };
+    const entry = {
+      id: "e5",
+      path: "/f.ts",
+      source: "file",
+      startLine: 1,
+      endLine: 5,
+      snippet: "s",
+      content: "c",
+      embedding: [0.1],
+    };
     const searchManager = { getEntry: () => entry };
     const log = makeLog();
     expect(() =>
@@ -483,7 +520,16 @@ describe.skipIf(!hasSqlite)("persistNewEntryToDb", () => {
     const api = { getExtension: () => db };
     const largeContent = "x".repeat(100_000);
     const largeEmbedding = Array.from({ length: 1536 }, (_, i) => i / 1536);
-    const entry = { id: "e6", path: "/big.ts", source: "file", startLine: 1, endLine: 1000, snippet: "s", content: largeContent, embedding: largeEmbedding };
+    const entry = {
+      id: "e6",
+      path: "/big.ts",
+      source: "file",
+      startLine: 1,
+      endLine: 1000,
+      snippet: "s",
+      content: largeContent,
+      embedding: largeEmbedding,
+    };
     const searchManager = { getEntry: () => entry };
     const log = makeLog();
     persistNewEntryToDb(api as any, "e6", searchManager as any, { id: "m" }, undefined, log);
@@ -497,7 +543,17 @@ describe.skipIf(!hasSqlite)("persistNewEntryToDb", () => {
     const db = makeDb();
     createChunksTable(db);
     const api = { getExtension: () => db };
-    const entry = { id: "e7", path: "/f.ts", source: "file", startLine: 1, endLine: 5, snippet: "s", content: "c", embedding: [0.1], instanceId: "entry-inst" };
+    const entry = {
+      id: "e7",
+      path: "/f.ts",
+      source: "file",
+      startLine: 1,
+      endLine: 5,
+      snippet: "s",
+      content: "c",
+      embedding: [0.1],
+      instanceId: "entry-inst",
+    };
     const searchManager = { getEntry: () => entry };
     const log = makeLog();
     persistNewEntryToDb(api as any, "e7", searchManager as any, { id: "m" }, "fallback-inst", log);
@@ -507,11 +563,25 @@ describe.skipIf(!hasSqlite)("persistNewEntryToDb", () => {
 
   it("warns on SQL error", () => {
     const brokenDb = {
-      prepare: () => ({ all: () => [], run: () => { throw new Error("sql error"); } }),
+      prepare: () => ({
+        all: () => [],
+        run: () => {
+          throw new Error("sql error");
+        },
+      }),
       exec: vi.fn(),
     };
     const api = { getExtension: () => brokenDb };
-    const entry = { id: "e8", path: "/f.ts", source: "file", startLine: 1, endLine: 5, snippet: "s", content: "c", embedding: [0.1] };
+    const entry = {
+      id: "e8",
+      path: "/f.ts",
+      source: "file",
+      startLine: 1,
+      endLine: 5,
+      snippet: "s",
+      content: "c",
+      embedding: [0.1],
+    };
     const searchManager = { getEntry: () => entry };
     const log = makeLog();
     persistNewEntryToDb(api as any, "e8", searchManager as any, { id: "m" }, undefined, log);

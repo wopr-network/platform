@@ -1,11 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import {
-  clearAllSessions,
-  createSession,
-  deleteSession,
-  getSession,
-  isSetupActive,
-} from "../src/session-store.js";
+import { clearAllSessions, createSession, deleteSession, getSession, isSetupActive } from "../src/session-store.js";
 
 describe("session-store", () => {
   beforeEach(() => {

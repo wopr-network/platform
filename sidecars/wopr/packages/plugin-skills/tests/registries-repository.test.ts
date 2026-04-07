@@ -99,7 +99,10 @@ describe("registries-repository", () => {
       const { updateRegistryFetchStatus } = await import("../src/registries-repository.js");
       mockFindFirst.mockResolvedValue({ id: "my-reg", url: "https://example.com", addedAt: "2026-01-01T00:00:00Z" });
       await updateRegistryFetchStatus("my-reg", "2026-02-01T00:00:00Z");
-      expect(mockUpdate).toHaveBeenCalledWith("my-reg", { lastFetchedAt: "2026-02-01T00:00:00Z", lastError: undefined });
+      expect(mockUpdate).toHaveBeenCalledWith("my-reg", {
+        lastFetchedAt: "2026-02-01T00:00:00Z",
+        lastError: undefined,
+      });
     });
 
     it("updates lastError when provided", async () => {

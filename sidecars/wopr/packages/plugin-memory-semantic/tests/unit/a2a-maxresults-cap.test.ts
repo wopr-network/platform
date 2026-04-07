@@ -44,112 +44,52 @@ describe("memory_search maxResults cap", () => {
   });
 
   it("clamps maxResults to MAX_SEARCH_RESULTS when caller requests 999999", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: 999999 },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: MAX_SEARCH_RESULTS }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: 999999 }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: MAX_SEARCH_RESULTS }));
   });
 
   it("passes through maxResults when within bounds", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: 5 },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: 5 }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: 5 }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 5 }));
   });
 
   it("uses default of 10 when maxResults is omitted", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test" },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: 10 }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test" }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 10 }));
   });
 
   it(`clamps maxResults of exactly ${MAX_SEARCH_RESULTS + 1} to ${MAX_SEARCH_RESULTS}`, async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: MAX_SEARCH_RESULTS + 1 },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: MAX_SEARCH_RESULTS }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: MAX_SEARCH_RESULTS + 1 }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: MAX_SEARCH_RESULTS }));
   });
 
   it(`passes through maxResults of exactly ${MAX_SEARCH_RESULTS}`, async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: MAX_SEARCH_RESULTS },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: MAX_SEARCH_RESULTS }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: MAX_SEARCH_RESULTS }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: MAX_SEARCH_RESULTS }));
   });
 
   it("falls back to default 10 when maxResults is negative", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: -1 },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: 10 }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: -1 }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 10 }));
   });
 
   it("falls back to default 10 when maxResults is zero", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: 0 },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: 10 }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: 0 }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 10 }));
   });
 
   it("falls back to default 10 when maxResults is NaN", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: Number.NaN },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: 10 }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: Number.NaN }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 10 }));
   });
 
   it("falls back to default 10 when maxResults is null (runtime coercion)", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: null as any },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: 10 }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: null as any }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 10 }));
   });
 
   it("truncates fractional maxResults to integer", async () => {
-    await ctx.tools.memory_search.handler(
-      { query: "test", maxResults: 7.9 },
-      {},
-    );
-    expect(mgr.search).toHaveBeenCalledWith(
-      "test",
-      expect.objectContaining({ maxResults: 7 }),
-    );
+    await ctx.tools.memory_search.handler({ query: "test", maxResults: 7.9 }, {});
+    expect(mgr.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 7 }));
   });
 });

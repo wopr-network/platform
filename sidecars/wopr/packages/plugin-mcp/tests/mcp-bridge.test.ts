@@ -5,7 +5,11 @@ const mockClose = vi.fn().mockResolvedValue(undefined);
 const mockConnect = vi.fn().mockResolvedValue(undefined);
 const mockListTools = vi.fn().mockResolvedValue({
   tools: [
-    { name: "sendEmail", description: "Send an email", inputSchema: { type: "object", properties: { to: { type: "string" } } } },
+    {
+      name: "sendEmail",
+      description: "Send an email",
+      inputSchema: { type: "object", properties: { to: { type: "string" } } },
+    },
     { name: "listEmails", description: "List emails", inputSchema: { type: "object", properties: {} } },
   ],
 });

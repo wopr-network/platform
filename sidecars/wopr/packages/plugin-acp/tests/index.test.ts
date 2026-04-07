@@ -60,13 +60,8 @@ describe("plugin", () => {
     const ctx = createMockContext();
     await plugin.init(ctx);
 
-    expect(ctx.registerExtension).toHaveBeenCalledWith(
-      "acp:server",
-      expect.any(Object)
-    );
-    expect(ctx.log.info).toHaveBeenCalledWith(
-      expect.stringContaining("ACP plugin initialized")
-    );
+    expect(ctx.registerExtension).toHaveBeenCalledWith("acp:server", expect.any(Object));
+    expect(ctx.log.info).toHaveBeenCalledWith(expect.stringContaining("ACP plugin initialized"));
   });
 
   it("uses first available session as default", async () => {

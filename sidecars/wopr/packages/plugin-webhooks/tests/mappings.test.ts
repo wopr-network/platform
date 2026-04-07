@@ -1,14 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  resolveMappings,
-  applyMappings,
-  clearTransformCache,
-} from "../src/mappings.js";
-import type {
-  WebhooksConfig,
-  HookMappingResolved,
-  HookMappingContext,
-} from "../src/types.js";
+import { resolveMappings, applyMappings, clearTransformCache } from "../src/mappings.js";
+import type { WebhooksConfig, HookMappingResolved, HookMappingContext } from "../src/types.js";
 
 // ============================================================================
 // Test Helpers
@@ -232,10 +224,7 @@ describe("applyMappings", () => {
         messageTemplate: "test",
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "slack" })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "slack" }));
     expect(result).toBeNull();
   });
 
@@ -249,10 +238,7 @@ describe("applyMappings", () => {
         messageTemplate: "Got email",
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "gmail" })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "gmail" }));
     expect(result).not.toBeNull();
     expect(result?.ok).toBe(true);
     if (result?.ok && "action" in result && result.action) {
@@ -274,10 +260,7 @@ describe("applyMappings", () => {
         messageTemplate: "Push event",
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "github", payload: { source: "push" } })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "github", payload: { source: "push" } }));
     expect(result?.ok).toBe(true);
   });
 
@@ -292,10 +275,7 @@ describe("applyMappings", () => {
         messageTemplate: "Push event",
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "github", payload: { source: "issues" } })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "github", payload: { source: "issues" } }));
     expect(result).toBeNull();
   });
 
@@ -314,7 +294,7 @@ describe("applyMappings", () => {
       makeMappingCtx({
         path: "custom",
         payload: { user: "alice", event: "login" },
-      })
+      }),
     );
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "agent") {
@@ -337,7 +317,7 @@ describe("applyMappings", () => {
       makeMappingCtx({
         path: "custom",
         payload: { repository: { full_name: "org/repo" } },
-      })
+      }),
     );
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "agent") {
@@ -360,7 +340,7 @@ describe("applyMappings", () => {
       makeMappingCtx({
         path: "custom",
         payload: { items: ["apple", "banana"] },
-      })
+      }),
     );
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "agent") {
@@ -383,7 +363,7 @@ describe("applyMappings", () => {
       makeMappingCtx({
         path: "custom",
         payload: { name: "test" },
-      })
+      }),
     );
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "agent") {
@@ -407,7 +387,7 @@ describe("applyMappings", () => {
       makeMappingCtx({
         path: "notify",
         payload: { msg: "fire" },
-      })
+      }),
     );
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "wake") {
@@ -427,10 +407,7 @@ describe("applyMappings", () => {
         textTemplate: "Alert",
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "notify" })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "notify" }));
     expect(result?.ok).toBe(false);
     if (result && !result.ok) {
       expect(result.error).toContain("session");
@@ -454,10 +431,7 @@ describe("applyMappings", () => {
         messageTemplate: "Second match",
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "test" })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "test" }));
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "agent") {
       expect(result.action.message).toBe("First match");
@@ -473,10 +447,7 @@ describe("applyMappings", () => {
         messageTemplate: "Caught: {{data}}",
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "anything", payload: { data: "value" } })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "anything", payload: { data: "value" } }));
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "agent") {
       expect(result.action.message).toBe("Caught: value");
@@ -502,10 +473,7 @@ describe("applyMappings", () => {
         allowUnsafeExternalContent: true,
       },
     ];
-    const result = await applyMappings(
-      mappings,
-      makeMappingCtx({ path: "test", payload: { id: "123" } })
-    );
+    const result = await applyMappings(mappings, makeMappingCtx({ path: "test", payload: { id: "123" } }));
     expect(result?.ok).toBe(true);
     if (result?.ok && result.action && result.action.kind === "agent") {
       expect(result.action.wakeMode).toBe("next-heartbeat");

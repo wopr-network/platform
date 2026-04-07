@@ -46,9 +46,7 @@ describe("RedditPoller", () => {
     poller.start();
     await vi.advanceTimersByTimeAsync(5_001);
 
-    expect(onEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "post", id: "p1", author: "user1" }),
-    );
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: "post", id: "p1", author: "user1" }));
   });
 
   it("does not re-emit already-seen posts", async () => {

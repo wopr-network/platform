@@ -157,9 +157,7 @@ describe("wopr-plugin-notify", () => {
         level: "info",
         channel: undefined,
       });
-      expect(result.content[0].text).toBe(
-        "Notification sent: [INFO] Test notification",
-      );
+      expect(result.content[0].text).toBe("Notification sent: [INFO] Test notification");
     });
 
     it("should use warn log level for warn notifications", async () => {
@@ -178,12 +176,8 @@ describe("wopr-plugin-notify", () => {
       const handler = config.tools[0].handler;
 
       const result = await handler({ message: "Something broke", level: "error" });
-      expect(mockCtx.log.error).toHaveBeenCalledWith(
-        "[NOTIFY] Something broke",
-      );
-      expect(result.content[0].text).toBe(
-        "Notification sent: [ERROR] Something broke",
-      );
+      expect(mockCtx.log.error).toHaveBeenCalledWith("[NOTIFY] Something broke");
+      expect(result.content[0].text).toBe("Notification sent: [ERROR] Something broke");
     });
 
     it("should default unknown levels to info", async () => {

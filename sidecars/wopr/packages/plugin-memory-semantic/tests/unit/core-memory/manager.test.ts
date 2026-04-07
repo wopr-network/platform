@@ -26,12 +26,7 @@ vi.mock("node:fs/promises", () => ({
 
 import { MemoryIndexManager } from "../../../src/core-memory/manager.js";
 
-
-async function createManager(overrides?: {
-  storage?: StorageApi;
-  events?: WOPREventBus;
-  log?: PluginLogger;
-}) {
+async function createManager(overrides?: { storage?: StorageApi; events?: WOPREventBus; log?: PluginLogger }) {
   return MemoryIndexManager.create({
     globalDir: "/workspace",
     sessionDir: "/session",

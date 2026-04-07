@@ -101,7 +101,7 @@ describe("registerImessageTools", () => {
       registerImessageTools(registry, API_BASE);
 
       const tool = getTool(registry, "getImessageStatus");
-      const result = await tool.handler({}, {}) as Record<string, unknown>;
+      const result = (await tool.handler({}, {})) as Record<string, unknown>;
 
       // Verify no credential fields in the response
       expect(result).not.toHaveProperty("appleId");

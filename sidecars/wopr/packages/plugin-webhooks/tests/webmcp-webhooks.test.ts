@@ -6,11 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  type AuthContext,
-  type WebMCPRegistry,
-  registerWebhooksTools,
-} from "../src/webmcp-webhooks.js";
+import { type AuthContext, type WebMCPRegistry, registerWebhooksTools } from "../src/webmcp-webhooks.js";
 
 // Mock global fetch
 const mockFetch = vi.fn();
@@ -72,19 +68,14 @@ describe("registerWebhooksTools", () => {
 
   describe("listWebhooks", () => {
     it("should GET /plugins/webhooks/endpoints", async () => {
-      const endpoints = [
-        { id: "gmail", action: "agent", matchPath: "gmail" },
-      ];
+      const endpoints = [{ id: "gmail", action: "agent", matchPath: "gmail" }];
       mockFetch.mockResolvedValue(mockJsonResponse(endpoints));
       registerWebhooksTools(registry, API_BASE);
 
       const tool = getTool(registry, "listWebhooks");
       const result = await tool.handler({}, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/webhooks/endpoints",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/webhooks/endpoints", expect.any(Object));
       expect(result).toEqual(endpoints);
     });
 
@@ -121,10 +112,7 @@ describe("registerWebhooksTools", () => {
       const tool = getTool(registry, "getWebhookHistory");
       const result = await tool.handler({}, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/webhooks/history",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/webhooks/history", expect.any(Object));
       expect(result).toEqual(history);
     });
 
@@ -135,10 +123,7 @@ describe("registerWebhooksTools", () => {
       const tool = getTool(registry, "getWebhookHistory");
       await tool.handler({ webhookId: "gmail" }, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/webhooks/history?webhookId=gmail",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/webhooks/history?webhookId=gmail", expect.any(Object));
     });
 
     it("should include limit query parameter", async () => {
@@ -148,10 +133,7 @@ describe("registerWebhooksTools", () => {
       const tool = getTool(registry, "getWebhookHistory");
       await tool.handler({ limit: 10 }, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/webhooks/history?limit=10",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/webhooks/history?limit=10", expect.any(Object));
     });
 
     it("should include both webhookId and limit", async () => {
@@ -187,10 +169,7 @@ describe("registerWebhooksTools", () => {
       const tool = getTool(registry, "getWebhookHistory");
       await tool.handler({ webhookId: "" }, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/webhooks/history",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/webhooks/history", expect.any(Object));
     });
 
     it("should floor limit to integer", async () => {
@@ -200,10 +179,7 @@ describe("registerWebhooksTools", () => {
       const tool = getTool(registry, "getWebhookHistory");
       await tool.handler({ limit: 7.8 }, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/webhooks/history?limit=7",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/webhooks/history?limit=7", expect.any(Object));
     });
 
     it("should include bearer token in auth header", async () => {
@@ -227,10 +203,7 @@ describe("registerWebhooksTools", () => {
       const tool = getTool(registry, "getWebhookUrl");
       const result = await tool.handler({}, {});
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "/api/plugins/webhooks/url",
-        expect.any(Object),
-      );
+      expect(mockFetch).toHaveBeenCalledWith("/api/plugins/webhooks/url", expect.any(Object));
       expect(result).toEqual(urlInfo);
     });
 
@@ -248,9 +221,7 @@ describe("registerWebhooksTools", () => {
 
   describe("error handling", () => {
     it("should throw on non-ok response with error from body", async () => {
-      mockFetch.mockResolvedValue(
-        mockJsonResponse({ error: "Webhooks plugin not loaded" }, false, 404),
-      );
+      mockFetch.mockResolvedValue(mockJsonResponse({ error: "Webhooks plugin not loaded" }, false, 404));
       registerWebhooksTools(registry, API_BASE);
 
       const tool = getTool(registry, "listWebhooks");

@@ -68,7 +68,10 @@ describe("RelayPoolManager", () => {
   });
 
   it("publish logs error and rejects when all relays reject", async () => {
-    mockPublish.mockReturnValue([Promise.reject(new Error("relay1 rejected")), Promise.reject(new Error("relay2 rejected"))]);
+    mockPublish.mockReturnValue([
+      Promise.reject(new Error("relay1 rejected")),
+      Promise.reject(new Error("relay2 rejected")),
+    ]);
 
     const { RelayPoolManager } = await import("../../src/relay-pool.js");
     const manager = new RelayPoolManager(relayUrls, mockLog);

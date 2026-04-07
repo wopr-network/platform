@@ -243,7 +243,9 @@ describe("DiscordMessageUnit - State Machine", () => {
 
   it("should buffer text appended during sending state and flush after send completes", async () => {
     let resolveSend: (msg: any) => void;
-    const sendPromise = new Promise<any>((r) => { resolveSend = r; });
+    const sendPromise = new Promise<any>((r) => {
+      resolveSend = r;
+    });
     replyTo.reply = vi.fn().mockReturnValue(sendPromise);
 
     const unit = new DiscordMessageUnit(channel, replyTo, true);
@@ -267,7 +269,9 @@ describe("DiscordMessageUnit - State Machine", () => {
 
   it("should flush buffered content through finalize when sending", async () => {
     let resolveSend: (msg: any) => void;
-    const sendPromise = new Promise<any>((r) => { resolveSend = r; });
+    const sendPromise = new Promise<any>((r) => {
+      resolveSend = r;
+    });
     replyTo.reply = vi.fn().mockReturnValue(sendPromise);
 
     const unit = new DiscordMessageUnit(channel, replyTo, true);
@@ -450,7 +454,9 @@ describe("DiscordMessageUnit - State Machine", () => {
 
   it("should wait for in-flight send before finalizing", async () => {
     let resolveSend: (msg: any) => void;
-    const sendPromise = new Promise<any>((r) => { resolveSend = r; });
+    const sendPromise = new Promise<any>((r) => {
+      resolveSend = r;
+    });
     replyTo.reply = vi.fn().mockReturnValue(sendPromise);
 
     const unit = new DiscordMessageUnit(channel, replyTo, true);
@@ -473,7 +479,9 @@ describe("DiscordMessageUnit - State Machine", () => {
 
   it("should finalize gracefully when in-flight send fails", async () => {
     let rejectSend: (err: Error) => void;
-    const sendPromise = new Promise<any>((_, r) => { rejectSend = r; });
+    const sendPromise = new Promise<any>((_, r) => {
+      rejectSend = r;
+    });
     replyTo.reply = vi.fn().mockReturnValue(sendPromise);
 
     const unit = new DiscordMessageUnit(channel, replyTo, true);
@@ -501,7 +509,9 @@ describe("DiscordMessageUnit - State Machine", () => {
 
   it("should buffer text appended during handleOverflow send and merge in correct chronological order", async () => {
     let resolveSend: (msg: any) => void;
-    const sendPromise = new Promise<any>((r) => { resolveSend = r; });
+    const sendPromise = new Promise<any>((r) => {
+      resolveSend = r;
+    });
     replyTo.reply = vi.fn().mockReturnValue(sendPromise);
 
     const unit = new DiscordMessageUnit(channel, replyTo, true);

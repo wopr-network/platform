@@ -52,10 +52,7 @@ describe("enhanceSearch", () => {
   });
 
   it("should filter results below minScore", async () => {
-    const options = makeOptions([
-      makeResult({ score: 0.85 }),
-      makeResult({ score: 0.2 }),
-    ]);
+    const options = makeOptions([makeResult({ score: 0.85 }), makeResult({ score: 0.2 })]);
 
     const result = await enhanceSearch({ query: "auth", minScore: 0.35 }, options);
 

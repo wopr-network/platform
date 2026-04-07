@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  sandboxRegistryRecordSchema,
-  sandboxPluginSchema,
-} from "../src/sandbox-schema.js";
+import { sandboxRegistryRecordSchema, sandboxPluginSchema } from "../src/sandbox-schema.js";
 
 describe("sandbox-schema", () => {
   describe("sandboxRegistryRecordSchema", () => {

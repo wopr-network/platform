@@ -20,9 +20,7 @@ export default function SettingsScreen() {
 
       <View style={styles.section}>
         <Text style={styles.label}>Notifications</Text>
-        <Text style={styles.hint}>
-          Push notification preferences coming soon.
-        </Text>
+        <Text style={styles.hint}>Push notification preferences coming soon.</Text>
       </View>
 
       <TouchableOpacity

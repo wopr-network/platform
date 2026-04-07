@@ -237,10 +237,10 @@ describe("IdentityManager", () => {
   it("should refresh reaction emojis from config", async () => {
     const ctx = createMockContext();
     (ctx.getConfig as any).mockReturnValue({
-      emojiQueued: "\u231B",       // ⌛
-      emojiActive: "\u{1F525}",    // 🔥
-      emojiDone: "\u{1F389}",      // 🎉
-      emojiError: "\u{1F4A5}",     // 💥
+      emojiQueued: "\u231B", // ⌛
+      emojiActive: "\u{1F525}", // 🔥
+      emojiDone: "\u{1F389}", // 🎉
+      emojiError: "\u{1F4A5}", // 💥
       emojiCancelled: "\u{1F6D1}", // 🛑
     });
 

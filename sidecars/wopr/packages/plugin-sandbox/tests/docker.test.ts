@@ -310,27 +310,25 @@ describe("docker", () => {
 
   describe("execInContainerRaw", () => {
     it("throws on empty argv", async () => {
-      await expect(execInContainerRaw("test-container", [])).rejects.toThrow(
-        "at least one element",
-      );
+      await expect(execInContainerRaw("test-container", [])).rejects.toThrow("at least one element");
     });
 
     it("throws on invalid env key with equals sign", async () => {
-      await expect(
-        execInContainerRaw("test-container", ["ls"], { env: { "KEY=evil": "value" } }),
-      ).rejects.toThrow("Invalid environment variable key");
+      await expect(execInContainerRaw("test-container", ["ls"], { env: { "KEY=evil": "value" } })).rejects.toThrow(
+        "Invalid environment variable key",
+      );
     });
 
     it("throws on invalid env key with semicolon", async () => {
-      await expect(
-        execInContainerRaw("test-container", ["ls"], { env: { "KEY;rm -rf /": "value" } }),
-      ).rejects.toThrow("Invalid environment variable key");
+      await expect(execInContainerRaw("test-container", ["ls"], { env: { "KEY;rm -rf /": "value" } })).rejects.toThrow(
+        "Invalid environment variable key",
+      );
     });
 
     it("throws on env key starting with digit", async () => {
-      await expect(
-        execInContainerRaw("test-container", ["ls"], { env: { "1BAD": "value" } }),
-      ).rejects.toThrow("Invalid environment variable key");
+      await expect(execInContainerRaw("test-container", ["ls"], { env: { "1BAD": "value" } })).rejects.toThrow(
+        "Invalid environment variable key",
+      );
     });
   });
 });

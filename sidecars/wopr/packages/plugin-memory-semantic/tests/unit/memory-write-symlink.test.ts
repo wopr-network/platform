@@ -62,10 +62,7 @@ describe("memory_write symlink guard (TOCTOU)", () => {
     const memoryWrite = ctx.tools["memory_write"];
     expect(memoryWrite).toBeDefined();
 
-    const result = await memoryWrite.handler(
-      { file: "evil.md", content: "OVERWRITTEN" },
-      { sessionName: "default" },
-    );
+    const result = await memoryWrite.handler({ file: "evil.md", content: "OVERWRITTEN" }, { sessionName: "default" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text.toLowerCase()).toContain("path");
@@ -93,10 +90,7 @@ describe("memory_write symlink guard (TOCTOU)", () => {
 
   it("should still allow writing a normal (non-symlink) file", async () => {
     const memoryWrite = ctx.tools["memory_write"];
-    const result = await memoryWrite.handler(
-      { file: "notes.md", content: "hello" },
-      { sessionName: "default" },
-    );
+    const result = await memoryWrite.handler({ file: "notes.md", content: "hello" }, { sessionName: "default" });
 
     expect(result.isError).toBeFalsy();
     const writtenPath = join(memoryDir, "notes.md");
@@ -111,10 +105,7 @@ describe("memory_write symlink guard (TOCTOU)", () => {
     symlinkSync(danglingTarget, symlinkPath);
 
     const memoryWrite = ctx.tools["memory_write"];
-    const result = await memoryWrite.handler(
-      { file: "dangling.md", content: "INJECTED" },
-      { sessionName: "default" },
-    );
+    const result = await memoryWrite.handler({ file: "dangling.md", content: "INJECTED" }, { sessionName: "default" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text.toLowerCase()).toContain("path");
@@ -128,10 +119,7 @@ describe("memory_write symlink guard (TOCTOU)", () => {
     symlinkSync(outsideFile, symlinkPath);
 
     const memoryWrite = ctx.tools["memory_write"];
-    const result = await memoryWrite.handler(
-      { file: "MEMORY.md", content: "OVERWRITTEN" },
-      { sessionName: "default" },
-    );
+    const result = await memoryWrite.handler({ file: "MEMORY.md", content: "OVERWRITTEN" }, { sessionName: "default" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text.toLowerCase()).toContain("path");

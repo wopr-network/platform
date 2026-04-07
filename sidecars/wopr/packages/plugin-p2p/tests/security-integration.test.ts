@@ -107,7 +107,7 @@ describe("WOPR Capabilities", () => {
       // Both map to "inject", inject also adds "inject.tools"
       expect(caps.includes("inject")).toBeTruthy();
       expect(caps.includes("inject.tools")).toBeTruthy();
-      expect(caps.filter(c => c === "inject").length).toBe(1);
+      expect(caps.filter((c) => c === "inject").length).toBe(1);
     });
 
     it("should return empty for unknown caps", () => {

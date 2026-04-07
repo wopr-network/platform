@@ -56,14 +56,8 @@ describe("canvas operations", () => {
 
     it("broadcasts via publish and emitCustom", async () => {
       await canvasPush("s1", "html", "content");
-      expect(mockPublish).toHaveBeenCalledWith(
-        "canvas:s1",
-        expect.objectContaining({ type: "canvas:push" }),
-      );
-      expect(mockEmit).toHaveBeenCalledWith(
-        "canvas:push",
-        expect.objectContaining({ operation: "push" }),
-      );
+      expect(mockPublish).toHaveBeenCalledWith("canvas:s1", expect.objectContaining({ type: "canvas:push" }));
+      expect(mockEmit).toHaveBeenCalledWith("canvas:push", expect.objectContaining({ operation: "push" }));
     });
   });
 
@@ -112,10 +106,7 @@ describe("canvas operations", () => {
 
     it("broadcasts reset event", async () => {
       await canvasReset("s1");
-      expect(mockEmit).toHaveBeenCalledWith(
-        "canvas:reset",
-        expect.objectContaining({ operation: "reset" }),
-      );
+      expect(mockEmit).toHaveBeenCalledWith("canvas:reset", expect.objectContaining({ operation: "reset" }));
     });
   });
 

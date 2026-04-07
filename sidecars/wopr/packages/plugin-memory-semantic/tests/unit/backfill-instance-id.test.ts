@@ -25,9 +25,7 @@ describe("backfillLegacyInstanceId", () => {
 
     const count = backfillLegacyInstanceId(api, "inst-1", log);
     expect(count).toBe(3);
-    expect(prepareMock).toHaveBeenCalledWith(
-      "UPDATE chunks SET instance_id = ? WHERE instance_id IS NULL",
-    );
+    expect(prepareMock).toHaveBeenCalledWith("UPDATE chunks SET instance_id = ? WHERE instance_id IS NULL");
     expect(log.info).toHaveBeenCalledWith(expect.stringContaining("Backfilled 3"));
   });
 

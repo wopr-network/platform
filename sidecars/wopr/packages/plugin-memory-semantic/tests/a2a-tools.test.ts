@@ -9,15 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -191,9 +183,7 @@ describe("a2a tool handlers", () => {
         registerTool: undefined,
       };
       registerMemoryTools(badCtx as any, mockManager);
-      expect(badCtx.log.warn).toHaveBeenCalledWith(
-        expect.stringContaining("A2A memory tools will not be registered"),
-      );
+      expect(badCtx.log.warn).toHaveBeenCalledWith(expect.stringContaining("A2A memory tools will not be registered"));
     });
 
     it("unregisters all tools", () => {
@@ -208,9 +198,7 @@ describe("a2a tool handlers", () => {
         log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
       };
       unregisterMemoryTools(noToolCtx as any);
-      expect(noToolCtx.log.warn).toHaveBeenCalledWith(
-        expect.stringContaining("unregisterTool"),
-      );
+      expect(noToolCtx.log.warn).toHaveBeenCalledWith(expect.stringContaining("unregisterTool"));
     });
   });
 
@@ -225,14 +213,9 @@ describe("a2a tool handlers", () => {
     });
 
     it("memory_read rejects ../../etc/passwd", async () => {
-      const result = await getHandler("memory_read")(
-        { file: "../../etc/passwd" },
-        ctx(),
-      );
+      const result = await getHandler("memory_read")({ file: "../../etc/passwd" }, ctx());
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toMatch(
-        /Path outside allowed directory|Invalid session name/,
-      );
+      expect(result.content[0].text).toMatch(/Path outside allowed directory|Invalid session name/);
     });
 
     it("memory_read rejects absolute path", async () => {
@@ -243,29 +226,18 @@ describe("a2a tool handlers", () => {
     });
 
     it("memory_write rejects ../../etc/passwd", async () => {
-      const result = await getHandler("memory_write")(
-        { file: "../../etc/passwd", content: "pwned" },
-        ctx(),
-      );
+      const result = await getHandler("memory_write")({ file: "../../etc/passwd", content: "pwned" }, ctx());
       expect(result.isError).toBe(true);
-      expect(result.content[0].text).toMatch(
-        /Path outside allowed directory|Invalid session name/,
-      );
+      expect(result.content[0].text).toMatch(/Path outside allowed directory|Invalid session name/);
     });
 
     it("memory_write rejects path traversal with ../", async () => {
-      const result = await getHandler("memory_write")(
-        { file: "../../../etc/crontab", content: "pwned" },
-        ctx(),
-      );
+      const result = await getHandler("memory_write")({ file: "../../../etc/crontab", content: "pwned" }, ctx());
       expect(result.isError).toBe(true);
     });
 
     it("memory_get rejects ../../etc/passwd", async () => {
-      const result = await getHandler("memory_get")(
-        { path: "../../etc/passwd" },
-        ctx(),
-      );
+      const result = await getHandler("memory_get")({ path: "../../etc/passwd" }, ctx());
       expect(result.isError).toBe(true);
     });
 
@@ -277,10 +249,7 @@ describe("a2a tool handlers", () => {
     });
 
     it("rejects session name with path traversal", async () => {
-      const result = await getHandler("memory_read")(
-        { file: "MEMORY.md" },
-        { sessionName: "../evil" },
-      );
+      const result = await getHandler("memory_read")({ file: "MEMORY.md" }, { sessionName: "../evil" });
       expect(result.isError).toBe(true);
     });
 
@@ -304,10 +273,7 @@ describe("a2a tool handlers", () => {
       } catch {
         return;
       }
-      const result = await getHandler("memory_write")(
-        { file: "evil-link.md", content: "pwned" },
-        ctx(),
-      );
+      const result = await getHandler("memory_write")({ file: "evil-link.md", content: "pwned" }, ctx());
       expect(result.isError).toBe(true);
     });
   });
@@ -377,10 +343,7 @@ describe("a2a tool handlers", () => {
       const sessionMemory = join(sessionsDir, "test-session", "memory");
       writeFileSync(join(sessionMemory, "multi.md"), "line1\nline2\nline3\nline4\nline5");
 
-      const result = await getHandler("memory_read")(
-        { file: "multi.md", from: 2, lines: 2 },
-        ctx(),
-      );
+      const result = await getHandler("memory_read")({ file: "multi.md", from: 2, lines: 2 }, ctx());
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.from).toBe(2);
       expect(parsed.to).toBe(3);
@@ -419,15 +382,9 @@ describe("a2a tool handlers", () => {
     });
 
     it("writes a new file", async () => {
-      const result = await getHandler("memory_write")(
-        { file: "notes.md", content: "hello" },
-        ctx(),
-      );
+      const result = await getHandler("memory_write")({ file: "notes.md", content: "hello" }, ctx());
       expect(result.content[0].text).toContain("notes.md");
-      const written = readFileSync(
-        join(sessionsDir, "test-session", "memory", "notes.md"),
-        "utf-8",
-      );
+      const written = readFileSync(join(sessionsDir, "test-session", "memory", "notes.md"), "utf-8");
       expect(written).toBe("hello");
     });
 
@@ -435,10 +392,7 @@ describe("a2a tool handlers", () => {
       const filePath = join(sessionsDir, "test-session", "memory", "notes.md");
       writeFileSync(filePath, "old");
 
-      await getHandler("memory_write")(
-        { file: "notes.md", content: "new", append: false },
-        ctx(),
-      );
+      await getHandler("memory_write")({ file: "notes.md", content: "new", append: false }, ctx());
       expect(readFileSync(filePath, "utf-8")).toBe("new");
     });
 
@@ -446,10 +400,7 @@ describe("a2a tool handlers", () => {
       const filePath = join(sessionsDir, "test-session", "memory", "notes.md");
       writeFileSync(filePath, "old");
 
-      await getHandler("memory_write")(
-        { file: "notes.md", content: "new", append: true },
-        ctx(),
-      );
+      await getHandler("memory_write")({ file: "notes.md", content: "new", append: true }, ctx());
       const content = readFileSync(filePath, "utf-8");
       expect(content).toContain("old");
       expect(content).toContain("new");
@@ -473,23 +424,14 @@ describe("a2a tool handlers", () => {
     });
 
     it("writes ROOT_FILES to session root", async () => {
-      await getHandler("memory_write")(
-        { file: "MEMORY.md", content: "# Memory" },
-        ctx(),
-      );
-      const content = readFileSync(
-        join(sessionsDir, "test-session", "MEMORY.md"),
-        "utf-8",
-      );
+      await getHandler("memory_write")({ file: "MEMORY.md", content: "# Memory" }, ctx());
+      const content = readFileSync(join(sessionsDir, "test-session", "MEMORY.md"), "utf-8");
       expect(content).toBe("# Memory");
     });
 
     it("rejects content exceeding MEMORY_WRITE_MAX_BYTES", async () => {
       const bigContent = "x".repeat(MEMORY_WRITE_MAX_BYTES + 1);
-      const result = await getHandler("memory_write")(
-        { file: "big.md", content: bigContent },
-        ctx(),
-      );
+      const result = await getHandler("memory_write")({ file: "big.md", content: bigContent }, ctx());
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("exceeds maximum");
     });
@@ -548,10 +490,7 @@ describe("a2a tool handlers", () => {
 
     it("passes instanceId to manager.search", async () => {
       await getHandler("memory_search")({ query: "test" }, ctx());
-      expect(mockManager.search).toHaveBeenCalledWith(
-        "test",
-        expect.objectContaining({ instanceId: "test-instance" }),
-      );
+      expect(mockManager.search).toHaveBeenCalledWith("test", expect.objectContaining({ instanceId: "test-instance" }));
     });
 
     it("clamps maxResults to MAX_SEARCH_RESULTS", async () => {
@@ -564,10 +503,7 @@ describe("a2a tool handlers", () => {
 
     it("handles non-finite maxResults (NaN) gracefully with default 10", async () => {
       await getHandler("memory_search")({ query: "test", maxResults: NaN }, ctx());
-      expect(mockManager.search).toHaveBeenCalledWith(
-        "test",
-        expect.objectContaining({ maxResults: 10 }),
-      );
+      expect(mockManager.search).toHaveBeenCalledWith("test", expect.objectContaining({ maxResults: 10 }));
     });
 
     it("returns error when search throws", async () => {
@@ -588,10 +524,7 @@ describe("a2a tool handlers", () => {
     });
 
     it("returns error for invalid temporal filter", async () => {
-      const result = await getHandler("memory_search")(
-        { query: "test", temporal: "garbage" },
-        ctx(),
-      );
+      const result = await getHandler("memory_search")({ query: "test", temporal: "garbage" }, ctx());
       expect(result.content[0].text).toContain("Invalid temporal filter");
     });
   });
@@ -607,10 +540,7 @@ describe("a2a tool handlers", () => {
     });
 
     it("reads full file and returns JSON with totalLines", async () => {
-      writeFileSync(
-        join(sessionsDir, "test-session", "memory", "data.md"),
-        "line1\nline2\nline3",
-      );
+      writeFileSync(join(sessionsDir, "test-session", "memory", "data.md"), "line1\nline2\nline3");
 
       const result = await getHandler("memory_get")({ path: "memory/data.md" }, ctx());
       const parsed = JSON.parse(result.content[0].text);
@@ -619,15 +549,9 @@ describe("a2a tool handlers", () => {
     });
 
     it("supports line range with from and lines", async () => {
-      writeFileSync(
-        join(sessionsDir, "test-session", "memory", "data.md"),
-        "a\nb\nc\nd\ne",
-      );
+      writeFileSync(join(sessionsDir, "test-session", "memory", "data.md"), "a\nb\nc\nd\ne");
 
-      const result = await getHandler("memory_get")(
-        { path: "memory/data.md", from: 2, lines: 2 },
-        ctx(),
-      );
+      const result = await getHandler("memory_get")({ path: "memory/data.md", from: 2, lines: 2 }, ctx());
       const parsed = JSON.parse(result.content[0].text);
       expect(parsed.from).toBe(2);
       expect(parsed.to).toBe(3);
@@ -641,10 +565,7 @@ describe("a2a tool handlers", () => {
     });
 
     it("falls back from session root to memory dir", async () => {
-      writeFileSync(
-        join(sessionsDir, "test-session", "memory", "fallback.md"),
-        "found in memory",
-      );
+      writeFileSync(join(sessionsDir, "test-session", "memory", "fallback.md"), "found in memory");
 
       const result = await getHandler("memory_get")({ path: "fallback.md" }, ctx());
       const parsed = JSON.parse(result.content[0].text);
@@ -663,10 +584,7 @@ describe("a2a tool handlers", () => {
     });
 
     it("creates SELF.md and adds reflection", async () => {
-      const result = await getHandler("self_reflect")(
-        { reflection: "I learned something" },
-        ctx(),
-      );
+      const result = await getHandler("self_reflect")({ reflection: "I learned something" }, ctx());
       expect(result.content[0].text).toContain("Reflection added");
 
       const selfPath = join(sessionsDir, "test-session", "memory", "SELF.md");
@@ -678,10 +596,7 @@ describe("a2a tool handlers", () => {
       const result = await getHandler("self_reflect")({ tattoo: "be kind" }, ctx());
       expect(result.content[0].text).toContain("be kind");
 
-      const content = readFileSync(
-        join(sessionsDir, "test-session", "memory", "SELF.md"),
-        "utf-8",
-      );
+      const content = readFileSync(join(sessionsDir, "test-session", "memory", "SELF.md"), "utf-8");
       expect(content).toContain("be kind");
     });
 
@@ -716,23 +631,14 @@ describe("a2a tool handlers", () => {
     });
 
     it("rejects oversized section header (>256 bytes)", async () => {
-      const result = await getHandler("self_reflect")(
-        { reflection: "ok", section: "x".repeat(257) },
-        ctx(),
-      );
+      const result = await getHandler("self_reflect")({ reflection: "ok", section: "x".repeat(257) }, ctx());
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("section");
     });
 
     it("uses custom section header when provided", async () => {
-      await getHandler("self_reflect")(
-        { reflection: "deep thought", section: "Philosophy" },
-        ctx(),
-      );
-      const content = readFileSync(
-        join(sessionsDir, "test-session", "memory", "SELF.md"),
-        "utf-8",
-      );
+      await getHandler("self_reflect")({ reflection: "deep thought", section: "Philosophy" }, ctx());
+      const content = readFileSync(join(sessionsDir, "test-session", "memory", "SELF.md"), "utf-8");
       expect(content).toContain("Philosophy");
     });
   });

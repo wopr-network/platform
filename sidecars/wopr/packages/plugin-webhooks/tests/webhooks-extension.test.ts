@@ -6,11 +6,7 @@
  */
 
 import { afterEach, describe, expect, it } from "vitest";
-import {
-  createWebhooksExtension,
-  recordDelivery,
-  clearDeliveryHistory,
-} from "../src/webhooks-extension.js";
+import { createWebhooksExtension, recordDelivery, clearDeliveryHistory } from "../src/webhooks-extension.js";
 import type { WebhooksConfigResolved } from "../src/types.js";
 
 function createMockConfig(overrides?: Partial<WebhooksConfigResolved>): WebhooksConfigResolved {

@@ -28,18 +28,14 @@ describe("wopr-plugin-canvas plugin", () => {
 
   it("registers canvas:router extension on init", async () => {
     await plugin.init(mockCtx as any);
-    const routerCall = mockCtx.registerExtension.mock.calls.find(
-      (c: any[]) => c[0] === "canvas:router",
-    );
+    const routerCall = mockCtx.registerExtension.mock.calls.find((c: any[]) => c[0] === "canvas:router");
     expect(routerCall).toBeDefined();
     expect(routerCall![1]).toBeDefined();
   });
 
   it("registers canvas:setPublish extension on init", async () => {
     await plugin.init(mockCtx as any);
-    const publishCall = mockCtx.registerExtension.mock.calls.find(
-      (c: any[]) => c[0] === "canvas:setPublish",
-    );
+    const publishCall = mockCtx.registerExtension.mock.calls.find((c: any[]) => c[0] === "canvas:setPublish");
     expect(publishCall).toBeDefined();
     expect(typeof publishCall![1]).toBe("function");
   });
@@ -52,17 +48,12 @@ describe("wopr-plugin-canvas plugin", () => {
 
   it("registers session:create hook for future sessions", async () => {
     await plugin.init(mockCtx as any);
-    expect(mockCtx.hooks.on).toHaveBeenCalledWith(
-      "session:create",
-      expect.any(Function),
-    );
+    expect(mockCtx.hooks.on).toHaveBeenCalledWith("session:create", expect.any(Function));
   });
 
   it("registers A2A server when session:create fires", async () => {
     await plugin.init(mockCtx as any);
-    const hookCallback = mockCtx.hooks.on.mock.calls.find(
-      (c: any[]) => c[0] === "session:create",
-    )![1] as Function;
+    const hookCallback = mockCtx.hooks.on.mock.calls.find((c: any[]) => c[0] === "session:create")![1] as Function;
 
     hookCallback({ session: "new-session" });
     // 0 active sessions + 1 from hook = 1

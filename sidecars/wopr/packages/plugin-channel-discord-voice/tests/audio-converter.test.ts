@@ -47,11 +47,7 @@ vi.mock("prism-media", async () => {
 });
 
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  OpusToPCMConverter,
-  PCMToOpusConverter,
-  VADDetector,
-} from "../src/audio-converter.js";
+import { OpusToPCMConverter, PCMToOpusConverter, VADDetector } from "../src/audio-converter.js";
 
 /**
  * Generate a synthetic PCM buffer (s16le, mono) with a sine wave.
@@ -65,9 +61,7 @@ function generatePCMSineWave(
   const numSamples = Math.floor((sampleRate * durationMs) / 1000);
   const buf = Buffer.alloc(numSamples * 2);
   for (let i = 0; i < numSamples; i++) {
-    const sample = Math.round(
-      amplitude * Math.sin((2 * Math.PI * frequency * i) / sampleRate),
-    );
+    const sample = Math.round(amplitude * Math.sin((2 * Math.PI * frequency * i) / sampleRate));
     buf.writeInt16LE(sample, i * 2);
   }
   return buf;

@@ -134,9 +134,7 @@ describe("EmbeddingQueue", () => {
       queue.enqueue([makeEntry("x"), makeEntry("y")], "second");
       await vi.runAllTimersAsync();
 
-      const allIds = sm.addEntriesBatch.mock.calls
-        .flatMap((c) => c[0] as PendingEntry[])
-        .map((e) => e.entry.id);
+      const allIds = sm.addEntriesBatch.mock.calls.flatMap((c) => c[0] as PendingEntry[]).map((e) => e.entry.id);
       expect(allIds.filter((id) => id === "x")).toHaveLength(1);
       expect(allIds.filter((id) => id === "y")).toHaveLength(1);
     });
@@ -182,9 +180,7 @@ describe("EmbeddingQueue", () => {
       expect(sm.addEntriesBatch).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
 
       // Should have logged the permanent drop
-      const dropLogs = log.error.mock.calls.filter(
-        (c: string[]) => c[0].includes("permanently dropping")
-      );
+      const dropLogs = log.error.mock.calls.filter((c: string[]) => c[0].includes("permanently dropping"));
       expect(dropLogs.length).toBeGreaterThan(0);
     });
 
@@ -342,9 +338,7 @@ describe("EmbeddingQueue", () => {
       await vi.runAllTimersAsync();
 
       // Only the first entry was processed
-      const allIds = sm.addEntriesBatch.mock.calls
-        .flatMap((c) => c[0] as PendingEntry[])
-        .map((e) => e.entry.id);
+      const allIds = sm.addEntriesBatch.mock.calls.flatMap((c) => c[0] as PendingEntry[]).map((e) => e.entry.id);
       expect(allIds).not.toContain("b");
     });
 
@@ -363,9 +357,10 @@ describe("EmbeddingQueue", () => {
       // Make addEntriesBatch hang until we resolve it
       let resolveAdd!: () => void;
       sm.addEntriesBatch.mockImplementationOnce(
-        () => new Promise<number>((resolve) => {
-          resolveAdd = () => resolve(1);
-        }),
+        () =>
+          new Promise<number>((resolve) => {
+            resolveAdd = () => resolve(1);
+          }),
       );
 
       queue.attach(sm as any);

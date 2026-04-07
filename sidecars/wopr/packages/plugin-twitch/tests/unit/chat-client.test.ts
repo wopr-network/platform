@@ -47,7 +47,7 @@ const makeCtx = () => ({
   dataDir: "/tmp",
 });
 
-const makeAuthProvider = () => ({} as never);
+const makeAuthProvider = () => ({}) as never;
 
 describe("TwitchChatManager", () => {
   describe("message splitting", () => {

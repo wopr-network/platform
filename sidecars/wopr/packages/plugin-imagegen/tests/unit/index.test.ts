@@ -54,10 +54,7 @@ describe("plugin.init", () => {
 
   it("registers config schema with correct plugin ID", async () => {
     await plugin.init!(mockCtx);
-    expect(mockCtx.registerConfigSchema).toHaveBeenCalledWith(
-      "wopr-plugin-imagegen",
-      expect.any(Object),
-    );
+    expect(mockCtx.registerConfigSchema).toHaveBeenCalledWith("wopr-plugin-imagegen", expect.any(Object));
     await plugin.shutdown!();
   });
 
@@ -66,9 +63,7 @@ describe("plugin.init", () => {
     expect(mockCtx.registerA2AServer).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "imagegen",
-        tools: expect.arrayContaining([
-          expect.objectContaining({ name: "imagine" }),
-        ]),
+        tools: expect.arrayContaining([expect.objectContaining({ name: "imagine" })]),
       }),
     );
     await plugin.shutdown!();
@@ -78,9 +73,7 @@ describe("plugin.init", () => {
     const provider = makeMockProvider("discord-1");
     mockCtx.getChannelProviders = vi.fn().mockReturnValue([provider]);
     await plugin.init!(mockCtx);
-    expect(provider.registerCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "imagine" }),
-    );
+    expect(provider.registerCommand).toHaveBeenCalledWith(expect.objectContaining({ name: "imagine" }));
     await plugin.shutdown!();
   });
 
@@ -125,9 +118,7 @@ describe("plugin.shutdown", () => {
 describe("A2A imagine tool handler", () => {
   it("calls inject with capability message and returns image content", async () => {
     const mockCtx = createMockContext();
-    vi.mocked(mockCtx.inject).mockResolvedValue(
-      JSON.stringify({ imageUrl: "https://example.com/generated.png" }),
-    );
+    vi.mocked(mockCtx.inject).mockResolvedValue(JSON.stringify({ imageUrl: "https://example.com/generated.png" }));
 
     await plugin.init!(mockCtx);
 
@@ -177,15 +168,11 @@ describe("A2A imagine tool handler", () => {
     vi.mocked(mockCtx.getChannelProviders).mockReturnValue([lateProvider]);
 
     // Trigger the plugin:afterInit event
-    const eventsOnCall = vi.mocked(mockCtx.events.on).mock.calls.find(
-      (c) => c[0] === "plugin:afterInit",
-    );
+    const eventsOnCall = vi.mocked(mockCtx.events.on).mock.calls.find((c) => c[0] === "plugin:afterInit");
     expect(eventsOnCall).toBeDefined();
     const handler = eventsOnCall![1] as () => void;
     handler();
-    expect(lateProvider.registerCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "imagine" }),
-    );
+    expect(lateProvider.registerCommand).toHaveBeenCalledWith(expect.objectContaining({ name: "imagine" }));
 
     await plugin.shutdown!();
   });

@@ -24,10 +24,10 @@ interface ReactionEmojis {
 
 function createReactionManager(botId: string) {
   let reactionEmojis: ReactionEmojis = {
-    queued: "\u{1F550}",   // 🕐
-    active: "\u26A1",      // ⚡
-    done: "\u2705",        // ✅
-    error: "\u274C",       // ❌
+    queued: "\u{1F550}", // 🕐
+    active: "\u26A1", // ⚡
+    done: "\u2705", // ✅
+    error: "\u274C", // ❌
     cancelled: "\u23F9\uFE0F", // ⏹️
   };
 

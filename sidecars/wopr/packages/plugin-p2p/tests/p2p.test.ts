@@ -66,7 +66,7 @@ describe("P2P Module - createP2PListener", () => {
 
     // With empty test data dir, no identity exists => swarm is null
     expect(swarm).toBe(null);
-    expect(logMessages.some(m => m.includes("No identity"))).toBeTruthy();
+    expect(logMessages.some((m) => m.includes("No identity"))).toBeTruthy();
   });
 
   it("should accept legacy function signature", async () => {
@@ -78,7 +78,7 @@ describe("P2P Module - createP2PListener", () => {
     const swarm = createP2PListener(onInject, onLog);
 
     expect(swarm).toBe(null);
-    expect(logMessages.some(m => m.includes("No identity"))).toBeTruthy();
+    expect(logMessages.some((m) => m.includes("No identity"))).toBeTruthy();
   });
 });
 

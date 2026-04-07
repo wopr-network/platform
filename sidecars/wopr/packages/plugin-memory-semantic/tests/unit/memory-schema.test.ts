@@ -108,9 +108,7 @@ describe("memory-schema", () => {
     });
 
     it("rejects wrong types", () => {
-      expect(() =>
-        filesSchema.parse({ id: 123, path: true, source: null, hash: 0, mtime: "x", size: "y" }),
-      ).toThrow();
+      expect(() => filesSchema.parse({ id: 123, path: true, source: null, hash: 0, mtime: "x", size: "y" })).toThrow();
     });
   });
 
