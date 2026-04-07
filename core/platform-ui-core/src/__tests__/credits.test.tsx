@@ -1,5 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { CreditBalance, CreditHistoryResponse } from "@/lib/api";
 import { trpcVanillaProxy } from "./setup.js";
@@ -46,6 +45,17 @@ vi.mock("framer-motion", () => {
 // bypassing the orgChecked skeleton and letting the balance content render.
 vi.mock("@/lib/org-api", () => ({
   getOrganization: vi.fn().mockRejectedValue(new Error("no org")),
+}));
+
+// Mock UnifiedCheckout — uses useQueryClient() which requires QueryClientProvider.
+// The credits page tests focus on balance display and layout wiring.
+vi.mock("@/components/billing/unified-checkout", () => ({
+  UnifiedCheckout: () => <div data-testid="unified-checkout">UnifiedCheckout</div>,
+}));
+
+// Mock TransactionHistory — complex component with its own data fetching.
+vi.mock("@/components/billing/transaction-history", () => ({
+  TransactionHistory: () => <div data-testid="transaction-history">TransactionHistory</div>,
 }));
 
 // Mock next/navigation
@@ -193,91 +203,25 @@ describe("Credits page", () => {
     expect(screen.getByText("~37 days")).toBeInTheDocument();
   });
 
-  it("renders buy credits panel with tiers", async () => {
+  it("renders unified checkout component", async () => {
     const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
     render(<CreditsPage />);
 
-    const buyCreditsHeading = await screen.findByText("Buy Credits");
-    const buyCreditsPanel = buyCreditsHeading.closest('[data-slot="card"]') as HTMLElement;
-    // Note: $5, $10, $50 appear in both BuyCreditsPanel and AutoTopupCard dropdowns
-    expect((await screen.findAllByText("$5")).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("$10").length).toBeGreaterThanOrEqual(1);
-    expect(within(buyCreditsPanel).getByText("$25")).toBeInTheDocument();
-    expect(screen.getAllByText("$50").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("$100").length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByTestId("unified-checkout")).toBeInTheDocument();
   });
 
-  it("renders bonus badges on higher tiers", async () => {
+  it("renders transaction history component", async () => {
     const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
     render(<CreditsPage />);
 
-    expect(await screen.findByText("+2%")).toBeInTheDocument();
-    expect(screen.getByText("+5%")).toBeInTheDocument();
-    expect(screen.getByText("+10%")).toBeInTheDocument();
+    expect(await screen.findByTestId("transaction-history")).toBeInTheDocument();
   });
 
-  it("renders transaction history", async () => {
+  it("renders page description", async () => {
     const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
     render(<CreditsPage />);
 
-    expect(await screen.findByText("Transaction History")).toBeInTheDocument();
-    // "Signup credit" appears in both the description and the type badge
-    expect((await screen.findAllByText("Signup credit")).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Bot runtime (platform-1)")).toBeInTheDocument();
-    expect(screen.getByText("Credit purchase")).toBeInTheDocument();
-  });
-
-  it("renders positive and negative amounts with correct coloring", async () => {
-    const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
-    render(<CreditsPage />);
-
-    const positiveAmount = await screen.findByText("+$5.00");
-    expect(positiveAmount).toHaveClass("text-emerald-500");
-
-    const negativeAmount = screen.getByText("-$0.17");
-    expect(negativeAmount).toHaveClass("text-red-500");
-  });
-
-  it("renders load more button when there is a next cursor", async () => {
-    const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
-    render(<CreditsPage />);
-
-    expect(await screen.findByRole("button", { name: "Load more" }, { timeout: 5000 })).toBeInTheDocument();
-  });
-
-  it("loads next page of transactions on load more click", async () => {
-    const user = userEvent.setup();
-    const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
-    render(<CreditsPage />);
-
-    const loadMoreBtn = await screen.findByRole("button", { name: "Load more" });
-    await user.click(loadMoreBtn);
-
-    expect(await screen.findByText("Bot runtime (platform-2)")).toBeInTheDocument();
-  });
-
-  it("buy credits button is disabled without selection", async () => {
-    const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
-    render(<CreditsPage />);
-
-    const buyBtn = await screen.findByRole("button", { name: "Buy credits" });
-    expect(buyBtn).toBeDisabled();
-  });
-
-  it("enables buy button after selecting a tier", async () => {
-    const user = userEvent.setup();
-    const { default: CreditsPage } = await import("../app/(dashboard)/billing/credits/page");
-    render(<CreditsPage />);
-
-    // Wait for tiers to load, then scope to the Buy Credits card to avoid
-    // matching the same dollar amounts in the BuyCryptoCreditPanel
-    const buyCreditsHeading = await screen.findByText("Buy Credits");
-    const buyCreditsPanel = buyCreditsHeading.closest('[data-slot="card"]') as HTMLElement;
-    const tier10 = await within(buyCreditsPanel).findByText("$10");
-    await user.click(tier10);
-
-    const buyBtn = screen.getByRole("button", { name: "Buy credits" });
-    expect(buyBtn).not.toBeDisabled();
+    expect(await screen.findByText("Purchase and manage your credits")).toBeInTheDocument();
   });
 });
 
