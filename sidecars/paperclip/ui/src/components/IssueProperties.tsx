@@ -10,6 +10,7 @@ import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
 import { formatAssigneeUserLabel } from "../lib/assignees";
 import { StatusIcon } from "./StatusIcon";
@@ -126,6 +127,7 @@ function PropertyPicker({
 
 export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProps) {
   const { selectedCompanyId } = useCompany();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;
   const [assigneeOpen, setAssigneeOpen] = useState(false);
@@ -285,47 +287,51 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                   <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
                   <span className="truncate">{label.name}</span>
                 </button>
-                <button
-                  type="button"
-                  className="p-1 text-muted-foreground hover:text-destructive rounded"
-                  onClick={() => deleteLabel.mutate(label.id)}
-                  title={`Delete ${label.name}`}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                {!isHosted && (
+                  <button
+                    type="button"
+                    className="p-1 text-muted-foreground hover:text-destructive rounded"
+                    onClick={() => deleteLabel.mutate(label.id)}
+                    title={`Delete ${label.name}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
               </div>
             );
           })}
       </div>
-      <div className="mt-2 border-t border-border pt-2 space-y-1">
-        <div className="flex items-center gap-1">
-          <input
-            className="h-7 w-7 p-0 rounded bg-transparent"
-            type="color"
-            value={newLabelColor}
-            onChange={(e) => setNewLabelColor(e.target.value)}
-          />
-          <input
-            className="flex-1 px-2 py-1.5 text-xs bg-transparent outline-none rounded placeholder:text-muted-foreground/50"
-            placeholder="New label"
-            value={newLabelName}
-            onChange={(e) => setNewLabelName(e.target.value)}
-          />
+      {!isHosted && (
+        <div className="mt-2 border-t border-border pt-2 space-y-1">
+          <div className="flex items-center gap-1">
+            <input
+              className="h-7 w-7 p-0 rounded bg-transparent"
+              type="color"
+              value={newLabelColor}
+              onChange={(e) => setNewLabelColor(e.target.value)}
+            />
+            <input
+              className="flex-1 px-2 py-1.5 text-xs bg-transparent outline-none rounded placeholder:text-muted-foreground/50"
+              placeholder="New label"
+              value={newLabelName}
+              onChange={(e) => setNewLabelName(e.target.value)}
+            />
+          </div>
+          <button
+            className="flex items-center justify-center gap-1.5 w-full px-2 py-1.5 text-xs rounded border border-border hover:bg-accent/50 disabled:opacity-50"
+            disabled={!newLabelName.trim() || createLabel.isPending}
+            onClick={() =>
+              createLabel.mutate({
+                name: newLabelName.trim(),
+                color: newLabelColor,
+              })
+            }
+          >
+            <Plus className="h-3 w-3" />
+            {createLabel.isPending ? "Creating…" : "Create label"}
+          </button>
         </div>
-        <button
-          className="flex items-center justify-center gap-1.5 w-full px-2 py-1.5 text-xs rounded border border-border hover:bg-accent/50 disabled:opacity-50"
-          disabled={!newLabelName.trim() || createLabel.isPending}
-          onClick={() =>
-            createLabel.mutate({
-              name: newLabelName.trim(),
-              color: newLabelColor,
-            })
-          }
-        >
-          <Plus className="h-3 w-3" />
-          {createLabel.isPending ? "Creating…" : "Create label"}
-        </button>
-      </div>
+      )}
     </>
   );
 

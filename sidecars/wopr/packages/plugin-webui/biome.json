@@ -1,0 +1,16 @@
+{
+  "files": {
+    "includes": ["src/**/*.ts", "src/**/*.tsx"]
+  },
+  "linter": {
+    "rules": {
+      "a11y": {
+        "recommended": false
+      },
+      "suspicious": {
+        "noConsole": "off",
+        "noExplicitAny": "warn"
+      }
+    }
+  }
+}

@@ -165,7 +165,9 @@ export async function initialize(
 			await startWatcher({
 				dirs: [globalDir, sessionDir],
 				debounceMs: state.config.sync?.watchDebounceMs ?? 1500,
-				onSync: () => state.memoryManager?.sync(),
+				onSync: async () => {
+					await state.memoryManager?.sync();
+				},
 				log: api.log,
 			});
 		}

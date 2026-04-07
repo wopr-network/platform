@@ -38,7 +38,9 @@
     "metrics:paperclip-commits": "tsx scripts/paperclip-commit-metrics.ts"
   },
   "devDependencies": {
+    "@paperclipai/plugin-sdk": "workspace:*",
     "@playwright/test": "^1.58.2",
+    "@wopr-network/provision-server": "workspace:*",
     "cross-env": "^10.1.0",
     "esbuild": "^0.27.3",
     "typescript": "^5.7.3",
