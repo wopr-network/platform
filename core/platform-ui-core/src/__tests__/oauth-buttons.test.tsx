@@ -1,14 +1,8 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/trpc", () => ({
-  trpc: {
-    authSocial: {
-      enabledSocialProviders: {
-        useQuery: vi.fn(),
-      },
-    },
-  },
+vi.mock("@/lib/api-config", () => ({
+  API_BASE_URL: "https://api.test/api",
 }));
 
 vi.mock("@/lib/auth-client", () => ({
@@ -18,84 +12,67 @@ vi.mock("@/lib/auth-client", () => ({
 }));
 
 import { OAuthButtons } from "@/components/oauth-buttons";
-import { trpc } from "@/lib/trpc";
 
 describe("OAuthButtons", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("renders nothing while loading", () => {
-    vi.mocked(trpc.authSocial.enabledSocialProviders.useQuery).mockReturnValue({
-      data: undefined,
-      isLoading: true,
-    } as ReturnType<typeof trpc.authSocial.enabledSocialProviders.useQuery>);
-
+    // fetch never resolves — component stays in loading state
+    vi.stubGlobal("fetch", vi.fn().mockReturnValue(new Promise(() => {})));
     const { container } = render(<OAuthButtons />);
     expect(container.querySelector("button")).toBeNull();
   });
 
-  it("renders nothing when no providers are enabled", () => {
-    vi.mocked(trpc.authSocial.enabledSocialProviders.useQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-    } as ReturnType<typeof trpc.authSocial.enabledSocialProviders.useQuery>);
-
+  it("renders nothing when no providers are enabled", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) }));
     const { container } = render(<OAuthButtons />);
-    expect(container.querySelector("button")).toBeNull();
+    // Wait for useEffect to settle
+    await vi.waitFor(() => {
+      expect(container.querySelector("button")).toBeNull();
+    });
   });
 
-  it("renders nothing when data is undefined and not loading", () => {
-    vi.mocked(trpc.authSocial.enabledSocialProviders.useQuery).mockReturnValue({
-      data: undefined,
-      isLoading: false,
-    } as ReturnType<typeof trpc.authSocial.enabledSocialProviders.useQuery>);
-
+  it("renders nothing when fetch fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network error")));
     const { container } = render(<OAuthButtons />);
-    expect(container.querySelector("button")).toBeNull();
+    await vi.waitFor(() => {
+      expect(container.querySelector("button")).toBeNull();
+    });
   });
 
-  it("renders only enabled providers", () => {
-    vi.mocked(trpc.authSocial.enabledSocialProviders.useQuery).mockReturnValue({
-      data: ["github", "discord"],
-      isLoading: false,
-    } as ReturnType<typeof trpc.authSocial.enabledSocialProviders.useQuery>);
-
+  it("renders only enabled providers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(["github", "discord"]) }));
     render(<OAuthButtons />);
-    expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Continue with GitHub" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Discord" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument();
   });
 
-  it("renders all three providers when all are enabled", () => {
-    vi.mocked(trpc.authSocial.enabledSocialProviders.useQuery).mockReturnValue({
-      data: ["github", "discord", "google"],
-      isLoading: false,
-    } as ReturnType<typeof trpc.authSocial.enabledSocialProviders.useQuery>);
-
+  it("renders all three providers when all are enabled", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(["github", "discord", "google"]) }),
+    );
     render(<OAuthButtons />);
-    expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Continue with GitHub" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Discord" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
   });
 
-  it("renders the separator when providers are available", () => {
-    vi.mocked(trpc.authSocial.enabledSocialProviders.useQuery).mockReturnValue({
-      data: ["github"],
-      isLoading: false,
-    } as ReturnType<typeof trpc.authSocial.enabledSocialProviders.useQuery>);
-
+  it("renders the separator when providers are available", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(["github"]) }));
     render(<OAuthButtons />);
-    expect(screen.getByText(/or continue with/i)).toBeInTheDocument();
+    expect(await screen.findByText(/or continue with/i)).toBeInTheDocument();
   });
 
-  it("does not render the separator when no providers", () => {
-    vi.mocked(trpc.authSocial.enabledSocialProviders.useQuery).mockReturnValue({
-      data: [],
-      isLoading: false,
-    } as ReturnType<typeof trpc.authSocial.enabledSocialProviders.useQuery>);
-
+  it("does not render the separator when no providers", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) }));
     render(<OAuthButtons />);
-    expect(screen.queryByText(/or continue with/i)).not.toBeInTheDocument();
+    // Wait for the fetch to resolve and state to settle
+    await vi.waitFor(() => {
+      expect(screen.queryByText(/or continue with/i)).not.toBeInTheDocument();
+    });
   });
 });

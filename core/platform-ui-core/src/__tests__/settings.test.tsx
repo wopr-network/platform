@@ -293,8 +293,8 @@ describe("Profile page", () => {
     // Initially shows skeleton loading state
     expect(document.querySelector('[data-slot="skeleton"]')).toBeInTheDocument();
 
-    // Wait for mock data to load
-    expect(await screen.findByText("Profile")).toBeInTheDocument();
+    // Wait for mock data to load — heading is now "Settings"
+    expect(await screen.findByText("Settings")).toBeInTheDocument();
     expect(screen.getByLabelText("Display name")).toBeInTheDocument();
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
@@ -885,7 +885,7 @@ describe("Avatar upload", () => {
     const { default: ProfilePage } = await import("../app/(dashboard)/settings/profile/page");
     render(<ProfilePage />);
 
-    expect(await screen.findByText("Profile")).toBeInTheDocument();
+    expect(await screen.findByText("Settings")).toBeInTheDocument();
     expect(screen.getByLabelText("Change avatar")).toBeInTheDocument();
   });
 
@@ -893,7 +893,7 @@ describe("Avatar upload", () => {
     const { default: ProfilePage } = await import("../app/(dashboard)/settings/profile/page");
     render(<ProfilePage />);
 
-    await screen.findByText("Profile");
+    await screen.findByText("Settings");
     expect(screen.getByText("A")).toBeInTheDocument();
   });
 
@@ -906,7 +906,7 @@ describe("Avatar upload", () => {
     const { default: ProfilePage } = await import("../app/(dashboard)/settings/profile/page");
     render(<ProfilePage />);
 
-    await screen.findByText("Profile");
+    await screen.findByText("Settings");
 
     const file = new File(["fake-image"], "avatar.png", { type: "image/png" });
     const input = screen.getByLabelText("Change avatar") as HTMLInputElement;
@@ -922,7 +922,7 @@ describe("Avatar upload", () => {
     const { default: ProfilePage } = await import("../app/(dashboard)/settings/profile/page");
     render(<ProfilePage />);
 
-    await screen.findByText("Profile");
+    await screen.findByText("Settings");
 
     const largeFile = new File([new ArrayBuffer(3 * 1024 * 1024)], "big.png", {
       type: "image/png",

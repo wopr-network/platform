@@ -27,16 +27,11 @@ vi.mock("better-auth/react", () => ({
   }),
 }));
 
-// Mock tRPC so OAuthButtons can query enabled social providers
-vi.mock("@/lib/trpc", () => ({
-  trpc: {
-    authSocial: {
-      enabledSocialProviders: {
-        useQuery: () => ({ data: ["github", "discord", "google"], isLoading: false }),
-      },
-    },
-  },
-  TRPCProvider: ({ children }: { children: React.ReactNode }) => children,
+// Mock @/lib/api-config for OAuthButtons fetch URL
+vi.mock("@/lib/api-config", () => ({
+  API_BASE_URL: "https://api.test/api",
+  PLATFORM_BASE_URL: "https://api.test",
+  SITE_URL: "https://api.test",
 }));
 
 // Mock framer-motion to prevent animation issues in JSDOM
@@ -48,6 +43,21 @@ vi.mock("framer-motion", () => ({
 }));
 
 describe("Login page", () => {
+  beforeEach(() => {
+    // OAuthButtons now fetches providers from API_BASE_URL/auth/providers via fetch
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(["github", "discord", "google"]),
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("renders email and password fields", async () => {
     const { default: LoginPage } = await import("../app/(auth)/login/page");
     render(<LoginPage />);
@@ -67,7 +77,7 @@ describe("Login page", () => {
     const { default: LoginPage } = await import("../app/(auth)/login/page");
     render(<LoginPage />);
 
-    expect(screen.getByRole("button", { name: "Continue with GitHub" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Continue with GitHub" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Discord" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeInTheDocument();
   });

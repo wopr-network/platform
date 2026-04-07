@@ -66,24 +66,24 @@ describe("401 redirect handling", () => {
     expect(mockLocation.href).toContain("/login?reason=expired");
   });
 
-  it("fleetFetch redirects on 401", async () => {
+  it("fleetFetch (updateInstanceConfig) redirects on 401", async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 401, statusText: "Unauthorized" });
     mockFetch.mockResolvedValueOnce({
       json: () => Promise.resolve({ session: null }),
     });
-    const { listInstances } = await import("@/lib/api");
-    await expect(listInstances()).rejects.toThrow("Session expired");
+    const { updateInstanceConfig } = await import("@/lib/api");
+    await expect(updateInstanceConfig("bot-1", {})).rejects.toThrow("Session expired");
     await flushPromises();
     expect(mockLocation.href).toContain("/login?reason=expired");
   });
 
-  it("trpcFetch redirects on 401", async () => {
+  it("apiFetch (listProviderKeys) redirects on 401", async () => {
     mockFetch.mockResolvedValueOnce({ ok: false, status: 401, statusText: "Unauthorized" });
     mockFetch.mockResolvedValueOnce({
       json: () => Promise.resolve({ session: null }),
     });
-    const { getCurrentPlan } = await import("@/lib/api");
-    await expect(getCurrentPlan()).rejects.toThrow("Session expired");
+    const { listProviderKeys } = await import("@/lib/api");
+    await expect(listProviderKeys()).rejects.toThrow("Session expired");
     await flushPromises();
     expect(mockLocation.href).toContain("/login?reason=expired");
   });

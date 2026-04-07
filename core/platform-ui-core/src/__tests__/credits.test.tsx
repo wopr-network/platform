@@ -365,8 +365,8 @@ describe("LowBalanceBanner", () => {
   });
 });
 
-describe("Billing layout with Credits nav", () => {
-  it("renders Credits navigation link", async () => {
+describe("Billing layout with Credits content", () => {
+  it("renders child content inside billing layout", async () => {
     const { default: BillingLayout } = await import("../app/(dashboard)/billing/layout");
     render(
       <BillingLayout>
@@ -374,9 +374,6 @@ describe("Billing layout with Credits nav", () => {
       </BillingLayout>,
     );
 
-    expect(screen.getByText("Credits")).toBeInTheDocument();
-    expect(screen.getByText("Your Plan")).toBeInTheDocument();
-    expect(screen.getByText("Usage")).toBeInTheDocument();
-    expect(screen.getByText("Payment")).toBeInTheDocument();
+    expect(screen.getByText("child content")).toBeInTheDocument();
   });
 });

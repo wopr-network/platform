@@ -206,7 +206,7 @@ describe("Layout snapshots", () => {
     expect(container.textContent).toContain("Settings");
   });
 
-  it("BillingLayout renders billing nav sidebar + content area", async () => {
+  it("BillingLayout renders content area + footer", async () => {
     const { default: BillingLayout } = await import("@/app/(dashboard)/billing/layout");
     const { container } = render(
       <BillingLayout>
@@ -214,6 +214,7 @@ describe("Layout snapshots", () => {
       </BillingLayout>,
     );
     expect(container.textContent).toContain("billing child");
-    expect(container.textContent).toContain("Billing");
+    expect(container.textContent).toContain("Terms of Service");
+    expect(container.textContent).toContain("Privacy Policy");
   });
 });

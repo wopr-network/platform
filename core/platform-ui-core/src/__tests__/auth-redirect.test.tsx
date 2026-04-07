@@ -26,14 +26,14 @@ describe("AuthRedirect", () => {
     mockReplace.mockClear();
   });
 
-  it("redirects authenticated user to /marketplace", async () => {
+  it("redirects authenticated user to homePath", async () => {
     mockUseSession.mockReturnValue({
       data: { user: { id: "1", email: "test@test.com" } },
       isPending: false,
     });
     render(<AuthRedirect />);
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith("/instances");
+      expect(mockReplace).toHaveBeenCalledWith("/");
     });
   });
 

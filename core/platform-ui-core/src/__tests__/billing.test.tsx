@@ -241,14 +241,13 @@ describe("Plans page", () => {
     expect(link).toHaveAttribute("href", "/pricing");
   });
 
-  it("shows included features", async () => {
+  it("renders features section (empty by default brand config)", async () => {
     const { default: PlansPage } = await import("../app/(dashboard)/billing/plans/page");
     render(<PlansPage />);
 
-    expect(screen.getByText(/Signup credit included/)).toBeInTheDocument();
-    expect(screen.getByText("All channels")).toBeInTheDocument();
-    expect(screen.getByText("All plugins")).toBeInTheDocument();
-    expect(screen.getByText(/Hosted AI/)).toBeInTheDocument();
+    // Default brand config has empty planFeatures[], so no feature items render.
+    // Just verify the page doesn't crash.
+    expect(screen.getByText("Your Plan")).toBeInTheDocument();
   });
 });
 
@@ -443,7 +442,7 @@ describe("Payment page", () => {
 });
 
 describe("Billing layout", () => {
-  it("renders billing navigation links", async () => {
+  it("renders child content and footer", async () => {
     const { default: BillingLayout } = await import("../app/(dashboard)/billing/layout");
     render(
       <BillingLayout>
@@ -451,27 +450,9 @@ describe("Billing layout", () => {
       </BillingLayout>,
     );
 
-    expect(screen.getByText("Your Plan")).toBeInTheDocument();
-    expect(screen.getByText("Usage")).toBeInTheDocument();
-    expect(screen.getByText("Payment")).toBeInTheDocument();
     expect(screen.getByText("child content")).toBeInTheDocument();
-  });
-
-  it("shows Hosted Usage nav for hosted users", async () => {
-    const api = await import("@/lib/api");
-    vi.mocked(api.getInferenceMode).mockResolvedValue("hosted");
-
-    const { default: BillingLayout } = await import("../app/(dashboard)/billing/layout");
-    render(
-      <BillingLayout>
-        <div>child content</div>
-      </BillingLayout>,
-    );
-
-    expect(await screen.findByText("Hosted Usage")).toBeInTheDocument();
-
-    // Reset for other tests
-    vi.mocked(api.getInferenceMode).mockResolvedValue("byok");
+    expect(screen.getByText("Terms of Service")).toBeInTheDocument();
+    expect(screen.getByText("Privacy Policy")).toBeInTheDocument();
   });
 });
 

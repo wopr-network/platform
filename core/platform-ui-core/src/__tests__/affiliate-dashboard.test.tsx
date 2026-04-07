@@ -164,8 +164,8 @@ describe("Affiliate Dashboard error state", () => {
   });
 });
 
-describe("Billing layout with Referrals nav", () => {
-  it("renders Refer & Earn navigation link", async () => {
+describe("Billing layout with Referrals content", () => {
+  it("renders child content inside billing layout", async () => {
     const { default: BillingLayout } = await import("../app/(dashboard)/billing/layout");
     render(
       <BillingLayout>
@@ -173,6 +173,6 @@ describe("Billing layout with Referrals nav", () => {
       </BillingLayout>,
     );
 
-    expect(screen.getByText("Refer & Earn")).toBeInTheDocument();
+    expect(screen.getByText("child content")).toBeInTheDocument();
   });
 });

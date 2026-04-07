@@ -14,7 +14,8 @@
     "check": "turbo run lint build test",
     "format": "biome format --write .",
     "changeset": "changeset",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "release": "turbo run build && changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.9",

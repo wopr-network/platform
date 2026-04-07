@@ -72,11 +72,11 @@ describe("OnboardingPage", () => {
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
-  it("redirects to /marketplace if onboarding already complete", async () => {
+  it("redirects to homePath if onboarding already complete", async () => {
     mockIsComplete = true;
     render(<OnboardingPage />);
     await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith("/marketplace");
+      expect(mockPush).toHaveBeenCalledWith("/");
     });
   });
 
@@ -106,6 +106,6 @@ describe("OnboardingPage", () => {
 
     expect(mockMarkComplete).toHaveBeenCalled();
     expect(mockSaveState).toHaveBeenCalled();
-    expect(mockPush).toHaveBeenCalledWith("/marketplace");
+    expect(mockPush).toHaveBeenCalledWith("/");
   });
 });
