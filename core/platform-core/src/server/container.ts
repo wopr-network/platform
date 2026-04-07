@@ -399,7 +399,8 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
 
   // 13. Leader election
   const { LeaderElection: LeaderElectionClass } = await import("../leader/leader-election.js");
-  const leaderElection = new LeaderElectionClass(db);
+  const { DrizzleLeaderLeaseRepository } = await import("../leader/leader-lease-repository.js");
+  const leaderElection = new LeaderElectionClass(new DrizzleLeaderLeaseRepository(db));
 
   // 14. Build the container (hotPool bound after construction)
   const result: PlatformContainer = {
