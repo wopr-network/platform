@@ -486,7 +486,9 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       botInstanceRepo,
       serviceKeyRepo: fleet.serviceKeyRepo,
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? null,
-      getFleetManager: () => fleet.manager as never,
+      nodeRegistry: fleet.nodeRegistry,
+      placementStrategy: fleet.placementStrategy,
+      fleetResolver: fleet.fleetResolver,
     });
   }
 

@@ -22,7 +22,7 @@
   "author": "WOPR",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^14.14.1",
+    "discord.js": "^14.26.2",
     "winston": "^3.19.0",
     "zod": "^4.3.6"
   },

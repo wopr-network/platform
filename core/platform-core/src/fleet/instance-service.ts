@@ -12,7 +12,10 @@ import type { ILedger } from "../credits/ledger.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
 import type { ProductConfig } from "../product-config/index.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
+import type { ContainerPlacementStrategy } from "./container-placement.js";
+import type { FleetResolver } from "./fleet-resolver.js";
 import type { Instance } from "./instance.js";
+import type { NodeRegistry } from "./node-registry.js";
 import type { IProfileStore } from "./profile-store.js";
 
 // ---------------------------------------------------------------------------
@@ -36,6 +39,8 @@ export interface CreatedInstance {
   id: string;
   name: string;
   tenantId: string;
+  nodeId: string;
+  containerUrl: string;
   gatewayKey: string | null;
   provisioned: boolean;
 }
@@ -46,10 +51,10 @@ export interface InstanceServiceDeps {
   botInstanceRepo: IBotInstanceRepository;
   serviceKeyRepo: IServiceKeyRepository | null;
   provisionSecret: string | null;
-  /** Fleet manager — handles container creation (pool is internal to fleet) */
-  getFleetManager: () => {
-    create: (params: Record<string, unknown>) => Promise<Instance>;
-  };
+  /** Node-aware fleet infrastructure — placement, tracking, proxy registration. */
+  nodeRegistry: NodeRegistry;
+  placementStrategy: ContainerPlacementStrategy;
+  fleetResolver: FleetResolver;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,12 +88,19 @@ export class InstanceService {
       instanceEnv.WOPR_PROVISION_SECRET = d.provisionSecret;
     }
 
-    logger.info("Instance.create: calling fleet.create", {
+    // 2. Select target node via placement strategy
+    const nodes = d.nodeRegistry.list();
+    const containerCounts = d.nodeRegistry.getContainerCounts();
+    const targetNode = d.placementStrategy.selectNode(nodes, containerCounts);
+    const fleet = targetNode.fleet;
+    logger.info("Instance.create: node selected", {
+      nodeId: targetNode.config.id,
+      nodeName: targetNode.config.name,
       productSlug,
       image,
-      hasProvisionSecret: !!d.provisionSecret,
     });
-    const fleet = d.getFleetManager();
+
+    // 3. Create container on the selected node
     const result = await fleet.create({
       tenantId,
       name,
@@ -101,9 +113,15 @@ export class InstanceService {
       updatePolicy: "manual",
     });
     const instanceId = result.id;
-    logger.info("Instance.create: fleet.create returned", { instanceId, productSlug });
+    logger.info("Instance.create: container created", { instanceId, productSlug, nodeId: targetNode.config.id });
 
-    // 3. Register — profile (for listInstances) + bot_instances (for billing)
+    // 4. Track node assignment + register proxy route
+    d.nodeRegistry.assignContainer(instanceId, targetNode.config.id);
+    const upstreamHost = d.nodeRegistry.resolveUpstreamHost(instanceId, result.containerName);
+    await d.fleetResolver.registerRoute(instanceId, name, upstreamHost, containerPort);
+    logger.info("Instance.create: node tracking + proxy registered", { instanceId, upstreamHost });
+
+    // 5. Register — profile (for listInstances) + bot_instances (for billing)
     const profile = {
       id: instanceId,
       tenantId,
@@ -122,12 +140,12 @@ export class InstanceService {
       id: instanceId,
       tenantId,
       name,
-      nodeId: null,
+      nodeId: targetNode.config.id,
       createdByUserId: userId,
     });
     logger.info("Instance.create: bot instance registered", { instanceId, tenantId });
 
-    // 4. Gateway key
+    // 6. Gateway key
     let gatewayKey: string | null = null;
     if (d.serviceKeyRepo) {
       try {
@@ -143,7 +161,7 @@ export class InstanceService {
       logger.info("Instance.create: no service key repo, skipping gateway key", { instanceId });
     }
 
-    // 5. Provision — give the container its identity
+    // 7. Provision — give the container its identity
     let provisioned = false;
     if (!productConfig.product?.domain) {
       throw new Error(`Product ${productSlug} has no domain configured`);
@@ -236,7 +254,7 @@ export class InstanceService {
       });
     }
 
-    // 6. Start billing — activate the daily charge clock
+    // 8. Start billing — activate the daily charge clock
     try {
       await d.botInstanceRepo.setBillingState(instanceId, "active");
       logger.info("Instance: billing started", { instanceId });
@@ -247,7 +265,7 @@ export class InstanceService {
       });
     }
 
-    return { id: instanceId, name, tenantId, gatewayKey, provisioned };
+    return { id: instanceId, name, tenantId, nodeId: targetNode.config.id, containerUrl, gatewayKey, provisioned };
   }
 
   /**
@@ -266,7 +284,10 @@ export class InstanceService {
     restartPolicy?: "no" | "always" | "on-failure" | "unless-stopped";
     readonlyRootfs?: boolean;
   }): Promise<{ id: string; url: string; containerId: string; name: string; gatewayKey: string | null }> {
-    const fleet = this.deps.getFleetManager();
+    // Bare container — use local node's fleet manager directly (no node placement).
+    // Products like holyship manage their own lifecycle.
+    const localNode = this.deps.nodeRegistry.list()[0];
+    const fleet = localNode.fleet;
     const instance = await fleet.create({
       tenantId: params.tenantId,
       name: params.name,
