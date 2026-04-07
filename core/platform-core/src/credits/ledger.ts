@@ -437,10 +437,16 @@ export class DrizzleLedger implements ILedger {
       }
 
       // Phase 2: balance check inside the transaction (TOCTOU-safe).
-      // Locks are already held on both the account and account_balances rows.
+      // The balance check account MUST be in the journal lines so it was locked in Phase 1.
       if (input.balanceCheck) {
         const { tenantId, amount } = input.balanceCheck;
         const tenantAccountCode = `2000:${tenantId}`;
+        const isLocked = resolvedLines.some((l) => l.accountCode === tenantAccountCode);
+        if (!isLocked) {
+          throw new Error(
+            `Balance check on ${tenantAccountCode} but it is not in the journal lines — lock not held, read would be unsafe`,
+          );
+        }
         const balRows = await tx
           .select({ balance: accountBalances.balance })
           .from(accountBalances)
