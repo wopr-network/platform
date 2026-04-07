@@ -11,56 +11,58 @@ import type { AgentIdentity, WOPRPluginContext } from "./types.js";
 let agentIdentity: AgentIdentity = { name: "WOPR", emoji: "👀" };
 
 let reactionEmojis = {
-  queued: "🕐",
-  active: "⚡",
-  done: "✅",
-  error: "❌",
-  cancelled: "⏹️",
+	queued: "🕐",
+	active: "⚡",
+	done: "✅",
+	error: "❌",
+	cancelled: "⏹️",
 };
 
 export function getAgentIdentity(): AgentIdentity {
-  return agentIdentity;
+	return agentIdentity;
 }
 
 export function setAgentIdentity(identity: AgentIdentity): void {
-  agentIdentity = identity;
+	agentIdentity = identity;
 }
 
 /**
  * Refresh identity from the plugin context and update reaction emojis.
  */
 export async function refreshIdentity(ctx: WOPRPluginContext): Promise<void> {
-  try {
-    const identity = await ctx.getAgentIdentity();
-    if (identity) {
-      agentIdentity = { ...agentIdentity, ...identity };
-      logger.info({ msg: "Identity refreshed", identity: agentIdentity });
-    }
-  } catch (e) {
-    logger.warn({ msg: "Failed to refresh identity", error: String(e) });
-  }
-  await refreshReactionEmojis(ctx);
+	try {
+		const identity = await ctx.getAgentIdentity();
+		if (identity) {
+			agentIdentity = { ...agentIdentity, ...identity };
+			logger.info({ msg: "Identity refreshed", identity: agentIdentity });
+		}
+	} catch (e) {
+		logger.warn({ msg: "Failed to refresh identity", error: String(e) });
+	}
+	await refreshReactionEmojis(ctx);
 }
 
 /**
  * Refresh reaction emojis from plugin config.
  */
-export async function refreshReactionEmojis(ctx: WOPRPluginContext): Promise<void> {
-  try {
-    const config = ctx.getConfig<Record<string, unknown>>();
-    if (config) {
-      reactionEmojis = {
-        queued: (config.emojiQueued as string) || "🕐",
-        active: (config.emojiActive as string) || "⚡",
-        done: (config.emojiDone as string) || "✅",
-        error: (config.emojiError as string) || "❌",
-        cancelled: (config.emojiCancelled as string) || "⏹️",
-      };
-      logger.info({ msg: "Reaction emojis refreshed", emojis: reactionEmojis });
-    }
-  } catch (e) {
-    logger.warn({ msg: "Failed to refresh reaction emojis", error: String(e) });
-  }
+export async function refreshReactionEmojis(
+	ctx: WOPRPluginContext,
+): Promise<void> {
+	try {
+		const config = ctx.getConfig<Record<string, unknown>>();
+		if (config) {
+			reactionEmojis = {
+				queued: (config.emojiQueued as string) || "🕐",
+				active: (config.emojiActive as string) || "⚡",
+				done: (config.emojiDone as string) || "✅",
+				error: (config.emojiError as string) || "❌",
+				cancelled: (config.emojiCancelled as string) || "⏹️",
+			};
+			logger.info({ msg: "Reaction emojis refreshed", emojis: reactionEmojis });
+		}
+	} catch (e) {
+		logger.warn({ msg: "Failed to refresh reaction emojis", error: String(e) });
+	}
 }
 
 // Convenience getters for current reaction emojis

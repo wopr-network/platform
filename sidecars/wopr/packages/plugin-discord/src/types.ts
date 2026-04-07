@@ -7,28 +7,28 @@
 
 // Re-export all shared types that this plugin uses
 export type {
-  AgentIdentity,
-  ChannelCommand,
-  ChannelCommandContext,
-  ChannelMessageContext,
-  ChannelMessageParser,
-  ChannelProvider,
-  ChannelRef,
-  ConfigField,
-  ConfigSchema,
-  EventHandler,
-  PluginCommand,
-  PluginInjectOptions,
-  PluginLogger,
-  SessionCreateEvent,
-  SessionInjectEvent,
-  SessionResponseEvent,
-  StreamMessage,
-  UserProfile,
-  WOPREvent,
-  WOPREventBus,
-  WOPRPlugin,
-  WOPRPluginContext,
+	AgentIdentity,
+	ChannelCommand,
+	ChannelCommandContext,
+	ChannelMessageContext,
+	ChannelMessageParser,
+	ChannelProvider,
+	ChannelRef,
+	ConfigField,
+	ConfigSchema,
+	EventHandler,
+	PluginCommand,
+	PluginInjectOptions,
+	PluginLogger,
+	SessionCreateEvent,
+	SessionInjectEvent,
+	SessionResponseEvent,
+	StreamMessage,
+	UserProfile,
+	WOPREvent,
+	WOPREventBus,
+	WOPRPlugin,
+	WOPRPluginContext,
 } from "@wopr-network/plugin-types";
 
 import type { ChannelRef, StreamMessage } from "@wopr-network/plugin-types";
@@ -47,17 +47,17 @@ export type ChannelInfo = ChannelRef;
  * This is specific to how the Discord plugin consumes stream events.
  */
 export interface SessionStreamEvent {
-  session: string;
-  from: string;
-  message: StreamMessage;
+	session: string;
+	from: string;
+	message: StreamMessage;
 }
 
 /**
  * Provider info returned by getProviders() — not in shared types.
  */
 export interface ProviderInfo {
-  id: string;
-  name: string;
-  available: boolean;
-  models?: string[];
+	id: string;
+	name: string;
+	available: boolean;
+	models?: string[];
 }

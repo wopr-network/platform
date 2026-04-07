@@ -75,6 +75,26 @@
           "suspicious": { "noConsole": "off" }
         }
       }
+    },
+    {
+      "includes": ["sidecars/wopr/**"],
+      "linter": {
+        "rules": {
+          "suspicious": { "noConsole": "off" }
+        }
+      }
+    },
+    {
+      "includes": ["sidecars/wopr/packages/plugin-webui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useButtonType": "off",
+            "noSvgWithoutTitle": "off",
+            "noLabelWithoutControl": "off"
+          }
+        }
+      }
     }
   ]
 }

@@ -1,0 +1,14 @@
+{
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noConsole": "off",
+        "noExplicitAny": "warn",
+        "noControlCharactersInRegex": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "warn"
+      }
+    }
+  }
+}
