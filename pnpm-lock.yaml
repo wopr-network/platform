@@ -952,9 +952,15 @@ importers:
 
   sidecars/paperclip:
     devDependencies:
+      '@paperclipai/plugin-sdk':
+        specifier: workspace:*
+        version: link:packages/plugins/sdk
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2
+      '@wopr-network/provision-server':
+        specifier: workspace:*
+        version: link:../../services/provision-server
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
