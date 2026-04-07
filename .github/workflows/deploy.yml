@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Login to registry
         run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.wopr.bot -u wopr --password-stdin
