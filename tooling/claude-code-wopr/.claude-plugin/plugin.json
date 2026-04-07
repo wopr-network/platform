@@ -1,0 +1,16 @@
+{
+  "name": "wopr",
+  "version": "1.0.0",
+  "description": "Claude Code plugin for WOPR — agents, skills, and commands for the WOPR agentic engineering platform",
+  "author": {
+    "name": "WOPR Network",
+    "url": "https://github.com/wopr-network"
+  },
+  "homepage": "https://github.com/wopr-network/claude-code-wopr",
+  "repository": "https://github.com/wopr-network/claude-code-wopr",
+  "license": "MIT",
+  "keywords": ["wopr", "agentic", "pipeline", "agents", "devops"],
+  "commands": "./commands/",
+  "agents": "./agents/",
+  "skills": "./skills/"
+}

@@ -1,0 +1,61 @@
+{
+  "dependencies": {
+    "zod": "^3.24.0"
+  },
+  "description": "Typed TypeScript client for WOPR gateway services",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^22.0.0",
+    "openai": "^4.80.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "wopr",
+    "sdk",
+    "openai",
+    "api",
+    "client"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "name": "@wopr-network/sdk",
+  "peerDependencies": {
+    "openai": "^4.80.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "release": {
+    "extends": "@wopr-network/semantic-release-config"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wopr-network/wopr-sdk.git"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "biome check src/ && tsc --noEmit",
+    "format": "biome format --write src/ tests/",
+    "lint": "biome check src/ tests/",
+    "lint:fix": "biome check --fix src/ tests/",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0"
+}

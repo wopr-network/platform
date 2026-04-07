@@ -1,0 +1,43 @@
+{
+  "description": "WOPR quality gates: auto-format on edit, block commits on lint/type errors, session memory",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-edit.sh",
+            "timeout": 30,
+            "statusMessage": "Formatting + type-checking..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-commit-gate.sh",
+            "timeout": 60,
+            "statusMessage": "Running quality gate before commit..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-save.sh",
+            "timeout": 10,
+            "statusMessage": "Saving session context..."
+          }
+        ]
+      }
+    ]
+  }
+}

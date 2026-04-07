@@ -1,0 +1,11 @@
+{
+  "name": "wopr-hooks",
+  "version": "1.0.0",
+  "description": "Shared Claude Code quality hooks for all WOPR repos — auto-format, type-check, and pre-commit gates",
+  "author": {
+    "name": "wopr-network"
+  },
+  "repository": "https://github.com/wopr-network/wopr-claude-hooks",
+  "license": "MIT",
+  "keywords": ["wopr", "biome", "typescript", "hooks", "quality"]
+}
