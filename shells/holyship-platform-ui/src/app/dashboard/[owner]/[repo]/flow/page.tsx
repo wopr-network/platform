@@ -7,8 +7,8 @@ import { FlowChat } from "@/components/repo/flow-chat";
 import { FlowDiagram } from "@/components/repo/flow-diagram";
 import { FlowViewTabs } from "@/components/repo/flow-view-tabs";
 import { FlowYamlView } from "@/components/repo/flow-yaml-view";
-import { applyFlow, designFlow, editFlow, getFlow } from "@/lib/holyship-client";
-import type { DesignedFlow, FlowChatMessage } from "@/lib/types";
+import { applyFlow, designFlowStreaming, editFlowStreaming, getFlow } from "@/lib/holyship-client";
+import type { DesignedFlow, DesignedFlowState, FlowChatMessage } from "@/lib/types";
 
 export default function FlowPage({ params }: { params: Promise<{ owner: string; repo: string }> }) {
   const { owner, repo } = use(params);
@@ -58,24 +58,43 @@ export default function FlowPage({ params }: { params: Promise<{ owner: string; 
   async function handleDesign() {
     setDesigning(true);
     setMessages((prev) => [...prev, { role: "user", text: "Design a shipping flow for this repo" }]);
+
+    // Add a placeholder AI message that will be updated as chunks stream in
+    const aiMsgIndex = messages.length + 1; // +1 because we just pushed the user message
+    setMessages((prev) => [...prev, { role: "ai", text: "" }]);
+
     try {
-      const result = await designFlow(owner, repo);
+      const result = await designFlowStreaming(owner, repo, (chunk) => {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const msg = updated[aiMsgIndex];
+          if (msg) {
+            updated[aiMsgIndex] = { ...msg, text: msg.text + chunk };
+          }
+          return updated;
+        });
+      });
       setPendingFlow(result);
-      // Serialize to YAML so conversational edits work
       const yaml = JSON.stringify(result, null, 2);
       setPendingYaml(yaml);
-      const stateNames = result.states.map((s) => s.name).join(" -> ");
-      setMessages((prev) => [
-        ...prev,
-        {
+      // Replace streaming text with final summary
+      const stateNames = result.states.map((s: DesignedFlowState) => s.name).join(" -> ");
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[aiMsgIndex] = {
           role: "ai",
           text: `Designed a ${result.states.length}-state flow: ${stateNames}\n\n${result.notes}`,
-        },
-      ]);
+        };
+        return updated;
+      });
       setNoFlow(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Design failed";
-      setMessages((prev) => [...prev, { role: "ai", text: `Error: ${msg}` }]);
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[aiMsgIndex] = { role: "ai", text: `Error: ${msg}` };
+        return updated;
+      });
     } finally {
       setDesigning(false);
     }
@@ -84,22 +103,42 @@ export default function FlowPage({ params }: { params: Promise<{ owner: string; 
   async function handleSend(message: string) {
     setSending(true);
     setMessages((prev) => [...prev, { role: "user", text: message }]);
+
+    // Add a placeholder AI message that will be updated as chunks stream in
+    const aiMsgIndex = messages.length + 1; // +1 because we just pushed the user message
+    setMessages((prev) => [...prev, { role: "ai", text: "" }]);
+
     try {
       const yamlToSend = pendingYaml ?? currentYaml ?? "";
-      const result = await editFlow(owner, repo, message, yamlToSend);
-      setPendingYaml(result.updatedYaml);
-      setPendingFlow(result.updatedFlow);
-      setMessages((prev) => [...prev, { role: "ai", text: result.explanation, changes: result.diff }]);
+      const result = await editFlowStreaming(owner, repo, message, yamlToSend, (chunk) => {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const msg = updated[aiMsgIndex];
+          if (msg) {
+            updated[aiMsgIndex] = { ...msg, text: msg.text + chunk };
+          }
+          return updated;
+        });
+      });
+      setPendingYaml(result.yaml);
+      setPendingFlow(result.flow);
+      // Replace streaming text with final explanation + diff
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[aiMsgIndex] = { role: "ai", text: result.explanation, changes: result.diff };
+        return updated;
+      });
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Something went wrong";
       const isParseError = errorMsg.includes("422");
-      setMessages((prev) => [
-        ...prev,
-        {
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[aiMsgIndex] = {
           role: "ai",
           text: isParseError ? "Couldn't understand the response \u2014 try rephrasing." : `Error: ${errorMsg}`,
-        },
-      ]);
+        };
+        return updated;
+      });
     } finally {
       setSending(false);
     }

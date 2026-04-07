@@ -235,6 +235,80 @@ export function createFlowEditorRoutes(deps: FlowEditorRouteDeps): Hono {
     return c.json({ prUrl: prData.html_url, prNumber: prData.number, branch }, 200);
   });
 
+  // POST /repos/:owner/:repo/flow/edit/stream — streaming flow edit via SSE
+  app.post("/repos/:owner/:repo/flow/edit/stream", async (c) => {
+    if (!deps.flowEditService) {
+      return c.json({ error: "Flow edit service not configured" }, 501);
+    }
+
+    const owner = c.req.param("owner");
+    const repo = c.req.param("repo");
+
+    let body: Record<string, unknown>;
+    try {
+      body = (await c.req.json()) as Record<string, unknown>;
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    const { message, currentYaml } = body;
+
+    if (typeof message !== "string" || message.trim() === "") {
+      return c.json({ error: "message must be a non-empty string" }, 400);
+    }
+    if (typeof currentYaml !== "string") {
+      return c.json({ error: "currentYaml must be a string" }, 400);
+    }
+
+    const editService = deps.flowEditService;
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          const send = (event: Record<string, unknown>) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          };
+
+          try {
+            const result = await editService.editFlowStreaming(
+              `${owner}/${repo}`,
+              message.trim(),
+              currentYaml as string,
+              (chunk) => send({ type: "text", content: chunk }),
+            );
+
+            let updatedFlow: unknown;
+            try {
+              updatedFlow = parseYaml(result.updatedYaml);
+            } catch {
+              updatedFlow = null;
+            }
+
+            send({
+              type: "done",
+              yaml: result.updatedYaml,
+              flow: updatedFlow,
+              explanation: result.explanation,
+              diff: result.diff,
+            });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            send({ type: "error", message: msg });
+          } finally {
+            controller.close();
+          }
+        },
+      }),
+      {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      },
+    );
+  });
+
   // POST /repos/:owner/:repo/design-flow — AI-designed initial flow from repo config
   app.post("/repos/:owner/:repo/design-flow", async (c) => {
     if (!deps.flowDesignService) {
@@ -254,6 +328,51 @@ export function createFlowEditorRoutes(deps: FlowEditorRouteDeps): Hono {
       }
       return c.json({ error: "Flow design failed", detail: message }, 500);
     }
+  });
+
+  // POST /repos/:owner/:repo/design-flow/stream — streaming flow design via SSE
+  app.post("/repos/:owner/:repo/design-flow/stream", async (c) => {
+    if (!deps.flowDesignService) {
+      return c.json({ error: "Flow design service not configured" }, 501);
+    }
+
+    const owner = c.req.param("owner");
+    const repo = c.req.param("repo");
+
+    const designService = deps.flowDesignService;
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          const send = (event: Record<string, unknown>) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+          };
+
+          try {
+            const result = await designService.designFlowStreaming(`${owner}/${repo}`, (chunk) =>
+              send({ type: "text", content: chunk }),
+            );
+            send({ type: "done", ...result });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (msg.includes("No repo config found")) {
+              send({ type: "error", message: msg });
+            } else {
+              send({ type: "error", message: `Flow design failed: ${msg}` });
+            }
+          } finally {
+            controller.close();
+          }
+        },
+      }),
+      {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      },
+    );
   });
 
   return app;
