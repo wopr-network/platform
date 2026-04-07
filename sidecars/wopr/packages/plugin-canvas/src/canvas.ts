@@ -16,7 +16,7 @@ let _publish: PublishFn | undefined;
 
 /** Inject the WebSocket publish function from the daemon layer. */
 export function setCanvasPublish(fn: PublishFn): void {
-  _publish = fn;
+	_publish = fn;
 }
 
 // ---------------------------------------------------------------------------
@@ -28,13 +28,13 @@ let _emitCustom: EmitCustomFn | undefined;
 
 /** Inject the event bus emitCustom function from plugin context. */
 export function setCanvasEmitCustom(fn: EmitCustomFn): void {
-  _emitCustom = fn;
+	_emitCustom = fn;
 }
 
 /** Clear injected publish and emitCustom functions (called on shutdown). */
 export function clearCanvasInjections(): void {
-  _publish = undefined;
-  _emitCustom = undefined;
+	_publish = undefined;
+	_emitCustom = undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -46,22 +46,22 @@ export type CanvasContentType = "html" | "markdown" | "chart" | "form";
 
 /** A single item on the canvas */
 export interface CanvasItem {
-  id: string;
-  type: CanvasContentType;
-  content: string;
-  /** Optional display title */
-  title?: string;
-  /** Optional metadata (chart config, form schema, etc.) */
-  meta?: Record<string, unknown>;
-  /** Epoch ms when the item was pushed */
-  pushedAt: number;
+	id: string;
+	type: CanvasContentType;
+	content: string;
+	/** Optional display title */
+	title?: string;
+	/** Optional metadata (chart config, form schema, etc.) */
+	meta?: Record<string, unknown>;
+	/** Epoch ms when the item was pushed */
+	pushedAt: number;
 }
 
 /** Immutable snapshot of the canvas at a point in time */
 export interface CanvasSnapshot {
-  session: string;
-  items: CanvasItem[];
-  takenAt: number;
+	session: string;
+	items: CanvasItem[];
+	takenAt: number;
 }
 
 /** All possible canvas operations */
@@ -69,11 +69,11 @@ export type CanvasOperation = "push" | "remove" | "reset" | "snapshot";
 
 /** Payload emitted on canvas events */
 export interface CanvasEvent {
-  session: string;
-  operation: CanvasOperation;
-  item?: CanvasItem;
-  itemId?: string;
-  snapshot?: CanvasSnapshot;
+	session: string;
+	operation: CanvasOperation;
+	item?: CanvasItem;
+	itemId?: string;
+	snapshot?: CanvasSnapshot;
 }
 
 // ---------------------------------------------------------------------------
@@ -83,12 +83,12 @@ export interface CanvasEvent {
 const canvases = new Map<string, CanvasItem[]>();
 
 function ensureCanvas(session: string): CanvasItem[] {
-  let items = canvases.get(session);
-  if (!items) {
-    items = [];
-    canvases.set(session, items);
-  }
-  return items;
+	let items = canvases.get(session);
+	if (!items) {
+		items = [];
+		canvases.set(session, items);
+	}
+	return items;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,93 +98,98 @@ function ensureCanvas(session: string): CanvasItem[] {
 let idCounter = 0;
 
 function nextId(): string {
-  return `cv_${Date.now()}_${++idCounter}`;
+	return `cv_${Date.now()}_${++idCounter}`;
 }
 
 /**
  * Push a new visual item onto the canvas.
  */
 export async function canvasPush(
-  session: string,
-  type: CanvasContentType,
-  content: string,
-  options?: { title?: string; meta?: Record<string, unknown>; id?: string },
+	session: string,
+	type: CanvasContentType,
+	content: string,
+	options?: { title?: string; meta?: Record<string, unknown>; id?: string },
 ): Promise<CanvasItem> {
-  const items = ensureCanvas(session);
-  const item: CanvasItem = {
-    id: options?.id ?? nextId(),
-    type,
-    content,
-    title: options?.title,
-    meta: options?.meta,
-    pushedAt: Date.now(),
-  };
+	const items = ensureCanvas(session);
+	const item: CanvasItem = {
+		id: options?.id ?? nextId(),
+		type,
+		content,
+		title: options?.title,
+		meta: options?.meta,
+		pushedAt: Date.now(),
+	};
 
-  // Upsert: if a custom id already exists, replace in-place
-  const existingIdx = options?.id ? items.findIndex((i) => i.id === options.id) : -1;
-  if (existingIdx !== -1) {
-    items[existingIdx] = item;
-  } else {
-    items.push(item);
-  }
+	// Upsert: if a custom id already exists, replace in-place
+	const existingIdx = options?.id
+		? items.findIndex((i) => i.id === options.id)
+		: -1;
+	if (existingIdx !== -1) {
+		items[existingIdx] = item;
+	} else {
+		items.push(item);
+	}
 
-  const event: CanvasEvent = { session, operation: "push", item };
-  await broadcast(session, event);
-  return item;
+	const event: CanvasEvent = { session, operation: "push", item };
+	await broadcast(session, event);
+	return item;
 }
 
 /**
  * Remove a single item by id.
  */
-export async function canvasRemove(session: string, itemId: string): Promise<boolean> {
-  const items = canvases.get(session);
-  if (!items) return false;
-  const idx = items.findIndex((i) => i.id === itemId);
-  if (idx === -1) return false;
-  items.splice(idx, 1);
+export async function canvasRemove(
+	session: string,
+	itemId: string,
+): Promise<boolean> {
+	const items = canvases.get(session);
+	if (!items) return false;
+	const idx = items.findIndex((i) => i.id === itemId);
+	if (idx === -1) return false;
+	items.splice(idx, 1);
 
-  const event: CanvasEvent = { session, operation: "remove", itemId };
-  await broadcast(session, event);
-  return true;
+	const event: CanvasEvent = { session, operation: "remove", itemId };
+	await broadcast(session, event);
+	return true;
 }
 
 /**
  * Clear the entire canvas for a session.
  */
 export async function canvasReset(session: string): Promise<void> {
-  canvases.set(session, []);
+	canvases.set(session, []);
 
-  const event: CanvasEvent = { session, operation: "reset" };
-  await broadcast(session, event);
+	const event: CanvasEvent = { session, operation: "reset" };
+	await broadcast(session, event);
 }
 
 /**
  * Take a snapshot of the current canvas state.
  */
 export async function canvasSnapshot(session: string): Promise<CanvasSnapshot> {
-  const items = canvases.get(session) ?? [];
-  const snapshot: CanvasSnapshot = {
-    session,
-    items: [...items],
-    takenAt: Date.now(),
-  };
+	const items = canvases.get(session) ?? [];
+	const snapshot: CanvasSnapshot = {
+		session,
+		items: [...items],
+		takenAt: Date.now(),
+	};
 
-  const event: CanvasEvent = { session, operation: "snapshot", snapshot };
-  await broadcast(session, event);
-  return snapshot;
+	const event: CanvasEvent = { session, operation: "snapshot", snapshot };
+	await broadcast(session, event);
+	return snapshot;
 }
 
 /**
  * Get the live canvas items for a session (no event emitted).
  */
 export function canvasGet(session: string): CanvasItem[] {
-  return [...(canvases.get(session) ?? [])];
+	return [...(canvases.get(session) ?? [])];
 }
 
 /** Reset all canvas state (for testing). */
 export function _resetCanvasState(): void {
-  canvases.clear();
-  idCounter = 0;
+	canvases.clear();
+	idCounter = 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -192,13 +197,13 @@ export function _resetCanvasState(): void {
 // ---------------------------------------------------------------------------
 
 async function broadcast(session: string, event: CanvasEvent): Promise<void> {
-  // WebSocket topic: canvas:<session> (injected to avoid cross-layer import)
-  _publish?.(`canvas:${session}`, {
-    type: `canvas:${event.operation}`,
-    ...event,
-    ts: Date.now(),
-  });
+	// WebSocket topic: canvas:<session> (injected to avoid cross-layer import)
+	_publish?.(`canvas:${session}`, {
+		type: `canvas:${event.operation}`,
+		...event,
+		ts: Date.now(),
+	});
 
-  // Event bus for plugins
-  await _emitCustom?.(`canvas:${event.operation}`, event);
+	// Event bus for plugins
+	await _emitCustom?.(`canvas:${event.operation}`, event);
 }

@@ -10,7 +10,7 @@ export default function DashboardPage() {
   const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [loadKey, setLoadKey] = useState(0);
+  const [_loadKey, setLoadKey] = useState(0);
 
   async function syncInstallations() {
     setSyncing(true);
@@ -65,7 +65,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadKey]);
+  }, []);
 
   if (loading) {
     return (

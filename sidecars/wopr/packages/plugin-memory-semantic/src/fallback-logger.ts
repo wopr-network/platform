@@ -4,9 +4,9 @@
  */
 
 export const fallbackLogger = {
-  // biome-ignore lint/suspicious/noConsole: intentional fallback logging before ctx is available
-  debug: (msg: string) => console.debug(`[semantic-memory] ${msg}`),
-  info: (msg: string) => console.info(`[semantic-memory] ${msg}`),
-  warn: (msg: string) => console.warn(`[semantic-memory] ${msg}`),
-  error: (msg: string) => console.error(`[semantic-memory] ${msg}`),
+	// biome-ignore lint/suspicious/noConsole: intentional fallback logging before ctx is available
+	debug: (msg: string) => console.debug(`[semantic-memory] ${msg}`),
+	info: (msg: string) => console.info(`[semantic-memory] ${msg}`),
+	warn: (msg: string) => console.warn(`[semantic-memory] ${msg}`),
+	error: (msg: string) => console.error(`[semantic-memory] ${msg}`),
 };

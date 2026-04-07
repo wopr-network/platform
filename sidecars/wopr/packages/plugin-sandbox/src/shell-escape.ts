@@ -16,8 +16,8 @@
  * instead when you need to avoid shell interpretation entirely.
  */
 export function shellEscapeArg(arg: string): string {
-  // Replace each single quote with: end quote, escaped quote, start quote
-  return `'${arg.replace(/'/g, "'\\''")}'`;
+	// Replace each single quote with: end quote, escaped quote, start quote
+	return `'${arg.replace(/'/g, "'\\''")}'`;
 }
 
 /**
@@ -42,26 +42,26 @@ const SHELL_METACHAR_PATTERN = /[;&|`$<>\\]/;
  * @throws {Error} If the command contains null bytes, is empty, or contains shell metacharacters.
  */
 export function validateCommand(command: string): string {
-  // Reject null bytes — these can truncate strings in C-based shells
-  if (command.includes("\0")) {
-    throw new Error("Command contains null bytes");
-  }
+	// Reject null bytes — these can truncate strings in C-based shells
+	if (command.includes("\0")) {
+		throw new Error("Command contains null bytes");
+	}
 
-  // Reject empty commands
-  const trimmed = command.trim();
-  if (!trimmed) {
-    throw new Error("Command is empty");
-  }
+	// Reject empty commands
+	const trimmed = command.trim();
+	if (!trimmed) {
+		throw new Error("Command is empty");
+	}
 
-  // Reject shell metacharacters that enable injection
-  const match = trimmed.match(SHELL_METACHAR_PATTERN);
-  if (match) {
-    throw new Error(
-      `Command contains shell metacharacter '${match[0]}' — use execInContainerRaw() for complex commands or shellEscapeArg() for dynamic values`,
-    );
-  }
+	// Reject shell metacharacters that enable injection
+	const match = trimmed.match(SHELL_METACHAR_PATTERN);
+	if (match) {
+		throw new Error(
+			`Command contains shell metacharacter '${match[0]}' — use execInContainerRaw() for complex commands or shellEscapeArg() for dynamic values`,
+		);
+	}
 
-  return trimmed;
+	return trimmed;
 }
 
 /**
@@ -72,8 +72,10 @@ export function validateCommand(command: string): string {
  * @throws {Error} If the key is not a valid POSIX environment variable name.
  */
 export function validateEnvKey(key: string): string {
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-    throw new Error(`Invalid environment variable key '${key}' — keys must match /^[A-Za-z_][A-Za-z0-9_]*$/`);
-  }
-  return key;
+	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+		throw new Error(
+			`Invalid environment variable key '${key}' — keys must match /^[A-Za-z_][A-Za-z0-9_]*$/`,
+		);
+	}
+	return key;
 }

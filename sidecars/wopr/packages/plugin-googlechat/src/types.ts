@@ -7,16 +7,16 @@
 
 // Re-export shared WOPR types for convenience
 export type {
-  AgentIdentity,
-  ChannelCommand,
-  ChannelCommandContext,
-  ChannelMessageContext,
-  ChannelMessageParser,
-  ChannelProvider,
-  ConfigSchema,
-  StreamMessage,
-  WOPRPlugin,
-  WOPRPluginContext,
+	AgentIdentity,
+	ChannelCommand,
+	ChannelCommandContext,
+	ChannelMessageContext,
+	ChannelMessageParser,
+	ChannelProvider,
+	ConfigSchema,
+	StreamMessage,
+	WOPRPlugin,
+	WOPRPluginContext,
 } from "@wopr-network/plugin-types";
 
 // ============================================================================
@@ -24,15 +24,15 @@ export type {
 // ============================================================================
 
 export interface ChannelNotificationCallbacks {
-  onAccept?: () => Promise<void>;
-  onDeny?: () => Promise<void>;
+	onAccept?: () => Promise<void>;
+	onDeny?: () => Promise<void>;
 }
 
 export interface ChannelNotificationPayload {
-  type: string;
-  from?: string;
-  pubkey?: string;
-  [key: string]: unknown;
+	type: string;
+	from?: string;
+	pubkey?: string;
+	[key: string]: unknown;
 }
 
 // ============================================================================
@@ -40,37 +40,37 @@ export interface ChannelNotificationPayload {
 // ============================================================================
 
 export interface GoogleChatConfig {
-  enabled?: boolean;
+	enabled?: boolean;
 
-  // Authentication
-  serviceAccountKeyPath?: string; // Path to service account JSON file
-  projectNumber?: string; // Google Cloud project number (for JWT validation)
+	// Authentication
+	serviceAccountKeyPath?: string; // Path to service account JSON file
+	projectNumber?: string; // Google Cloud project number (for JWT validation)
 
-  // Webhook endpoint
-  webhookPath?: string; // Default: /googlechat/events
-  webhookPort?: number; // Default: 8443
+	// Webhook endpoint
+	webhookPath?: string; // Default: /googlechat/events
+	webhookPort?: number; // Default: 8443
 
-  // DM settings
-  dmPolicy?: "open" | "pairing" | "closed";
-  allowFrom?: string[]; // Google user IDs allowed in pairing mode
+	// DM settings
+	dmPolicy?: "open" | "pairing" | "closed";
+	allowFrom?: string[]; // Google user IDs allowed in pairing mode
 
-  // Space (group) settings
-  spacePolicy?: "allowlist" | "open" | "disabled";
-  spaces?: Record<
-    string,
-    {
-      allow?: boolean;
-      requireMention?: boolean;
-      enabled?: boolean;
-    }
-  >;
+	// Space (group) settings
+	spacePolicy?: "allowlist" | "open" | "disabled";
+	spaces?: Record<
+		string,
+		{
+			allow?: boolean;
+			requireMention?: boolean;
+			enabled?: boolean;
+		}
+	>;
 
-  // Response settings
-  useCards?: boolean; // Use Cards v2 format for responses (default: false, plain text)
-  cardThemeColor?: string; // Hex color for card header (e.g., "#1a73e8")
+	// Response settings
+	useCards?: boolean; // Use Cards v2 format for responses (default: false, plain text)
+	cardThemeColor?: string; // Hex color for card header (e.g., "#1a73e8")
 
-  // Threading
-  replyToMode?: "off" | "thread"; // Google Chat supports threads in named spaces
+	// Threading
+	replyToMode?: "off" | "thread"; // Google Chat supports threads in named spaces
 }
 
 // ============================================================================
@@ -78,75 +78,79 @@ export interface GoogleChatConfig {
 // ============================================================================
 
 /** Google Chat interaction event types */
-export type GoogleChatEventType = "MESSAGE" | "ADDED_TO_SPACE" | "REMOVED_FROM_SPACE" | "CARD_CLICKED";
+export type GoogleChatEventType =
+	| "MESSAGE"
+	| "ADDED_TO_SPACE"
+	| "REMOVED_FROM_SPACE"
+	| "CARD_CLICKED";
 
 /** Google Chat space type */
 export type GoogleChatSpaceType = "DM" | "ROOM" | "SPACE";
 
 /** Incoming Google Chat event payload (HTTP POST body) */
 export interface GoogleChatEvent {
-  type: GoogleChatEventType;
-  eventTime: string;
-  token?: string; // Verification token (deprecated, use JWT)
+	type: GoogleChatEventType;
+	eventTime: string;
+	token?: string; // Verification token (deprecated, use JWT)
 
-  // Message event
-  message?: {
-    name: string; // e.g., "spaces/SPACE_ID/messages/MESSAGE_ID"
-    sender: {
-      name: string; // e.g., "users/USER_ID"
-      displayName: string;
-      email?: string;
-      type: "HUMAN" | "BOT";
-    };
-    createTime: string;
-    text: string;
-    argumentText?: string; // Text without @mention prefix
-    thread?: {
-      name: string; // e.g., "spaces/SPACE_ID/threads/THREAD_ID"
-    };
-    space: {
-      name: string; // e.g., "spaces/SPACE_ID"
-      displayName?: string;
-      type: GoogleChatSpaceType;
-      singleUserBotDm?: boolean;
-    };
-    annotations?: Array<{
-      type: "USER_MENTION" | "SLASH_COMMAND";
-      startIndex?: number;
-      length?: number;
-      userMention?: {
-        user: { name: string; displayName: string; type: string };
-      };
-      slashCommand?: { commandId: string; commandName?: string };
-    }>;
-    slashCommand?: {
-      commandId: string;
-    };
-  };
+	// Message event
+	message?: {
+		name: string; // e.g., "spaces/SPACE_ID/messages/MESSAGE_ID"
+		sender: {
+			name: string; // e.g., "users/USER_ID"
+			displayName: string;
+			email?: string;
+			type: "HUMAN" | "BOT";
+		};
+		createTime: string;
+		text: string;
+		argumentText?: string; // Text without @mention prefix
+		thread?: {
+			name: string; // e.g., "spaces/SPACE_ID/threads/THREAD_ID"
+		};
+		space: {
+			name: string; // e.g., "spaces/SPACE_ID"
+			displayName?: string;
+			type: GoogleChatSpaceType;
+			singleUserBotDm?: boolean;
+		};
+		annotations?: Array<{
+			type: "USER_MENTION" | "SLASH_COMMAND";
+			startIndex?: number;
+			length?: number;
+			userMention?: {
+				user: { name: string; displayName: string; type: string };
+			};
+			slashCommand?: { commandId: string; commandName?: string };
+		}>;
+		slashCommand?: {
+			commandId: string;
+		};
+	};
 
-  // Space info (for ADDED_TO_SPACE / REMOVED_FROM_SPACE)
-  space?: {
-    name: string;
-    displayName?: string;
-    type: GoogleChatSpaceType;
-    singleUserBotDm?: boolean;
-  };
+	// Space info (for ADDED_TO_SPACE / REMOVED_FROM_SPACE)
+	space?: {
+		name: string;
+		displayName?: string;
+		type: GoogleChatSpaceType;
+		singleUserBotDm?: boolean;
+	};
 
-  // User who triggered the event
-  user?: {
-    name: string;
-    displayName: string;
-    email?: string;
-    type: "HUMAN" | "BOT";
-  };
+	// User who triggered the event
+	user?: {
+		name: string;
+		displayName: string;
+		email?: string;
+		type: "HUMAN" | "BOT";
+	};
 
-  // Card click action
-  action?: {
-    actionMethodName: string;
-    parameters?: Array<{ key: string; value: string }>;
-  };
+	// Card click action
+	action?: {
+		actionMethodName: string;
+		parameters?: Array<{ key: string; value: string }>;
+	};
 
-  configCompleteRedirectUrl?: string;
+	configCompleteRedirectUrl?: string;
 }
 
 // ============================================================================
@@ -154,60 +158,60 @@ export interface GoogleChatEvent {
 // ============================================================================
 
 export type GoogleChatWidget =
-  | { textParagraph: { text: string } }
-  | {
-      decoratedText: {
-        topLabel?: string;
-        text: string;
-        bottomLabel?: string;
-        icon?: { knownIcon: string };
-      };
-    }
-  | {
-      buttonList: {
-        buttons: Array<{
-          text: string;
-          onClick: {
-            openLink?: { url: string };
-            action?: {
-              function: string;
-              parameters?: Array<{ key: string; value: string }>;
-            };
-          };
-        }>;
-      };
-    }
-  | { divider: Record<string, never> }
-  | { image: { imageUrl: string; altText?: string } };
+	| { textParagraph: { text: string } }
+	| {
+			decoratedText: {
+				topLabel?: string;
+				text: string;
+				bottomLabel?: string;
+				icon?: { knownIcon: string };
+			};
+	  }
+	| {
+			buttonList: {
+				buttons: Array<{
+					text: string;
+					onClick: {
+						openLink?: { url: string };
+						action?: {
+							function: string;
+							parameters?: Array<{ key: string; value: string }>;
+						};
+					};
+				}>;
+			};
+	  }
+	| { divider: Record<string, never> }
+	| { image: { imageUrl: string; altText?: string } };
 
 /** Google Chat Cards v2 response format */
 export interface GoogleChatCardResponse {
-  cardsV2?: Array<{
-    cardId: string;
-    card: {
-      header?: {
-        title: string;
-        subtitle?: string;
-        imageAltText?: string;
-        imageUrl?: string;
-        imageType?: "CIRCLE" | "SQUARE";
-      };
-      sections: Array<{
-        header?: string;
-        collapsible?: boolean;
-        widgets: Array<GoogleChatWidget>;
-      }>;
-    };
-  }>;
+	cardsV2?: Array<{
+		cardId: string;
+		card: {
+			header?: {
+				title: string;
+				subtitle?: string;
+				imageAltText?: string;
+				imageUrl?: string;
+				imageType?: "CIRCLE" | "SQUARE";
+			};
+			sections: Array<{
+				header?: string;
+				collapsible?: boolean;
+				widgets: Array<GoogleChatWidget>;
+			}>;
+		};
+	}>;
 }
 
 /** Synchronous response to Google Chat */
 export interface GoogleChatSyncResponse {
-  text?: string;
-  cardsV2?: GoogleChatCardResponse["cardsV2"];
-  thread?: { threadKey: string };
-  actionResponse?: {
-    type: "NEW_MESSAGE" | "UPDATE_MESSAGE" | "REQUEST_CONFIG" | "DIALOG";
-    url?: string;
-  };
+	text?: string;
+	cardsV2?: GoogleChatCardResponse["cardsV2"];
+	thread?: { threadKey: string };
+	actionResponse?: {
+		type: "NEW_MESSAGE" | "UPDATE_MESSAGE" | "REQUEST_CONFIG" | "DIALOG";
+		url?: string;
+	};
 }

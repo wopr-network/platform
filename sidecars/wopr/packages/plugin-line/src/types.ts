@@ -7,16 +7,16 @@
 
 // Re-export all shared types that this plugin uses
 export type {
-  AgentIdentity,
-  ChannelCommand,
-  ChannelMessageParser,
-  ChannelNotificationCallbacks,
-  ChannelNotificationPayload,
-  ChannelProvider,
-  ChannelRef,
-  ConfigField,
-  ConfigSchema,
-  PluginLogger,
-  WOPRPlugin,
-  WOPRPluginContext,
+	AgentIdentity,
+	ChannelCommand,
+	ChannelMessageParser,
+	ChannelNotificationCallbacks,
+	ChannelNotificationPayload,
+	ChannelProvider,
+	ChannelRef,
+	ConfigField,
+	ConfigSchema,
+	PluginLogger,
+	WOPRPlugin,
+	WOPRPluginContext,
 } from "@wopr-network/plugin-types";

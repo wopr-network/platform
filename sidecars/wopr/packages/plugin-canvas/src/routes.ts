@@ -14,7 +14,14 @@
 
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { type CanvasContentType, canvasGet, canvasPush, canvasRemove, canvasReset, canvasSnapshot } from "./canvas.js";
+import {
+	type CanvasContentType,
+	canvasGet,
+	canvasPush,
+	canvasRemove,
+	canvasReset,
+	canvasSnapshot,
+} from "./canvas.js";
 
 /**
  * Validates a session name from URL parameters to prevent path traversal (CWE-22).
@@ -22,9 +29,9 @@ import { type CanvasContentType, canvasGet, canvasPush, canvasRemove, canvasRese
  * Throws an HTTPException(400) if the name is invalid.
  */
 function validateSessionName(name: string): void {
-  if (!/^[a-zA-Z0-9._-]+$/.test(name) || name.includes("..") || name === ".") {
-    throw new HTTPException(400, { message: "Invalid session name" });
-  }
+	if (!/^[a-zA-Z0-9._-]+$/.test(name) || name.includes("..") || name === ".") {
+		throw new HTTPException(400, { message: "Invalid session name" });
+	}
 }
 
 export const canvasRouter = new Hono();
@@ -33,62 +40,68 @@ const VALID_TYPES = new Set<string>(["html", "markdown", "chart", "form"]);
 
 // Get current canvas items
 canvasRouter.get("/:session", (c) => {
-  const session = c.req.param("session");
-  validateSessionName(session);
-  const items = canvasGet(session);
-  return c.json({ session, items });
+	const session = c.req.param("session");
+	validateSessionName(session);
+	const items = canvasGet(session);
+	return c.json({ session, items });
 });
 
 // Push a new canvas item
 canvasRouter.post("/:session/push", async (c) => {
-  const session = c.req.param("session");
-  validateSessionName(session);
-  const body = await c.req.json();
-  const { type, content, title, id } = body;
+	const session = c.req.param("session");
+	validateSessionName(session);
+	const body = await c.req.json();
+	const { type, content, title, id } = body;
 
-  if (!type || !VALID_TYPES.has(type)) {
-    return c.json({ error: `type must be one of: ${[...VALID_TYPES].join(", ")}` }, 400);
-  }
-  if (!content || typeof content !== "string") {
-    return c.json({ error: "content is required and must be a string" }, 400);
-  }
-  if (title !== undefined && typeof title !== "string") {
-    return c.json({ error: "title must be a string" }, 400);
-  }
-  if (id !== undefined && typeof id !== "string") {
-    return c.json({ error: "id must be a string" }, 400);
-  }
+	if (!type || !VALID_TYPES.has(type)) {
+		return c.json(
+			{ error: `type must be one of: ${[...VALID_TYPES].join(", ")}` },
+			400,
+		);
+	}
+	if (!content || typeof content !== "string") {
+		return c.json({ error: "content is required and must be a string" }, 400);
+	}
+	if (title !== undefined && typeof title !== "string") {
+		return c.json({ error: "title must be a string" }, 400);
+	}
+	if (id !== undefined && typeof id !== "string") {
+		return c.json({ error: "id must be a string" }, 400);
+	}
 
-  const item = await canvasPush(session, type as CanvasContentType, content, { title, id });
-  return c.json({ pushed: true, item }, 201);
+	const item = await canvasPush(session, type as CanvasContentType, content, {
+		title,
+		id,
+	});
+	return c.json({ pushed: true, item }, 201);
 });
 
 // Remove a canvas item
 canvasRouter.delete("/:session/:itemId", async (c) => {
-  const session = c.req.param("session");
-  validateSessionName(session);
-  const itemId = c.req.param("itemId");
-  const removed = await canvasRemove(session, itemId);
+	const session = c.req.param("session");
+	validateSessionName(session);
+	const itemId = c.req.param("itemId");
+	const removed = await canvasRemove(session, itemId);
 
-  if (!removed) {
-    return c.json({ error: "Item not found" }, 404);
-  }
+	if (!removed) {
+		return c.json({ error: "Item not found" }, 404);
+	}
 
-  return c.json({ removed: true });
+	return c.json({ removed: true });
 });
 
 // Reset (clear) the canvas
 canvasRouter.post("/:session/reset", async (c) => {
-  const session = c.req.param("session");
-  validateSessionName(session);
-  await canvasReset(session);
-  return c.json({ reset: true });
+	const session = c.req.param("session");
+	validateSessionName(session);
+	await canvasReset(session);
+	return c.json({ reset: true });
 });
 
 // Take a snapshot
 canvasRouter.get("/:session/snapshot", async (c) => {
-  const session = c.req.param("session");
-  validateSessionName(session);
-  const snapshot = await canvasSnapshot(session);
-  return c.json(snapshot);
+	const session = c.req.param("session");
+	validateSessionName(session);
+	const snapshot = await canvasSnapshot(session);
+	return c.json(snapshot);
 });

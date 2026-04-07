@@ -8,16 +8,21 @@ import { resolveSandboxConfig, shouldSandbox } from "./config.js";
 import { ensureSandboxContainer } from "./docker.js";
 import { maybePruneSandboxes } from "./prune.js";
 import { getLogger } from "./runtime.js";
-import { resolveSandboxScopeKey, resolveSandboxWorkspaceDir } from "./shared.js";
+import {
+	resolveSandboxScopeKey,
+	resolveSandboxWorkspaceDir,
+} from "./shared.js";
 import type { SandboxContext, SandboxWorkspaceInfo } from "./types.js";
 
 /**
  * Ensure the sandbox workspace directory exists and is properly initialized.
  */
-export async function ensureSandboxWorkspace(workspaceDir: string): Promise<void> {
-  if (!existsSync(workspaceDir)) {
-    mkdirSync(workspaceDir, { recursive: true });
-  }
+export async function ensureSandboxWorkspace(
+	workspaceDir: string,
+): Promise<void> {
+	if (!existsSync(workspaceDir)) {
+		mkdirSync(workspaceDir, { recursive: true });
+	}
 }
 
 /**
@@ -25,48 +30,52 @@ export async function ensureSandboxWorkspace(workspaceDir: string): Promise<void
  * Returns null if sandboxing is not enabled for this session.
  */
 export async function resolveSandboxContext(params: {
-  sessionName: string;
-  trustLevel?: string;
+	sessionName: string;
+	trustLevel?: string;
 }): Promise<SandboxContext | null> {
-  const { sessionName, trustLevel } = params;
+	const { sessionName, trustLevel } = params;
 
-  // Check if this session should be sandboxed
-  if (!shouldSandbox({ sessionName, trustLevel })) {
-    return null;
-  }
+	// Check if this session should be sandboxed
+	if (!shouldSandbox({ sessionName, trustLevel })) {
+		return null;
+	}
 
-  const cfg = resolveSandboxConfig({ sessionName, trustLevel });
+	const cfg = resolveSandboxConfig({ sessionName, trustLevel });
 
-  // Prune old containers periodically
-  await maybePruneSandboxes(cfg);
+	// Prune old containers periodically
+	await maybePruneSandboxes(cfg);
 
-  // Resolve workspace directory
-  const scopeKey = resolveSandboxScopeKey(cfg.scope, sessionName);
-  const workspaceDir =
-    cfg.scope === "shared" ? cfg.workspaceRoot : resolveSandboxWorkspaceDir(cfg.workspaceRoot, scopeKey);
+	// Resolve workspace directory
+	const scopeKey = resolveSandboxScopeKey(cfg.scope, sessionName);
+	const workspaceDir =
+		cfg.scope === "shared"
+			? cfg.workspaceRoot
+			: resolveSandboxWorkspaceDir(cfg.workspaceRoot, scopeKey);
 
-  // Ensure workspace exists
-  await ensureSandboxWorkspace(workspaceDir);
+	// Ensure workspace exists
+	await ensureSandboxWorkspace(workspaceDir);
 
-  // Ensure container is running
-  const containerName = await ensureSandboxContainer({
-    sessionKey: sessionName,
-    workspaceDir,
-    cfg,
-  });
+	// Ensure container is running
+	const containerName = await ensureSandboxContainer({
+		sessionKey: sessionName,
+		workspaceDir,
+		cfg,
+	});
 
-  getLogger().info(`[sandbox] Context resolved for ${sessionName}: container=${containerName}`);
+	getLogger().info(
+		`[sandbox] Context resolved for ${sessionName}: container=${containerName}`,
+	);
 
-  return {
-    enabled: true,
-    sessionKey: sessionName,
-    workspaceDir,
-    workspaceAccess: cfg.workspaceAccess,
-    containerName,
-    containerWorkdir: cfg.docker.workdir,
-    docker: cfg.docker,
-    tools: cfg.tools,
-  };
+	return {
+		enabled: true,
+		sessionKey: sessionName,
+		workspaceDir,
+		workspaceAccess: cfg.workspaceAccess,
+		containerName,
+		containerWorkdir: cfg.docker.workdir,
+		docker: cfg.docker,
+		tools: cfg.tools,
+	};
 }
 
 /**
@@ -74,22 +83,24 @@ export async function resolveSandboxContext(params: {
  * Useful for checking paths before full context resolution.
  */
 export function getSandboxWorkspaceInfo(params: {
-  sessionName: string;
-  trustLevel?: string;
+	sessionName: string;
+	trustLevel?: string;
 }): SandboxWorkspaceInfo | null {
-  const { sessionName, trustLevel } = params;
+	const { sessionName, trustLevel } = params;
 
-  if (!shouldSandbox({ sessionName, trustLevel })) {
-    return null;
-  }
+	if (!shouldSandbox({ sessionName, trustLevel })) {
+		return null;
+	}
 
-  const cfg = resolveSandboxConfig({ sessionName, trustLevel });
-  const scopeKey = resolveSandboxScopeKey(cfg.scope, sessionName);
-  const workspaceDir =
-    cfg.scope === "shared" ? cfg.workspaceRoot : resolveSandboxWorkspaceDir(cfg.workspaceRoot, scopeKey);
+	const cfg = resolveSandboxConfig({ sessionName, trustLevel });
+	const scopeKey = resolveSandboxScopeKey(cfg.scope, sessionName);
+	const workspaceDir =
+		cfg.scope === "shared"
+			? cfg.workspaceRoot
+			: resolveSandboxWorkspaceDir(cfg.workspaceRoot, scopeKey);
 
-  return {
-    workspaceDir,
-    containerWorkdir: cfg.docker.workdir,
-  };
+	return {
+		workspaceDir,
+		containerWorkdir: cfg.docker.workdir,
+	};
 }
