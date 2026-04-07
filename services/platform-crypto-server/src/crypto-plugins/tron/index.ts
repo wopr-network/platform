@@ -8,16 +8,16 @@ export { encodeKeccakB58Address, keccakB58Encoder } from "./encoder.js";
 export { TronEvmWatcher } from "./watcher.js";
 
 export const tronPlugin: IChainPlugin = {
-	pluginId: "tron",
-	supportedCurve: "secp256k1",
-	encoders: {
-		"keccak-b58check": keccakB58Encoder,
-	},
-	createWatcher(opts: WatcherOpts) {
-		return new TronEvmWatcher(opts);
-	},
-	createSweeper() {
-		throw new Error("Not implemented");
-	},
-	version: 1,
+  pluginId: "tron",
+  supportedCurve: "secp256k1",
+  encoders: {
+    "keccak-b58check": keccakB58Encoder,
+  },
+  createWatcher(opts: WatcherOpts) {
+    return new TronEvmWatcher(opts);
+  },
+  createSweeper() {
+    throw new Error("Not implemented");
+  },
+  version: 1,
 };

@@ -7,17 +7,17 @@
 import type { DepositInfo, ISweepStrategy, KeyPair, SweepResult } from "@wopr-network/platform-crypto-server/plugin";
 
 export class UtxoSweeper implements ISweepStrategy {
-	private readonly chain: string;
+  private readonly chain: string;
 
-	constructor(chain: string) {
-		this.chain = chain;
-	}
+  constructor(chain: string) {
+    this.chain = chain;
+  }
 
-	async scan(_keys: KeyPair[], _treasury: string): Promise<DepositInfo[]> {
-		throw new Error(`UTXO sweep not implemented for ${this.chain} -- use wallet software (Electrum/Sparrow)`);
-	}
+  async scan(_keys: KeyPair[], _treasury: string): Promise<DepositInfo[]> {
+    throw new Error(`UTXO sweep not implemented for ${this.chain} -- use wallet software (Electrum/Sparrow)`);
+  }
 
-	async sweep(_keys: KeyPair[], _treasury: string, _dryRun: boolean): Promise<SweepResult[]> {
-		throw new Error(`UTXO sweep not implemented for ${this.chain} -- use wallet software (Electrum/Sparrow)`);
-	}
+  async sweep(_keys: KeyPair[], _treasury: string, _dryRun: boolean): Promise<SweepResult[]> {
+    throw new Error(`UTXO sweep not implemented for ${this.chain} -- use wallet software (Electrum/Sparrow)`);
+  }
 }

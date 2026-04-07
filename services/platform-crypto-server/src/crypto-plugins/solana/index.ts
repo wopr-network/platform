@@ -21,16 +21,16 @@ const encoder = new SolanaAddressEncoder();
  * for each watched address via getSignaturesForAddress + getTransaction.
  */
 export const solanaPlugin: IChainPlugin = {
-	pluginId: "solana",
-	supportedCurve: "ed25519",
-	encoders: {
-		"base58-solana": encoder,
-	},
-	createWatcher(opts: WatcherOpts) {
-		return new SolanaWatcher(opts);
-	},
-	createSweeper(opts: SweeperOpts) {
-		return new SolanaSweeper(opts);
-	},
-	version: 1,
+  pluginId: "solana",
+  supportedCurve: "ed25519",
+  encoders: {
+    "base58-solana": encoder,
+  },
+  createWatcher(opts: WatcherOpts) {
+    return new SolanaWatcher(opts);
+  },
+  createSweeper(opts: SweeperOpts) {
+    return new SolanaSweeper(opts);
+  },
+  version: 1,
 };

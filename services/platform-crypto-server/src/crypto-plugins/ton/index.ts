@@ -1,8 +1,8 @@
 import type {
-	IChainPlugin,
-	ISweepStrategy,
-	SweeperOpts,
-	WatcherOpts,
+  IChainPlugin,
+  ISweepStrategy,
+  SweeperOpts,
+  WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
 import { TonAddressEncoder } from "./encoder.js";
 import { TonWatcher } from "./watcher.js";
@@ -26,16 +26,16 @@ const encoder = new TonAddressEncoder();
  * No local node required — uses hosted API endpoint.
  */
 export const tonPlugin: IChainPlugin = {
-	pluginId: "ton",
-	supportedCurve: "ed25519",
-	encoders: {
-		"ton-base64url": encoder,
-	},
-	createWatcher(opts: WatcherOpts) {
-		return new TonWatcher(opts);
-	},
-	createSweeper(_opts: SweeperOpts): ISweepStrategy {
-		throw new Error("TON sweep not yet implemented — requires wallet contract deployment");
-	},
-	version: 1,
+  pluginId: "ton",
+  supportedCurve: "ed25519",
+  encoders: {
+    "ton-base64url": encoder,
+  },
+  createWatcher(opts: WatcherOpts) {
+    return new TonWatcher(opts);
+  },
+  createSweeper(_opts: SweeperOpts): ISweepStrategy {
+    throw new Error("TON sweep not yet implemented — requires wallet contract deployment");
+  },
+  version: 1,
 };

@@ -8,11 +8,11 @@ import { encodeBech32Address } from "../bitcoin/encoder.js";
  * Default HRP is "ltc" (mainnet). Override with params.hrp for testnet ("tltc").
  */
 export const bech32Encoder: IAddressEncoder = {
-	encode(publicKey: Uint8Array, params: EncodingParams): string {
-		const hrp = params.hrp ?? "ltc";
-		return encodeBech32Address(publicKey, hrp);
-	},
-	encodingType(): string {
-		return "bech32";
-	},
+  encode(publicKey: Uint8Array, params: EncodingParams): string {
+    const hrp = params.hrp ?? "ltc";
+    return encodeBech32Address(publicKey, hrp);
+  },
+  encodingType(): string {
+    return "bech32";
+  },
 };

@@ -16,34 +16,34 @@ const Point = (secp256k1 as unknown as { Point: { fromHex(h: string): { toBytes(
  *   4. Apply EIP-55 mixed-case checksum
  */
 function toHex(bytes: Uint8Array): string {
-	return Array.from(bytes as unknown as number[], (b: number) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(bytes as unknown as number[], (b: number) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function encodeEvm(pubkey: Uint8Array): string {
-	const hexKey = toHex(pubkey);
-	const uncompressed = Point.fromHex(hexKey).toBytes(false);
-	// keccak256 of uncompressed key without the 04 prefix
-	const hash = keccak_256(uncompressed.slice(1));
-	const addressBytes = hash.slice(-20);
-	const rawHex = toHex(addressBytes);
+  const hexKey = toHex(pubkey);
+  const uncompressed = Point.fromHex(hexKey).toBytes(false);
+  // keccak256 of uncompressed key without the 04 prefix
+  const hash = keccak_256(uncompressed.slice(1));
+  const addressBytes = hash.slice(-20);
+  const rawHex = toHex(addressBytes);
 
-	// EIP-55 checksum
-	const hashHex = toHex(keccak_256(new TextEncoder().encode(rawHex)));
-	let checksummed = "0x";
-	for (let i = 0; i < rawHex.length; i++) {
-		const c = rawHex[i];
-		checksummed += Number.parseInt(hashHex[i], 16) >= 8 ? c.toUpperCase() : c;
-	}
-	return checksummed;
+  // EIP-55 checksum
+  const hashHex = toHex(keccak_256(new TextEncoder().encode(rawHex)));
+  let checksummed = "0x";
+  for (let i = 0; i < rawHex.length; i++) {
+    const c = rawHex[i];
+    checksummed += Number.parseInt(hashHex[i], 16) >= 8 ? c.toUpperCase() : c;
+  }
+  return checksummed;
 }
 
 /** EVM address encoder implementing IAddressEncoder. */
 export class EvmAddressEncoder implements IAddressEncoder {
-	encode(publicKey: Uint8Array, _params: EncodingParams): string {
-		return encodeEvm(publicKey);
-	}
+  encode(publicKey: Uint8Array, _params: EncodingParams): string {
+    return encodeEvm(publicKey);
+  }
 
-	encodingType(): string {
-		return "evm";
-	}
+  encodingType(): string {
+    return "evm";
+  }
 }
