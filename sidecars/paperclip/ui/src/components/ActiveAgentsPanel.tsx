@@ -6,6 +6,7 @@ import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { issuesApi } from "../api/issues";
 import type { TranscriptEntry } from "../adapters";
 import { queryKeys } from "../lib/queryKeys";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { cn, relativeTime } from "../lib/utils";
 import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
@@ -23,6 +24,8 @@ interface ActiveAgentsPanelProps {
 }
 
 export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
+  const { isHosted } = useHostedMode();
+
   const { data: liveRuns } = useQuery({
     queryKey: [...queryKeys.liveRuns(companyId), "dashboard"],
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId, MIN_DASHBOARD_RUNS),
@@ -48,6 +51,8 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
     companyId,
     maxChunksPerRun: 120,
   });
+
+  if (isHosted) return null;
 
   return (
     <div>

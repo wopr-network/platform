@@ -3,6 +3,7 @@ import { Link } from "@/lib/router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { formatDateTime } from "../lib/utils";
 import { ExternalLink, Square } from "lucide-react";
 import { Identity } from "./Identity";
@@ -25,6 +26,7 @@ function isRunActive(status: string): boolean {
 }
 
 export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const [cancellingRunIds, setCancellingRunIds] = useState(new Set<string>());
 
@@ -66,6 +68,8 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
   }, [activeRun, issueId, liveRuns]);
 
   const { transcriptByRun, hasOutputForRun } = useLiveRunTranscripts({ runs, companyId });
+
+  if (isHosted) return null;
 
   const handleCancelRun = async (runId: string) => {
     setCancellingRunIds((prev) => new Set(prev).add(runId));
