@@ -29,13 +29,14 @@ export function ActiveAgentsPanel({ companyId }: ActiveAgentsPanelProps) {
   const { data: liveRuns } = useQuery({
     queryKey: [...queryKeys.liveRuns(companyId), "dashboard"],
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId, MIN_DASHBOARD_RUNS),
+    enabled: !isHosted,
   });
 
   const runs = liveRuns ?? [];
   const { data: issues } = useQuery({
     queryKey: queryKeys.issues.list(companyId),
     queryFn: () => issuesApi.list(companyId),
-    enabled: runs.length > 0,
+    enabled: runs.length > 0 && !isHosted,
   });
 
   const issueById = useMemo(() => {
