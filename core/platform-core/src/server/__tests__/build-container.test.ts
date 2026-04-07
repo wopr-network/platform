@@ -146,6 +146,7 @@ vi.mock("../../auth/user-role-repository.js", () => ({
 // Mock fleet deps (only imported when fleet is enabled)
 class MockFleetManagerClass {
   __brand = "fleet-manager";
+  setResolveHost() {}
 }
 vi.mock("../../fleet/fleet-manager.js", () => ({
   FleetManager: MockFleetManagerClass,

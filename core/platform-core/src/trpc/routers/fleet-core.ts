@@ -62,8 +62,6 @@ export interface FleetCoreRouterDeps {
   assertOrgAdminOrOwner: (tenantId: string, userId: string, roles?: string[]) => Promise<void>;
   /** Get the FleetManager for a given instance. Product-specific resolution. */
   getFleetForInstance: (instanceId: string) => FleetManagerLike;
-  /** Unassign container from node tracking. */
-  unassignContainer?: (instanceId: string) => void;
   /** Remove route for an instance. */
   removeRoute?: (instanceId: string) => Promise<void>;
   /** Provision secret for calling container /internal/provision. */
@@ -184,7 +182,6 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
               } catch (err) {
                 logger.warn(`Fleet remove failed for ${input.id}`, { err });
               }
-              d.unassignContainer?.(input.id);
               await d.removeRoute?.(input.id);
               break;
             }

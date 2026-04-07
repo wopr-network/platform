@@ -49,6 +49,18 @@ export class FleetManager {
 
   private readonly pool: { claim(key: string): Promise<{ id: string; containerId: string } | null> } | null;
 
+  /**
+   * Callback to resolve upstream host for a container.
+   * Delegates to NodeRegistry.resolveUpstreamHost(nodeId, containerName).
+   * Set via setResolveHost() after construction to avoid circular deps.
+   */
+  private resolveHost: ((nodeId: string | null, containerName: string) => string) | null = null;
+
+  /** Inject the host resolver (from NodeRegistry). */
+  setResolveHost(fn: (nodeId: string | null, containerName: string) => string): void {
+    this.resolveHost = fn;
+  }
+
   constructor(
     docker: Docker,
     store: IProfileStore,
@@ -245,16 +257,12 @@ export class FleetManager {
     const containerName = info.Name.replace(/^\//, "");
     const containerId = info.Id;
 
-    // Resolve URL from network DNS or host port mapping
-    let url: string;
+    // Resolve URL via node registry (DB-backed node assignment)
     const port = this.resolvePort(profile);
-    if (profile.network) {
-      url = `http://${containerName}:${port}`;
-    } else {
-      const portBindings = info.NetworkSettings?.Ports?.[`${port}/tcp`];
-      const hostPort = portBindings?.[0]?.HostPort ?? String(port);
-      url = `http://localhost:${hostPort}`;
-    }
+    const botInstance = await this.instanceRepo?.getById(profile.id);
+    const nodeId = botInstance?.nodeId ?? null;
+    const upstreamHost = this.resolveHost?.(nodeId, containerName) ?? containerName;
+    const url = `http://${upstreamHost}:${port}`;
 
     return new Instance({
       docker: this.docker,

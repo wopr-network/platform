@@ -12,6 +12,7 @@ import Docker from "dockerode";
 import { logger } from "../config/logger.js";
 import type { DrizzleDb } from "../db/index.js";
 import { nodes } from "../db/schema/nodes.js";
+import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import { FleetManager } from "./fleet-manager.js";
 import type { IProfileStore } from "./profile-store.js";
 
@@ -53,7 +54,12 @@ export const LOCAL_NODE_ID = "local";
 
 export class NodeRegistry {
   private nodes = new Map<string, NodeEntry>();
-  private containerNodeMap = new Map<string, string>();
+  private botInstanceRepo: IBotInstanceRepository | null = null;
+
+  /** Inject the bot instance repository for DB-backed container queries. */
+  setBotInstanceRepo(repo: IBotInstanceRepository): void {
+    this.botInstanceRepo = repo;
+  }
 
   /**
    * Register a Docker host node.
@@ -87,10 +93,12 @@ export class NodeRegistry {
   }
 
   /** Unregister a node. Fails if containers are still assigned to it. */
-  unregister(nodeId: string): void {
-    const assigned = this.getContainersOnNode(nodeId);
-    if (assigned.length > 0) {
-      throw new Error(`Cannot unregister node ${nodeId}: ${assigned.length} containers still assigned`);
+  async unregister(nodeId: string): Promise<void> {
+    if (this.botInstanceRepo) {
+      const assigned = await this.botInstanceRepo.listByNode(nodeId);
+      if (assigned.length > 0) {
+        throw new Error(`Cannot unregister node ${nodeId}: ${assigned.length} containers still assigned`);
+      }
     }
     this.nodes.delete(nodeId);
   }
@@ -119,40 +127,21 @@ export class NodeRegistry {
     return entry.fleet;
   }
 
-  /** Track which node a container lives on. */
-  assignContainer(containerId: string, nodeId: string): void {
-    this.containerNodeMap.set(containerId, nodeId);
-  }
-
-  /** Remove container-to-node mapping. */
-  unassignContainer(containerId: string): void {
-    this.containerNodeMap.delete(containerId);
-  }
-
-  /** Look up which node a container is on. */
-  getContainerNode(containerId: string): string | undefined {
-    return this.containerNodeMap.get(containerId);
-  }
-
-  /** List containers assigned to a specific node. */
-  getContainersOnNode(nodeId: string): string[] {
-    const result: string[] = [];
-    for (const [containerId, nId] of this.containerNodeMap) {
-      if (nId === nodeId) result.push(containerId);
-    }
-    return result;
-  }
-
-  /** Get container counts per node (for placement decisions). */
-  getContainerCounts(): Map<string, number> {
+  /**
+   * Get container counts per node (for placement decisions).
+   * Queries the DB — no in-memory cache.
+   */
+  async getContainerCounts(): Promise<Map<string, number>> {
     const counts = new Map<string, number>();
     // Initialize all nodes with 0
     for (const nodeId of this.nodes.keys()) {
       counts.set(nodeId, 0);
     }
-    // Count assignments
-    for (const nodeId of this.containerNodeMap.values()) {
-      counts.set(nodeId, (counts.get(nodeId) ?? 0) + 1);
+    if (!this.botInstanceRepo) return counts;
+    // Count from DB
+    for (const nodeId of this.nodes.keys()) {
+      const instances = await this.botInstanceRepo.listByNode(nodeId);
+      counts.set(nodeId, instances.length);
     }
     return counts;
   }
@@ -168,17 +157,18 @@ export class NodeRegistry {
   }
 
   /**
-   * Resolve the upstream host for a container.
-   * Local/overlay nodes use the container name; remote nodes use the node host.
+   * Resolve the upstream host for a container given its node assignment.
+   *
+   * Local/overlay nodes use the container name (Docker DNS).
+   * Remote nodes use the node's host address.
+   * If nodeId is null/unknown, falls back to container name (safe for local).
    */
-  resolveUpstreamHost(containerId: string, containerName: string): string {
-    const nodeId = this.containerNodeMap.get(containerId);
-    if (!nodeId) return containerName; // fallback to container name
+  resolveUpstreamHost(nodeId: string | null, containerName: string): string {
+    if (!nodeId) return containerName;
 
     const entry = this.nodes.get(nodeId);
     if (!entry) return containerName;
 
-    // Use container names for local node or when explicitly configured
     const useContainerNames = entry.config.useContainerNames ?? nodeId === LOCAL_NODE_ID;
     return useContainerNames ? containerName : entry.config.host;
   }

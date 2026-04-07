@@ -480,6 +480,15 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { InstanceService } = await import("../fleet/instance-service.js");
     const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
     const botInstanceRepo = new DrizzleBotInstanceRepository(result.db);
+
+    // Wire DB-backed node resolution into registry + fleet managers
+    fleet.nodeRegistry.setBotInstanceRepo(botInstanceRepo);
+    for (const node of fleet.nodeRegistry.list()) {
+      node.fleet.setResolveHost((nodeId, containerName) =>
+        fleet.nodeRegistry.resolveUpstreamHost(nodeId, containerName),
+      );
+    }
+
     const secrets = bootConfig.secrets;
     result.instanceService = new InstanceService({
       creditLedger: result.creditLedger,

@@ -99,7 +99,7 @@ export class InstanceService {
 
     // 4. Select target node via placement strategy
     const nodes = d.nodeRegistry.list();
-    const containerCounts = d.nodeRegistry.getContainerCounts();
+    const containerCounts = await d.nodeRegistry.getContainerCounts();
     const targetNode = d.placementStrategy.selectNode(nodes, containerCounts);
     const fleet = targetNode.fleet;
     logger.info("Instance.create: node selected", {
@@ -124,11 +124,10 @@ export class InstanceService {
     const instanceId = result.id;
     logger.info("Instance.create: container created", { instanceId, productSlug, nodeId: targetNode.config.id });
 
-    // 4. Track node assignment + register proxy route
-    d.nodeRegistry.assignContainer(instanceId, targetNode.config.id);
-    const upstreamHost = d.nodeRegistry.resolveUpstreamHost(instanceId, result.containerName);
+    // 4. Register proxy route (node assignment persisted in bot_instances below)
+    const upstreamHost = d.nodeRegistry.resolveUpstreamHost(targetNode.config.id, result.containerName);
     await d.fleetResolver.registerRoute(instanceId, name, upstreamHost, containerPort);
-    logger.info("Instance.create: node tracking + proxy registered", { instanceId, upstreamHost });
+    logger.info("Instance.create: proxy registered", { instanceId, upstreamHost, nodeId: targetNode.config.id });
 
     // 5. Register — profile (for listInstances) + bot_instances (for billing)
     const profile = {
@@ -337,12 +336,13 @@ export class InstanceService {
   }
 
   /**
-   * Resolve the fleet manager and container URL for an existing instance.
-   * Uses nodeRegistry to find which node owns the container.
+   * Resolve the fleet manager for an existing instance.
+   * Reads node_id from bot_instances DB — survives restarts.
    */
-  private resolveFleetForInstance(instanceId: string) {
+  private async resolveFleetForInstance(instanceId: string) {
     const d = this.deps;
-    const nodeId = d.nodeRegistry.getContainerNode(instanceId);
+    const botInstance = await d.botInstanceRepo.getById(instanceId);
+    const nodeId = botInstance?.nodeId ?? null;
     const fleet = nodeId ? d.nodeRegistry.getFleetManager(nodeId) : d.nodeRegistry.list()[0].fleet;
     return { fleet, nodeId };
   }
@@ -354,7 +354,7 @@ export class InstanceService {
   async destroy(params: { instanceId: string; provisionSecret: string; tenantEntityId?: string }): Promise<void> {
     const { instanceId, provisionSecret, tenantEntityId } = params;
     const d = this.deps;
-    const { fleet } = this.resolveFleetForInstance(instanceId);
+    const { fleet } = await this.resolveFleetForInstance(instanceId);
 
     logger.info("Instance.destroy: starting", { instanceId, hasTenantEntity: !!tenantEntityId });
 
@@ -390,10 +390,9 @@ export class InstanceService {
       });
     }
 
-    // 4. Remove from node tracking and proxy route table
-    d.nodeRegistry.unassignContainer(instanceId);
+    // 4. Remove proxy route (node assignment cleaned up when bot_instances row is deleted)
     await d.fleetResolver.removeRoute(instanceId);
-    logger.info("Instance.destroy: node unassigned + route removed", { instanceId });
+    logger.info("Instance.destroy: route removed", { instanceId });
 
     // 5. Stop billing
     try {
@@ -418,7 +417,7 @@ export class InstanceService {
     perAgentCents?: number;
   }): Promise<void> {
     const { instanceId, provisionSecret, tenantEntityId, budgetCents, perAgentCents } = params;
-    const { fleet } = this.resolveFleetForInstance(instanceId);
+    const { fleet } = await this.resolveFleetForInstance(instanceId);
 
     const inst = await fleet.getInstance(instanceId);
     logger.info("Instance.updateBudget: forwarding", { instanceId, budgetCents, url: inst.url });
