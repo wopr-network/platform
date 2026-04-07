@@ -457,6 +457,48 @@ export async function mountRoutes(
     });
   }
 
+  // 2c-REST. Settings/profile REST shims — the UI calls these as REST, core has the data in authUserRepo.
+  if (bootConfig?.standalone) {
+    const { getAuthForProduct: getAuthForSettings } = await import("../auth/better-auth.js");
+    const { logger: settingsLogger } = await import("../config/logger.js");
+
+    async function resolveUserFromSession(req: Request): Promise<{ id: string } | null> {
+      const slug = await resolveProductSlug(
+        { header: (n: string) => req.headers.get(n) ?? undefined },
+        container.productConfigService,
+      );
+      const auth = await getAuthForSettings(slug);
+      const session = await auth.api.getSession({ headers: req.headers });
+      return session?.user ? { id: session.user.id } : null;
+    }
+
+    app.get("/api/settings/profile", async (c) => {
+      const user = await resolveUserFromSession(c.req.raw);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const profile = await container.authUserRepo.getUser(user.id);
+      if (!profile) return c.json({ error: "User not found" }, 404);
+      return c.json(profile);
+    });
+
+    app.patch("/api/settings/profile", async (c) => {
+      const user = await resolveUserFromSession(c.req.raw);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const data = await c.req.json();
+      const updated = await container.authUserRepo.updateUser(user.id, data);
+      return c.json(updated);
+    });
+
+    app.post("/api/settings/change-password", async (c) => {
+      const user = await resolveUserFromSession(c.req.raw);
+      if (!user) return c.json({ error: "Unauthorized" }, 401);
+      const { currentPassword, newPassword } = await c.req.json();
+      await container.authUserRepo.changePassword(user.id, currentPassword, newPassword);
+      return c.json({ ok: true });
+    });
+
+    settingsLogger.info("Mounted REST settings/profile endpoints");
+  }
+
   // 2d. BetterAuth routes (when auth config provided)
   if (bootConfig?.auth) {
     const { initBetterAuth, runAuthMigrations } = await import("../auth/better-auth.js");
