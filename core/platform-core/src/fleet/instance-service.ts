@@ -149,6 +149,8 @@ export class InstanceService {
       tenantId,
       name,
       nodeId: targetNode.config.id,
+      containerPort,
+      billingState: "inactive",
       createdByUserId: userId,
     });
     logger.info("Instance.create: bot instance registered", { instanceId, tenantId });
@@ -262,15 +264,19 @@ export class InstanceService {
       });
     }
 
-    // 8. Start billing — activate the daily charge clock
-    try {
-      await d.botInstanceRepo.setBillingState(instanceId, "active");
-      logger.info("Instance: billing started", { instanceId });
-    } catch (err) {
-      logger.warn("Instance: startBilling failed", {
-        instanceId,
-        error: err instanceof Error ? err.message : String(err),
-      });
+    // 8. Start billing — only if provisioning succeeded
+    if (provisioned) {
+      try {
+        await d.botInstanceRepo.setBillingState(instanceId, "active");
+        logger.info("Instance: billing started", { instanceId });
+      } catch (err) {
+        logger.warn("Instance: startBilling failed", {
+          instanceId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } else {
+      logger.warn("Instance: billing NOT started — provisioning failed", { instanceId });
     }
 
     return { id: instanceId, name, tenantId, nodeId: targetNode.config.id, containerUrl, gatewayKey, provisioned };

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { index, pgTable, text } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, text } from "drizzle-orm/pg-core";
 
 /**
  * Bot instances table — tracks billing lifecycle for each bot.
@@ -18,6 +18,8 @@ export const botInstances = pgTable(
     name: text("name").notNull(),
     /** Node where this bot is deployed (for recovery tracking) */
     nodeId: text("node_id"),
+    /** Port the container listens on (from product_fleet_config at creation time) */
+    containerPort: integer("container_port").notNull().default(3100),
     /**
      * Billing lifecycle state:
      * - 'active': running, consuming credits daily

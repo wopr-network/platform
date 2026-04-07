@@ -86,6 +86,7 @@ export interface BotInstance {
   tenantId: string;
   name: string;
   nodeId: string | null;
+  containerPort: number;
   billingState: BillingState;
   suspendedAt: string | null;
   destroyAfter: string | null;
@@ -100,7 +101,8 @@ export interface NewBotInstance {
   tenantId: string;
   name: string;
   nodeId: string | null;
-  billingState?: BillingState;
+  containerPort: number;
+  billingState: BillingState;
   createdByUserId?: string | null;
 }
 

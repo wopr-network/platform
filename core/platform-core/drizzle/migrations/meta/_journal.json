@@ -281,6 +281,13 @@
       "when": 1775800800000,
       "tag": "0039_pool_config_unique_index",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1775887200000,
+      "tag": "0040_bot_instance_container_port",
+      "breakpoints": true
     }
   ]
 }
