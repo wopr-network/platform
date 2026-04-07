@@ -81,13 +81,23 @@ export class InstanceService {
       throw new Error(`Insufficient credits: ${balance.toCentsRounded()}¢ (need 17¢ minimum)`);
     }
 
-    // 2. Acquire container via fleet (pool is handled inside FleetManager.create)
+    // 2. Instance limit check
+    const maxInstances = fleetConfig?.maxInstances ?? 0;
+    if (maxInstances > 0) {
+      const profiles = await d.profileStore.list();
+      const tenantInstances = profiles.filter((p) => p.tenantId === tenantId);
+      if (tenantInstances.length >= maxInstances) {
+        throw new Error(`Instance limit reached: maximum ${maxInstances} per tenant`);
+      }
+    }
+
+    // 3. Acquire container via fleet (pool is handled inside FleetManager.create)
     const instanceEnv: Record<string, string> = { ...env };
     if (d.provisionSecret) {
       instanceEnv.WOPR_PROVISION_SECRET = d.provisionSecret;
     }
 
-    // 2. Select target node via placement strategy
+    // 4. Select target node via placement strategy
     const nodes = d.nodeRegistry.list();
     const containerCounts = d.nodeRegistry.getContainerCounts();
     const targetNode = d.placementStrategy.selectNode(nodes, containerCounts);
