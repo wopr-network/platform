@@ -112,6 +112,8 @@ const mockInstanceService = {
     provisioned: true,
   }),
   createContainer: vi.fn(),
+  destroy: vi.fn().mockResolvedValue(undefined),
+  updateBudget: vi.fn().mockResolvedValue(undefined),
 };
 
 function buildApp(opts?: { fleet?: FleetServices | null; config?: Partial<ProvisionWebhookConfig> }) {
@@ -196,7 +198,7 @@ describe("createProvisionWebhookRoutes", () => {
     expect(json.error).toBe("Instance service not configured");
   });
 
-  it("returns 501 on destroy when fleet not configured", async () => {
+  it("returns 501 on destroy when instanceService not configured", async () => {
     const app = buildApp({ fleet: null });
     const res = await request(
       app,
@@ -211,7 +213,7 @@ describe("createProvisionWebhookRoutes", () => {
     expect(res.status).toBe(501);
   });
 
-  it("returns 501 on budget when fleet not configured", async () => {
+  it("returns 501 on budget when instanceService not configured", async () => {
     const app = buildApp({ fleet: null });
     const res = await request(
       app,
@@ -274,8 +276,8 @@ describe("createProvisionWebhookRoutes", () => {
   // ---- Destroy endpoint ----
 
   it("handles destroy webhook with valid auth and instanceId", async () => {
-    const fleet = makeFleet();
-    const app = buildApp({ fleet });
+    mockInstanceService.destroy.mockClear();
+    const app = buildApp();
     const res = await request(
       app,
       "POST",
@@ -288,12 +290,7 @@ describe("createProvisionWebhookRoutes", () => {
     const json = await res.json();
     expect(json.ok).toBe(true);
 
-    // Destroy uses fleetResolver.removeRoute (not proxy.removeRoute) and
-    // serviceKeyRepo from container.fleet (same mock reference)
-    expect(fleet.serviceKeyRepo.revokeByInstance).toHaveBeenCalledWith("inst-001");
-    expect(
-      (fleet.fleetResolver as unknown as { removeRoute: ReturnType<typeof vi.fn> }).removeRoute,
-    ).toHaveBeenCalledWith("inst-001");
+    expect(mockInstanceService.destroy).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "inst-001" }));
   });
 
   it("returns 422 on destroy when instanceId is missing", async () => {

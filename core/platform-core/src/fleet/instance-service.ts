@@ -1,9 +1,9 @@
 /**
  * InstanceService — orchestrates the full instance lifecycle.
  *
- * Single entry point for creating, provisioning, and billing instances.
+ * Single entry point for the full instance lifecycle: create, destroy, budget.
  * Fleet handles container acquisition (including pool). This service
- * handles credit checks, provisioning, and billing on top.
+ * handles credit checks, provisioning, billing, node placement, and cleanup.
  */
 
 import { logger } from "../config/logger.js";
@@ -324,5 +324,98 @@ export class InstanceService {
       name: instance.profile.name,
       gatewayKey,
     };
+  }
+
+  /**
+   * Resolve the fleet manager and container URL for an existing instance.
+   * Uses nodeRegistry to find which node owns the container.
+   */
+  private resolveFleetForInstance(instanceId: string) {
+    const d = this.deps;
+    const nodeId = d.nodeRegistry.getContainerNode(instanceId);
+    const fleet = nodeId ? d.nodeRegistry.getFleetManager(nodeId) : d.nodeRegistry.list()[0].fleet;
+    return { fleet, nodeId };
+  }
+
+  /**
+   * Destroy a managed instance — deprovision, revoke keys, remove container,
+   * unassign node, remove proxy route, stop billing.
+   */
+  async destroy(params: { instanceId: string; provisionSecret: string; tenantEntityId?: string }): Promise<void> {
+    const { instanceId, provisionSecret, tenantEntityId } = params;
+    const d = this.deps;
+    const { fleet } = this.resolveFleetForInstance(instanceId);
+
+    logger.info("Instance.destroy: starting", { instanceId, hasTenantEntity: !!tenantEntityId });
+
+    // 1. Deprovision (graceful teardown inside the container)
+    if (tenantEntityId) {
+      try {
+        const inst = await fleet.getInstance(instanceId);
+        const { deprovisionContainer } = await import("@wopr-network/provision-client");
+        await deprovisionContainer(inst.url, provisionSecret, tenantEntityId);
+        logger.info("Instance.destroy: deprovisioned", { instanceId });
+      } catch (err) {
+        logger.warn("Instance.destroy: deprovision failed (continuing)", {
+          instanceId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // 2. Revoke gateway service key
+    if (d.serviceKeyRepo) {
+      await d.serviceKeyRepo.revokeByInstance(instanceId);
+      logger.info("Instance.destroy: service key revoked", { instanceId });
+    }
+
+    // 3. Remove the Docker container
+    try {
+      await fleet.remove(instanceId);
+      logger.info("Instance.destroy: container removed", { instanceId });
+    } catch (err) {
+      logger.warn("Instance.destroy: container removal failed (may already be gone)", {
+        instanceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 4. Remove from node tracking and proxy route table
+    d.nodeRegistry.unassignContainer(instanceId);
+    await d.fleetResolver.removeRoute(instanceId);
+    logger.info("Instance.destroy: node unassigned + route removed", { instanceId });
+
+    // 5. Stop billing
+    try {
+      await d.botInstanceRepo.setBillingState(instanceId, "inactive");
+      logger.info("Instance.destroy: billing stopped", { instanceId });
+    } catch (err) {
+      logger.warn("Instance.destroy: stop billing failed", {
+        instanceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /**
+   * Update the spending budget on a running instance.
+   */
+  async updateBudget(params: {
+    instanceId: string;
+    provisionSecret: string;
+    tenantEntityId: string;
+    budgetCents: number;
+    perAgentCents?: number;
+  }): Promise<void> {
+    const { instanceId, provisionSecret, tenantEntityId, budgetCents, perAgentCents } = params;
+    const { fleet } = this.resolveFleetForInstance(instanceId);
+
+    const inst = await fleet.getInstance(instanceId);
+    logger.info("Instance.updateBudget: forwarding", { instanceId, budgetCents, url: inst.url });
+
+    const { updateBudget: sendBudgetUpdate } = await import("@wopr-network/provision-client");
+    await sendBudgetUpdate(inst.url, provisionSecret, tenantEntityId, budgetCents, perAgentCents);
+
+    logger.info("Instance.updateBudget: done", { instanceId, budgetCents });
   }
 }

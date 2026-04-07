@@ -14,7 +14,6 @@
  */
 
 import { timingSafeEqual } from "node:crypto";
-import { deprovisionContainer, updateBudget } from "@wopr-network/provision-client";
 import { Hono } from "hono";
 
 import { logger } from "../../config/logger.js";
@@ -141,14 +140,15 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
 
   // ------------------------------------------------------------------
   // POST /destroy — tear down a managed instance
+  // Delegates to InstanceService.destroy().
   // ------------------------------------------------------------------
   app.post("/destroy", async (c) => {
     if (!assertSecret(c.req.header("authorization"), config.provisionSecret)) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
-    if (!container.fleet) {
-      return c.json({ error: "Fleet management not configured" }, 501);
+    if (!container.instanceService) {
+      return c.json({ error: "Instance service not configured" }, 501);
     }
 
     const body = await c.req.json();
@@ -158,56 +158,32 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
       return c.json({ error: "Missing required field: instanceId" }, 422);
     }
 
-    const { nodeRegistry, fleetResolver, serviceKeyRepo } = container.fleet;
-
-    // Resolve which node this container is on
-    const nodeId = nodeRegistry.getContainerNode(instanceId);
-    const fleet = nodeId ? nodeRegistry.getFleetManager(nodeId) : nodeRegistry.list()[0].fleet;
-
-    // Deprovision the instance first (graceful teardown)
-    if (tenantEntityId) {
-      try {
-        const status = await fleet.status(instanceId);
-        if (status.state === "running") {
-          const containerName = `wopr-${status.name}`;
-          const upstreamHost = nodeRegistry.resolveUpstreamHost(instanceId, containerName);
-          const containerUrl = `http://${upstreamHost}:${config.containerPort}`;
-          await deprovisionContainer(containerUrl, config.provisionSecret, tenantEntityId);
-        }
-      } catch (err) {
-        logger.warn(`Deprovision call failed for ${instanceId}`, { err });
-        // Continue — container may already be gone
-      }
-    }
-
-    // Revoke gateway service key
-    await serviceKeyRepo.revokeByInstance(instanceId);
-
-    // Remove the Docker container
     try {
-      await fleet.remove(instanceId);
-    } catch {
-      // Container may already be gone — continue cleanup
+      await container.instanceService.destroy({
+        instanceId,
+        provisionSecret: config.provisionSecret,
+        tenantEntityId,
+      });
+      logger.info("Provision webhook: instance destroyed", { instanceId });
+      return c.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Provision webhook: destroy failed", { instanceId, error: message });
+      return c.json({ error: message }, 500);
     }
-
-    // Remove from tracking and proxy route table
-    nodeRegistry.unassignContainer(instanceId);
-    await fleetResolver.removeRoute(instanceId);
-
-    logger.info(`Destroyed instance: ${instanceId}`);
-    return c.json({ ok: true });
   });
 
   // ------------------------------------------------------------------
   // PUT /budget — update a container's spending budget
+  // Delegates to InstanceService.updateBudget().
   // ------------------------------------------------------------------
   app.put("/budget", async (c) => {
     if (!assertSecret(c.req.header("authorization"), config.provisionSecret)) {
       return c.json({ error: "Unauthorized" }, 401);
     }
 
-    if (!container.fleet) {
-      return c.json({ error: "Fleet management not configured" }, 501);
+    if (!container.instanceService) {
+      return c.json({ error: "Instance service not configured" }, 501);
     }
 
     const body = await c.req.json();
@@ -217,24 +193,21 @@ export function createProvisionWebhookRoutes(container: PlatformContainer, confi
       return c.json({ error: "Missing required fields: instanceId, tenantEntityId, budgetCents" }, 422);
     }
 
-    const { nodeRegistry } = container.fleet;
-
-    // Resolve which node this container is on
-    const nodeId = nodeRegistry.getContainerNode(instanceId);
-    const fleet = nodeId ? nodeRegistry.getFleetManager(nodeId) : nodeRegistry.list()[0].fleet;
-
-    const status = await fleet.status(instanceId);
-    if (status.state !== "running") {
-      return c.json({ error: "Instance not running" }, 503);
+    try {
+      await container.instanceService.updateBudget({
+        instanceId,
+        provisionSecret: config.provisionSecret,
+        tenantEntityId,
+        budgetCents,
+        perAgentCents,
+      });
+      return c.json({ ok: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Provision webhook: budget update failed", { instanceId, error: message });
+      if (message.includes("not running")) return c.json({ error: message }, 503);
+      return c.json({ error: message }, 500);
     }
-
-    const containerName = `wopr-${status.name}`;
-    const upstreamHost = nodeRegistry.resolveUpstreamHost(instanceId, containerName);
-    const containerUrl = `http://${upstreamHost}:${config.containerPort}`;
-
-    await updateBudget(containerUrl, config.provisionSecret, tenantEntityId, budgetCents, perAgentCents);
-
-    return c.json({ ok: true });
   });
 
   return app;
