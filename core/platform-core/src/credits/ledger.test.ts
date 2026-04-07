@@ -182,6 +182,20 @@ describe("DrizzleLedger", () => {
       const tb = await ledger.trialBalance();
       expect(tb.balanced).toBe(true);
     });
+
+    it("rejects balance check on account not in journal lines", async () => {
+      await expect(
+        ledger.post({
+          entryType: "bot_runtime",
+          tenantId: "t1",
+          lines: [
+            { accountCode: "1000", amount: Credit.fromCents(100), side: "debit" },
+            { accountCode: "4000", amount: Credit.fromCents(100), side: "credit" },
+          ],
+          balanceCheck: { tenantId: "t1", amount: Credit.fromCents(50) },
+        }),
+      ).rejects.toThrow("lock not held");
+    });
   });
 
   // -----------------------------------------------------------------------

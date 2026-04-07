@@ -16,7 +16,7 @@ import {
   solanaPlugin,
   // tonPlugin, // TODO: publish crypto-plugins with ton export, then re-enable
   tronPlugin,
-} from "@wopr-network/crypto-plugins";
+} from "./crypto-plugins/index.js";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";

@@ -29,7 +29,6 @@
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^2.0.0",
     "@scure/bip32": "^2.0.1",
-    "@wopr-network/crypto-plugins": "^1.0.1",
     "drizzle-orm": "^0.44.2",
     "hono": "^4.7.10",
     "pg": "^8.16.0",
