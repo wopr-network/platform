@@ -4,7 +4,7 @@
  * Pure Drizzle — no raw SQL. Schema is the single source of truth.
  */
 
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray } from "drizzle-orm";
 import type { PlatformDb } from "../../db/index.js";
 import { poolConfig } from "../../db/schema/pool-config.js";
 import { poolInstances } from "../../db/schema/pool-instances.js";
@@ -74,7 +74,7 @@ export class DrizzlePoolRepository implements IPoolRepository {
       conditions.push(eq(poolInstances.productSlug, productSlug));
     }
     const rows = await this.db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: count() })
       .from(poolInstances)
       .where(and(...conditions));
     return rows[0]?.count ?? 0;
@@ -123,24 +123,29 @@ export class DrizzlePoolRepository implements IPoolRepository {
   }
 
   async claim(partition?: string): Promise<{ id: string; containerId: string } | null> {
-    // Atomic claim: find oldest warm instance, mark as claimed in one query.
-    // Uses raw SQL for FOR UPDATE SKIP LOCKED (Drizzle doesn't support this natively).
-    const slugFilter = partition ? `AND "product_slug" = '${partition}'` : "";
-    const rows = await this.db.execute(sql`
-      UPDATE "pool_instances"
-      SET "status" = 'claimed', "claimed_at" = NOW()
-      WHERE "id" = (
-        SELECT "id" FROM "pool_instances"
-        WHERE "status" = 'warm' ${sql.raw(slugFilter)}
-        ORDER BY "created_at" ASC
-        LIMIT 1
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING "id", "container_id"
-    `);
-    const row = (rows as unknown as { rows: Array<{ id: string; container_id: string }> }).rows?.[0];
-    if (!row) return null;
-    return { id: row.id, containerId: row.container_id };
+    // Atomic claim inside a transaction: select oldest warm + lock, then update.
+    return this.db.transaction(async (tx) => {
+      const conditions = [eq(poolInstances.status, "warm")];
+      if (partition) {
+        conditions.push(eq(poolInstances.productSlug, partition));
+      }
+      const [candidate] = await tx
+        .select({ id: poolInstances.id, containerId: poolInstances.containerId })
+        .from(poolInstances)
+        .where(and(...conditions))
+        .orderBy(asc(poolInstances.createdAt))
+        .limit(1)
+        .for("update", { skipLocked: true });
+
+      if (!candidate) return null;
+
+      await tx
+        .update(poolInstances)
+        .set({ status: "claimed", claimedAt: new Date() })
+        .where(eq(poolInstances.id, candidate.id));
+
+      return { id: candidate.id, containerId: candidate.containerId };
+    });
   }
 
   async updateInstanceStatus(id: string, status: PoolInstanceStatus): Promise<void> {

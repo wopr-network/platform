@@ -13,7 +13,7 @@
  */
 
 import crypto from "node:crypto";
-import { and, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, like, sql } from "drizzle-orm";
 import type { PlatformDb } from "../db/index.js";
 import { accountBalances, accounts, journalEntries, journalLines } from "../db/schema/ledger.js";
 import { Credit } from "./credit.js";
@@ -354,11 +354,9 @@ export class DrizzleLedger implements ILedger {
     tx: Parameters<Parameters<PlatformDb["transaction"]>[0]>[0],
     code: string,
   ): Promise<string> {
-    const rows = (await tx.execute(sql`SELECT id FROM accounts WHERE code = ${code} FOR UPDATE`)) as unknown as {
-      rows: Array<{ id: string }>;
-    };
+    const rows = await tx.select({ id: accounts.id }).from(accounts).where(eq(accounts.code, code)).for("update");
 
-    const id = rows.rows[0]?.id;
+    const id = rows[0]?.id;
     if (!id) throw new Error(`Account not found: ${code}`);
 
     // Ensure balance row exists then lock it — serializes concurrent balance updates.
@@ -366,7 +364,11 @@ export class DrizzleLedger implements ILedger {
       .insert(accountBalances)
       .values({ accountId: id, balance: 0 })
       .onConflictDoNothing({ target: accountBalances.accountId });
-    await tx.execute(sql`SELECT balance FROM account_balances WHERE account_id = ${id} FOR UPDATE`);
+    await tx
+      .select({ balance: accountBalances.balance })
+      .from(accountBalances)
+      .where(eq(accountBalances.accountId, id))
+      .for("update");
 
     return id;
   }
@@ -439,12 +441,12 @@ export class DrizzleLedger implements ILedger {
       if (input.balanceCheck) {
         const { tenantId, amount } = input.balanceCheck;
         const tenantAccountCode = `2000:${tenantId}`;
-        const balRows = (await tx.execute(
-          sql`SELECT ab.balance FROM account_balances ab
-              INNER JOIN accounts a ON a.id = ab.account_id
-              WHERE a.code = ${tenantAccountCode}`,
-        )) as unknown as { rows: Array<{ balance: number }> };
-        const currentBalance = Credit.fromRaw(Number(balRows.rows[0]?.balance ?? 0));
+        const balRows = await tx
+          .select({ balance: accountBalances.balance })
+          .from(accountBalances)
+          .innerJoin(accounts, eq(accounts.id, accountBalances.accountId))
+          .where(eq(accounts.code, tenantAccountCode));
+        const currentBalance = Credit.fromRaw(Number(balRows[0]?.balance ?? 0));
         if (currentBalance.lessThan(amount)) {
           throw new InsufficientBalanceError(currentBalance, amount);
         }
@@ -468,12 +470,11 @@ export class DrizzleLedger implements ILedger {
         // For normal_side=debit accounts: balance += debit, balance -= credit
         // For normal_side=credit accounts: balance += credit, balance -= debit
         // We store balance in "normal" direction, so:
-        const acctRow = (await tx.execute(
-          sql`SELECT normal_side FROM accounts WHERE id = ${accountId}`,
-        )) as unknown as {
-          rows: Array<{ normal_side: Side }>;
-        };
-        const normalSide = acctRow.rows[0]?.normal_side;
+        const acctRow = await tx
+          .select({ normalSide: accounts.normalSide })
+          .from(accounts)
+          .where(eq(accounts.id, accountId));
+        const normalSide = acctRow[0]?.normalSide;
         if (!normalSide) throw new Error(`Account ${accountId} missing normal_side`);
 
         const delta = line.side === normalSide ? line.amount.toRaw() : -line.amount.toRaw();
@@ -594,12 +595,12 @@ export class DrizzleLedger implements ILedger {
       }
 
       // Step 2: Read balance while holding the lock.
-      const balRows = (await tx.execute(
-        sql`SELECT ab.balance FROM account_balances ab
-            INNER JOIN accounts a ON a.id = ab.account_id
-            WHERE a.code = ${tenantAccountCode}`,
-      )) as unknown as { rows: Array<{ balance: number }> };
-      const currentBalance = Credit.fromRaw(Number(balRows.rows[0]?.balance ?? 0));
+      const balRows = await tx
+        .select({ balance: accountBalances.balance })
+        .from(accountBalances)
+        .innerJoin(accounts, eq(accounts.id, accountBalances.accountId))
+        .where(eq(accounts.code, tenantAccountCode));
+      const currentBalance = Credit.fromRaw(Number(balRows[0]?.balance ?? 0));
 
       if (currentBalance.isZero()) {
         return null;
@@ -657,12 +658,11 @@ export class DrizzleLedger implements ILedger {
         .where(eq(accountBalances.accountId, tenantAccountId));
 
       // Credit-side account: look up its normal_side to determine delta direction.
-      const acctRow = (await tx.execute(
-        sql`SELECT normal_side FROM accounts WHERE id = ${creditAccountId}`,
-      )) as unknown as {
-        rows: Array<{ normal_side: Side }>;
-      };
-      const normalSide = acctRow.rows[0]?.normal_side;
+      const acctRow = await tx
+        .select({ normalSide: accounts.normalSide })
+        .from(accounts)
+        .where(eq(accounts.id, creditAccountId));
+      const normalSide = acctRow[0]?.normalSide;
       if (!normalSide) throw new Error(`Account ${creditAccountId} missing normal_side`);
 
       const creditDelta = "credit" === normalSide ? debitAmount.toRaw() : -debitAmount.toRaw();
@@ -737,7 +737,7 @@ export class DrizzleLedger implements ILedger {
       .select()
       .from(journalEntries)
       .where(and(...conditions))
-      .orderBy(sql`${journalEntries.postedAt} DESC`)
+      .orderBy(desc(journalEntries.postedAt))
       .limit(limit)
       .offset(offset);
 
@@ -754,12 +754,7 @@ export class DrizzleLedger implements ILedger {
       })
       .from(journalLines)
       .innerJoin(accounts, eq(accounts.id, journalLines.accountId))
-      .where(
-        sql`${journalLines.journalEntryId} IN (${sql.join(
-          entryIds.map((id) => sql`${id}`),
-          sql`, `,
-        )})`,
-      );
+      .where(inArray(journalLines.journalEntryId, entryIds));
 
     const linesByEntry = new Map<string, JournalEntry["lines"]>();
     for (const line of allLines) {
@@ -792,7 +787,7 @@ export class DrizzleLedger implements ILedger {
       })
       .from(accountBalances)
       .innerJoin(accounts, eq(accounts.id, accountBalances.accountId))
-      .where(and(isNotNull(accounts.tenantId), eq(accounts.type, "liability"), sql`${accountBalances.balance} > 0`));
+      .where(and(isNotNull(accounts.tenantId), eq(accounts.type, "liability"), gt(accountBalances.balance, 0)));
 
     return rows
       .filter((r): r is typeof r & { tenantId: string } => r.tenantId != null)
@@ -866,15 +861,7 @@ export class DrizzleLedger implements ILedger {
       })
       .from(journalLines)
       .innerJoin(accounts, eq(accounts.id, journalLines.accountId))
-      .where(
-        and(
-          sql`${accounts.code} IN (${sql.join(
-            codes.map((c) => sql`${c}`),
-            sql`, `,
-          )})`,
-          eq(journalLines.side, "debit"),
-        ),
-      )
+      .where(and(inArray(accounts.code, codes), eq(journalLines.side, "debit")))
       .groupBy(accounts.code);
 
     const result = new Map<string, Credit>();
@@ -913,10 +900,7 @@ export class DrizzleLedger implements ILedger {
         and(
           isNotNull(sql`${journalEntries.metadata}->>'expiresAt'`),
           sql`(${journalEntries.metadata}->>'expiresAt') <= ${now}`,
-          sql`${journalEntries.entryType} IN (${sql.join(
-            EXPIRABLE_CREDIT_TYPES.map((t) => sql`${t}`),
-            sql`, `,
-          )})`,
+          inArray(journalEntries.entryType, [...EXPIRABLE_CREDIT_TYPES]),
         ),
       );
 
@@ -938,7 +922,7 @@ export class DrizzleLedger implements ILedger {
     const rows = await this.db
       .select({ id: journalEntries.id })
       .from(journalEntries)
-      .where(sql`${journalEntries.referenceId} LIKE ${pattern}`)
+      .where(like(journalEntries.referenceId, pattern))
       .limit(1);
     return rows.length > 0;
   }
