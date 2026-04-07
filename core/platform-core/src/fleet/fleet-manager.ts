@@ -257,8 +257,11 @@ export class FleetManager {
     const containerName = info.Name.replace(/^\//, "");
     const containerId = info.Id;
 
-    // Resolve URL via node registry (DB-backed node assignment)
-    const port = this.resolvePort(profile);
+    // Resolve port from Docker inspect (exposed ports), then profile env, then default
+    const exposedPorts = Object.keys(info.Config?.ExposedPorts ?? {});
+    const inspectPort = exposedPorts.length > 0 ? Number.parseInt(exposedPorts[0].split("/")[0], 10) : null;
+    const port = inspectPort || this.resolvePort(profile);
+
     const botInstance = await this.instanceRepo?.getById(profile.id);
     const nodeId = botInstance?.nodeId ?? null;
     const upstreamHost = this.resolveHost?.(nodeId, containerName) ?? containerName;
