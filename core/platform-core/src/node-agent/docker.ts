@@ -316,6 +316,21 @@ export class DockerManager {
     return container.id;
   }
 
+  /**
+   * List all pool containers on this node (name starts with "pool-").
+   * Returns minimal info for orphan reconciliation.
+   */
+  async listPoolContainers(): Promise<{ id: string; name: string; running: boolean }[]> {
+    const all = await this.docker.listContainers({ all: true });
+    return all
+      .filter((c) => c.Names?.some((n) => n.replace(/^\//, "").startsWith("pool-")))
+      .map((c) => ({
+        id: c.Id,
+        name: (c.Names?.[0] ?? "").replace(/^\//, ""),
+        running: c.State === "running",
+      }));
+  }
+
   /** Get Docker event stream for monitoring container lifecycle. */
   async getEventStream(opts?: { filters?: Record<string, string[]> }): Promise<NodeJS.ReadableStream> {
     return this.docker.getEvents({

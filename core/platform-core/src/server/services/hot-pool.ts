@@ -157,35 +157,60 @@ export class HotPool {
   }
 
   /**
-   * Cleanup: verify active DB rows via bot.inspect commands.
-   * Mark dead + remove containers that aren't running.
+   * Cleanup: reconcile DB state against the node's actual pool containers.
+   *
+   * 1. Fetch pool containers from the node via pool.list
+   * 2. Mark dead any DB row whose container is missing or not running
+   * 3. Remove any orphan pool containers not tracked in DB
    */
   private async cleanup(): Promise<void> {
     if (!this.commandBus) return;
 
+    // Get actual pool containers from the node
+    let nodeContainers: { id: string; name: string; running: boolean }[] = [];
+    try {
+      const result = await this.commandBus.send(this.nodeId, {
+        type: "pool.list",
+        payload: {},
+      });
+      nodeContainers = (result.data as { id: string; name: string; running: boolean }[]) ?? [];
+    } catch (err) {
+      logger.warn("Hot pool: failed to list node containers", { nodeId: this.nodeId, error: (err as Error).message });
+      return;
+    }
+
+    const nodeByIdSet = new Set(nodeContainers.map((c) => c.id));
+
+    // 1. Check DB-tracked instances
     const activeInstances = await this.repo.listActive();
+    const trackedContainerIds = new Set<string>();
+
     for (const instance of activeInstances) {
-      try {
-        const result = await this.commandBus.send(this.nodeId, {
-          type: "bot.inspect",
-          payload: { name: instance.containerId },
-        });
-        const data = result.data as Record<string, unknown> | undefined;
-        const state = (data?.state as string) ?? "";
-        const isRunning = state === "running";
-        if (!isRunning) {
-          await this.repo.markDead(instance.id);
-          await this.removeContainer(instance.containerId);
-          logger.warn(`Hot pool: dead container ${instance.id} (state: ${state})`);
-        }
-      } catch {
+      trackedContainerIds.add(instance.containerId);
+      const onNode = nodeByIdSet.has(instance.containerId);
+      if (!onNode) {
         await this.repo.markDead(instance.id);
-        await this.removeContainer(instance.containerId);
         logger.warn(`Hot pool: missing container ${instance.id} (was ${instance.status})`);
+        continue;
+      }
+      // Find matching node container by ID
+      const nodeContainer = nodeContainers.find((c) => c.id === instance.containerId);
+      if (!nodeContainer?.running) {
+        await this.repo.markDead(instance.id);
+        await this.removeContainer(nodeContainer?.name ?? instance.containerId);
+        logger.warn(`Hot pool: dead container ${instance.id}`);
       }
     }
 
     await this.repo.deleteDead();
+
+    // 2. Orphan reconciliation — pool containers on node not in DB
+    for (const container of nodeContainers) {
+      if (!trackedContainerIds.has(container.id)) {
+        await this.removeContainer(container.name);
+        logger.info(`Hot pool: removed orphan ${container.name}`);
+      }
+    }
   }
 
   /** Replenish warm containers for every registered spec. */

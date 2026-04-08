@@ -411,6 +411,9 @@ host_bucket = %(bucket)s.${spaces.endpoint}
       case "pool.cleanup":
         return this.dockerManager.removeBot(String(p.name));
 
+      case "pool.list":
+        return this.dockerManager.listPoolContainers();
+
       default:
         throw new Error(`Unhandled command: ${command.type}`);
     }
