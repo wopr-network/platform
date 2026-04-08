@@ -170,11 +170,11 @@ export class DockerManager {
     const name = newName.startsWith(TENANT_PREFIX) ? newName : `${TENANT_PREFIX}${newName}`;
     const container = this.docker.getContainer(containerId);
 
-    // Snapshot networks before rename
+    // Snapshot networks before rename so we can reconnect on failure or success.
     const info = await container.inspect();
     const networks = Object.keys(info.NetworkSettings?.Networks ?? {});
 
-    // Disconnect from each network so the swarm endpoint table is freed
+    // Disconnect from each network so the swarm endpoint table is freed.
     for (const net of networks) {
       try {
         await this.docker.getNetwork(net).disconnect({ Container: containerId, Force: true });
@@ -183,9 +183,22 @@ export class DockerManager {
       }
     }
 
-    await container.rename({ name });
+    try {
+      await container.rename({ name });
+    } catch (err) {
+      // Rename failed — restore the original network attachments so the
+      // container is back in its pre-rename state and can be retried/cleaned up.
+      for (const net of networks) {
+        try {
+          await this.docker.getNetwork(net).connect({ Container: containerId });
+        } catch {
+          /* best effort */
+        }
+      }
+      throw err;
+    }
 
-    // Reconnect to each network with the new name registered
+    // Reconnect to each network with the new name registered.
     for (const net of networks) {
       try {
         await this.docker.getNetwork(net).connect({ Container: containerId });

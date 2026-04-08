@@ -98,51 +98,94 @@ export class FleetManager {
         throw new Error(`Bot with id ${id} already exists`);
       }
 
-      await this.store.save(profile);
+      // Saga rollback: every state change pushes its undo. On any failure,
+      // undos run in reverse so the system returns to a clean state — no
+      // orphan containers, no half-written rows, no leaked profiles.
+      const undos: { name: string; fn: () => Promise<void> }[] = [];
+      const rollback = async (cause: unknown): Promise<void> => {
+        logger.error("Fleet.create: failed, rolling back", {
+          id,
+          nodeId: this.nodeId,
+          err: cause instanceof Error ? cause.message : String(cause),
+          steps: undos.map((u) => u.name),
+        });
+        for (const u of [...undos].reverse()) {
+          try {
+            await u.fn();
+          } catch (cleanupErr) {
+            logger.warn(`Fleet.create rollback step "${u.name}" failed`, {
+              id,
+              err: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+            });
+          }
+        }
+      };
 
       try {
+        await this.store.save(profile);
+        undos.push({
+          name: "delete-profile",
+          fn: () => this.store.delete(profile.id).then(() => undefined),
+        });
+
         let poolClaimed = false;
         if (this.pool && params.productSlug) {
           const claimed = await this.pool.claim(params.productSlug, this.nodeId);
           if (claimed) {
+            // Pool DB row is consumed irrevocably; if anything else fails we
+            // must remove this container so it doesn't leak.
+            undos.push({
+              name: "remove-claimed-container",
+              fn: () => this.sendCommand("bot.remove", { name: claimed.containerId }).then(() => undefined),
+            });
+
             const cname = containerNameFor({ id, productSlug: params.productSlug });
             logger.info("Fleet.create: pool claimed, renaming", {
               id,
               containerId: claimed.containerId,
               newName: cname,
             });
-            await this.sendCommand("bot.update", { name: cname, containerId: claimed.containerId, rename: true });
+            await this.sendCommand("bot.update", {
+              name: cname,
+              containerId: claimed.containerId,
+              rename: true,
+            });
             poolClaimed = true;
           }
         }
 
         if (!poolClaimed) {
+          const cname = containerNameFor(profile);
           logger.info("Fleet.create: sending bot.start to node", { id, nodeId: this.nodeId });
           await this.sendCommand("bot.start", {
-            name: containerNameFor(profile),
+            name: cname,
             image: profile.image,
             env: profile.env,
             restart: profile.restartPolicy,
           });
+          undos.push({
+            name: "remove-cold-started-container",
+            fn: () => this.sendCommand("bot.remove", { name: cname }).then(() => undefined),
+          });
         }
+
+        const instance = this.buildInstance(profile);
+        instance.emitCreated();
+
+        if (this.instanceRepo) {
+          try {
+            await this.instanceRepo.register(id, profile.tenantId, profile.name);
+          } catch (err) {
+            // Non-fatal: cleanup loop reconciles bot_instances rows from DB state.
+            logger.warn("Failed to register bot instance in DB (non-fatal)", { id, err });
+          }
+        }
+
+        return instance;
       } catch (err) {
-        logger.error("Fleet.create: failed, rolling back profile", { id, nodeId: this.nodeId, err });
-        await this.store.delete(profile.id);
+        await rollback(err);
         throw err;
       }
-
-      const instance = this.buildInstance(profile);
-      instance.emitCreated();
-
-      if (this.instanceRepo) {
-        try {
-          await this.instanceRepo.register(id, profile.tenantId, profile.name);
-        } catch (err) {
-          logger.warn("Failed to register bot instance in DB (non-fatal)", { id, err });
-        }
-      }
-
-      return instance;
     };
 
     return hasExplicitId ? this.withLock(id, doCreate) : doCreate();
