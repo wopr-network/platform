@@ -12,15 +12,19 @@ export const TENANT_PREFIX = "tenant_";
 
 export const nodeAgentConfigSchema = z
   .object({
-    /** Platform API base URL (must be HTTPS except for localhost dev) */
+    /** Platform API base URL (HTTPS required for public endpoints; HTTP allowed for localhost and internal Docker DNS) */
     platformUrl: z
       .string()
       .url()
       .refine((url) => {
         const parsed = new URL(url);
-        const isLocalhost = parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
-        return parsed.protocol === "https:" || isLocalhost;
-      }, "platformUrl must use HTTPS (http:// only allowed for localhost)"),
+        const isLocal =
+          parsed.hostname === "localhost" ||
+          parsed.hostname === "127.0.0.1" ||
+          parsed.hostname.endsWith(".internal") ||
+          !parsed.hostname.includes("."); // Docker DNS names like "core-server-core-1"
+        return parsed.protocol === "https:" || isLocal;
+      }, "platformUrl must use HTTPS (http:// only allowed for localhost and internal Docker hostnames)"),
     /** Unique node identifier — assigned by platform during token registration */
     nodeId: z.string().min(1).optional(),
     /** Persistent per-node secret for authentication (assigned after first registration) */
