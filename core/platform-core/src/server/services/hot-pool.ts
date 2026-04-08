@@ -13,6 +13,7 @@
 
 import { logger } from "../../config/logger.js";
 import { friendlyName } from "../../fleet/friendly-names.js";
+import type { INodeCommandBus } from "../../fleet/node-command-bus.js";
 import type { IPoolRepository } from "./pool-repository.js";
 
 // ---------------------------------------------------------------------------
@@ -54,12 +55,20 @@ export interface PoolClaim {
 export class HotPool {
   private specs = new Map<string, PoolSpec>();
   private timer: ReturnType<typeof setInterval> | null = null;
+  private commandBus: INodeCommandBus | null = null;
+  /** Node ID for warm container creation. Defaults to "local". */
+  private nodeId = "local";
 
   constructor(
-    private docker: import("dockerode"),
     private repo: IPoolRepository,
     private config: HotPoolConfig,
   ) {}
+
+  /** Inject command bus after construction. Required for pool operations. */
+  setCommandBus(bus: INodeCommandBus, nodeId = "local"): void {
+    this.commandBus = bus;
+    this.nodeId = nodeId;
+  }
 
   // ---- Registration --------------------------------------------------------
 
@@ -148,57 +157,35 @@ export class HotPool {
   }
 
   /**
-   * Cleanup: verify every active DB row (warm + claimed) has a live container.
-   * If the container is gone or dead, mark the row dead and delete it.
-   * Then reconcile orphan Docker containers not tracked in the DB.
+   * Cleanup: verify active DB rows via bot.inspect commands.
+   * Mark dead + remove containers that aren't running.
    */
   private async cleanup(): Promise<void> {
-    const docker = this.docker;
+    if (!this.commandBus) return;
 
-    // 1. Check ALL active instances — mark dead if container is gone
     const activeInstances = await this.repo.listActive();
-    const trackedContainerIds = new Set<string>();
-
     for (const instance of activeInstances) {
-      trackedContainerIds.add(instance.containerId);
       try {
-        const c = docker.getContainer(instance.containerId);
-        const info = await c.inspect();
-        const isRunning = info.State.Running && !info.State.Restarting;
-        const restartCount = info.RestartCount ?? 0;
-        const isCrashLooping = info.State.Restarting || restartCount > 2;
-        if (!isRunning || isCrashLooping) {
+        const result = await this.commandBus.send(this.nodeId, {
+          type: "bot.inspect",
+          payload: { name: instance.containerId },
+        });
+        const data = result.data as Record<string, unknown> | undefined;
+        const state = (data?.state as string) ?? "";
+        const isRunning = state === "running";
+        if (!isRunning) {
           await this.repo.markDead(instance.id);
           await this.removeContainer(instance.containerId);
-          logger.warn(`Hot pool: dead container ${instance.id} (was ${instance.status})`, {
-            running: info.State.Running,
-            restarting: info.State.Restarting,
-            restartCount,
-          });
+          logger.warn(`Hot pool: dead container ${instance.id} (state: ${state})`);
         }
       } catch {
         await this.repo.markDead(instance.id);
+        await this.removeContainer(instance.containerId);
         logger.warn(`Hot pool: missing container ${instance.id} (was ${instance.status})`);
       }
     }
 
     await this.repo.deleteDead();
-
-    // 2. Orphan reconciliation — pool-* containers not tracked in DB
-    try {
-      const allContainers = await docker.listContainers({ all: true });
-      for (const c of allContainers) {
-        const name = (c.Names?.[0] ?? "").replace(/^\//, "");
-        if (!name.startsWith("pool-")) continue;
-        if (trackedContainerIds.has(c.Id)) continue;
-        await this.removeContainer(c.Id);
-        logger.info(`Hot pool: removed orphan container ${name}`);
-      }
-    } catch (err) {
-      logger.warn("Hot pool: orphan reconciliation failed (non-fatal)", {
-        error: (err as Error).message,
-      });
-    }
   }
 
   /** Replenish warm containers for every registered spec. */
@@ -215,93 +202,51 @@ export class HotPool {
     }
   }
 
-  /** Create a single warm container for the given spec. */
+  /** Create a single warm container via the node command bus. */
   private async createWarm(key: string, spec: PoolSpec): Promise<void> {
-    const docker = this.docker;
+    if (!this.commandBus) {
+      logger.warn("Hot pool: command bus not set, skipping warm container creation");
+      return;
+    }
+
     const { image, port, network } = spec;
     const { provisionSecret } = this.config;
     const id = crypto.randomUUID();
     const friendly = friendlyName(id);
     const containerName = `pool-${key}-${friendly}`;
-    const volumeName = `pool-${key}-${friendly}`;
 
     try {
-      // Pull image
-      try {
-        const auth = this.config.registryAuth;
-        const [fromImage, tag] = image.includes(":") ? image.split(":") : [image, "latest"];
-        logger.info(`Hot pool: pulling ${image} (auth: ${auth ? `${auth.username}@${auth.serveraddress}` : "none"})`);
-        const authArg = auth
-          ? { username: auth.username, password: auth.password, serveraddress: auth.serveraddress }
-          : {};
-        const stream: NodeJS.ReadableStream = await docker.createImage(authArg, { fromImage, tag });
-        await new Promise<void>((resolve, reject) => {
-          docker.modem.followProgress(stream, (err: Error | null) => (err ? reject(err) : resolve()));
-        });
-      } catch (pullErr) {
-        logger.warn(`Hot pool: image pull failed for ${image}`, { key, error: (pullErr as Error).message });
-      }
-
-      // Init volume — clear stale embedded-PG data
-      const init = await docker.createContainer({
-        Image: image,
-        Entrypoint: ["/bin/sh", "-c"],
-        Cmd: ["rm -rf /data/* /data/.* 2>/dev/null; chown -R 999:999 /data || true"],
-        User: "root",
-        HostConfig: { Binds: [`${volumeName}:/data`] },
-      });
-      await init.start();
-      await init.wait();
-      await init.remove();
-
-      // Wrap original entrypoint with cleanup
-      const imageInfo = await docker.getImage(image).inspect();
-      const rawEntrypoint = imageInfo.Config?.Entrypoint ?? [];
-      const rawCmd = imageInfo.Config?.Cmd ?? [];
-      const origEntrypoint: string[] = Array.isArray(rawEntrypoint) ? rawEntrypoint : [rawEntrypoint];
-      const origCmd: string[] = Array.isArray(rawCmd) ? rawCmd : [rawCmd];
-      const fullCmd = [...origEntrypoint, ...origCmd].join(" ");
-      const cleanupAndExec = `rm -rf /paperclip/instances/default/db 2>/dev/null; exec ${fullCmd}`;
-
-      const warmContainer = await docker.createContainer({
-        Image: image,
-        name: containerName,
-        Entrypoint: ["/bin/sh", "-c"],
-        Cmd: [cleanupAndExec],
-        Env: [`PORT=${port}`, `WOPR_PROVISION_SECRET=${provisionSecret}`, "HOME=/data"],
-        HostConfig: {
-          Binds: [`${volumeName}:/data`],
-          RestartPolicy: { Name: "on-failure", MaximumRetryCount: 3 },
+      const result = await this.commandBus.send(this.nodeId, {
+        type: "pool.warm",
+        payload: {
+          name: containerName,
+          image,
+          port,
+          network: network || "platform-overlay",
+          provisionSecret,
         },
       });
 
-      await warmContainer.start();
-
-      // Connect to Docker network
-      const targetNetwork = network || "platform";
-      try {
-        const net = docker.getNetwork(targetNetwork);
-        await net.connect({ Container: warmContainer.id });
-        logger.info(`Hot pool: connected ${containerName} to network ${targetNetwork}`);
-      } catch (netErr) {
-        logger.warn(`Hot pool: network connect failed for ${containerName}`, {
-          error: (netErr as Error).message,
-        });
-      }
-
-      await this.repo.insertWarm(id, warmContainer.id, "local", key, image);
-      logger.info(`Hot pool: created warm container ${containerName} (${id}) for "${key}"`);
+      const containerId = typeof result.data === "string" ? result.data : containerName;
+      await this.repo.insertWarm(id, containerId, this.nodeId, key, image);
+      logger.info(`Hot pool: created warm container ${containerName} (${id}) for "${key}" on node ${this.nodeId}`);
     } catch (err) {
-      logger.error("Hot pool: failed to create warm container", { key, error: (err as Error).message });
+      logger.error("Hot pool: failed to create warm container", {
+        key,
+        nodeId: this.nodeId,
+        error: (err as Error).message,
+      });
     }
   }
 
-  /** Best-effort stop + remove a Docker container. */
+  /** Best-effort stop + remove a container via command bus. */
   private async removeContainer(containerId: string): Promise<void> {
+    if (!this.commandBus) return;
     try {
-      const c = this.docker.getContainer(containerId);
-      await c.stop().catch(() => {});
-      await c.remove({ force: true });
+      await this.commandBus.send(this.nodeId, {
+        type: "pool.cleanup",
+        payload: { name: containerId },
+      });
     } catch {
       /* already gone */
     }

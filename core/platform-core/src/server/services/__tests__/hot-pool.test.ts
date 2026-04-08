@@ -8,12 +8,9 @@ import { describe, expect, it } from "vitest";
 import { HotPool } from "../hot-pool.js";
 import { InMemoryPoolRepository } from "./in-memory-pool-repository.js";
 
-/** Minimal mock Docker that satisfies the HotPool constructor. */
-const mockDocker = {} as import("dockerode");
-
 function createPool(repo?: InMemoryPoolRepository) {
   const r = repo ?? new InMemoryPoolRepository();
-  const pool = new HotPool(mockDocker, r, { provisionSecret: "test-secret" });
+  const pool = new HotPool(r, { provisionSecret: "test-secret" });
   return { pool, repo: r };
 }
 

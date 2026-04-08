@@ -333,7 +333,7 @@ describe("buildContainer", () => {
 
     expect(container.fleet).not.toBeNull();
     expect(container.fleet?.manager).toBeDefined();
-    expect(container.fleet?.docker).toBeDefined();
+    expect(container.fleet?.nodeRegistry).toBeDefined();
     expect(container.fleet?.proxy).toBeDefined();
     expect(container.fleet?.profileStore).toBeDefined();
     expect(container.fleet?.serviceKeyRepo).toBeDefined();

@@ -6,7 +6,6 @@
  * gateway, hotPool) let each product opt in without pulling unused deps.
  */
 
-import type Docker from "dockerode";
 import type { Pool } from "pg";
 import type Stripe from "stripe";
 import type { IUserRoleRepository } from "../auth/user-role-repository.js";
@@ -46,7 +45,6 @@ import type { BootConfig } from "./boot-config.js";
 
 export interface FleetServices {
   manager: FleetManager;
-  docker: Docker;
   proxy: ProxyManagerInterface;
   profileStore: IProfileStore;
   serviceKeyRepo: IServiceKeyRepository;
@@ -296,7 +294,6 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
 
     fleet = {
       manager: localNode.fleet,
-      docker: localNode.docker,
       proxy,
       profileStore,
       serviceKeyRepo,
@@ -447,7 +444,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { HotPool } = await import("./services/hot-pool.js");
 
     const secrets = bootConfig.secrets;
-    const hotPool = new HotPool(fleet.docker, poolRepo, {
+    const hotPool = new HotPool(poolRepo, {
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? "",
       registryAuth:
         secrets?.registryUsername && secrets?.registryPassword

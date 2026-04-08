@@ -98,6 +98,8 @@ export const ALLOWED_COMMANDS = [
   "backup.download",
   "backup.run-nightly",
   "backup.run-hot",
+  "pool.warm",
+  "pool.cleanup",
 ] as const;
 
 export type CommandType = (typeof ALLOWED_COMMANDS)[number];

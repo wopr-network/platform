@@ -396,6 +396,18 @@ host_bucket = %(bucket)s.${spaces.endpoint}
       case "backup.run-hot":
         return this.hotBackupScheduler.runHotBackup();
 
+      case "pool.warm":
+        return this.dockerManager.createWarmContainer({
+          name: String(p.name),
+          image: String(p.image),
+          port: p.port ? Number(p.port) : 3100,
+          network: p.network ? String(p.network) : "platform-overlay",
+          provisionSecret: p.provisionSecret ? String(p.provisionSecret) : undefined,
+        });
+
+      case "pool.cleanup":
+        return this.dockerManager.removeBot(String(p.name));
+
       default:
         throw new Error(`Unhandled command: ${command.type}`);
     }

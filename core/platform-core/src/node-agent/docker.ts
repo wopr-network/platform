@@ -239,6 +239,73 @@ export class DockerManager {
     return container.inspect();
   }
 
+  /**
+   * Create a warm pool container — pre-provisioned and ready to claim.
+   * Mirrors HotPool.createWarm() logic: init volume, wrap entrypoint, connect network.
+   */
+  async createWarmContainer(payload: {
+    name: string;
+    image: string;
+    port: number;
+    network: string;
+    provisionSecret?: string;
+  }): Promise<string> {
+    const { name, image, port, network, provisionSecret } = payload;
+    const volumeName = name; // volume matches container name
+
+    // Pull image
+    const stream = await this.docker.pull(image);
+    await new Promise<void>((resolve, reject) => {
+      this.docker.modem.followProgress(stream, (err: Error | null) => (err ? reject(err) : resolve()));
+    });
+
+    // Init volume — clear stale embedded-PG data
+    const init = await this.docker.createContainer({
+      Image: image,
+      Entrypoint: ["/bin/sh", "-c"],
+      Cmd: ["rm -rf /data/* /data/.* 2>/dev/null; chown -R 999:999 /data || true"],
+      User: "root",
+      HostConfig: { Binds: [`${volumeName}:/data`] },
+    });
+    await init.start();
+    await init.wait();
+    await init.remove();
+
+    // Wrap original entrypoint with cleanup
+    const imageInfo = await this.docker.getImage(image).inspect();
+    const rawEntrypoint: string[] = Array.isArray(imageInfo.Config?.Entrypoint) ? imageInfo.Config.Entrypoint : [];
+    const rawCmd: string[] = Array.isArray(imageInfo.Config?.Cmd) ? imageInfo.Config.Cmd : [];
+    const fullCmd = [...rawEntrypoint, ...rawCmd].join(" ");
+    const cleanupAndExec = `rm -rf /paperclip/instances/default/db 2>/dev/null; exec ${fullCmd}`;
+
+    const env = [`PORT=${port}`, "HOME=/data"];
+    if (provisionSecret) env.push(`WOPR_PROVISION_SECRET=${provisionSecret}`);
+
+    const container = await this.docker.createContainer({
+      Image: image,
+      name,
+      Entrypoint: ["/bin/sh", "-c"],
+      Cmd: [cleanupAndExec],
+      Env: env,
+      HostConfig: {
+        Binds: [`${volumeName}:/data`],
+        RestartPolicy: { Name: "on-failure", MaximumRetryCount: 3 },
+      },
+    });
+
+    await container.start();
+
+    // Connect to overlay network
+    try {
+      const net = this.docker.getNetwork(network);
+      await net.connect({ Container: container.id });
+    } catch {
+      // Network connect failure is non-fatal — container still runs
+    }
+
+    return container.id;
+  }
+
   /** Get Docker event stream for monitoring container lifecycle. */
   async getEventStream(opts?: { filters?: Record<string, string[]> }): Promise<NodeJS.ReadableStream> {
     return this.docker.getEvents({

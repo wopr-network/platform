@@ -724,11 +724,14 @@ export async function mountRoutes(
     const nodeConnectionManager = new NodeConnectionManager(nodeRepo, botInstanceRepo, recoveryRepo);
     container.nodeConnectionManager = nodeConnectionManager;
 
-    // Create the command bus and inject into all FleetManagers
+    // Create the command bus and inject into all FleetManagers + HotPool
     const { NodeCommandBus } = await import("../fleet/node-command-bus.js");
     const commandBus = new NodeCommandBus(nodeConnectionManager);
     for (const node of container.fleet.nodeRegistry.list()) {
       node.fleet.setCommandBus(commandBus);
+    }
+    if (container.hotPool) {
+      container.hotPool.setCommandBus(commandBus, "local");
     }
 
     // Vault for reading Spaces credentials to pass to node agents
