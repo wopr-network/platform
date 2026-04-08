@@ -303,6 +303,12 @@ services:
       REGISTRATION_TOKEN: ${AGENT_REGISTRATION_TOKEN:-}
       CREDENTIALS_PATH: /etc/wopr/credentials.json
       BACKUP_DIR: /backups
+      # Registry credentials so the agent can pull private managed images.
+      # Same env vars the core service already consumes — these are bootstrap
+      # config for the host docker daemon, not application secrets.
+      REGISTRY_USERNAME: ${REGISTRY_USERNAME}
+      REGISTRY_PASSWORD: ${REGISTRY_PASSWORD}
+      REGISTRY_SERVER: ${REGISTRY_SERVER}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - agent_credentials:/etc/wopr

@@ -5,14 +5,48 @@ import { pipeline } from "node:stream/promises";
 import Docker from "dockerode";
 
 /**
+ * Auth payload for a private registry — passed to dockerode's pull as
+ * `authconfig`. The agent constructs one of these from its own env at boot
+ * time and uses it as the default for every pull, so individual handlers
+ * (and the operations they're claimed from) don't need to embed credentials.
+ *
+ * Per-call payloads (`pool.warm` with an explicit `registryAuth`) still
+ * override the default.
+ */
+export interface RegistryAuth {
+  username: string;
+  password: string;
+  serveraddress: string;
+}
+
+export interface DockerManagerOptions {
+  /** Default registry auth used by all pulls when the per-call payload doesn't override. */
+  defaultRegistryAuth?: RegistryAuth | null;
+}
+
+/**
  * Thin wrapper around Dockerode that exposes only the operations the node
  * agent needs. Uses the Docker SDK exclusively -- no child_process.exec.
  */
 export class DockerManager {
   readonly docker: Docker;
+  private readonly defaultRegistryAuth: RegistryAuth | null;
 
-  constructor(docker?: Docker) {
+  constructor(docker?: Docker, options: DockerManagerOptions = {}) {
     this.docker = docker ?? new Docker({ socketPath: "/var/run/docker.sock" });
+    this.defaultRegistryAuth = options.defaultRegistryAuth ?? null;
+  }
+
+  /**
+   * Resolve pull options. If the caller passed an explicit `registryAuth`
+   * (per-image override), use that. Otherwise fall back to the agent's
+   * default registry auth (set at boot time from env). Returns an empty
+   * options object when neither is set — dockerode will attempt an
+   * unauthenticated pull, which is correct for public images.
+   */
+  private pullOpts(override?: RegistryAuth | null): { authconfig?: RegistryAuth } {
+    const auth = override ?? this.defaultRegistryAuth;
+    return auth ? { authconfig: auth } : {};
   }
 
   /**
@@ -43,8 +77,8 @@ export class DockerManager {
     const { name } = payload;
     const envArr = payload.env ? Object.entries(payload.env).map(([k, v]) => `${k}=${v}`) : [];
 
-    // Pull image first
-    const stream = await this.docker.pull(payload.image);
+    // Pull image first (uses agent default registry auth if available).
+    const stream = await this.docker.pull(payload.image, this.pullOpts());
     await new Promise<void>((resolve, reject) => {
       this.docker.modem.followProgress(stream, (err: Error | null) => {
         if (err) reject(err);
@@ -323,17 +357,8 @@ export class DockerManager {
     const { name, image, port, network, provisionSecret, registryAuth } = payload;
     const volumeName = name; // volume matches container name
 
-    // Pull image (with auth if provided)
-    const pullOpts = registryAuth
-      ? {
-          authconfig: {
-            username: registryAuth.username,
-            password: registryAuth.password,
-            serveraddress: registryAuth.serveraddress,
-          },
-        }
-      : {};
-    const stream = await this.docker.pull(image, pullOpts);
+    // Pull image — per-call `registryAuth` overrides the agent's default.
+    const stream = await this.docker.pull(image, this.pullOpts(registryAuth));
     await new Promise<void>((resolve, reject) => {
       this.docker.modem.followProgress(stream, (err: Error | null) => (err ? reject(err) : resolve()));
     });

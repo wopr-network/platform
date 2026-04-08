@@ -102,7 +102,7 @@ describe("DockerManager", () => {
         env: { TOKEN: "secret", MODE: "prod" },
       });
 
-      expect(docker.pull).toHaveBeenCalledWith("wopr/bot:latest");
+      expect(docker.pull).toHaveBeenCalledWith("wopr/bot:latest", {});
       expect(docker.createContainer).toHaveBeenCalledWith({
         Image: "wopr/bot:latest",
         name: "paperclip-my-bot",
@@ -130,6 +130,13 @@ describe("DockerManager", () => {
       await manager.startBot({ name: "bot", image: "img:1" });
 
       expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ Env: [] }));
+    });
+
+    it("injects defaultRegistryAuth into pull when no per-call override", async () => {
+      const auth = { username: "u", password: "p", serveraddress: "registry.example.com" };
+      const authedManager = new DockerManager(docker, { defaultRegistryAuth: auth });
+      await authedManager.startBot({ name: "bot", image: "registry.example.com/foo:1" });
+      expect(docker.pull).toHaveBeenCalledWith("registry.example.com/foo:1", { authconfig: auth });
     });
 
     it("rejects when image pull fails", async () => {

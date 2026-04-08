@@ -322,7 +322,21 @@ if (isMain) {
     dbUrl: savedCreds.dbUrl ?? process.env.AGENT_DB_URL,
   });
 
-  const agent = new NodeAgent(config);
+  // Build the DockerManager with the agent's local registry auth so every
+  // pull (warm pool, tenant create, restore) inherits credentials without
+  // the core having to flow them through every queue payload. The registry
+  // creds are bootstrap config for this host's docker daemon — they're set
+  // alongside docker.sock access at provision time.
+  const registryUsername = process.env.REGISTRY_USERNAME;
+  const registryPassword = process.env.REGISTRY_PASSWORD;
+  const registryServer = process.env.REGISTRY_SERVER;
+  const defaultRegistryAuth =
+    registryUsername && registryPassword && registryServer
+      ? { username: registryUsername, password: registryPassword, serveraddress: registryServer }
+      : null;
+  const dockerManager = new DockerManager(undefined, { defaultRegistryAuth });
+
+  const agent = new NodeAgent(config, dockerManager);
 
   const shutdown = async () => {
     logger.info("Shutting down...");
@@ -333,8 +347,10 @@ if (isMain) {
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
 
-  agent.start().catch((err) => {
-    logger.error("Failed to start node agent", { err });
+  agent.start().catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    logger.error("Failed to start node agent", { error: message, stack });
     process.exit(1);
   });
 }
