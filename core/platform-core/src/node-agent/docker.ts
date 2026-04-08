@@ -158,12 +158,42 @@ export class DockerManager {
   /**
    * Rename a container by ID. Used by HotPool claims to rebrand a warm
    * pool container (pool-foo-XYZ) into a tenant container (tenant_<id>).
-   * Returns the new container ID (unchanged — Docker rename only swaps names).
+   *
+   * Swarm overlay networks key DNS endpoints by name, so a bare `rename`
+   * leaves a stale endpoint and the next attach blows up with
+   * "endpoint_table ... already exists". We disconnect from each network,
+   * rename, then reconnect with the new name.
+   *
+   * Returns the (unchanged) container ID — Docker rename only swaps names.
    */
   async renameContainer(containerId: string, newName: string): Promise<{ containerId: string }> {
     const name = newName.startsWith(TENANT_PREFIX) ? newName : `${TENANT_PREFIX}${newName}`;
     const container = this.docker.getContainer(containerId);
+
+    // Snapshot networks before rename
+    const info = await container.inspect();
+    const networks = Object.keys(info.NetworkSettings?.Networks ?? {});
+
+    // Disconnect from each network so the swarm endpoint table is freed
+    for (const net of networks) {
+      try {
+        await this.docker.getNetwork(net).disconnect({ Container: containerId, Force: true });
+      } catch {
+        // Already disconnected or network gone — non-fatal
+      }
+    }
+
     await container.rename({ name });
+
+    // Reconnect to each network with the new name registered
+    for (const net of networks) {
+      try {
+        await this.docker.getNetwork(net).connect({ Container: containerId });
+      } catch {
+        // Reconnect failure is non-fatal but logged at the connect site by docker
+      }
+    }
+
     return { containerId };
   }
 
