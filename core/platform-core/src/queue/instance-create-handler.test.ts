@@ -258,6 +258,64 @@ describe("instance.destroy end-to-end through OperationQueue", () => {
   });
 });
 
+describe("instance.create_container end-to-end through OperationQueue", () => {
+  let queue: OperationQueue;
+  let worker: QueueWorker;
+  let svc: InstanceService;
+
+  beforeEach(async () => {
+    await truncateAllTables(pool);
+    queue = new OperationQueue(db, { defaultPollIntervalMs: 0, sleep: fastSleep });
+    // Fleet stub's create returns an object that also exposes .start() so
+    // runCreateContainer can call instance.start() on it.
+    const fleetWithStart = {
+      create: async () => ({
+        id: "bare-1",
+        url: "http://bare-1/",
+        containerId: "container-bare-1",
+        profile: { name: "bare-bot" },
+        start: async () => {},
+      }),
+      remove: async () => {},
+      getInstance: async () => ({ id: "bare-1", url: "http://bare-1/" }),
+    } as never;
+    const deps: InstanceServiceDeps = {
+      creditLedger: makeStubLedger(1000),
+      profileStore: stubProfileStore,
+      botInstanceRepo: stubBotInstanceRepo,
+      serviceKeyRepo: null,
+      provisionSecret: null,
+      fleet: fleetWithStart,
+      operationQueue: queue,
+    };
+    svc = new InstanceService(deps);
+    worker = new QueueWorker(queue, "core", "w-test", new Map());
+    worker.registerHandler("instance.create_container", async (payload) => svc.handleCreateContainerOperation(payload));
+  });
+
+  it("dispatches createContainer() through the queue and returns the saga result", async () => {
+    const promise = svc.createContainer({
+      tenantId: "t-1",
+      name: "bare-bot",
+      image: "worker:1",
+      productSlug: "holyship",
+    });
+    await fastSleep();
+    const ran = await worker.tickOnce();
+    expect(ran).toBe(true);
+
+    const result = await promise;
+    expect(result.id).toBe("bare-1");
+    expect(result.url).toBe("http://bare-1/");
+    expect(result.name).toBe("bare-bot");
+
+    const rows = await db.query.pendingOperations.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe("instance.create_container");
+    expect(rows[0].status).toBe("succeeded");
+  });
+});
+
 describe("instance.update_budget end-to-end through OperationQueue", () => {
   let queue: OperationQueue;
   let svc: InstanceService;

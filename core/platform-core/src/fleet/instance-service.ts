@@ -80,6 +80,28 @@ export interface InstanceServiceDeps {
 export const INSTANCE_CREATE_OP = "instance.create" as const;
 export const INSTANCE_DESTROY_OP = "instance.destroy" as const;
 export const INSTANCE_UPDATE_BUDGET_OP = "instance.update_budget" as const;
+export const INSTANCE_CREATE_CONTAINER_OP = "instance.create_container" as const;
+
+/** Params accepted by createContainer. Serializable for queue transport. */
+export interface CreateContainerParams {
+  tenantId: string;
+  name: string;
+  image: string;
+  productSlug: string;
+  env?: Record<string, string>;
+  network?: string;
+  restartPolicy?: "no" | "always" | "on-failure" | "unless-stopped";
+  readonlyRootfs?: boolean;
+}
+
+/** Result from createContainer — also serializable. */
+export interface CreatedBareContainer {
+  id: string;
+  url: string;
+  containerId: string;
+  name: string;
+  gatewayKey: string | null;
+}
 
 export class InstanceService {
   constructor(private readonly deps: InstanceServiceDeps) {}
@@ -334,19 +356,31 @@ export class InstanceService {
   /**
    * Create a bare container — no billing, no provisioning, no credit check.
    *
-   * Products that manage their own lifecycle (e.g., holyship workers) call this
-   * instead of create(). They get a container on a node and handle setup themselves.
+   * Products that manage their own lifecycle (e.g., holyship workers) call
+   * this instead of create(). They get a container on a node and handle
+   * setup themselves.
+   *
+   * Dispatches through the queue when `operationQueue` is wired, same as
+   * create() / destroy() / updateBudget(). Public Promise shape is
+   * unchanged.
    */
-  async createContainer(params: {
-    tenantId: string;
-    name: string;
-    image: string;
-    productSlug: string;
-    env?: Record<string, string>;
-    network?: string;
-    restartPolicy?: "no" | "always" | "on-failure" | "unless-stopped";
-    readonlyRootfs?: boolean;
-  }): Promise<{ id: string; url: string; containerId: string; name: string; gatewayKey: string | null }> {
+  async createContainer(params: CreateContainerParams): Promise<CreatedBareContainer> {
+    if (this.deps.operationQueue) {
+      return await this.deps.operationQueue.execute<CreatedBareContainer>({
+        type: INSTANCE_CREATE_CONTAINER_OP,
+        target: "core",
+        payload: params as never,
+      });
+    }
+    return await this.runCreateContainer(params);
+  }
+
+  /** Queue handler entry point for `instance.create_container`. */
+  async handleCreateContainerOperation(payload: unknown): Promise<CreatedBareContainer> {
+    return await this.runCreateContainer(payload as CreateContainerParams);
+  }
+
+  private async runCreateContainer(params: CreateContainerParams): Promise<CreatedBareContainer> {
     // Bare container — products like holyship manage their own lifecycle.
     // Goes through the Fleet composite so placement picks a node like any
     // other create. No more nodes[0] hardcode.

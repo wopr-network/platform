@@ -599,9 +599,8 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     // lifecycle.ts dispatches claimed rows to these closures. The handler
     // bodies are the same sagas as before — moved off the public methods
     // so the public methods can become thin queue.execute() wrappers.
-    const { INSTANCE_CREATE_OP, INSTANCE_DESTROY_OP, INSTANCE_UPDATE_BUDGET_OP } = await import(
-      "../fleet/instance-service.js"
-    );
+    const { INSTANCE_CREATE_OP, INSTANCE_DESTROY_OP, INSTANCE_UPDATE_BUDGET_OP, INSTANCE_CREATE_CONTAINER_OP } =
+      await import("../fleet/instance-service.js");
     coreQueueWorker.registerHandler(INSTANCE_CREATE_OP, async (payload) =>
       instanceService.handleCreateOperation(payload),
     );
@@ -613,6 +612,9 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       await instanceService.handleUpdateBudgetOperation(payload);
       return null;
     });
+    coreQueueWorker.registerHandler(INSTANCE_CREATE_CONTAINER_OP, async (payload) =>
+      instanceService.handleCreateContainerOperation(payload),
+    );
   }
 
   // Bind per-product OAuth manager (standalone mode)
