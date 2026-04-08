@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type fs from "node:fs";
 import YAML from "yaml";
 
 // ── In-memory filesystem ────────────────────────────────────────
@@ -32,7 +33,7 @@ vi.mock("node:crypto", () => ({
 }));
 
 vi.mock("node:fs", async (importOriginal) => {
-  const original = await importOriginal();
+  const original = await importOriginal<typeof fs>();
   return {
     ...original,
     existsSync: (p: string) => store.has(p),
@@ -78,9 +79,8 @@ vi.mock("./ssrf.js", () => ({
 const { validateEndpointUrl } = await import("./ssrf.js");
 const mockedValidateEndpoint = vi.mocked(validateEndpointUrl);
 
-const { emitRunId, loadBlueprint, actionPlan, actionApply, actionStatus, actionRollback, main } = await import(
-  "./runner.js"
-);
+const { emitRunId, loadBlueprint, actionPlan, actionApply, actionStatus, actionRollback, main } =
+  await import("./runner.js");
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -182,7 +182,9 @@ describe("runner", () => {
     it("throws when openshell is not available", async () => {
       captureStdout();
       mockExeca.mockResolvedValue({ exitCode: 1 });
-      await expect(actionPlan("default", minimalBlueprint())).rejects.toThrow(/openshell CLI not found/);
+      await expect(actionPlan("default", minimalBlueprint())).rejects.toThrow(
+        /openshell CLI not found/,
+      );
     });
 
     it("returns a valid plan when openshell is available", async () => {
@@ -241,7 +243,9 @@ describe("runner", () => {
       });
 
       await expect(actionPlan("malicious", bp)).rejects.toThrow("SSRF blocked: private IP");
-      expect(mockedValidateEndpoint).toHaveBeenCalledWith("http://169.254.169.254/latest/meta-data");
+      expect(mockedValidateEndpoint).toHaveBeenCalledWith(
+        "http://169.254.169.254/latest/meta-data",
+      );
     });
 
     it("emits progress and RUN_ID lines", async () => {
@@ -285,7 +289,9 @@ describe("runner", () => {
     it("throws when sandbox creation fails with other error", async () => {
       mockExeca.mockResolvedValueOnce({ exitCode: 1, stdout: "", stderr: "disk full" });
 
-      await expect(actionApply("default", minimalBlueprint())).rejects.toThrow(/Failed to create sandbox.*disk full/);
+      await expect(actionApply("default", minimalBlueprint())).rejects.toThrow(
+        /Failed to create sandbox.*disk full/,
+      );
     });
 
     it("passes credential via subprocess env, not global env", async () => {
@@ -294,7 +300,9 @@ describe("runner", () => {
         await actionApply("default", minimalBlueprint());
 
         // The provider create call should scope credentials to env
-        const providerCall = mockExeca.mock.calls.find((c) => Array.isArray(c[1]) && c[1].includes("provider"));
+        const providerCall = mockExeca.mock.calls.find(
+          (c) => Array.isArray(c[1]) && c[1].includes("provider"),
+        );
         if (!providerCall) throw new Error("provider create call not found");
         expect(providerCall[2].env.OPENAI_API_KEY).toBe("secret-key-123");
         // Args pass the env var NAME, not the value
@@ -379,13 +387,17 @@ describe("runner", () => {
       await actionApply("bare", sparseBlueprint);
 
       // Provider create should use fallback defaults
-      const providerCall = mockExeca.mock.calls.find((c) => Array.isArray(c[1]) && c[1].includes("provider"));
+      const providerCall = mockExeca.mock.calls.find(
+        (c) => Array.isArray(c[1]) && c[1].includes("provider"),
+      );
       if (!providerCall) throw new Error("provider create call not found");
       expect(providerCall[1]).toContain("default"); // provider_name fallback
       expect(providerCall[1]).toContain("openai"); // provider_type fallback
 
       // Sandbox create should use fallback defaults
-      const sandboxCall = mockExeca.mock.calls.find((c) => Array.isArray(c[1]) && c[1].includes("sandbox"));
+      const sandboxCall = mockExeca.mock.calls.find(
+        (c) => Array.isArray(c[1]) && c[1].includes("sandbox"),
+      );
       if (!sandboxCall) throw new Error("sandbox create call not found");
       expect(sandboxCall[1]).toContain("openclaw"); // image & name fallback
 
@@ -411,7 +423,9 @@ describe("runner", () => {
 
       await actionApply("nocred", noCredBlueprint);
 
-      const providerCall = mockExeca.mock.calls.find((c) => Array.isArray(c[1]) && c[1].includes("provider"));
+      const providerCall = mockExeca.mock.calls.find(
+        (c) => Array.isArray(c[1]) && c[1].includes("provider"),
+      );
       if (!providerCall) throw new Error("provider create call not found");
       expect(providerCall[1]).not.toContain("--credential");
     });
@@ -433,7 +447,9 @@ describe("runner", () => {
 
       await actionApply("withdefault", bp);
 
-      const providerCall = mockExeca.mock.calls.find((c) => Array.isArray(c[1]) && c[1].includes("provider"));
+      const providerCall = mockExeca.mock.calls.find(
+        (c) => Array.isArray(c[1]) && c[1].includes("provider"),
+      );
       if (!providerCall) throw new Error("provider create call not found");
       expect(providerCall[2].env.OPENAI_API_KEY).toBe("fallback-key");
     });
@@ -551,7 +567,11 @@ describe("runner", () => {
 
       await actionRollback("nc-run-1");
 
-      expect(mockExeca).toHaveBeenCalledWith("openshell", ["sandbox", "stop", "openclaw"], expect.anything());
+      expect(mockExeca).toHaveBeenCalledWith(
+        "openshell",
+        ["sandbox", "stop", "openclaw"],
+        expect.anything(),
+      );
     });
   });
 
@@ -606,13 +626,20 @@ describe("runner", () => {
     });
 
     it("rejects --plan flag (not yet implemented)", async () => {
-      await expect(main(["apply", "--profile", "default", "--plan", "/tmp/saved-plan.json"])).rejects.toThrow(
-        /--plan is not yet implemented/,
-      );
+      await expect(
+        main(["apply", "--profile", "default", "--plan", "/tmp/saved-plan.json"]),
+      ).rejects.toThrow(/--plan is not yet implemented/);
     });
 
     it("parses --dry-run and --endpoint-url for plan", async () => {
-      await main(["plan", "--profile", "default", "--dry-run", "--endpoint-url", "https://ep.test"]);
+      await main([
+        "plan",
+        "--profile",
+        "default",
+        "--dry-run",
+        "--endpoint-url",
+        "https://ep.test",
+      ]);
       const out = stdoutText();
       expect(out).toContain('"dry_run": true');
       expect(out).toContain('"endpoint": "https://ep.test"');

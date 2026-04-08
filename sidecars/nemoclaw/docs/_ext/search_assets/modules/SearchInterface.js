@@ -121,7 +121,9 @@ class SearchInterface {
 
     if (insertLocation.parent && insertLocation.method === "append") {
       insertLocation.parent.appendChild(container);
-      console.log(`✅ Results container added to: ${insertLocation.parent.className || insertLocation.parent.tagName}`);
+      console.log(
+        `✅ Results container added to: ${insertLocation.parent.className || insertLocation.parent.tagName}`,
+      );
     } else if (insertLocation.parent && insertLocation.method === "after") {
       insertLocation.parent.insertAdjacentElement("afterend", container);
       console.log(
@@ -205,7 +207,9 @@ class SearchInterface {
     // Insert into body, but with proper styling
     document.body.appendChild(wrapper);
 
-    console.log("⚠️ Created search results in body with wrapper - consider improving page structure");
+    console.log(
+      "⚠️ Created search results in body with wrapper - consider improving page structure",
+    );
   }
 
   /**
@@ -333,7 +337,8 @@ class SearchInterface {
 
     // Also look for search input fields and enhance them
     const searchInput =
-      document.querySelector('#searchbox input[type="text"]') || document.querySelector('.search input[type="text"]');
+      document.querySelector('#searchbox input[type="text"]') ||
+      document.querySelector('.search input[type="text"]');
     if (searchInput) {
       searchInput.addEventListener("focus", () => {
         this.showModal();

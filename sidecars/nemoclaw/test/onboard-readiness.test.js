@@ -20,12 +20,17 @@ describe("sandbox readiness parsing", () => {
   });
 
   it("strips ANSI escape codes before matching", () => {
-    expect(isSandboxReady("\x1b[1mmy-assistant\x1b[0m   \x1b[32mReady\x1b[0m   2m ago", "my-assistant")).toBeTruthy();
+    expect(
+      isSandboxReady("\x1b[1mmy-assistant\x1b[0m   \x1b[32mReady\x1b[0m   2m ago", "my-assistant"),
+    ).toBeTruthy();
   });
 
   it("rejects ANSI-wrapped NotReady", () => {
     expect(
-      !isSandboxReady("\x1b[1mmy-assistant\x1b[0m   \x1b[31mNotReady\x1b[0m   crash", "my-assistant"),
+      !isSandboxReady(
+        "\x1b[1mmy-assistant\x1b[0m   \x1b[31mNotReady\x1b[0m   crash",
+        "my-assistant",
+      ),
     ).toBeTruthy();
   });
 
@@ -35,7 +40,9 @@ describe("sandbox readiness parsing", () => {
   });
 
   it("does not match sandbox name in non-first column", () => {
-    expect(!isSandboxReady("other-box   Ready   owned-by-my-assistant", "my-assistant")).toBeTruthy();
+    expect(
+      !isSandboxReady("other-box   Ready   owned-by-my-assistant", "my-assistant"),
+    ).toBeTruthy();
   });
 
   it("handles multiple sandboxes in output", () => {
@@ -52,11 +59,15 @@ describe("sandbox readiness parsing", () => {
   });
 
   it("handles Ready sandbox with extra status columns", () => {
-    expect(isSandboxReady("my-assistant   Ready   Running   2m ago   1/1", "my-assistant")).toBeTruthy();
+    expect(
+      isSandboxReady("my-assistant   Ready   Running   2m ago   1/1", "my-assistant"),
+    ).toBeTruthy();
   });
 
   it("rejects when output only contains name in a URL or path", () => {
-    expect(!isSandboxReady("Connecting to my-assistant.openshell.internal Ready", "my-assistant")).toBeTruthy();
+    expect(
+      !isSandboxReady("Connecting to my-assistant.openshell.internal Ready", "my-assistant"),
+    ).toBeTruthy();
     // "my-assistant.openshell.internal" is cols[0], not "my-assistant"
   });
 
@@ -115,7 +126,12 @@ describe("WSL sandbox name handling", () => {
 describe("stale gateway detection", () => {
   it("detects active nemoclaw gateway from real output", () => {
     // Actual output from `openshell gateway info -g nemoclaw` (ANSI stripped)
-    const output = ["Gateway Info", "", "  Gateway: nemoclaw", "  Gateway endpoint: https://127.0.0.1:8080"].join("\n");
+    const output = [
+      "Gateway Info",
+      "",
+      "  Gateway: nemoclaw",
+      "  Gateway endpoint: https://127.0.0.1:8080",
+    ].join("\n");
     expect(hasStaleGateway(output)).toBeTruthy();
   });
 

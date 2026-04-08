@@ -131,7 +131,10 @@ class SearchPageManager {
 
     const types = this.filterOptions.documentTypes || [];
     const typeOptions = types
-      .map((type) => `<option value="${this.escapeHtml(type)}">${this.escapeHtml(this.formatTypeName(type))}</option>`)
+      .map(
+        (type) =>
+          `<option value="${this.escapeHtml(type)}">${this.escapeHtml(this.formatTypeName(type))}</option>`,
+      )
       .join("");
 
     // Dynamic facets - render additional filter dropdowns for each facet
@@ -490,7 +493,9 @@ class SearchPageManager {
     if (this.currentFilters.facets) {
       Object.entries(this.currentFilters.facets).forEach(([facetKey, facetValue]) => {
         if (facetValue) {
-          activeMetadataFilters.push(`🏷️ ${this.formatFacetName(facetKey)}: ${this.formatFacetValue(facetValue)}`);
+          activeMetadataFilters.push(
+            `🏷️ ${this.formatFacetName(facetKey)}: ${this.formatFacetValue(facetValue)}`,
+          );
         }
       });
     }
@@ -725,7 +730,9 @@ class SearchPageManager {
    * Render topic badges for a result
    */
   renderTopicBadges(result) {
-    const topics = this.searchEngine.getDocumentTopics ? this.searchEngine.getDocumentTopics(result) : [];
+    const topics = this.searchEngine.getDocumentTopics
+      ? this.searchEngine.getDocumentTopics(result)
+      : [];
 
     if (!topics || topics.length === 0) return "";
 
@@ -742,7 +749,8 @@ class SearchPageManager {
       )
       .join("");
 
-    const moreBadge = topics.length > 3 ? `<span class="more-topics">+${topics.length - 3}</span>` : "";
+    const moreBadge =
+      topics.length > 3 ? `<span class="more-topics">+${topics.length - 3}</span>` : "";
 
     return `<div class="result-topics mb-2">${topicBadges}${moreBadge}</div>`;
   }
@@ -766,7 +774,9 @@ class SearchPageManager {
     if (this.currentFilters.facets) {
       Object.entries(this.currentFilters.facets).forEach(([facetKey, facetValue]) => {
         if (facetValue) {
-          activeFilters.push(`${this.formatFacetName(facetKey)}: ${this.formatFacetValue(facetValue)}`);
+          activeFilters.push(
+            `${this.formatFacetName(facetKey)}: ${this.formatFacetValue(facetValue)}`,
+          );
         }
       });
     }
@@ -778,7 +788,9 @@ class SearchPageManager {
     const title = this.highlightText(result.title, this.currentQuery);
     // Use description (frontmatter) > summary > generated snippet
     const snippetSource =
-      result.description || result.summary || this.generateSnippet(result.content, this.currentQuery, 200);
+      result.description ||
+      result.summary ||
+      this.generateSnippet(result.content, this.currentQuery, 200);
     const summary = this.highlightText(snippetSource || "", this.currentQuery);
     const breadcrumb = this.getBreadcrumb(result.id);
     const sectionInfo = this.getSectionInfo(result.id);
@@ -884,7 +896,8 @@ class SearchPageManager {
       )
       .join("");
 
-    const moreText = tags.length > 6 ? `<span class="more-tags">+${tags.length - 6} more</span>` : "";
+    const moreText =
+      tags.length > 6 ? `<span class="more-tags">+${tags.length - 6} more</span>` : "";
 
     return `<div class="result-tags mb-2">${tagsHtml}${moreText}</div>`;
   }
@@ -898,7 +911,10 @@ class SearchPageManager {
 
     const topicsHtml = topics
       .slice(0, 2)
-      .map((topic) => `<span class="result-category badge bg-info">${this.formatCategoryName(topic)}</span>`)
+      .map(
+        (topic) =>
+          `<span class="result-category badge bg-info">${this.formatCategoryName(topic)}</span>`,
+      )
       .join("");
 
     return `<div class="result-categories">${topicsHtml}</div>`;
@@ -1254,6 +1270,8 @@ class SearchPageManager {
     });
     document.dispatchEvent(aiRequestEvent);
 
-    console.log(`🤖 Emitted search-ai-request event for query: "${query}" with ${results.length} results`);
+    console.log(
+      `🤖 Emitted search-ai-request event for query: "${query}" with ${results.length} results`,
+    );
   }
 }

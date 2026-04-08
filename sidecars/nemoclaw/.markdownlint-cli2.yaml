@@ -10,12 +10,12 @@ config:
   default: true
 
   # --- Permanently disabled (style preferences) ---
-  MD004: false  # ul-style — mixed */- is fine
-  MD013: false  # line-length — 80-char limit too strict for docs prose
-  MD014: false  # commands-show-output — $ prefix in code blocks is intentional
-  MD024: false  # no-duplicate-heading — duplicate names in different sections are fine
-  MD033: false  # no-inline-html — HTML in markdown is common on GitHub
-  MD060: false  # table-column-style — table pipe spacing is cosmetic
+  MD004: false # ul-style — mixed */- is fine
+  MD013: false # line-length — 80-char limit too strict for docs prose
+  MD014: false # commands-show-output — $ prefix in code blocks is intentional
+  MD024: false # no-duplicate-heading — duplicate names in different sections are fine
+  MD033: false # no-inline-html — HTML in markdown is common on GitHub
+  MD060: false # table-column-style — table pipe spacing is cosmetic
 
   # --- Permanently disabled (false positives) ---
   # Front matter uses a complex `title:` object (with page/nav sub-keys),

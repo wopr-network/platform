@@ -20,14 +20,14 @@ That means the sandbox knows which model family to use, while OpenShell owns the
 
 The following non-experimental provider paths are available through `nemoclaw onboard`.
 
-| Provider | Endpoint Type | Notes |
-|---|---|---|
-| NVIDIA Endpoints | OpenAI-compatible | Hosted models on `integrate.api.nvidia.com` |
-| OpenAI | Native OpenAI-compatible | Uses OpenAI model IDs |
-| Other OpenAI-compatible endpoint | Custom OpenAI-compatible | For compatible proxies and gateways |
-| Anthropic | Native Anthropic | Uses `anthropic-messages` |
-| Other Anthropic-compatible endpoint | Custom Anthropic-compatible | For Claude proxies and compatible gateways |
-| Google Gemini | OpenAI-compatible | Uses Google's OpenAI-compatible endpoint |
+| Provider                            | Endpoint Type               | Notes                                       |
+| ----------------------------------- | --------------------------- | ------------------------------------------- |
+| NVIDIA Endpoints                    | OpenAI-compatible           | Hosted models on `integrate.api.nvidia.com` |
+| OpenAI                              | Native OpenAI-compatible    | Uses OpenAI model IDs                       |
+| Other OpenAI-compatible endpoint    | Custom OpenAI-compatible    | For compatible proxies and gateways         |
+| Anthropic                           | Native Anthropic            | Uses `anthropic-messages`                   |
+| Other Anthropic-compatible endpoint | Custom Anthropic-compatible | For Claude proxies and compatible gateways  |
+| Google Gemini                       | OpenAI-compatible           | Uses Google's OpenAI-compatible endpoint    |
 
 ## Validation During Onboarding
 
@@ -44,13 +44,10 @@ NemoClaw validates the selected provider and model before it creates the sandbox
 
 If validation fails, the wizard does not continue to sandbox creation.
 
-## Local Providers
+## Local Ollama
 
-Local providers use the same routed `inference.local` pattern, but the upstream runtime runs on the host rather than in the cloud.
-
-- Local Ollama
-- Local NVIDIA NIM
-- Local vLLM
+Local Ollama is available in the standard onboarding flow when Ollama is installed or running on the host.
+It uses the same routed `inference.local` pattern, but the upstream runtime runs locally instead of in the cloud.
 
 Ollama gets additional onboarding help:
 
@@ -58,6 +55,23 @@ Ollama gets additional onboarding help:
 - it pulls the selected model
 - it warms the model
 - it validates the model before continuing
+
+On Linux hosts that run NemoClaw with Docker, the sandbox reaches Ollama through `http://host.openshell.internal:11434`, not the host shell's `localhost` socket.
+If Ollama is already running, make sure it listens on `0.0.0.0:11434` instead of `127.0.0.1:11434`.
+Run the following command to start Ollama with that bind address.
+
+```console
+$ OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+If Ollama only binds loopback, NemoClaw can detect it on the host, but the sandbox-side validation step fails because containers cannot reach it.
+
+## Experimental Local Providers
+
+The following local providers require `NEMOCLAW_EXPERIMENTAL=1`:
+
+- Local NVIDIA NIM (requires a NIM-capable GPU)
+- Local vLLM (must already be running on `localhost:8000`)
 
 ## Runtime Switching
 

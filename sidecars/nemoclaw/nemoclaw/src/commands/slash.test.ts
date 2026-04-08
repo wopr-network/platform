@@ -18,7 +18,11 @@ vi.mock("../onboard/config.js", () => ({
 
 import { handleSlashCommand } from "./slash.js";
 import { loadState } from "../blueprint/state.js";
-import { loadOnboardConfig, describeOnboardEndpoint, describeOnboardProvider } from "../onboard/config.js";
+import {
+  loadOnboardConfig,
+  describeOnboardEndpoint,
+  describeOnboardProvider,
+} from "../onboard/config.js";
 
 const mockedLoadState = vi.mocked(loadState);
 const mockedLoadOnboardConfig = vi.mocked(loadOnboardConfig);

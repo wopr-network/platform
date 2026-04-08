@@ -17,7 +17,9 @@ class DocumentLoader {
       const data = await this.fetchDocumentData();
       this.processDocuments(data);
       this.isLoaded = true;
-      console.log(`✅ Document loader initialized with ${Object.keys(this.documents).length} documents`);
+      console.log(
+        `✅ Document loader initialized with ${Object.keys(this.documents).length} documents`,
+      );
     } catch (error) {
       console.error("Failed to load search documents:", error);
       throw error;
@@ -29,7 +31,12 @@ class DocumentLoader {
    */
   async fetchDocumentData() {
     // Try different paths to account for different page depths
-    const possiblePaths = ["./index.json", "../index.json", "../../index.json", "../../../index.json"];
+    const possiblePaths = [
+      "./index.json",
+      "../index.json",
+      "../../index.json",
+      "../../../index.json",
+    ];
 
     for (const path of possiblePaths) {
       try {
@@ -75,7 +82,9 @@ class DocumentLoader {
       this.documents[doc.id] = this.sanitizeDocument(doc);
     });
 
-    console.log(`Processed ${filteredDocs.length} documents (filtered from ${allDocs.length} total)`);
+    console.log(
+      `Processed ${filteredDocs.length} documents (filtered from ${allDocs.length} total)`,
+    );
   }
 
   /**
@@ -83,7 +92,9 @@ class DocumentLoader {
    */
   isValidDocument(doc) {
     const docId = doc.id || "";
-    return !docId.toLowerCase().includes("readme") && !docId.startsWith("_") && doc.title && doc.content;
+    return (
+      !docId.toLowerCase().includes("readme") && !docId.startsWith("_") && doc.title && doc.content
+    );
   }
 
   /**
@@ -97,6 +108,7 @@ class DocumentLoader {
       title: this.sanitizeText(doc.title, 200),
       // Add description as separate indexed field (for improved search relevance)
       description: this.sanitizeText(doc.description, 300),
+      description_agent: this.sanitizeText(doc.description_agent, 300),
       content: this.sanitizeText(doc.content, 5000),
       summary: this.sanitizeText(doc.summary, 500),
       headings: this.sanitizeHeadings(doc.headings),
@@ -225,7 +237,8 @@ class DocumentLoader {
       documentsWithSummary: docs.filter((d) => d.summary).length,
       documentsWithHeadings: docs.filter((d) => d.headings && d.headings.length > 0).length,
       documentsWithTags: docs.filter((d) => d.tags && d.tags.length > 0).length,
-      averageContentLength: docs.reduce((sum, d) => sum + (d.content?.length || 0), 0) / docs.length,
+      averageContentLength:
+        docs.reduce((sum, d) => sum + (d.content?.length || 0), 0) / docs.length,
     };
   }
 }
