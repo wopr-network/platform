@@ -147,7 +147,6 @@ export function createTestContainer(overrides?: Partial<PlatformContainer>): Pla
     fleetComposite: null,
     instanceService: null,
     productAuthManager: null,
-    nodeConnectionManager: null,
     leaderElection: {
       isLeader: true,
       instanceId: "test",

@@ -1,17 +1,23 @@
 import { logger } from "../config/logger.js";
+import type { IOperationQueue } from "../queue/operation-queue.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
-import { getCommandBus } from "./services.js";
 
 /**
- * Dispatch a bot.update command to the node running this bot.
- * Returns { dispatched: true } on success, { dispatched: false, dispatchError } on failure.
- * Never throws — dispatch failure is non-fatal (DB is source of truth).
+ * Dispatch a bot.update operation to the node running this bot via the
+ * DB-as-channel queue. Returns { dispatched: true } on success,
+ * { dispatched: false, dispatchError } on failure. Never throws —
+ * dispatch failure is non-fatal (DB is source of truth).
+ *
+ * When `operationQueue` is null the function just reports "not dispatched"
+ * without touching anything. Used by tests and by products that update
+ * env without a running queue worker.
  */
 export async function dispatchEnvUpdate(
   botId: string,
   tenantId: string,
   env: Record<string, string>,
   botInstanceRepo: IBotInstanceRepository,
+  operationQueue: IOperationQueue | null = null,
 ): Promise<{ dispatched: boolean; dispatchError?: string }> {
   try {
     const instance = await botInstanceRepo.getById(botId);
@@ -24,8 +30,13 @@ export async function dispatchEnvUpdate(
       return { dispatched: false, dispatchError: "tenant_mismatch" };
     }
 
-    await getCommandBus().send(instance.nodeId, {
+    if (!operationQueue) {
+      return { dispatched: false, dispatchError: "no_queue" };
+    }
+
+    await operationQueue.execute({
       type: "bot.update",
+      target: instance.nodeId,
       payload: {
         name: `tenant_${tenantId}`,
         env,

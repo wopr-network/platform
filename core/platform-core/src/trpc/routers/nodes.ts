@@ -7,7 +7,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { IBotInstanceRepository } from "../../fleet/bot-instance-repository.js";
-import type { NodeConnectionRegistry } from "../../fleet/node-connection-registry.js";
 import type { INodeRepository } from "../../fleet/node-repository.js";
 import type { IRegistrationTokenRepository } from "../../fleet/registration-token-store.js";
 import { protectedProcedure, router } from "../init.js";
@@ -19,8 +18,20 @@ import { protectedProcedure, router } from "../init.js";
 export interface NodesRouterDeps {
   getRegistrationTokenStore: () => IRegistrationTokenRepository;
   getNodeRepo: () => INodeRepository;
-  getConnectionRegistry: () => NodeConnectionRegistry;
   getBotInstanceRepo: () => IBotInstanceRepository;
+}
+
+/**
+ * "Connected" in the DB-as-channel world means "recent heartbeat". Agents
+ * don't hold WebSockets anymore — they drain pending_operations via a
+ * Postgres connection. The closest proxy for liveness is `lastHeartbeatAt`
+ * being within the last 60 seconds.
+ */
+const HEARTBEAT_FRESH_SECONDS = 60;
+function isNodeConnected(lastHeartbeatAt: number | null | undefined): boolean {
+  if (lastHeartbeatAt == null) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return now - lastHeartbeatAt <= HEARTBEAT_FRESH_SECONDS;
 }
 
 // ---------------------------------------------------------------------------
@@ -49,7 +60,6 @@ export function createNodesRouter(deps: NodesRouterDeps) {
 
     list: protectedProcedure.query(async ({ ctx }) => {
       const nodeRepo = deps.getNodeRepo();
-      const registry = deps.getConnectionRegistry();
       const allNodes = await nodeRepo.list();
 
       const isAdmin = ctx.user.roles.includes("platform_admin");
@@ -60,7 +70,7 @@ export function createNodesRouter(deps: NodesRouterDeps) {
         label: node.label ?? node.id,
         host: node.host,
         status: node.status,
-        isConnected: registry.isConnected(node.id),
+        isConnected: isNodeConnected(node.lastHeartbeatAt),
         capacityMb: node.capacityMb,
         usedMb: node.usedMb,
         agentVersion: node.agentVersion,
@@ -71,7 +81,6 @@ export function createNodesRouter(deps: NodesRouterDeps) {
 
     get: protectedProcedure.input(z.object({ nodeId: z.string().min(1) })).query(async ({ input, ctx }) => {
       const nodeRepo = deps.getNodeRepo();
-      const registry = deps.getConnectionRegistry();
       const botInstanceRepo = deps.getBotInstanceRepo();
       const node = await nodeRepo.getById(input.nodeId);
 
@@ -89,7 +98,7 @@ export function createNodesRouter(deps: NodesRouterDeps) {
 
       return {
         ...node,
-        isConnected: registry.isConnected(input.nodeId),
+        isConnected: isNodeConnected(node.lastHeartbeatAt),
         lastSeenAgoS: lastSeenAgo,
         tenants: await botInstanceRepo.listByNode(input.nodeId),
       };
@@ -97,7 +106,6 @@ export function createNodesRouter(deps: NodesRouterDeps) {
 
     remove: protectedProcedure.input(z.object({ nodeId: z.string().min(1) })).mutation(async ({ input, ctx }) => {
       const nodeRepo = deps.getNodeRepo();
-      const registry = deps.getConnectionRegistry();
       const botInstanceRepo = deps.getBotInstanceRepo();
       const node = await nodeRepo.getById(input.nodeId);
 
@@ -117,7 +125,9 @@ export function createNodesRouter(deps: NodesRouterDeps) {
         });
       }
 
-      registry.close(input.nodeId);
+      // No WS connection to close in the new world — agents drain
+      // pending_operations directly. Just delete the row; the agent
+      // will fail its next Postgres checkout and exit.
       await nodeRepo.delete(input.nodeId);
       return { success: true };
     }),

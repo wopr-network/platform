@@ -12,7 +12,32 @@ import { describe, expect, it } from "vitest";
 import type { BackupManager, HotBackupScheduler } from "./backup.js";
 import type { DockerManager } from "./docker.js";
 import { buildAgentOperationHandlers, parseJsonOrObject } from "./operation-handlers.js";
-import { ALLOWED_COMMANDS } from "./types.js";
+
+/**
+ * Enumerated list of command types the agent must handle. Used to be
+ * exported from types.ts as ALLOWED_COMMANDS when the legacy WebSocket
+ * command bus validated inbound messages against it; now inlined here
+ * so the handler map can be verified to cover every command we still
+ * support without keeping a dead type around.
+ */
+const EXPECTED_COMMANDS = [
+  "bot.start",
+  "bot.stop",
+  "bot.restart",
+  "bot.update",
+  "bot.export",
+  "bot.import",
+  "bot.remove",
+  "bot.logs",
+  "bot.inspect",
+  "backup.upload",
+  "backup.download",
+  "backup.run-nightly",
+  "backup.run-hot",
+  "pool.warm",
+  "pool.cleanup",
+  "pool.list",
+] as const;
 
 interface RecordedCall {
   method: string;
@@ -53,9 +78,9 @@ function makeHandlers(agentNodeId = "node-test") {
 }
 
 describe("buildAgentOperationHandlers", () => {
-  it("registers a handler for every command in ALLOWED_COMMANDS", () => {
+  it("registers a handler for every expected command", () => {
     const { handlers } = makeHandlers();
-    for (const cmd of ALLOWED_COMMANDS) {
+    for (const cmd of EXPECTED_COMMANDS) {
       expect(handlers.has(cmd), `missing handler for ${cmd}`).toBe(true);
     }
   });
@@ -63,7 +88,7 @@ describe("buildAgentOperationHandlers", () => {
   it("does not register handlers for unknown commands", () => {
     const { handlers } = makeHandlers();
     for (const key of handlers.keys()) {
-      expect((ALLOWED_COMMANDS as readonly string[]).includes(key), `unexpected handler ${key}`).toBe(true);
+      expect((EXPECTED_COMMANDS as readonly string[]).includes(key), `unexpected handler ${key}`).toBe(true);
     }
   });
 

@@ -7,7 +7,6 @@ export * from "./on-demand-snapshot-service.js";
 export * from "./repository-types.js";
 export * from "./restore-log-repository.js";
 export * from "./restore-log-store.js";
-export * from "./restore-service.js";
 export * from "./retention.js";
 export * from "./snapshot-expiry-cron.js";
 export * from "./snapshot-manager.js";

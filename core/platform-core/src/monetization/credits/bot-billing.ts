@@ -2,8 +2,8 @@ import type { ILedger } from "@wopr-network/platform-core/credits";
 import { Credit } from "@wopr-network/platform-core/credits";
 import { logger } from "../../config/logger.js";
 import type { IBotInstanceRepository } from "../../fleet/bot-instance-repository.js";
-import type { INodeCommandBus } from "../../fleet/node-command-bus.js";
 import { STORAGE_TIERS, type StorageTierKey } from "../../fleet/storage-tiers.js";
+import type { IOperationQueue } from "../../queue/operation-queue.js";
 
 /** Billing state literals */
 export type BillingState = "active" | "suspended" | "destroyed";
@@ -36,21 +36,27 @@ export interface IBotBilling {
 export class DrizzleBotBilling implements IBotBilling {
   constructor(
     private readonly botInstanceRepo: IBotInstanceRepository,
-    private readonly commandBus?: INodeCommandBus | null,
+    private readonly operationQueue?: IOperationQueue | null,
   ) {}
 
-  /** Send a command to the bot's node. Logs but never throws on failure. */
+  /**
+   * Enqueue a lifecycle command targeted at the bot's owning node. Logs
+   * but never throws on failure — billing transitions succeed even when
+   * the agent can't be reached; the bot's state in DB is the source of
+   * truth and the next claim will catch up.
+   */
   private async sendCommand(botId: string, type: string): Promise<void> {
-    if (!this.commandBus) return;
+    if (!this.operationQueue) return;
     try {
       const bot = await this.botInstanceRepo.getById(botId);
       if (!bot?.nodeId) return;
-      await this.commandBus.send(bot.nodeId, {
+      await this.operationQueue.execute({
         type,
+        target: bot.nodeId,
         payload: { name: bot.name },
       });
     } catch (err) {
-      logger.error(`[BotBilling] Failed to send ${type} for bot ${botId}:`, {
+      logger.error(`[BotBilling] Failed to dispatch ${type} for bot ${botId}:`, {
         error: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined,
       });

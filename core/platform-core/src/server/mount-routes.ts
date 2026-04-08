@@ -709,28 +709,15 @@ export async function mountRoutes(
     app.route("/api/onboarding-chat", createOnboardingChatRoutes(container));
   }
 
-  // 5b. Node agent registration routes (when fleet is enabled)
+  // 5b. Node agent registration routes (when fleet is enabled).
+  // HTTP-only: POST /internal/nodes/register + /register-token. Agents
+  // use this to obtain their nodeId, nodeSecret, and dbUrl, then connect
+  // to Postgres directly and run their AgentWorker against pending_operations.
+  // No WebSocket anywhere.
   if (container.fleet && bootConfig?.standalone) {
     const { createNodeAgentRoutes } = await import("./routes/node-agent.js");
     const { DrizzleNodeRepository } = await import("../fleet/drizzle-node-repository.js");
-    const { NodeConnectionManager } = await import("../fleet/node-connection-manager.js");
-    const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
-    const { DrizzleRecoveryRepository } = await import("../fleet/drizzle-recovery-repository.js");
-
     const nodeRepo = new DrizzleNodeRepository(container.db);
-    const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
-    const recoveryRepo = new DrizzleRecoveryRepository(container.db);
-
-    const nodeConnectionManager = new NodeConnectionManager(nodeRepo, botInstanceRepo, recoveryRepo);
-    container.nodeConnectionManager = nodeConnectionManager;
-
-    // Note: the NodeCommandBus + per-node setCommandBus wiring that used
-    // to live here is gone. After the null-target refactor all agent-facing
-    // operations flow through the DB-as-channel queue, not the WS bus.
-    // The NodeConnectionManager + /internal/nodes/register-token HTTP
-    // registration endpoints remain in use (agents still register over
-    // HTTP before starting their queue worker), but the WebSocket upgrade
-    // handler and the command bus are dead code.
 
     // Vault for reading Spaces credentials to pass to node agents
     const { resolveVaultConfig, VaultConfigProvider } = await import("../config/vault-provider.js");
@@ -757,7 +744,7 @@ export async function mountRoutes(
         }
       : null;
 
-    app.route("/internal/nodes", createNodeAgentRoutes({ nodeConnectionManager, nodeRepo, vault, agentDbUrlBuilder }));
+    app.route("/internal/nodes", createNodeAgentRoutes({ nodeRepo, vault, agentDbUrlBuilder }));
 
     const { logger: nodeLogger } = await import("../config/logger.js");
     nodeLogger.info("Mounted node agent routes at /internal/nodes");

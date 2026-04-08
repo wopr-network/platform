@@ -1,65 +1,48 @@
+/**
+ * NodeAgent — the worker process that runs on every agent droplet.
+ *
+ * Scorched-earth rewrite after the null-target refactor and WS-bus deletion.
+ * There is NO WebSocket client. There is NO command bus. There is NO
+ * in-memory state the core depends on. The agent's only transport to core
+ * is:
+ *
+ *   1. **HTTP registration** (boot only): POST /internal/nodes/register-token
+ *      or /internal/nodes/register to obtain `nodeId`, `nodeSecret`, and a
+ *      `dbUrl` for the shared `wopr_agent` Postgres role.
+ *
+ *   2. **Postgres via `AgentWorker`**: drain `pending_operations` rows
+ *      where `target IS NULL` (creation-class) or `target = <this nodeId>`
+ *      (lifecycle-class). Winning agents stamp their own nodeId into the
+ *      result. Per-connection `SET agent.node_id` GUC + the RLS policy
+ *      enforce isolation.
+ *
+ * Everything else the agent used to do — heartbeat messages, health events,
+ * command dispatch over WS — is either gone or will come back via the queue
+ * in a follow-up commit if we find we need it.
+ *
+ * Hard requirement: `dbUrl` MUST be set. If it's missing, `start()` throws.
+ * There is no fallback to a dead transport.
+ */
+
 import { randomUUID } from "node:crypto";
 import { hostname, networkInterfaces, totalmem } from "node:os";
-import { WebSocket } from "ws";
 import { logger } from "../config/logger.js";
 import type { OperationHandler } from "../queue/queue-worker.js";
 import { type RunningAgentQueueWorker, startAgentQueueWorker } from "./agent-worker.js";
 import { BackupManager, HotBackupScheduler } from "./backup.js";
 import { DockerManager } from "./docker.js";
-import { HealthMonitor } from "./health.js";
-import { collectHeartbeat } from "./heartbeat.js";
 import { buildAgentOperationHandlers } from "./operation-handlers.js";
-import {
-  AGENT_VERSION,
-  ALLOWED_COMMANDS,
-  type Command,
-  type CommandResult,
-  type CommandType,
-  commandSchema,
-  type HealthEvent,
-  type NodeAgentConfig,
-  type NodeRegistration,
-  nodeAgentConfigSchema,
-} from "./types.js";
+import { AGENT_VERSION, type NodeAgentConfig, type NodeRegistration, nodeAgentConfigSchema } from "./types.js";
 
-/** Maximum WebSocket reconnect delay (30 seconds) */
-const MAX_RECONNECT_DELAY_MS = 30_000;
-
-/** Initial reconnect delay (1 second) */
-const INITIAL_RECONNECT_DELAY_MS = 1_000;
-
-/**
- * The node agent: a lightweight daemon that runs on every worker node.
- *
- * - Registers with platform API on boot
- * - Maintains WebSocket connection for heartbeat + commands
- * - Monitors container health via Docker events
- * - Executes commands from the platform (start, stop, export, etc.)
- */
 export class NodeAgent {
   private readonly config: NodeAgentConfig;
   private readonly dockerManager: DockerManager;
   private readonly backupManager: BackupManager;
   private readonly hotBackupScheduler: HotBackupScheduler;
-  private readonly healthMonitor: HealthMonitor;
 
-  /**
-   * Single source of truth for operation dispatch. Used by both the legacy
-   * WebSocket bus (`handleMessage` → `dispatch`) and the DB-as-channel queue
-   * worker. Constructed once at boot from `buildAgentOperationHandlers`.
-   */
+  /** Shared operation handler map — the only dispatch table on the agent. */
   private readonly operationHandlers: Map<string, OperationHandler>;
 
-  private ws: WebSocket | null = null;
-  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  private reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
-  private stopped = false;
-
-  /**
-   * The DB-as-channel queue worker, when configured. Null until `start()`
-   * has finished registration AND `config.dbUrl` was supplied. Stopped on
-   * `stop()`.
-   */
   private agentQueueWorker: RunningAgentQueueWorker | null = null;
 
   constructor(config: NodeAgentConfig, dockerManager?: DockerManager) {
@@ -67,9 +50,6 @@ export class NodeAgent {
     this.dockerManager = dockerManager ?? new DockerManager();
     this.backupManager = new BackupManager(this.dockerManager, config.backupDir, config.s3Bucket);
     this.hotBackupScheduler = new HotBackupScheduler(this.dockerManager, config.backupDir, config.s3Bucket);
-    this.healthMonitor = new HealthMonitor(this.dockerManager, config.nodeId ?? "unknown", (event) =>
-      this.sendHealthEvent(event),
-    );
     this.operationHandlers = buildAgentOperationHandlers({
       dockerManager: this.dockerManager,
       backupManager: this.backupManager,
@@ -82,83 +62,73 @@ export class NodeAgent {
     });
   }
 
-  /** Boot the agent: register, connect WebSocket, start monitoring. */
+  /**
+   * Boot the agent:
+   *   1. Register with the platform HTTP API to obtain nodeId + dbUrl.
+   *   2. Start the hot backup scheduler (local Docker snapshot cron).
+   *   3. Start the Postgres-backed queue worker.
+   *
+   * Throws if registration fails to return a dbUrl. There is no WebSocket
+   * fallback — the queue is the only transport.
+   */
   async start(): Promise<void> {
-    this.stopped = false;
     logger.info(`Node agent ${this.config.nodeId ?? "(unregistered)"} starting (v${AGENT_VERSION})`);
 
     await this.register();
-    this.connect();
-    await this.healthMonitor.start();
     this.hotBackupScheduler.start();
 
-    // DB-as-channel queue worker — only when explicitly opted in via dbUrl.
-    // Until Phase 2.3c mints per-node credentials at registration time, this
-    // is gated on a single shared connection string in the agent's config.
-    // Both transports (WS bus + queue worker) coexist; nothing in core
-    // enqueues to agents yet, so the worker is dormant in production.
-    if (this.config.dbUrl && this.config.nodeId) {
-      try {
-        this.agentQueueWorker = await startAgentQueueWorker({
-          dbUrl: this.config.dbUrl,
-          nodeId: this.config.nodeId,
-          workerId: `agent-${this.config.nodeId}-${randomUUID()}`,
-          handlers: this.operationHandlers,
-        });
-      } catch (err) {
-        logger.warn("Agent queue worker failed to start (WS bus continues)", {
-          nodeId: this.config.nodeId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+    if (!this.config.dbUrl) {
+      throw new Error(
+        "NodeAgent: registration did not yield a dbUrl. The core must have secrets.agentDbPassword set in Vault before an agent can boot.",
+      );
     }
+    if (!this.config.nodeId) {
+      throw new Error("NodeAgent: registration did not yield a nodeId — cannot start the queue worker");
+    }
+
+    this.agentQueueWorker = await startAgentQueueWorker({
+      dbUrl: this.config.dbUrl,
+      nodeId: this.config.nodeId,
+      workerId: `agent-${this.config.nodeId}-${randomUUID()}`,
+      handlers: this.operationHandlers,
+    });
   }
 
   /** Gracefully shut down the agent. */
-  stop(): void {
-    this.stopped = true;
-    this.healthMonitor.stop();
+  async stop(): Promise<void> {
     this.hotBackupScheduler.stop();
 
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
-
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    // Stop the queue worker if it was started. Fire-and-forget — stop() is
-    // synchronous to keep the API stable for existing callers.
     if (this.agentQueueWorker) {
       const handle = this.agentQueueWorker;
       this.agentQueueWorker = null;
-      void handle.stop().catch((err) => {
+      try {
+        await handle.stop();
+      } catch (err) {
         logger.warn("Agent queue worker stop failed", {
           error: err instanceof Error ? err.message : String(err),
         });
-      });
+      }
     }
 
     logger.info("Node agent stopped");
   }
 
+  // ---------------------------------------------------------------------------
+  // Registration (HTTP only)
+  // ---------------------------------------------------------------------------
+
   /** Register with the platform API via HTTP POST. */
   private async register(): Promise<void> {
-    // If we already have a persistent secret, use it
+    // If we already have a persistent secret, use it.
     if (this.config.nodeSecret && this.config.nodeId) {
       await this.registerWithSecret();
       return;
     }
-
-    // First-time registration with one-time token
+    // First-time registration with one-time token.
     if (this.config.registrationToken) {
       await this.registerWithToken();
       return;
     }
-
     throw new Error("No credentials available for registration");
   }
 
@@ -185,13 +155,24 @@ export class NodeAgent {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Registration failed (${response.status}): ${text}`);
+      throw new Error(`Re-registration failed (${response.status}): ${text}`);
     }
 
-    logger.info("Registered with platform");
+    // The returning-node endpoint may also include db_url in the response.
+    // Parse it so a restarting agent picks up rotated credentials.
+    try {
+      const result = (await response.json()) as { db_url?: string };
+      if (typeof result.db_url === "string" && result.db_url.length > 0) {
+        this.config.dbUrl = result.db_url;
+      }
+    } catch {
+      // No JSON body — that's OK for re-registration.
+    }
+
+    logger.info(`Re-registered as ${this.config.nodeId}`);
   }
 
-  /** Register using a one-time token (first-time setup). */
+  /** Register using a one-time token (first boot). */
   private async registerWithToken(): Promise<void> {
     const url = `${this.config.platformUrl}/internal/nodes/register-token`;
     const body = {
@@ -229,8 +210,6 @@ export class NodeAgent {
 
     const nodeId = sanitizeCredentialField(result.node_id, "node_id");
     const nodeSecret = sanitizeCredentialField(result.node_secret, "node_secret");
-    // db_url is optional — only present when core has the agent_db_password
-    // Vault secret configured. When absent, the agent runs WS-bus-only.
     const dbUrl = typeof result.db_url === "string" && result.db_url.length > 0 ? result.db_url : undefined;
 
     this.config.nodeId = nodeId;
@@ -243,7 +222,7 @@ export class NodeAgent {
       this.config.s3Bucket = result.spaces.bucket;
     }
 
-    logger.info(`Registered as ${result.node_id}, credentials saved`);
+    logger.info(`Registered as ${nodeId}, credentials saved`);
   }
 
   /** Persist credentials to disk (mode 0o600). */
@@ -275,197 +254,42 @@ access_key = ${spaces.access_key}
 secret_key = ${spaces.secret_key}
 host_base = ${spaces.endpoint}
 host_bucket = %(bucket)s.${spaces.endpoint}
+bucket_location = ${spaces.region}
+use_https = True
+signature_v2 = False
 `;
+
     const cfgPath = `${homedir()}/.s3cfg`;
     await writeFile(cfgPath, s3cfg, { mode: 0o600 });
-    logger.info(`s3cmd config written to ${cfgPath} (bucket: ${spaces.bucket}, region: ${spaces.region})`);
-  }
-
-  /** Establish WebSocket connection with auto-reconnect. */
-  private connect(): void {
-    if (this.stopped) return;
-
-    const wsUrl = `${this.config.platformUrl.replace(/^http/, "ws")}/internal/nodes/${this.config.nodeId ?? ""}/ws`;
-
-    logger.info(`Connecting WebSocket: ${wsUrl}`);
-    this.ws = new WebSocket(wsUrl, {
-      headers: {
-        Authorization: `Bearer ${this.config.nodeSecret}`,
-      },
-    });
-
-    this.ws.on("open", () => {
-      logger.info("WebSocket connected");
-      this.reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
-      this.startHeartbeat();
-    });
-
-    this.ws.on("message", (data: Buffer) => {
-      this.handleMessage(data);
-    });
-
-    this.ws.on("close", () => {
-      logger.warn("WebSocket closed");
-      this.stopHeartbeat();
-      this.scheduleReconnect();
-    });
-
-    this.ws.on("error", (err: Error) => {
-      logger.error("WebSocket error", { err: err.message });
-    });
-  }
-
-  /** Schedule a reconnection with exponential backoff. */
-  private scheduleReconnect(): void {
-    if (this.stopped) return;
-
-    logger.info(`Reconnecting in ${this.reconnectDelay}ms`);
-    setTimeout(() => this.connect(), this.reconnectDelay);
-    this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_RECONNECT_DELAY_MS);
-  }
-
-  /** Start sending heartbeat at configured interval. */
-  private startHeartbeat(): void {
-    this.stopHeartbeat();
-
-    const sendHeartbeat = async () => {
-      try {
-        const heartbeat = await collectHeartbeat(this.config.nodeId ?? "unknown", this.dockerManager);
-        this.send(heartbeat);
-      } catch (err) {
-        logger.error("Failed to send heartbeat", { err });
-      }
-    };
-
-    // Send first heartbeat immediately
-    sendHeartbeat();
-    this.heartbeatTimer = setInterval(sendHeartbeat, this.config.heartbeatIntervalMs);
-  }
-
-  private stopHeartbeat(): void {
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer);
-      this.heartbeatTimer = null;
-    }
-  }
-
-  /** Handle an inbound WebSocket message (command from platform). */
-  private handleMessage(data: Buffer): void {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(data.toString());
-    } catch {
-      logger.warn("Received non-JSON WebSocket message");
-      return;
-    }
-
-    const result = commandSchema.safeParse(parsed);
-    if (!result.success) {
-      logger.warn("Received invalid command", { errors: result.error.issues });
-      // If there's an id field, send back an error result
-      const raw = parsed as Record<string, unknown>;
-      if (typeof raw.id === "string") {
-        this.send({
-          id: raw.id,
-          type: "command_result",
-          command: raw.type ?? "unknown",
-          success: false,
-          error: `Invalid command: ${result.error.issues.map((i) => i.message).join(", ")}`,
-        });
-      }
-      return;
-    }
-
-    this.executeCommand(result.data);
-  }
-
-  /** Dispatch and execute a validated command. */
-  private async executeCommand(command: Command): Promise<void> {
-    // Double-check command is in allowlist (Zod already validates, but belt-and-suspenders)
-    if (!(ALLOWED_COMMANDS as readonly string[]).includes(command.type)) {
-      this.sendResult(command.id, command.type, false, undefined, `Unknown command: ${command.type}`);
-      return;
-    }
-
-    logger.info(`Executing command: ${command.type}`, { commandId: command.id });
-
-    try {
-      const data = await this.dispatch(command);
-      this.sendResult(command.id, command.type, true, data);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error(`Command ${command.type} failed`, { commandId: command.id, err: message });
-      this.sendResult(command.id, command.type, false, undefined, message);
-    }
-  }
-
-  /**
-   * Route a command to the appropriate handler. Looks up the handler in the
-   * shared `operationHandlers` map (built once in the constructor by
-   * `buildAgentOperationHandlers`). The same map is also used by the DB-as-
-   * channel queue worker, so the WS path and the queue path can never
-   * dispatch differently for the same command type.
-   */
-  private async dispatch(command: Command): Promise<unknown> {
-    const handler = this.operationHandlers.get(command.type);
-    if (handler === undefined) {
-      throw new Error(`Unhandled command: ${command.type}`);
-    }
-    return await handler(command.payload);
-  }
-
-  /** Send a command result back over WebSocket. */
-  private sendResult(id: string, command: CommandType, success: boolean, data?: unknown, error?: string): void {
-    const result: CommandResult = { id, type: "command_result", command, success };
-    if (data !== undefined) result.data = data;
-    if (error) result.error = error;
-    this.send(result);
-  }
-
-  /** Send a health event over WebSocket. */
-  private sendHealthEvent(event: HealthEvent): void {
-    this.send(event);
-  }
-
-  /** Send JSON payload over WebSocket. */
-  private send(payload: unknown): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(payload));
-    }
+    logger.info(`Wrote S3 config to ${cfgPath}`);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 /** Validate a credential field received from the network. */
 function sanitizeCredentialField(value: unknown, name: string): string {
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Invalid ${name}: expected non-empty string`);
-  }
-  if (value.includes("..") || value.includes("/") || value.includes("\\") || value.includes("\0")) {
-    throw new Error(`Invalid ${name}: contains forbidden characters`);
-  }
-  if (value.length > 1024) {
-    throw new Error(`Invalid ${name}: exceeds maximum length`);
+    throw new Error(`Invalid ${name} from registration response`);
   }
   return value;
 }
 
-/** Get the first non-loopback IPv4 address. */
+/** Best-effort local IP for registration metadata. */
 function getLocalIp(): string {
   const nets = networkInterfaces();
   for (const name of Object.keys(nets)) {
-    const addrs = nets[name];
-    if (!addrs) continue;
-    for (const addr of addrs) {
-      if (addr.family === "IPv4" && !addr.internal) {
-        return addr.address;
-      }
+    for (const net of nets[name] ?? []) {
+      if (net.family === "IPv4" && !net.internal) return net.address;
     }
   }
   return hostname();
 }
 
 // ---------------------------------------------------------------------------
-// CLI entrypoint — only runs when executed directly
+// Main entry point — runs when invoked as `node dist/node-agent/index.js`
 // ---------------------------------------------------------------------------
 
 const isMain = process.argv[1]?.endsWith("node-agent/index.js") || process.argv[1]?.endsWith("node-agent/index.ts");
@@ -495,16 +319,14 @@ if (isMain) {
     s3Bucket: process.env.S3_BUCKET,
     credentialsPath: credPath,
     woprNodeSecret: process.env.WOPR_NODE_SECRET,
-    // dbUrl from credentials.json (set by registerWithToken when core has
-    // agent_db_password configured) or AGENT_DB_URL env var as escape hatch.
     dbUrl: savedCreds.dbUrl ?? process.env.AGENT_DB_URL,
   });
 
   const agent = new NodeAgent(config);
 
-  const shutdown = () => {
+  const shutdown = async () => {
     logger.info("Shutting down...");
-    agent.stop();
+    await agent.stop();
     process.exit(0);
   };
 

@@ -28,7 +28,7 @@ export const nodeAgentConfigSchema = z
     nodeSecret: z.string().optional(),
     /** One-time registration token for first-time setup */
     registrationToken: z.string().optional(),
-    /** Heartbeat interval in milliseconds */
+    /** Heartbeat interval in milliseconds (kept for config compat, currently unused) */
     heartbeatIntervalMs: z.coerce.number().int().min(1000).default(30_000),
     /** Backup directory path */
     backupDir: z.string().default("/backups"),
@@ -40,12 +40,9 @@ export const nodeAgentConfigSchema = z
     woprNodeSecret: z.string().optional(),
     /**
      * Postgres connection string for the DB-as-channel queue worker.
-     * When unset, the agent runs WebSocket-bus-only (legacy path). When set,
-     * the agent ALSO starts a queue worker pinned to its node id, draining
-     * `pending_operations` rows targeted at this node.
-     *
-     * Phase 2.3a uses a single shared role for simplicity. Phase 2.3c will
-     * mint per-node credentials at registration time.
+     * REQUIRED at boot — there is no WS bus fallback. Either the registration
+     * response includes `db_url` (core has `agent_db_password` in Vault) or
+     * the operator supplies it via the `AGENT_DB_URL` env var.
      */
     dbUrl: z.string().optional(),
   })
@@ -62,84 +59,4 @@ export interface NodeRegistration {
   host: string;
   capacity_mb: number;
   agent_version: string;
-}
-
-// ---------------------------------------------------------------------------
-// Heartbeat
-// ---------------------------------------------------------------------------
-
-export interface ContainerMetric {
-  name: string;
-  status: string;
-  memory_mb: number;
-  uptime_s: number;
-}
-
-export interface HeartbeatMessage {
-  type: "heartbeat";
-  node_id: string;
-  uptime_s: number;
-  memory_total_mb: number;
-  memory_used_mb: number;
-  disk_total_gb: number;
-  disk_used_gb: number;
-  containers?: ContainerMetric[];
-}
-
-// ---------------------------------------------------------------------------
-// Commands
-// ---------------------------------------------------------------------------
-
-/** All command types the agent accepts. Anything else is rejected. */
-export const ALLOWED_COMMANDS = [
-  "bot.start",
-  "bot.stop",
-  "bot.restart",
-  "bot.update",
-  "bot.export",
-  "bot.import",
-  "bot.remove",
-  "bot.logs",
-  "bot.inspect",
-  "backup.upload",
-  "backup.download",
-  "backup.run-nightly",
-  "backup.run-hot",
-  "pool.warm",
-  "pool.cleanup",
-  "pool.list",
-] as const;
-
-export type CommandType = (typeof ALLOWED_COMMANDS)[number];
-
-/** Inbound command from the platform API */
-export const commandSchema = z.object({
-  id: z.string(),
-  type: z.enum(ALLOWED_COMMANDS),
-  payload: z.record(z.string(), z.unknown()).default({}),
-});
-
-export type Command = z.infer<typeof commandSchema>;
-
-/** Result sent back to the platform after command execution */
-export interface CommandResult {
-  id: string;
-  type: "command_result";
-  command: CommandType;
-  success: boolean;
-  data?: unknown;
-  error?: string;
-}
-
-// ---------------------------------------------------------------------------
-// Health events
-// ---------------------------------------------------------------------------
-
-export interface HealthEvent {
-  type: "health_event";
-  node_id: string;
-  container: string;
-  event: "died" | "oom_killed" | "unhealthy" | "restarted" | "disk_low";
-  message: string;
-  timestamp: string;
 }

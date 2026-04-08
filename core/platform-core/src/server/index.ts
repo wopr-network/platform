@@ -102,17 +102,8 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
 
       const httpServer = serve({ fetch: app.fetch, hostname, port: listenPort }, async () => {
         handles = await startBackgroundServices(container);
-
-        // Attach node agent WebSocket handler to the raw HTTP server
-        if (container.nodeConnectionManager) {
-          const { attachNodeWebSocket } = await import("./routes/node-agent.js");
-          const { DrizzleNodeRepository } = await import("../fleet/drizzle-node-repository.js");
-          const nodeRepo = new DrizzleNodeRepository(container.db);
-          await attachNodeWebSocket(httpServer as unknown as import("node:http").Server, {
-            nodeConnectionManager: container.nodeConnectionManager,
-            nodeRepo,
-          });
-        }
+        // Node agents no longer use WebSocket — they connect directly to
+        // Postgres via their AgentWorker. Nothing to attach here.
       });
       server = httpServer;
     },

@@ -1,40 +1,43 @@
 /**
- * Node agent API routes — registration, token exchange, and WebSocket upgrade.
+ * Node agent API routes — HTTP registration only, no WebSocket.
  *
  * REST endpoints:
  *   POST /internal/nodes/register        — returning node re-registration (secret auth)
  *   POST /internal/nodes/register-token   — first-time registration (one-time token)
  *
- * WebSocket:
- *   GET /internal/nodes/:nodeId/ws       — upgraded by the WS server (not Hono)
- *
  * Auth:
  *   - Returning nodes authenticate via Authorization: Bearer <nodeSecret>
  *   - First-time nodes authenticate via one-time registration token in body
- *   - WebSocket connections authenticate via Bearer token in Upgrade headers
+ *
+ * After this HTTP handshake the agent has:
+ *   - `nodeId` + `nodeSecret` (persisted to /etc/wopr/credentials.json)
+ *   - `dbUrl` for the shared `wopr_agent` Postgres role
+ *
+ * It then connects to Postgres directly and runs its AgentWorker. No
+ * WebSocket, no command bus, no long-lived core-side connection state.
+ * The `attachNodeWebSocket` function that used to live here is gone along
+ * with NodeCommandBus / NodeConnectionManager / the WS client on the
+ * agent side.
  */
 
 import { createHash, randomBytes } from "node:crypto";
 import { Hono } from "hono";
 import { logger } from "../../config/logger.js";
-import type { NodeConnectionManager } from "../../fleet/node-connection-manager.js";
 import type { INodeRepository } from "../../fleet/node-repository.js";
 
 interface NodeAgentRouteDeps {
-  nodeConnectionManager: NodeConnectionManager;
   nodeRepo: INodeRepository;
   /** Vault provider for reading Spaces credentials. Null in dev/test. */
   vault?: import("../../config/vault-provider.js").VaultConfigProvider | null;
   /**
    * Builder for the per-agent Postgres connection URL. When provided,
    * registration responses include `db_url` so the agent can start its
-   * AgentWorker. Returns null if the queue worker is not enabled in this
-   * deployment (e.g., dev/test, or before secrets.agentDbPassword is set).
+   * AgentWorker. Returns null when the queue worker is not enabled
+   * (e.g., `secrets.agentDbPassword` is not set in Vault).
    *
    * The URL embeds the shared `wopr_agent` Postgres role + the password
    * from secrets.agentDbPassword. The agent sets `agent.node_id` GUC on
-   * connection so the RLS policy on `pending_operations` constrains it
-   * to its own rows. See agent-role-bootstrap.ts.
+   * connection so the RLS policy constrains it to its own rows.
    */
   agentDbUrlBuilder?: ((nodeId: string) => string | null) | null;
 }
@@ -67,7 +70,7 @@ async function getSpacesConfig(vault: NodeAgentRouteDeps["vault"]): Promise<Spac
 
 export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
   const app = new Hono();
-  const { nodeConnectionManager, nodeRepo } = deps;
+  const { nodeRepo } = deps;
   const buildAgentDbUrl = deps.agentDbUrlBuilder ?? (() => null);
 
   /**
@@ -82,7 +85,7 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
     const secret = authHeader.slice(7);
 
     // Verify secret against stored hash
-    const node = await nodeConnectionManager.getNodeBySecret(secret);
+    const node = await nodeRepo.getBySecret(secret);
     if (!node) {
       return c.json({ error: "Invalid node secret" }, 403);
     }
@@ -100,10 +103,17 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
       return c.json({ error: "Node ID mismatch" }, 403);
     }
 
-    await nodeConnectionManager.registerNode(body);
+    await nodeRepo.register({
+      nodeId: body.node_id,
+      host: body.host,
+      capacityMb: body.capacity_mb,
+      agentVersion: body.agent_version,
+    });
     logger.info("Node re-registered via secret", { nodeId: node.id });
 
-    return c.json({ ok: true, node_id: node.id });
+    // Re-issue the dbUrl so a rotating credential reaches the agent.
+    const dbUrl = buildAgentDbUrl(node.id);
+    return c.json({ ok: true, node_id: node.id, ...(dbUrl ? { db_url: dbUrl } : {}) });
   });
 
   /**
@@ -118,17 +128,18 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
       agent_version: string;
     }>();
 
-    // Validate registration token against the node_registration_tokens table
-    // For provisioned nodes, the token is the WOPR_NODE_SECRET from cloud-init
+    // For provisioned nodes, the token IS the WOPR_NODE_SECRET from
+    // cloud-init. Look it up by secret; if found, re-register with its
+    // existing id.
     const matchedNode = await nodeRepo.getBySecret(body.registration_token);
 
     if (matchedNode) {
       // Cloud-init provisioned node — re-registering with its injected secret
-      await nodeConnectionManager.registerNode({
-        node_id: matchedNode.id,
+      await nodeRepo.register({
+        nodeId: matchedNode.id,
         host: body.host,
-        capacity_mb: body.capacity_mb,
-        agent_version: body.agent_version,
+        capacityMb: body.capacity_mb,
+        agentVersion: body.agent_version,
       });
 
       logger.info("Provisioned node registered via injected secret", { nodeId: matchedNode.id });
@@ -148,12 +159,12 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
     const nodeSecret = randomBytes(32).toString("base64url");
     const nodeSecretHash = createHash("sha256").update(nodeSecret).digest("hex");
 
-    await nodeConnectionManager.registerSelfHostedNode({
-      node_id: nodeId,
+    await nodeRepo.registerSelfHosted({
+      nodeId,
       host: body.host,
-      capacity_mb: body.capacity_mb,
-      agent_version: body.agent_version,
-      ownerUserId: "", // self-hosted without owner — admin assigns later
+      capacityMb: body.capacity_mb,
+      agentVersion: body.agent_version,
+      ownerUserId: "",
       label: null,
       nodeSecretHash,
     });
@@ -171,52 +182,4 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
   });
 
   return app;
-}
-
-/**
- * Attach WebSocket upgrade handler to a Node HTTP server.
- * Called after serve() returns the raw server.
- *
- * Auth: The agent sends Authorization: Bearer <nodeSecret> in the
- * Upgrade request headers. We verify before completing the handshake.
- */
-export async function attachNodeWebSocket(server: import("node:http").Server, deps: NodeAgentRouteDeps): Promise<void> {
-  const { WebSocketServer } = await import("ws");
-  const { nodeConnectionManager, nodeRepo } = deps;
-
-  const wss = new WebSocketServer({ noServer: true });
-
-  server.on("upgrade", async (req, socket, head) => {
-    const url = req.url ?? "";
-
-    // Only handle /internal/nodes/:nodeId/ws
-    const match = url.match(/^\/internal\/nodes\/([^/]+)\/ws/);
-    if (!match) return; // let other upgrade handlers (if any) handle it
-
-    const nodeId = match[1];
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader?.startsWith("Bearer ")) {
-      logger.warn("WS upgrade rejected: no auth", { nodeId });
-      socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
-      socket.destroy();
-      return;
-    }
-
-    const secret = authHeader.slice(7);
-    const verified = await nodeRepo.verifyNodeSecret(nodeId, secret);
-    if (!verified) {
-      logger.warn("WS upgrade rejected: bad secret", { nodeId });
-      socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-      socket.destroy();
-      return;
-    }
-
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      logger.info("WS upgrade complete", { nodeId });
-      nodeConnectionManager.handleWebSocket(nodeId, ws as never);
-    });
-  });
-
-  logger.info("Node agent WebSocket handler attached");
 }
