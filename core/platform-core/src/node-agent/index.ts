@@ -132,9 +132,9 @@ export class NodeAgent {
 
   /** Register using a one-time token (first-time setup). */
   private async registerWithToken(): Promise<void> {
-    const url = `${this.config.platformUrl}/internal/nodes/register`;
-    const body: NodeRegistration = {
-      node_id: hostname(), // temporary — platform assigns real ID
+    const url = `${this.config.platformUrl}/internal/nodes/register-token`;
+    const body = {
+      registration_token: this.config.registrationToken,
       host: getLocalIp(),
       capacity_mb: Math.round(totalmem() / 1024 / 1024),
       agent_version: AGENT_VERSION,
@@ -144,10 +144,7 @@ export class NodeAgent {
 
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.config.registrationToken}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 
@@ -157,9 +154,15 @@ export class NodeAgent {
     }
 
     const result = (await response.json()) as {
-      success: boolean;
       node_id: string;
       node_secret: string;
+      spaces?: {
+        access_key: string;
+        secret_key: string;
+        endpoint: string;
+        bucket: string;
+        region: string;
+      };
     };
 
     const nodeId = sanitizeCredentialField(result.node_id, "node_id");
@@ -168,6 +171,11 @@ export class NodeAgent {
     this.config.nodeId = nodeId;
     this.config.nodeSecret = nodeSecret;
     await this.saveCredentials(nodeId, nodeSecret);
+
+    if (result.spaces) {
+      await this.writeS3Config(result.spaces);
+      this.config.s3Bucket = result.spaces.bucket;
+    }
 
     logger.info(`Registered as ${result.node_id}, credentials saved`);
   }
@@ -181,6 +189,28 @@ export class NodeAgent {
     await mkdir(dirname(credPath), { recursive: true });
     await writeFile(credPath, JSON.stringify({ nodeId, nodeSecret }, null, 2), { mode: 0o600 });
     logger.info(`Credentials saved to ${credPath}`);
+  }
+
+  /** Write .s3cfg for s3cmd backup operations (mode 0o600). */
+  private async writeS3Config(spaces: {
+    access_key: string;
+    secret_key: string;
+    endpoint: string;
+    bucket: string;
+    region: string;
+  }): Promise<void> {
+    const { writeFile } = await import("node:fs/promises");
+    const { homedir } = await import("node:os");
+
+    const s3cfg = `[default]
+access_key = ${spaces.access_key}
+secret_key = ${spaces.secret_key}
+host_base = ${spaces.endpoint}
+host_bucket = %(bucket)s.${spaces.endpoint}
+`;
+    const cfgPath = `${homedir()}/.s3cfg`;
+    await writeFile(cfgPath, s3cfg, { mode: 0o600 });
+    logger.info(`s3cmd config written to ${cfgPath} (bucket: ${spaces.bucket}, region: ${spaces.region})`);
   }
 
   /** Establish WebSocket connection with auto-reconnect. */

@@ -23,6 +23,34 @@ import type { INodeRepository } from "../../fleet/node-repository.js";
 interface NodeAgentRouteDeps {
   nodeConnectionManager: NodeConnectionManager;
   nodeRepo: INodeRepository;
+  /** Vault provider for reading Spaces credentials. Null in dev/test. */
+  vault?: import("../../config/vault-provider.js").VaultConfigProvider | null;
+}
+
+/** Spaces credentials included in registration responses. */
+interface SpacesConfig {
+  access_key: string;
+  secret_key: string;
+  endpoint: string;
+  bucket: string;
+  region: string;
+}
+
+async function getSpacesConfig(vault: NodeAgentRouteDeps["vault"]): Promise<SpacesConfig | null> {
+  if (!vault) return null;
+  try {
+    const data = await vault.read("shared/digitalocean");
+    if (!data.spaces_access_key || !data.spaces_secret_key) return null;
+    return {
+      access_key: data.spaces_access_key,
+      secret_key: data.spaces_secret_key,
+      endpoint: data.spaces_endpoint ?? "nyc3.digitaloceanspaces.com",
+      bucket: data.spaces_bucket ?? "wopr-backups",
+      region: data.spaces_region ?? "nyc3",
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
@@ -92,9 +120,11 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
 
       logger.info("Provisioned node registered via injected secret", { nodeId: matchedNode.id });
 
+      const spaces = await getSpacesConfig(deps.vault);
       return c.json({
         node_id: matchedNode.id,
-        node_secret: body.registration_token, // echo back — agent persists this
+        node_secret: body.registration_token,
+        ...(spaces ? { spaces } : {}),
       });
     }
 
@@ -115,9 +145,11 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
 
     logger.info("Self-hosted node registered via token", { nodeId });
 
+    const spaces = await getSpacesConfig(deps.vault);
     return c.json({
       node_id: nodeId,
       node_secret: nodeSecret,
+      ...(spaces ? { spaces } : {}),
     });
   });
 

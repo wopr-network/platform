@@ -722,7 +722,12 @@ export async function mountRoutes(
     const nodeConnectionManager = new NodeConnectionManager(nodeRepo, botInstanceRepo, recoveryRepo);
     container.nodeConnectionManager = nodeConnectionManager;
 
-    app.route("/internal/nodes", createNodeAgentRoutes({ nodeConnectionManager, nodeRepo }));
+    // Vault for reading Spaces credentials to pass to node agents
+    const { resolveVaultConfig, VaultConfigProvider } = await import("../config/vault-provider.js");
+    const vaultConfig = resolveVaultConfig();
+    const vault = vaultConfig ? new VaultConfigProvider(vaultConfig) : null;
+
+    app.route("/internal/nodes", createNodeAgentRoutes({ nodeConnectionManager, nodeRepo, vault }));
 
     const { logger: nodeLogger } = await import("../config/logger.js");
     nodeLogger.info("Mounted node agent routes at /internal/nodes");
