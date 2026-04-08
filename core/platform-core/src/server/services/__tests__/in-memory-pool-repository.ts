@@ -11,6 +11,7 @@ export class InMemoryPoolRepository implements IPoolRepository {
   private instances: Array<{
     partition: string | null;
     image: string | null;
+    nodeId: string;
     id: string;
     containerId: string;
     status: PoolInstanceStatus;
@@ -30,13 +31,24 @@ export class InMemoryPoolRepository implements IPoolRepository {
     return this.instances.filter((i) => i.status === "warm" && (!partition || i.partition === partition)).length;
   }
 
-  async insertWarm(id: string, containerId: string, partition?: string, image?: string): Promise<void> {
+  async warmCountByNode(partition: string): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    for (const i of this.instances) {
+      if (i.status === "warm" && i.partition === partition) {
+        result.set(i.nodeId, (result.get(i.nodeId) ?? 0) + 1);
+      }
+    }
+    return result;
+  }
+
+  async insertWarm(id: string, containerId: string, nodeId: string, partition: string, image: string): Promise<void> {
     this.instances.push({
       id,
       containerId,
       status: "warm",
-      partition: partition ?? null,
-      image: image ?? null,
+      nodeId,
+      partition,
+      image,
       createdAt: new Date(),
       claimedAt: null,
     });
@@ -57,9 +69,9 @@ export class InMemoryPoolRepository implements IPoolRepository {
     this.instances = this.instances.filter((i) => i.status !== "dead");
   }
 
-  async claim(partition?: string): Promise<{ id: string; containerId: string } | null> {
+  async claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string } | null> {
     const warm = this.instances
-      .filter((i) => i.status === "warm" && (!partition || i.partition === partition))
+      .filter((i) => i.status === "warm" && i.partition === partition && (!nodeId || i.nodeId === nodeId))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     if (warm.length === 0) return null;
     const target = warm[0];

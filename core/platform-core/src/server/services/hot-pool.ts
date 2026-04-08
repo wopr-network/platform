@@ -289,7 +289,7 @@ export class HotPool {
         });
       }
 
-      await this.repo.insertWarm(id, warmContainer.id, key, image);
+      await this.repo.insertWarm(id, warmContainer.id, "local", key, image);
       logger.info(`Hot pool: created warm container ${containerName} (${id}) for "${key}"`);
     } catch (err) {
       logger.error("Hot pool: failed to create warm container", { key, error: (err as Error).message });

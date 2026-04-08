@@ -438,11 +438,13 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     leaderElection,
   };
 
+  // Pool repository — shared between HotPool and InstanceService
+  const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
+  const poolRepo = new DrizzlePoolRepository(db);
+
   // Bind hot pool after container construction
   if (bootConfig.features.hotPool && fleet) {
     const { HotPool } = await import("./services/hot-pool.js");
-    const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
-    const poolRepo = new DrizzlePoolRepository(db);
 
     const secrets = bootConfig.secrets;
     const hotPool = new HotPool(fleet.docker, poolRepo, {
@@ -504,6 +506,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       nodeRegistry: fleet.nodeRegistry,
       placementStrategy: fleet.placementStrategy,
       fleetResolver: fleet.fleetResolver,
+      poolRepo,
     });
   }
 

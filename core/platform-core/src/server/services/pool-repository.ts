@@ -18,19 +18,23 @@ export interface PoolInstance {
   /** Partition key (e.g., product slug). Opaque to the pool. */
   partition: string | null;
   image: string | null;
+  /** Node this container lives on. */
+  nodeId: string;
 }
 
 export interface IPoolRepository {
   getPoolSize(productSlug?: string): Promise<number>;
   setPoolSize(size: number, productSlug?: string): Promise<void>;
   warmCount(productSlug?: string): Promise<number>;
-  insertWarm(id: string, containerId: string, productSlug?: string, image?: string): Promise<void>;
+  /** Warm counts grouped by node for a product. */
+  warmCountByNode(productSlug: string): Promise<Map<string, number>>;
+  insertWarm(id: string, containerId: string, nodeId: string, productSlug: string, image: string): Promise<void>;
   /** All non-dead instances (warm + claimed). Every row returned MUST have a live container. */
   listActive(productSlug?: string): Promise<PoolInstance[]>;
   markDead(id: string): Promise<void>;
   deleteDead(): Promise<void>;
-  /** Atomically claim the oldest warm instance for a partition. */
-  claim(partition?: string): Promise<{ id: string; containerId: string } | null>;
+  /** Atomically claim the oldest warm instance, optionally on a specific node. */
+  claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string } | null>;
   updateInstanceStatus(id: string, status: PoolInstanceStatus): Promise<void>;
 }
 
@@ -80,13 +84,27 @@ export class DrizzlePoolRepository implements IPoolRepository {
     return rows[0]?.count ?? 0;
   }
 
-  async insertWarm(id: string, containerId: string, productSlug?: string, image?: string): Promise<void> {
+  async warmCountByNode(productSlug: string): Promise<Map<string, number>> {
+    const rows = await this.db
+      .select({ nodeId: poolInstances.nodeId, count: count() })
+      .from(poolInstances)
+      .where(and(eq(poolInstances.status, "warm"), eq(poolInstances.productSlug, productSlug)))
+      .groupBy(poolInstances.nodeId);
+    const result = new Map<string, number>();
+    for (const r of rows) {
+      result.set(r.nodeId, r.count);
+    }
+    return result;
+  }
+
+  async insertWarm(id: string, containerId: string, nodeId: string, productSlug: string, image: string): Promise<void> {
     await this.db.insert(poolInstances).values({
       id,
       containerId,
       status: "warm",
-      productSlug: productSlug ?? null,
-      image: image ?? null,
+      nodeId,
+      productSlug,
+      image,
     });
   }
 
@@ -102,6 +120,7 @@ export class DrizzlePoolRepository implements IPoolRepository {
         status: poolInstances.status,
         productSlug: poolInstances.productSlug,
         image: poolInstances.image,
+        nodeId: poolInstances.nodeId,
       })
       .from(poolInstances)
       .where(and(...conditions));
@@ -111,6 +130,7 @@ export class DrizzlePoolRepository implements IPoolRepository {
       status: r.status as PoolInstanceStatus,
       partition: r.productSlug ?? null,
       image: r.image ?? null,
+      nodeId: r.nodeId,
     }));
   }
 
@@ -122,12 +142,12 @@ export class DrizzlePoolRepository implements IPoolRepository {
     await this.db.delete(poolInstances).where(eq(poolInstances.status, "dead"));
   }
 
-  async claim(partition?: string): Promise<{ id: string; containerId: string } | null> {
+  async claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string } | null> {
     // Atomic claim inside a transaction: select oldest warm + lock, then update.
     return this.db.transaction(async (tx) => {
-      const conditions = [eq(poolInstances.status, "warm")];
-      if (partition) {
-        conditions.push(eq(poolInstances.productSlug, partition));
+      const conditions = [eq(poolInstances.status, "warm"), eq(poolInstances.productSlug, partition)];
+      if (nodeId) {
+        conditions.push(eq(poolInstances.nodeId, nodeId));
       }
       const [candidate] = await tx
         .select({ id: poolInstances.id, containerId: poolInstances.containerId })

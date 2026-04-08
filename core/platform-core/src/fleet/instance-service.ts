@@ -54,6 +54,8 @@ export interface InstanceServiceDeps {
   nodeRegistry: NodeRegistry;
   placementStrategy: ContainerPlacementStrategy;
   fleetResolver: FleetResolver;
+  /** Pool repository for warm container awareness in placement. Null when hot pool disabled. */
+  poolRepo: import("../server/services/pool-repository.js").IPoolRepository | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,9 +105,11 @@ export class InstanceService {
     const nodeMetrics = await d.nodeRegistry.getNodeMetrics();
     const tenantInstances = await d.botInstanceRepo.listByTenant(tenantId);
     const tenantNodes = new Set(tenantInstances.map((i) => i.nodeId).filter((n): n is string => n !== null));
+    const warmContainersByNode = d.poolRepo ? await d.poolRepo.warmCountByNode(productSlug) : undefined;
     const targetNode = d.placementStrategy.selectNode(nodes, {
       containerCounts,
       nodeMetrics,
+      warmContainersByNode,
       tenantId,
       tenantNodes,
     });

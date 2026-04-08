@@ -10,11 +10,13 @@ export const poolInstances = pgTable(
     name: text("name"),
     productSlug: text("product_slug"),
     image: text("image"),
+    nodeId: text("node_id").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     claimedAt: timestamp("claimed_at"),
   },
   (table) => [
     index("pool_instances_slug_status_created").on(table.productSlug, table.status, table.createdAt),
     index("pool_instances_status_created").on(table.status, table.createdAt),
+    index("pool_instances_node_slug_status").on(table.nodeId, table.productSlug, table.status),
   ],
 );

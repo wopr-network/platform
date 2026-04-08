@@ -26,6 +26,8 @@ export interface PlacementContext {
   containerCounts: Map<string, number>;
   /** Runtime metrics per node (from nodes table). */
   nodeMetrics: Map<string, NodeMetrics>;
+  /** Warm pool containers per node for this product (from pool_instances). */
+  warmContainersByNode?: Map<string, number>;
   /** Tenant ID for the new container (for locality preference). */
   tenantId?: string;
   /** Existing tenant node assignments (for locality preference). */
@@ -53,7 +55,7 @@ const HEARTBEAT_FRESH_MS = 60_000;
  */
 export class WeightedScoringStrategy implements ContainerPlacementStrategy {
   selectNode(nodes: NodeEntry[], context: PlacementContext): NodeEntry {
-    const { containerCounts, nodeMetrics, tenantNodes } = context;
+    const { containerCounts, nodeMetrics, tenantNodes, warmContainersByNode } = context;
     let best: NodeEntry | null = null;
     let bestScore = -1;
 
@@ -97,9 +99,20 @@ export class WeightedScoringStrategy implements ContainerPlacementStrategy {
       // Locality bonus: prefer nodes where tenant already has containers
       const localityBonus = tenantNodes?.has(nodeId) ? 0.05 : 0;
 
-      const finalScore = score + localityBonus;
+      // Pool bonus: prefer nodes with warm containers (instant claim vs cold start)
+      const poolBonus = (warmContainersByNode?.get(nodeId) ?? 0) > 0 ? 0.1 : 0;
 
-      logger.debug("Placement score", { nodeId, memoryScore, slotScore, healthScore, localityBonus, finalScore });
+      const finalScore = score + localityBonus + poolBonus;
+
+      logger.debug("Placement score", {
+        nodeId,
+        memoryScore,
+        slotScore,
+        healthScore,
+        localityBonus,
+        poolBonus,
+        finalScore,
+      });
 
       if (finalScore > bestScore) {
         best = node;

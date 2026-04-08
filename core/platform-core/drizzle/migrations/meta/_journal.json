@@ -288,6 +288,13 @@
       "when": 1775887200000,
       "tag": "0040_bot_instance_container_port",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1775973600000,
+      "tag": "0041_pool_instances_node_id",
+      "breakpoints": true
     }
   ]
 }

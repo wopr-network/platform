@@ -53,8 +53,8 @@ describe("HotPool", () => {
   describe("claim", () => {
     it("claims a warm instance from the right partition", async () => {
       const repo = new InMemoryPoolRepository();
-      await repo.insertWarm("a1", "c-a1", "alpha");
-      await repo.insertWarm("b1", "c-b1", "beta");
+      await repo.insertWarm("a1", "c-a1", "local", "alpha", "img:latest");
+      await repo.insertWarm("b1", "c-b1", "local", "beta", "img:latest");
 
       const { pool } = createPool(repo);
       pool.register("alpha", { image: "img:latest", port: 3000, network: "net", size: 1 });
