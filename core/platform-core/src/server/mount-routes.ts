@@ -707,6 +707,27 @@ export async function mountRoutes(
     app.route("/api/onboarding-chat", createOnboardingChatRoutes(container));
   }
 
+  // 5b. Node agent registration routes (when fleet is enabled)
+  if (container.fleet && bootConfig?.standalone) {
+    const { createNodeAgentRoutes } = await import("./routes/node-agent.js");
+    const { DrizzleNodeRepository } = await import("../fleet/drizzle-node-repository.js");
+    const { NodeConnectionManager } = await import("../fleet/node-connection-manager.js");
+    const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
+    const { DrizzleRecoveryRepository } = await import("../fleet/drizzle-recovery-repository.js");
+
+    const nodeRepo = new DrizzleNodeRepository(container.db);
+    const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
+    const recoveryRepo = new DrizzleRecoveryRepository(container.db);
+
+    const nodeConnectionManager = new NodeConnectionManager(nodeRepo, botInstanceRepo, recoveryRepo);
+    container.nodeConnectionManager = nodeConnectionManager;
+
+    app.route("/internal/nodes", createNodeAgentRoutes({ nodeConnectionManager, nodeRepo }));
+
+    const { logger: nodeLogger } = await import("../config/logger.js");
+    nodeLogger.info("Mounted node agent routes at /internal/nodes");
+  }
+
   // 6. Metered inference gateway (when gateway is enabled)
   if (container.gateway) {
     // Fallback margin — only used when tenant has no product slug (shouldn't happen in production)

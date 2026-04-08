@@ -124,6 +124,8 @@ export interface PlatformContainer {
   instanceService: import("../fleet/instance-service.js").InstanceService | null;
   /** Per-product OAuth provider config. Null when auth is not configured. */
   productAuthManager: import("../auth/product-auth-manager.js").ProductAuthManager | null;
+  /** Node agent WebSocket + registration manager. Null when fleet is disabled. */
+  nodeConnectionManager: import("../fleet/node-connection-manager.js").NodeConnectionManager | null;
   /** Leader election — gates singleton background services. Always present. */
   leaderElection: import("../leader/leader-election.js").LeaderElection;
 }
@@ -432,6 +434,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     hotPool: null,
     instanceService: null,
     productAuthManager: null,
+    nodeConnectionManager: null,
     leaderElection,
   };
 
