@@ -222,11 +222,10 @@ export class FleetManager implements INodeFleet {
       }
 
       if (this.instanceRepo) {
-        try {
-          await this.instanceRepo.deleteById(id);
-        } catch (err) {
-          logger.warn("Failed to delete bot instance from DB (non-fatal)", { id, err });
-        }
+        // Throws on real DB errors. "not found" / 0 rows is fine — orphan
+        // reconciliation may have already cleaned this up, or the caller is
+        // calling remove() twice.
+        await this.instanceRepo.deleteById(id);
       }
 
       await this.store.delete(id);

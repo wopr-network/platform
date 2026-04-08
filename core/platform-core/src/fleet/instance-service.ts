@@ -136,18 +136,13 @@ export class InstanceService {
       });
       logger.info("Instance.create: bot instance registered", { instanceId, tenantId });
 
-      // 6. Gateway key
+      // 6. Gateway key — fatal: an instance that's billed but can't authenticate
+      // its inference traffic against the gateway is a half-broken instance.
+      // The saga rollback below tears it down so the user can retry.
       let gatewayKey: string | null = null;
       if (d.serviceKeyRepo) {
-        try {
-          gatewayKey = await d.serviceKeyRepo.generate(tenantId, instanceId, productSlug);
-          logger.info("Instance.create: gateway key generated", { instanceId, hasKey: true });
-        } catch (err) {
-          logger.warn("Instance.create: gateway key generation failed", {
-            instanceId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+        gatewayKey = await d.serviceKeyRepo.generate(tenantId, instanceId, productSlug);
+        logger.info("Instance.create: gateway key generated", { instanceId, hasKey: true });
       } else {
         logger.info("Instance.create: no service key repo, skipping gateway key", { instanceId });
       }
@@ -248,18 +243,11 @@ export class InstanceService {
         });
       }
 
-      // 8. Start billing — provisioned is always true here (failure throws above)
-      try {
-        await d.botInstanceRepo.setBillingState(instanceId, "active");
-        logger.info("Instance: billing started", { instanceId });
-      } catch (err) {
-        // Billing failure is non-fatal for the create call: the instance is
-        // alive and provisioned, the operator can fix billing afterwards.
-        logger.warn("Instance: startBilling failed", {
-          instanceId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
+      // 8. Start billing — fatal: an instance that exists but isn't billable
+      // is a silent revenue leak. The saga rollback below catches this and
+      // tears the instance down so the user can retry.
+      await d.botInstanceRepo.setBillingState(instanceId, "active");
+      logger.info("Instance: billing started", { instanceId });
 
       return { id: instanceId, name, tenantId, nodeId, containerUrl, gatewayKey, provisioned };
     } catch (err) {
