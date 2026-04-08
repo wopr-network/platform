@@ -55,12 +55,15 @@ jobs:
           # Services
           build chain-server   latest  services/platform-crypto-server/Dockerfile    .
 
+          # Agents
+          build node-agent     latest  core/platform-core/Dockerfile.node-agent      .
+
           # Infrastructure
           build caddy-cf       latest  ops/core-server/Dockerfile.caddy              ops/core-server/
 
           echo ""
           echo "=== Summary ==="
-          echo "Built: ${#BUILT[@]} / 12"
+          echo "Built: ${#BUILT[@]} / 13"
           echo "Failed: $FAILED"
           for img in "${BUILT[@]}"; do echo "  ✓ $img"; done
 

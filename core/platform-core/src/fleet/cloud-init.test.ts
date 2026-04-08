@@ -113,4 +113,26 @@ describe("generateCloudInit", () => {
     const result = generateCloudInit("ghcr.io/wopr-network/wopr:latest", "wopr_node_abc123-def456");
     expect(result).toContain("WOPR_NODE_SECRET=wopr_node_abc123-def456");
   });
+
+  it("pulls the node-agent image", () => {
+    const result = generateCloudInit("ghcr.io/wopr-network/wopr:latest");
+    expect(result).toContain("node-agent:latest");
+  });
+
+  it("creates wopr-agent systemd service", () => {
+    const result = generateCloudInit("ghcr.io/wopr-network/wopr:latest");
+    expect(result).toContain("wopr-agent.service");
+    expect(result).toContain("systemctl enable wopr-agent");
+    expect(result).toContain("systemctl start wopr-agent");
+  });
+
+  it("injects PLATFORM_URL into environment", () => {
+    const result = generateCloudInit("ghcr.io/wopr-network/wopr:latest", undefined, "https://custom.api.com");
+    expect(result).toContain("PLATFORM_URL=https://custom.api.com");
+  });
+
+  it("uses custom registry host", () => {
+    const result = generateCloudInit("ghcr.io/wopr-network/wopr:latest", undefined, undefined, "my-registry.com");
+    expect(result).toContain("my-registry.com/node-agent:latest");
+  });
 });
