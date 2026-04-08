@@ -155,6 +155,8 @@ export async function mountRoutes(
       const { logger } = await import("../config/logger.js");
       // Health check is internal (localhost, no Origin) — skip product resolution
       if (c.req.path === "/health" || c.req.path === "/api/health") return next();
+      // Internal node agent routes — infrastructure, not product-scoped
+      if (c.req.path.startsWith("/internal/")) return next();
       // Gateway routes authenticate via API key, not product header — skip product resolution
       if (c.req.path.startsWith("/v1/") || c.req.path.startsWith("/gateway/")) return next();
       let slug: string;
