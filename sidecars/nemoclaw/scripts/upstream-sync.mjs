@@ -35,6 +35,7 @@ import {
   existsSync,
   readdirSync,
   readFileSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -454,11 +455,18 @@ function pushOrPr() {
     // `--body "${prBody.replace(/"/g, '\\"')}"` only escaped double quotes,
     // leaving backticks, `$`, and newlines as shell-injection vectors if any
     // commit message or merged-in upstream content ever leaked into the body.
+    // The path is also quoted in the shell command and the tmp file is removed
+    // on both success and failure so /tmp doesn't accumulate stale bodies.
     const prBodyPath = join("/tmp", `nemoclaw-pr-body-${Date.now()}.md`);
     writeFileSync(prBodyPath, prBody);
     const pr = tryRun(
-      `gh pr create --repo wopr-network/nemoclaw --title "sync: rebase on upstream (${datestamp})" --body-file ${prBodyPath} --base main`,
+      `gh pr create --repo wopr-network/nemoclaw --title "sync: rebase on upstream (${datestamp})" --body-file "${prBodyPath}" --base main`,
     );
+    try {
+      unlinkSync(prBodyPath);
+    } catch {
+      /* best-effort cleanup — leaving the body file behind is not fatal */
+    }
     if (pr.ok) {
       log(`PR created: ${pr.output}`);
     } else {
