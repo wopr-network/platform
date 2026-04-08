@@ -96,3 +96,75 @@ For DB rollback, restore from the backup created during promote:
 ssh root@68.183.160.201 'ls -t /opt/paperclip-platform/backups/*.sql.gz | head -1'
 # Then restore with pg_restore or gunzip | psql
 ```
+
+## Node agent bootstrap (DB-as-channel architecture)
+
+After the leaderless queue refactor, the core-server container no longer
+runs its own docker handlers. A separate `node-agent` container drains
+`pending_operations` rows for this host. One-time bootstrap per droplet:
+
+### First-time setup on a fresh droplet
+
+```bash
+ssh root@138.68.30.247
+cd /opt/core-server
+
+# 1. Make sure HOST_DOCKER_GID in .env matches the host docker group gid.
+stat -c '%g' /var/run/docker.sock   # e.g. 988
+echo "HOST_DOCKER_GID=988" >> .env
+
+# 2. Pull the new compose + images (the deploy workflow already does this
+#    on every push to main — run manually only if you're bootstrapping
+#    ahead of a push).
+docker compose pull
+
+# 3. Bring up everything except the agent first.
+docker compose up -d postgres core wopr-ui paperclip-ui nemoclaw-ui holyship holyship-ui caddy
+docker compose exec core curl -sf http://localhost:3001/health
+
+# 4. Mint a registration token from the healthy core.
+TOKEN=$(docker compose exec -T core node dist/bootstrap-agent.js | jq -r .token)
+echo "AGENT_REGISTRATION_TOKEN=$TOKEN" >> .env
+
+# 5. Start the agent — it consumes the token on first boot and persists
+#    credentials.json to the agent_credentials named volume.
+docker compose up -d node-agent
+docker compose logs --tail=50 node-agent
+
+# 6. After the agent reports "Registered as node-...", remove the token
+#    from .env (single-use, already consumed).
+sed -i '/^AGENT_REGISTRATION_TOKEN=/d' .env
+```
+
+### Verifying the agent is draining the queue
+
+```bash
+# Agent worker should be running and connected
+docker compose logs --tail=20 node-agent | grep "Agent queue worker started"
+
+# The PeriodicScheduler in core will enqueue core.janitor.sweep every 30s
+# and core.fleet.reconcile every 60s. Both should reach `succeeded`.
+docker compose exec -T postgres psql -U core -d platform -c "
+  SELECT type, target, status, completed_at
+  FROM pending_operations
+  WHERE type LIKE 'core.%'
+  ORDER BY enqueued_at DESC LIMIT 5
+"
+```
+
+### Restart behavior
+
+After the one-time bootstrap, `docker compose up -d --force-recreate` (which
+the deploy workflow runs on every push to main) recreates the agent using
+the persisted credentials. No token needed.
+
+### Rotating agent credentials
+
+To rotate the agent's node_secret:
+```bash
+# Delete the persisted credentials + the node row, then re-bootstrap.
+docker compose stop node-agent
+docker volume rm coreserver_agent_credentials
+docker compose exec -T postgres psql -U core -d platform -c "DELETE FROM nodes WHERE id LIKE 'node-%'"
+# Then repeat steps 4-6 above.
+```

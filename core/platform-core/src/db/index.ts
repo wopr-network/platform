@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import type { Pool } from "pg";
+import { Pool } from "pg";
 import * as schema from "./schema/index.js";
 
 /** The platform schema type. */
@@ -21,6 +21,16 @@ export type PlatformDb = DrizzleDb;
 /** Create a Drizzle database instance wrapping the given pg.Pool. */
 export function createDb(pool: Pool): PlatformDb {
   return drizzle(pool, { schema }) as unknown as PlatformDb;
+}
+
+/**
+ * Convenience constructor for a pg.Pool from a connection string. Used by
+ * standalone scripts (e.g., `bootstrap-agent`) that need a one-shot DB
+ * handle without pulling pg in as a direct dependency. Production code
+ * should go through the platform boot path instead.
+ */
+export function createPool(connectionString: string): Pool {
+  return new Pool({ connectionString });
 }
 
 export type { SQL } from "drizzle-orm";

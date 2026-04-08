@@ -277,6 +277,49 @@ services:
     networks:
       - platform
 
+  # Node agent — drains `pending_operations` rows targeted at this host or
+  # with `target = NULL` (creation-class ops). Without this service, core
+  # enqueues bot.start / pool.warm / pool.list rows but nothing runs them
+  # and execute() times out after 5 minutes. Required.
+  #
+  # First boot: mint a registration token from a healthy core via
+  #   docker compose exec core node dist/bootstrap-agent.js
+  # and set AGENT_REGISTRATION_TOKEN in /opt/core-server/.env, then
+  #   docker compose up -d node-agent
+  # The agent registers, persists credentials.json to the named volume, and
+  # subsequent restarts reuse them — the token env var can be removed after.
+  node-agent:
+    image: registry.wopr.bot/node-agent:latest
+    depends_on:
+      core:
+        condition: service_healthy
+    # Agent runs as USER node inside the image. group_add gives the container
+    # user access to the host docker.sock (owned by root:docker). HOST_DOCKER_GID
+    # must match `stat -c '%g' /var/run/docker.sock` on the droplet.
+    group_add:
+      - ${HOST_DOCKER_GID}
+    environment:
+      PLATFORM_URL: http://core:3001
+      REGISTRATION_TOKEN: ${AGENT_REGISTRATION_TOKEN:-}
+      CREDENTIALS_PATH: /etc/wopr/credentials.json
+      BACKUP_DIR: /backups
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - agent_credentials:/etc/wopr
+      - agent_backups:/backups
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - platform
+
 networks:
   platform:
     name: platform
@@ -287,3 +330,5 @@ volumes:
   core_data:
   caddy_data:
   caddy_config:
+  agent_credentials:
+  agent_backups:

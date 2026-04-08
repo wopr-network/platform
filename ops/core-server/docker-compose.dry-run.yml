@@ -1,0 +1,190 @@
+## Local dry-run stack for the core-server + node-agent DB-as-channel flow.
+##
+## Purpose: prove that the leaderless queue round-trip works end-to-end
+## before rolling out to prod. Boots postgres, vault (dev mode), core, and
+## a node-agent; exercises:
+##   - migrations (incl. 0046 drop leader_leases)
+##   - wopr_agent login role bootstrap
+##   - one-time registration token flow
+##   - agent claims a null-target pool.warm row and creates a container
+##     via the local docker.sock
+##
+## Not a production compose — NO UI, NO Caddy. Secrets come from a local
+## Vault dev container (hashicorp/vault) seeded at startup by `vault-seed`.
+## VAULT_ADDR / VAULT_ROLE_ID / VAULT_SECRET_ID are authentication
+## coordinates (NOT secrets); the real secrets live inside Vault and core
+## reads them via the same AppRole path as prod.
+##
+## Images must be built locally first:
+##   docker build -f platforms/core-server/Dockerfile -t core-server:dev .
+##   docker build -f core/platform-core/Dockerfile.node-agent -t node-agent:dev .
+##
+## Run from the repo root:
+##   docker compose -f ops/core-server/docker-compose.dry-run.yml --env-file .env.dry-run up -d postgres vault vault-seed core
+##
+## Then mint a registration token, write it to .env.dry-run, and:
+##   docker compose -f ops/core-server/docker-compose.dry-run.yml --env-file .env.dry-run up -d node-agent
+
+name: coreserver-dryrun
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      # Dev-only password — MUST match the seeded `db_password` in vault-seed.
+      POSTGRES_USER: core
+      POSTGRES_PASSWORD: dryrun
+      POSTGRES_DB: platform
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U core"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - dryrun
+
+  # Local Vault dev server. In dev mode Vault auto-unseals and KV v2 is
+  # mounted at `secret/`. `vault-seed` runs once to enable AppRole auth,
+  # set fixed role_id/secret_id, and write the secret paths core expects.
+  vault:
+    image: hashicorp/vault:latest
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: dryrun-root
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+    healthcheck:
+      test: ["CMD-SHELL", "VAULT_ADDR=http://127.0.0.1:8200 vault status > /dev/null"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - dryrun
+
+  # One-shot: enables approle, writes the policy, creates a role with fixed
+  # role_id and secret_id (so the compose is reproducible), then seeds the
+  # required secret paths.
+  vault-seed:
+    image: hashicorp/vault:latest
+    depends_on:
+      vault:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: http://vault:8200
+      VAULT_TOKEN: dryrun-root
+    entrypoint: >
+      sh -c '
+        set -e
+        echo "==> Enabling approle auth..."
+        vault auth enable approle 2>/dev/null || echo "  already enabled"
+        echo "==> Writing core-read policy..."
+        echo "path \"secret/data/*\" { capabilities = [\"read\", \"list\"] }" | vault policy write core-read -
+        echo "==> Creating core-dryrun role..."
+        vault write auth/approle/role/core-dryrun \
+          token_policies=core-read \
+          token_ttl=1h token_max_ttl=4h
+        vault write auth/approle/role/core-dryrun/role-id role_id=core-dryrun-role
+        # custom-secret-id is write-once — already-registered is the re-run case.
+        vault write auth/approle/role/core-dryrun/custom-secret-id secret_id=core-dryrun-secret \
+          || echo "  secret_id already registered (idempotent re-run)"
+        echo "==> Seeding wopr/prod..."
+        vault kv put secret/wopr/prod \
+          better_auth_secret=dev-better-auth-minimum-32-chars-ok \
+          platform_secret=dev-platform-secret-minimum-32-chars \
+          platform_encryption_secret=dev-encryption-minimum-32-chars \
+          db_password=dryrun \
+          provision_secret=dev-provision \
+          agent_db_password=dev-agent-password
+        echo "==> Seeding shared/cloudflare..."
+        vault kv put secret/shared/cloudflare \
+          caddy_dns_token=dryrun-stub-caddy-dns
+        echo "==> Seeding wopr/stripe (stubs — never called in dry-run)..."
+        vault kv put secret/wopr/stripe \
+          secret_key=sk_test_dryrun_stub_not_real \
+          webhook_secret=whsec_dryrun_stub_not_real \
+          publishable_key=pk_test_dryrun_stub
+        echo "==> Vault seed complete."
+      '
+    restart: "no"
+    networks:
+      - dryrun
+
+  core:
+    image: ${CORE_IMAGE:-core-server:dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vault-seed:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: development
+      PORT: "3001"
+      HOST: "0.0.0.0"
+      PRODUCT_SLUG: wopr
+      # Infrastructure coordinates — these are NOT secrets.
+      DB_HOST: postgres
+      DB_NAME: platform
+      DB_PORT: "5432"
+      VAULT_ADDR: http://vault:8200
+      VAULT_ROLE_ID: core-dryrun-role
+      VAULT_SECRET_ID: core-dryrun-secret
+      # Service token for internal API calls (not used by the smoke test but
+      # required by the bootConfig.standalone parse).
+      CORE_ALLOWED_SERVICE_TOKENS: ""
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - core_data:/data
+    ports:
+      # Expose for direct tRPC / health poking from the host.
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - dryrun
+
+  node-agent:
+    image: ${NODE_AGENT_IMAGE:-node-agent:dev}
+    depends_on:
+      core:
+        condition: service_healthy
+    # The agent image runs as USER node (non-root). To talk to the host
+    # docker.sock the container's user must be in a group whose gid matches
+    # the host's docker socket group. `HOST_DOCKER_GID` in .env.dry-run must
+    # match `stat -c '%g' /var/run/docker.sock` on the host (WSL2/Linux).
+    group_add:
+      - ${HOST_DOCKER_GID:-1001}
+    environment:
+      PLATFORM_URL: http://core:3001
+      # First boot: mint a token via
+      #   docker compose -f ops/core-server/docker-compose.dry-run.yml exec core node dist/bootstrap-agent.js
+      # and set AGENT_REGISTRATION_TOKEN in .env.dry-run. Once the agent
+      # registers, credentials.json is persisted to the volume and subsequent
+      # restarts reuse it — the token env var can be removed.
+      REGISTRATION_TOKEN: ${AGENT_REGISTRATION_TOKEN:-}
+      CREDENTIALS_PATH: /etc/wopr/credentials.json
+      BACKUP_DIR: /backups
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - agent_credentials:/etc/wopr
+      - agent_backups:/backups
+    restart: unless-stopped
+    networks:
+      - dryrun
+
+networks:
+  dryrun:
+    name: coreserver-dryrun
+    driver: bridge
+
+volumes:
+  core_data:
+  agent_credentials:
+  agent_backups:

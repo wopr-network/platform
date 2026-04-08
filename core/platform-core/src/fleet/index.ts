@@ -1,6 +1,7 @@
 export * from "./drizzle-tenant-update-config-repository.js";
 export * from "./fleet.js";
 export * from "./instance.js";
+export * from "./registration-token-store.js";
 export * from "./repository-types.js";
 export * from "./services.js";
 export * from "./tenant-update-config-repository.js";
