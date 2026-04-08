@@ -58,6 +58,8 @@ export class HotPool {
   private commandBus: INodeCommandBus | null = null;
   /** Node ID for warm container creation. Defaults to "local". */
   private nodeId = "local";
+  /** Mutex: skip a tick if one is still in progress (prevents concurrent cleanup passes). */
+  private ticking = false;
 
   constructor(
     private repo: IPoolRepository,
@@ -129,9 +131,10 @@ export class HotPool {
   async claim(key: string): Promise<PoolClaim | null> {
     const result = await this.repo.claim(key);
     if (result) {
-      // Replenish in background to refill the slot
-      this.replenish().catch((err) => {
-        logger.error("Pool replenish after claim failed", { error: (err as Error).message });
+      // Trigger a tick in background to refill the slot.
+      // tick() respects the mutex — skips if one is already running.
+      this.tick().catch((err) => {
+        logger.error("Pool tick after claim failed", { error: (err as Error).message });
       });
     }
     return result;
@@ -152,8 +155,17 @@ export class HotPool {
   // ---- Internals -----------------------------------------------------------
 
   private async tick(): Promise<void> {
-    await this.cleanup();
-    await this.replenish();
+    if (this.ticking) {
+      logger.debug("Hot pool: tick already in progress, skipping");
+      return;
+    }
+    this.ticking = true;
+    try {
+      await this.cleanup();
+      await this.replenish();
+    } finally {
+      this.ticking = false;
+    }
   }
 
   /**
@@ -204,13 +216,16 @@ export class HotPool {
 
     await this.repo.deleteDead();
 
-    // 2. Orphan reconciliation — pool containers on node not in DB
-    for (const container of nodeContainers) {
-      if (!trackedContainerIds.has(container.id)) {
+    // 2. Orphan reconciliation — pool containers on node not in DB.
+    // Run removals in parallel: each docker stop takes ~10s, so sequential
+    // cleanup of N orphans takes 10*N seconds. Parallel keeps it bounded.
+    const orphans = nodeContainers.filter((c) => !trackedContainerIds.has(c.id));
+    await Promise.all(
+      orphans.map(async (container) => {
         await this.removeContainer(container.name);
         logger.info(`Hot pool: removed orphan ${container.name}`);
-      }
-    }
+      }),
+    );
   }
 
   /** Replenish warm containers for every registered spec. */
