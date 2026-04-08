@@ -6,8 +6,6 @@
  * CF DNS token from Vault enables wildcard TLS for instance subdomains.
  */
 
-import type { ProxyRoute } from "./types.js";
-
 export interface ProductRouteConfig {
   /** Product slug (e.g., "paperclip") */
   slug: string;
@@ -24,8 +22,6 @@ export interface CaddyConfigOptions {
   cloudflareApiToken: string;
   /** Static product route configs (UIs + API). */
   products: ProductRouteConfig[];
-  /** Dynamic instance proxy routes. */
-  instanceRoutes?: ProxyRoute[];
   /** Core server upstream (default: "core:3001"). */
   coreUpstream?: string;
 }
@@ -62,7 +58,7 @@ function reverseProxyWithHeaders(upstream: string) {
  * - Dynamic instance routes (healthy/unhealthy)
  */
 export function generateCaddyConfig(options: CaddyConfigOptions): Record<string, unknown> {
-  const { cloudflareApiToken, products, instanceRoutes = [], coreUpstream = "core:3001" } = options;
+  const { cloudflareApiToken, products, coreUpstream = "core:3001" } = options;
 
   const routes: unknown[] = [];
   const wildcardDomains: string[] = [];
@@ -82,17 +78,6 @@ export function generateCaddyConfig(options: CaddyConfigOptions): Record<string,
   // Wildcard routes → core (catch-all for instance subdomains)
   if (wildcardDomains.length > 0) {
     routes.push(route([hostMatch(...wildcardDomains)], [reverseProxyWithHeaders(coreUpstream)]));
-  }
-
-  // Dynamic instance routes (subdomain → container direct)
-  for (const inst of instanceRoutes) {
-    if (inst.healthy) {
-      const upstream = `${inst.upstreamHost}:${inst.upstreamPort}`;
-      // Find which product domain this subdomain belongs to
-      for (const product of products) {
-        routes.push(route([hostMatch(`${inst.subdomain}.${product.domain}`)], [reverseProxyWithHeaders(upstream)]));
-      }
-    }
   }
 
   // Collect all domains for TLS

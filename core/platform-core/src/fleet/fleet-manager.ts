@@ -13,7 +13,6 @@ import { randomUUID } from "node:crypto";
 import { PassThrough } from "node:stream";
 import { logger } from "../config/logger.js";
 import type { BotMetricsTracker } from "../gateway/bot-metrics-tracker.js";
-import type { ProxyManagerInterface } from "../proxy/types.js";
 import type { IPoolRepository } from "../server/services/pool-repository.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { BotEventType, FleetEventEmitter } from "./fleet-event-emitter.js";
@@ -37,7 +36,6 @@ export class FleetManager implements INodeFleet {
   readonly nodeId: string;
   private commandBus: INodeCommandBus | null = null;
   private readonly store: IProfileStore;
-  private proxyManager: ProxyManagerInterface | undefined;
   private instanceRepo: IBotInstanceRepository | undefined;
   private botMetricsTracker: BotMetricsTracker | undefined;
   private eventEmitter: FleetEventEmitter | undefined;
@@ -63,14 +61,12 @@ export class FleetManager implements INodeFleet {
 
   /** Inject optional dependencies after construction. */
   setDeps(deps: {
-    proxyManager?: ProxyManagerInterface;
     instanceRepo?: IBotInstanceRepository;
     botMetricsTracker?: BotMetricsTracker;
     eventEmitter?: FleetEventEmitter;
     poolRepo?: IPoolRepository;
     poolConfig?: NodeFleetPoolConfig;
   }): void {
-    if (deps.proxyManager) this.proxyManager = deps.proxyManager;
     if (deps.instanceRepo) this.instanceRepo = deps.instanceRepo;
     if (deps.botMetricsTracker) this.botMetricsTracker = deps.botMetricsTracker;
     if (deps.eventEmitter) this.eventEmitter = deps.eventEmitter;
@@ -541,7 +537,6 @@ export class FleetManager implements INodeFleet {
       containerName,
       url,
       instanceRepo: this.instanceRepo,
-      proxyManager: this.proxyManager,
       eventEmitter: this.eventEmitter,
       botMetricsTracker: this.botMetricsTracker,
     });

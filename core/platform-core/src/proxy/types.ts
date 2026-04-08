@@ -1,12 +1,3 @@
-/** A single proxy route mapping a tenant to an upstream container. */
-export interface ProxyRoute {
-  instanceId: string;
-  upstreamHost: string;
-  upstreamPort: number;
-  subdomain: string;
-  healthy: boolean;
-}
-
 /** Caddy route match condition. */
 export interface CaddyMatchHost {
   host: string[];
@@ -53,10 +44,6 @@ export interface CaddyConfig {
 
 /** Interface for proxy management operations. */
 export interface ProxyManagerInterface {
-  addRoute(route: ProxyRoute): Promise<void>;
-  removeRoute(instanceId: string): void;
-  updateHealth(instanceId: string, healthy: boolean): void;
-  getRoutes(): ProxyRoute[];
   start(): Promise<void>;
   stop(): Promise<void>;
   reload(): Promise<void>;

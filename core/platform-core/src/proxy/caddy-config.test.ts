@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { type CaddyConfigOptions, generateCaddyConfig, type ProductRouteConfig } from "./caddy-config.js";
-import type { ProxyRoute } from "./types.js";
 
 function makeProduct(overrides: Partial<ProductRouteConfig> = {}): ProductRouteConfig {
   return {
@@ -16,17 +15,6 @@ function makeOpts(overrides: Partial<CaddyConfigOptions> = {}): CaddyConfigOptio
   return {
     cloudflareApiToken: "cf-test-token",
     products: [makeProduct()],
-    ...overrides,
-  };
-}
-
-function makeRoute(overrides: Partial<ProxyRoute> = {}): ProxyRoute {
-  return {
-    instanceId: "inst-1",
-    upstreamHost: "203.0.113.2",
-    upstreamPort: 7437,
-    subdomain: "inst-1",
-    healthy: true,
     ...overrides,
   };
 }
@@ -71,18 +59,6 @@ describe("generateCaddyConfig", () => {
     expect(routes[2].match).toEqual([{ host: ["*.testapp.dev"] }]);
   });
 
-  it("includes instance routes when provided", () => {
-    const config = generateCaddyConfig(makeOpts({ instanceRoutes: [makeRoute()] }));
-    const routes = (config.apps as any).http.servers.srv0.routes;
-
-    // 3 product routes + 1 instance route
-    expect(routes.length).toBe(4);
-
-    // Instance route: subdomain.domain → container
-    const instanceRoute = routes[3];
-    expect(instanceRoute.match).toEqual([{ host: ["inst-1.testapp.dev"] }]);
-  });
-
   it("handles multiple products", () => {
     const config = generateCaddyConfig(
       makeOpts({
@@ -114,20 +90,5 @@ describe("generateCaddyConfig", () => {
 
     expect(redirect.listen).toEqual([":80"]);
     expect(redirect.routes[0].handle[0].status_code).toBe(301);
-  });
-
-  it("uses correct upstream dial format for instances", () => {
-    const config = generateCaddyConfig(
-      makeOpts({ instanceRoutes: [makeRoute({ upstreamHost: "198.51.100.50", upstreamPort: 9000 })] }),
-    );
-    const routes = (config.apps as any).http.servers.srv0.routes;
-    const instanceRoute = routes[routes.length - 1];
-
-    expect(instanceRoute.handle[0]).toEqual(
-      expect.objectContaining({
-        handler: "reverse_proxy",
-        upstreams: [{ dial: "198.51.100.50:9000" }],
-      }),
-    );
   });
 });

@@ -30,7 +30,6 @@ import type { IServiceKeyRepository } from "../../gateway/service-key-repository
 import type { IBotBilling } from "../../monetization/credits/bot-billing.js";
 import { checkInstanceQuota, DEFAULT_INSTANCE_LIMITS } from "../../monetization/quotas/quota-check.js";
 import { buildResourceLimits } from "../../monetization/quotas/resource-limits.js";
-import { getProxyManager } from "../../proxy/singleton.js";
 import { assertSafeRedirectUrl } from "../../security/index.js";
 
 const docker = new Docker();
@@ -67,7 +66,6 @@ function getFleet(): FleetManager {
     _fleet = new FleetManager("local", store);
     if (commandBus) _fleet.setCommandBus(commandBus);
     _fleet.setDeps({
-      proxyManager: getProxyManager(),
       instanceRepo,
       eventEmitter: getFleetEventEmitter(),
     });

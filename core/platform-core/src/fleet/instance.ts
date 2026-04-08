@@ -2,7 +2,6 @@ import { PassThrough } from "node:stream";
 import type Docker from "dockerode";
 import { logger } from "../config/logger.js";
 import type { BotMetricsTracker } from "../gateway/bot-metrics-tracker.js";
-import type { ProxyManagerInterface } from "../proxy/types.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { BotEventType, FleetEventEmitter } from "./fleet-event-emitter.js";
 import type { BotProfile, BotStatus, ContainerStats } from "./types.js";
@@ -11,10 +10,10 @@ import type { BotProfile, BotStatus, ContainerStats } from "./types.js";
  * Instance — a runtime handle to a container.
  *
  * FleetManager is the factory: pull image, create container, return Instance.
- * Instance owns its lifecycle: start, stop, remove, setupBilling, setupProxy.
+ * Instance owns its lifecycle: start, stop, remove, setupBilling.
  *
  * Products that manage their own lifecycle (e.g., holyship workers) call
- * fleet directly and handle setup themselves — they don't call setupBilling/setupProxy.
+ * fleet directly and handle setup themselves — they don't call setupBilling.
  */
 
 export interface InstanceDeps {
@@ -26,9 +25,8 @@ export interface InstanceDeps {
   url: string;
   /** ID of the node this instance lives on. */
   nodeId: string;
-  /** Optional — managed instances use these for billing/proxy/events */
+  /** Optional — managed instances use these for billing/events */
   instanceRepo?: IBotInstanceRepository;
-  proxyManager?: ProxyManagerInterface;
   eventEmitter?: FleetEventEmitter;
   botMetricsTracker?: BotMetricsTracker;
 }
@@ -44,7 +42,6 @@ export class Instance {
 
   private readonly docker: Docker | undefined;
   private readonly instanceRepo: IBotInstanceRepository | undefined;
-  private readonly proxyManager: ProxyManagerInterface | undefined;
   private readonly eventEmitter: FleetEventEmitter | undefined;
   private readonly botMetricsTracker: BotMetricsTracker | undefined;
 
@@ -66,7 +63,6 @@ export class Instance {
     this.nodeId = deps.nodeId;
     this.docker = deps.docker;
     this.instanceRepo = deps.instanceRepo;
-    this.proxyManager = deps.proxyManager;
     this.eventEmitter = deps.eventEmitter;
     this.botMetricsTracker = deps.botMetricsTracker;
   }
@@ -225,14 +221,6 @@ export class Instance {
         const msg = err instanceof Error ? err.message : String(err);
         if (!msg.includes("No such container")) {
           throw err;
-        }
-      }
-
-      if (this.proxyManager) {
-        try {
-          await this.proxyManager.removeRoute(this.id);
-        } catch (err) {
-          logger.warn("Proxy route cleanup failed (non-fatal)", { id: this.id, err });
         }
       }
 
@@ -418,32 +406,6 @@ export class Instance {
     }
     await this.instanceRepo.register(this.id, this.profile.tenantId, this.profile.name);
     logger.info("Billing registered", { id: this.id, tenantId: this.profile.tenantId });
-  }
-
-  /**
-   * Register a proxy route for tenant subdomain routing.
-   * Only call for managed instances — workers are accessed directly via Docker DNS.
-   */
-  async setupProxy(): Promise<void> {
-    if (!this.proxyManager) {
-      logger.warn("No proxy manager — proxy setup skipped", { id: this.id });
-      return;
-    }
-    try {
-      const subdomain = this.profile.name.toLowerCase().replace(/_/g, "-");
-      const envPort = this.profile.env?.PORT;
-      const upstreamPort = envPort ? Number.parseInt(envPort, 10) || 7437 : 7437;
-      await this.proxyManager.addRoute({
-        instanceId: this.id,
-        subdomain,
-        upstreamHost: this.containerName,
-        upstreamPort,
-        healthy: true,
-      });
-      logger.info("Proxy route registered", { id: this.id, subdomain });
-    } catch (err) {
-      logger.warn("Proxy route registration failed (non-fatal)", { id: this.id, err });
-    }
   }
 
   private offlineStatus(): BotStatus {
