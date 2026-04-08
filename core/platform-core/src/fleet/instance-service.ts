@@ -100,7 +100,15 @@ export class InstanceService {
     // 4. Select target node via placement strategy
     const nodes = d.nodeRegistry.list();
     const containerCounts = await d.nodeRegistry.getContainerCounts();
-    const targetNode = d.placementStrategy.selectNode(nodes, containerCounts);
+    const nodeMetrics = await d.nodeRegistry.getNodeMetrics();
+    const tenantInstances = await d.botInstanceRepo.listByTenant(tenantId);
+    const tenantNodes = new Set(tenantInstances.map((i) => i.nodeId).filter((n): n is string => n !== null));
+    const targetNode = d.placementStrategy.selectNode(nodes, {
+      containerCounts,
+      nodeMetrics,
+      tenantId,
+      tenantNodes,
+    });
     const fleet = targetNode.fleet;
     logger.info("Instance.create: node selected", {
       nodeId: targetNode.config.id,

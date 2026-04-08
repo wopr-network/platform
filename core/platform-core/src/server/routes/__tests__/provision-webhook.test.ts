@@ -83,7 +83,7 @@ function makeFleet(): FleetServices {
       getFleetManager: vi.fn().mockReturnValue(mockFleetManager),
       resolveUpstreamHost: vi.fn().mockReturnValue("test-myapp"),
       getContainerCounts: vi.fn().mockResolvedValue(new Map()),
-      setBotInstanceRepo: vi.fn(),
+      setRepos: vi.fn(),
       list: vi.fn().mockReturnValue([{ config: { id: "local", maxContainers: 10 }, fleet: mockFleetManager }]),
     } as never,
     placementStrategy: {

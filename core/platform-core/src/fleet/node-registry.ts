@@ -13,7 +13,9 @@ import { logger } from "../config/logger.js";
 import type { DrizzleDb } from "../db/index.js";
 import { nodes } from "../db/schema/nodes.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
+import type { NodeMetrics } from "./container-placement.js";
 import { FleetManager } from "./fleet-manager.js";
+import type { INodeRepository } from "./node-repository.js";
 import type { IProfileStore } from "./profile-store.js";
 
 export interface NodeConfig {
@@ -55,10 +57,12 @@ export const LOCAL_NODE_ID = "local";
 export class NodeRegistry {
   private nodes = new Map<string, NodeEntry>();
   private botInstanceRepo: IBotInstanceRepository | null = null;
+  private nodeRepo: INodeRepository | null = null;
 
-  /** Inject the bot instance repository for DB-backed container queries. */
-  setBotInstanceRepo(repo: IBotInstanceRepository): void {
-    this.botInstanceRepo = repo;
+  /** Inject repositories for DB-backed queries. */
+  setRepos(botInstanceRepo: IBotInstanceRepository, nodeRepo: INodeRepository): void {
+    this.botInstanceRepo = botInstanceRepo;
+    this.nodeRepo = nodeRepo;
   }
 
   /**
@@ -144,6 +148,25 @@ export class NodeRegistry {
       counts.set(nodeId, instances.length);
     }
     return counts;
+  }
+
+  /**
+   * Get runtime metrics for all nodes (for placement decisions).
+   * Queries the nodes table via INodeRepository.
+   */
+  async getNodeMetrics(): Promise<Map<string, NodeMetrics>> {
+    const metrics = new Map<string, NodeMetrics>();
+    if (!this.nodeRepo) return metrics;
+    const allNodes = await this.nodeRepo.list();
+    for (const node of allNodes) {
+      metrics.set(node.id, {
+        capacityMb: node.capacityMb,
+        usedMb: node.usedMb,
+        lastHeartbeatAt: node.lastHeartbeatAt,
+        status: node.status,
+      });
+    }
+    return metrics;
   }
 
   /** Whether the registry has more than one node. */
