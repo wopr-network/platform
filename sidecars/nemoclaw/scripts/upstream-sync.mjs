@@ -179,13 +179,17 @@ async function runAgent(prompt, opts = {}) {
   );
   logEvent(phase, { type: "agent_start", model: opts.model, maxTurns: opts.maxTurns ?? 60 });
 
+  // Permission posture: bypassPermissions skips interactive prompts (this script
+  // runs unattended in CI), but the agent is still constrained by `allowedTools`.
+  // We deliberately do NOT pass allowDangerouslySkipPermissions — that flag
+  // disables the SDK's tool-level safety net, which would let a hostile upstream
+  // diff smuggle in arbitrary tool calls beyond our allow-list.
   for await (const message of _query({
     prompt,
     options: {
       cwd: CWD,
       allowedTools: tools,
       permissionMode: "bypassPermissions",
-      allowDangerouslySkipPermissions: true,
       maxTurns: opts.maxTurns ?? 60,
       model: opts.model ?? "claude-haiku-4-5-20251001",
     },
@@ -446,8 +450,14 @@ function pushOrPr() {
       "- [ ] Dockerfile includes sidecar setup",
     ].join("\n");
 
+    // Write the body to a tmp file rather than escaping it inline. The prior
+    // `--body "${prBody.replace(/"/g, '\\"')}"` only escaped double quotes,
+    // leaving backticks, `$`, and newlines as shell-injection vectors if any
+    // commit message or merged-in upstream content ever leaked into the body.
+    const prBodyPath = join("/tmp", `nemoclaw-pr-body-${Date.now()}.md`);
+    writeFileSync(prBodyPath, prBody);
     const pr = tryRun(
-      `gh pr create --repo wopr-network/nemoclaw --title "sync: rebase on upstream (${datestamp})" --body "${prBody.replace(/"/g, '\\"')}" --base main`,
+      `gh pr create --repo wopr-network/nemoclaw --title "sync: rebase on upstream (${datestamp})" --body-file ${prBodyPath} --base main`,
     );
     if (pr.ok) {
       log(`PR created: ${pr.output}`);
