@@ -38,6 +38,16 @@ export const nodeAgentConfigSchema = z
     credentialsPath: z.string().default("/etc/wopr/credentials.json"),
     /** Per-node secret injected at provisioning time (WOPR_NODE_SECRET env var) */
     woprNodeSecret: z.string().optional(),
+    /**
+     * Postgres connection string for the DB-as-channel queue worker.
+     * When unset, the agent runs WebSocket-bus-only (legacy path). When set,
+     * the agent ALSO starts a queue worker pinned to its node id, draining
+     * `pending_operations` rows targeted at this node.
+     *
+     * Phase 2.3a uses a single shared role for simplicity. Phase 2.3c will
+     * mint per-node credentials at registration time.
+     */
+    dbUrl: z.string().optional(),
   })
   .refine((c) => c.nodeSecret || c.registrationToken, "Either nodeSecret or registrationToken is required");
 

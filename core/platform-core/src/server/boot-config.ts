@@ -20,6 +20,19 @@ export interface FeatureFlags {
   stripe: boolean;
   gateway: boolean;
   hotPool: boolean;
+  /**
+   * Phase 2.3b cut-over: route FleetManager.sendCommand through the
+   * DB-as-channel queue (`OperationQueue`) instead of the WebSocket bus.
+   *
+   * REQUIRES every node agent in the cluster to be running an
+   * `AgentWorker` (set `dbUrl` in agent config). When the flag is on but
+   * an agent isn't draining the queue, every command targeted at that
+   * agent will park on the row forever — by design, since the WS
+   * fallback is bypassed.
+   *
+   * Default false. Flip after rolling out the agent dbUrl change.
+   */
+  agentQueueDispatch?: boolean;
 }
 
 // ---------------------------------------------------------------------------

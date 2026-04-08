@@ -112,6 +112,34 @@ export async function startBackgroundServices(container: PlatformContainer): Pro
 
   // -- All-instance services (safe on every replica) --
 
+  // DB-as-channel queue: start the LISTEN-side notification source over the
+  // shared pg.Pool, then start the core worker's drain loop. Both are
+  // symmetric across replicas — Postgres SKIP LOCKED guarantees only one
+  // claims each row. If LISTEN setup fails (rare; likely a missing trigger
+  // migration), we log and fall back to poll-only mode automatically.
+  try {
+    const { PgNotificationSource } = await import("../queue/pg-notification-source.js");
+    const source = new PgNotificationSource(container.pool, {
+      logger: {
+        info: (msg, meta) => logger.info(msg, meta),
+        warn: (msg, meta) => logger.warn(msg, meta),
+        error: (msg, meta) => logger.error(msg, meta),
+      },
+    });
+    await container.operationQueue.startListener(source);
+    logger.info("Operation queue listener started");
+  } catch (err) {
+    logger.warn("Operation queue listener failed to start (poll-only fallback)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  container.coreQueueWorker.start();
+  logger.info("Core queue worker started");
+  handles.unsubscribes.push(() => {
+    void container.coreQueueWorker.stop();
+    void container.operationQueue.stopListener();
+  });
+
   // Caddy proxy hydration (if fleet + proxy are enabled)
   if (container.fleet?.proxy) {
     try {

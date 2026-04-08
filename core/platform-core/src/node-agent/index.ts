@@ -1,10 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { hostname, networkInterfaces, totalmem } from "node:os";
 import { WebSocket } from "ws";
 import { logger } from "../config/logger.js";
+import type { OperationHandler } from "../queue/queue-worker.js";
+import { type RunningAgentQueueWorker, startAgentQueueWorker } from "./agent-worker.js";
 import { BackupManager, HotBackupScheduler } from "./backup.js";
 import { DockerManager } from "./docker.js";
 import { HealthMonitor } from "./health.js";
 import { collectHeartbeat } from "./heartbeat.js";
+import { buildAgentOperationHandlers } from "./operation-handlers.js";
 import {
   AGENT_VERSION,
   ALLOWED_COMMANDS,
@@ -39,10 +43,24 @@ export class NodeAgent {
   private readonly hotBackupScheduler: HotBackupScheduler;
   private readonly healthMonitor: HealthMonitor;
 
+  /**
+   * Single source of truth for operation dispatch. Used by both the legacy
+   * WebSocket bus (`handleMessage` → `dispatch`) and the DB-as-channel queue
+   * worker. Constructed once at boot from `buildAgentOperationHandlers`.
+   */
+  private readonly operationHandlers: Map<string, OperationHandler>;
+
   private ws: WebSocket | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
   private stopped = false;
+
+  /**
+   * The DB-as-channel queue worker, when configured. Null until `start()`
+   * has finished registration AND `config.dbUrl` was supplied. Stopped on
+   * `stop()`.
+   */
+  private agentQueueWorker: RunningAgentQueueWorker | null = null;
 
   constructor(config: NodeAgentConfig, dockerManager?: DockerManager) {
     this.config = config;
@@ -52,6 +70,12 @@ export class NodeAgent {
     this.healthMonitor = new HealthMonitor(this.dockerManager, config.nodeId ?? "unknown", (event) =>
       this.sendHealthEvent(event),
     );
+    this.operationHandlers = buildAgentOperationHandlers({
+      dockerManager: this.dockerManager,
+      backupManager: this.backupManager,
+      hotBackupScheduler: this.hotBackupScheduler,
+      backupDir: config.backupDir,
+    });
   }
 
   /** Boot the agent: register, connect WebSocket, start monitoring. */
@@ -63,6 +87,27 @@ export class NodeAgent {
     this.connect();
     await this.healthMonitor.start();
     this.hotBackupScheduler.start();
+
+    // DB-as-channel queue worker — only when explicitly opted in via dbUrl.
+    // Until Phase 2.3c mints per-node credentials at registration time, this
+    // is gated on a single shared connection string in the agent's config.
+    // Both transports (WS bus + queue worker) coexist; nothing in core
+    // enqueues to agents yet, so the worker is dormant in production.
+    if (this.config.dbUrl && this.config.nodeId) {
+      try {
+        this.agentQueueWorker = await startAgentQueueWorker({
+          dbUrl: this.config.dbUrl,
+          nodeId: this.config.nodeId,
+          workerId: `agent-${this.config.nodeId}-${randomUUID()}`,
+          handlers: this.operationHandlers,
+        });
+      } catch (err) {
+        logger.warn("Agent queue worker failed to start (WS bus continues)", {
+          nodeId: this.config.nodeId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
   }
 
   /** Gracefully shut down the agent. */
@@ -79,6 +124,18 @@ export class NodeAgent {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
+    }
+
+    // Stop the queue worker if it was started. Fire-and-forget — stop() is
+    // synchronous to keep the API stable for existing callers.
+    if (this.agentQueueWorker) {
+      const handle = this.agentQueueWorker;
+      this.agentQueueWorker = null;
+      void handle.stop().catch((err) => {
+        logger.warn("Agent queue worker stop failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
 
     logger.info("Node agent stopped");
@@ -331,96 +388,19 @@ host_bucket = %(bucket)s.${spaces.endpoint}
     }
   }
 
-  /** Parse a value that may be a JSON string or already an object. */
-  private static parseJsonOrObject(value: unknown): Record<string, string> | undefined {
-    if (value == null) return undefined;
-    if (typeof value === "string") return JSON.parse(value) as Record<string, string>;
-    if (typeof value === "object") return value as Record<string, string>;
-    return undefined;
-  }
-
-  /** Route a command to the appropriate handler. */
+  /**
+   * Route a command to the appropriate handler. Looks up the handler in the
+   * shared `operationHandlers` map (built once in the constructor by
+   * `buildAgentOperationHandlers`). The same map is also used by the DB-as-
+   * channel queue worker, so the WS path and the queue path can never
+   * dispatch differently for the same command type.
+   */
   private async dispatch(command: Command): Promise<unknown> {
-    const p = command.payload as Record<string, unknown>;
-
-    switch (command.type) {
-      case "bot.start":
-        return this.dockerManager.startBot({
-          name: String(p.name),
-          image: String(p.image),
-          env: NodeAgent.parseJsonOrObject(p.env),
-          restart: p.restart != null ? String(p.restart) : undefined,
-        });
-
-      case "bot.stop":
-        return this.dockerManager.stopBot(String(p.name));
-
-      case "bot.restart":
-        return this.dockerManager.restartBot(String(p.name));
-
-      case "bot.update":
-        // Two modes: rename a pool container into a tenant container, or update env.
-        if (p.rename === true && p.containerId) {
-          return this.dockerManager.renameContainer(String(p.containerId), String(p.name));
-        }
-        return this.dockerManager.updateBot({
-          name: String(p.name),
-          env: NodeAgent.parseJsonOrObject(p.env) ?? {},
-        });
-
-      case "bot.export":
-        return this.dockerManager.exportBot(String(p.name), this.config.backupDir);
-
-      case "bot.import":
-        return this.dockerManager.importBot(
-          String(p.name),
-          this.config.backupDir,
-          String(p.image),
-          NodeAgent.parseJsonOrObject(p.env),
-        );
-
-      case "bot.remove":
-        return this.dockerManager.removeBot(String(p.name));
-
-      case "bot.logs":
-        return this.dockerManager.getLogs(String(p.name), p.tail ? Number.parseInt(String(p.tail), 10) : 100);
-
-      case "bot.inspect":
-        return this.dockerManager.inspectBot(String(p.name));
-
-      case "backup.upload":
-        return this.backupManager.upload(String(p.filename));
-
-      case "backup.download":
-        return this.backupManager.download(String(p.filename));
-
-      case "backup.run-nightly":
-        return this.backupManager.runNightly();
-
-      case "backup.run-hot":
-        return this.hotBackupScheduler.runHotBackup();
-
-      case "pool.warm":
-        return this.dockerManager.createWarmContainer({
-          name: String(p.name),
-          image: String(p.image),
-          port: p.port ? Number(p.port) : 3100,
-          network: p.network ? String(p.network) : "platform-overlay",
-          provisionSecret: p.provisionSecret ? String(p.provisionSecret) : undefined,
-          registryAuth: p.registryAuth
-            ? (p.registryAuth as { username: string; password: string; serveraddress: string })
-            : undefined,
-        });
-
-      case "pool.cleanup":
-        return this.dockerManager.removeBot(String(p.name));
-
-      case "pool.list":
-        return this.dockerManager.listPoolContainers();
-
-      default:
-        throw new Error(`Unhandled command: ${command.type}`);
+    const handler = this.operationHandlers.get(command.type);
+    if (handler === undefined) {
+      throw new Error(`Unhandled command: ${command.type}`);
     }
+    return await handler(command.payload);
   }
 
   /** Send a command result back over WebSocket. */

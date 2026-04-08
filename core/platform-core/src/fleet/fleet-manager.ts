@@ -13,13 +13,14 @@ import { randomUUID } from "node:crypto";
 import { PassThrough } from "node:stream";
 import { logger } from "../config/logger.js";
 import type { BotMetricsTracker } from "../gateway/bot-metrics-tracker.js";
+import type { IOperationQueue } from "../queue/operation-queue.js";
 import type { IPoolRepository } from "../server/services/pool-repository.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { BotEventType, FleetEventEmitter } from "./fleet-event-emitter.js";
 import { friendlyName } from "./friendly-names.js";
 import type { CreateOptions, INodeFleet, PoolClaim, PoolSpec } from "./i-fleet.js";
 import { Instance } from "./instance.js";
-import type { INodeCommandBus } from "./node-command-bus.js";
+import type { CommandResult, INodeCommandBus } from "./node-command-bus.js";
 import type { IProfileStore } from "./profile-store.js";
 import { type BotProfile, type BotStatus, containerNameFor } from "./types.js";
 
@@ -35,6 +36,15 @@ export class FleetManager implements INodeFleet {
   /** The node this FleetManager manages. All commands go to this node. */
   readonly nodeId: string;
   private commandBus: INodeCommandBus | null = null;
+  /**
+   * DB-as-channel queue. When wired (Phase 2.3b cut-over), `sendCommand`
+   * routes through `queue.execute({ target: this.nodeId })` instead of the
+   * legacy WebSocket bus. The agent on the target node must be running its
+   * AgentWorker (`startAgentQueueWorker`) for the call to ever resolve, so
+   * this dep is only wired when `bootConfig.features.agentQueueDispatch`
+   * is on AND every node has an AgentWorker started.
+   */
+  private operationQueue: IOperationQueue | null = null;
   private readonly store: IProfileStore;
   private instanceRepo: IBotInstanceRepository | undefined;
   private botMetricsTracker: BotMetricsTracker | undefined;
@@ -66,12 +76,19 @@ export class FleetManager implements INodeFleet {
     eventEmitter?: FleetEventEmitter;
     poolRepo?: IPoolRepository;
     poolConfig?: NodeFleetPoolConfig;
+    /**
+     * Optional DB-as-channel queue. When set, all `sendCommand` calls route
+     * through it instead of the WS command bus. Only inject this when every
+     * agent in the cluster is running an AgentWorker.
+     */
+    operationQueue?: IOperationQueue;
   }): void {
     if (deps.instanceRepo) this.instanceRepo = deps.instanceRepo;
     if (deps.botMetricsTracker) this.botMetricsTracker = deps.botMetricsTracker;
     if (deps.eventEmitter) this.eventEmitter = deps.eventEmitter;
     if (deps.poolRepo) this.poolRepo = deps.poolRepo;
     if (deps.poolConfig) this.poolConfig = deps.poolConfig;
+    if (deps.operationQueue) this.operationQueue = deps.operationQueue;
   }
 
   constructor(nodeId: string, store: IProfileStore) {
@@ -516,11 +533,37 @@ export class FleetManager implements INodeFleet {
   // Private
   // ---------------------------------------------------------------------------
 
-  /** Send a command to this node and return the result. */
-  private sendCommand(type: string, payload: Record<string, unknown>) {
-    if (!this.commandBus)
-      throw new Error(`FleetManager(${this.nodeId}): command bus not set — call setCommandBus() first`);
-    return this.commandBus.send(this.nodeId, { type, payload });
+  /**
+   * Send a command to this node and return a CommandResult-shaped object.
+   *
+   * Prefers the DB-as-channel queue when `operationQueue` is wired (Phase
+   * 2.3b cut-over). Falls back to the legacy WebSocket command bus otherwise.
+   * Both transports converge on the same result shape so call sites that
+   * read `result.data` work identically regardless of which path ran:
+   *   - WS bus: agent's `sendResult` already returns this shape.
+   *   - Queue:  the handler returns the raw value, and we wrap it here.
+   */
+  private async sendCommand(type: string, payload: Record<string, unknown>): Promise<CommandResult> {
+    if (this.operationQueue) {
+      const data = await this.operationQueue.execute<unknown>({
+        type,
+        target: this.nodeId,
+        payload,
+      });
+      return {
+        id: `queue-${this.nodeId}`,
+        type: "command_result",
+        command: type,
+        success: true,
+        data,
+      };
+    }
+    if (!this.commandBus) {
+      throw new Error(
+        `FleetManager(${this.nodeId}): no transport configured — call setCommandBus() or setDeps({ operationQueue })`,
+      );
+    }
+    return await this.commandBus.send(this.nodeId, { type, payload });
   }
 
   /** Build an Instance from a profile (no Docker inspect — uses DB data). */

@@ -156,6 +156,26 @@ export function createTestContainer(overrides?: Partial<PlatformContainer>): Pla
       onPromoted: () => {},
       onDemoted: () => {},
     } as never,
+    // Stub queue + worker — tests that exercise the queue should override.
+    // Most tests don't touch them, so the simplest noop is a sentinel object.
+    operationQueue: {
+      execute: async () => {
+        throw new Error("test-container: operationQueue not wired — override in your test");
+      },
+      claim: async () => null,
+      complete: async () => {},
+      fail: async () => {},
+      janitorSweep: async () => ({ reset: 0 }),
+      startListener: async () => {},
+      stopListener: async () => {},
+      subscribeEnqueued: async () => {},
+    } as never,
+    coreQueueWorker: {
+      registerHandler: () => {},
+      start: () => {},
+      stop: async () => {},
+      tickOnce: async () => false,
+    } as never,
   };
 
   return { ...defaults, ...overrides };

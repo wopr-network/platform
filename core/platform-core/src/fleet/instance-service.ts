@@ -11,6 +11,7 @@ import { Credit } from "../credits/index.js";
 import type { ILedger } from "../credits/ledger.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
 import type { ProductConfig } from "../product-config/index.js";
+import type { IOperationQueue } from "../queue/operation-queue.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { IFleet } from "./i-fleet.js";
 import type { IProfileStore } from "./profile-store.js";
@@ -54,16 +55,76 @@ export interface InstanceServiceDeps {
    * nodes or knows which one will be picked.
    */
   fleet: IFleet;
+  /**
+   * Optional DB-as-channel queue. When wired, `create()` enqueues an
+   * `instance.create` row instead of running the saga directly — the row is
+   * claimed by whichever core replica's worker reaches it first, the saga
+   * runs there, and the public Promise resolves with the result.
+   *
+   * When `null`/undefined the service runs the saga inline (test mode and
+   * any boot path that hasn't migrated yet). The public contract is identical
+   * either way: `await instanceService.create(params)` returns a CreatedInstance
+   * or throws.
+   */
+  operationQueue?: IOperationQueue | null;
 }
 
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
+/**
+ * Operation type registered with the core QueueWorker. The handler is wired
+ * in container.ts after both InstanceService and the worker are constructed.
+ */
+export const INSTANCE_CREATE_OP = "instance.create" as const;
+
 export class InstanceService {
   constructor(private readonly deps: InstanceServiceDeps) {}
 
+  /**
+   * Public create entry point. The shape of the Promise is unchanged from
+   * pre-queue days — callers `await instanceService.create(params)` and get
+   * back a CreatedInstance or an Error. The fact that there may be a DB
+   * round-trip and a worker dispatch in between is invisible to the caller,
+   * which is the entire point of the DB-as-channel architecture.
+   *
+   * When `deps.operationQueue` is wired, the call enqueues an `instance.create`
+   * row and parks on its terminal state. When it isn't wired (tests, legacy
+   * boot paths), the saga runs inline. Both paths converge on the same
+   * `runCreate()` body — the queue is a transport, not a behavior change.
+   */
   async create(params: CreateInstanceParams): Promise<CreatedInstance> {
+    if (this.deps.operationQueue) {
+      // ProductConfig is plain data (verified at refactor time — interfaces
+      // only, no methods), so it round-trips through JSON cleanly. We pass
+      // the whole CreateInstanceParams through and let the handler reconstruct
+      // it on the other side.
+      return await this.deps.operationQueue.execute<CreatedInstance>({
+        type: INSTANCE_CREATE_OP,
+        target: "core",
+        payload: params as never,
+      });
+    }
+    return await this.runCreate(params);
+  }
+
+  /**
+   * Queue handler entry point — invoked by the core QueueWorker when it claims
+   * an `instance.create` row. The payload was JSON round-tripped through the
+   * `pending_operations.payload` jsonb column so we cast it back to params.
+   */
+  async handleCreateOperation(payload: unknown): Promise<CreatedInstance> {
+    return await this.runCreate(payload as CreateInstanceParams);
+  }
+
+  /**
+   * The actual create saga. Same body as the pre-queue create() — credit
+   * check, fleet acquisition, bot_instances row, gateway key, provision,
+   * billing — with the same rollback. Called either inline (test mode /
+   * legacy) or by the queue handler.
+   */
+  private async runCreate(params: CreateInstanceParams): Promise<CreatedInstance> {
     const { tenantId, userId, userEmail, name, description, productSlug, productConfig, env } = params;
     const d = this.deps;
 

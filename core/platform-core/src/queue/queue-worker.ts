@@ -58,10 +58,12 @@ export interface QueueWorkerOptions {
 const DEFAULT_IDLE_POLL_MS = 1_000;
 
 /**
- * Abstract drain loop. Subclasses register their own handler map in the
- * constructor and let the base class handle claim/dispatch/complete.
+ * Concrete drain loop. Construct one per (queue, target). Register handlers
+ * in the constructor or later via `registerHandler`. Subclassing is allowed
+ * but not required — most call sites pass an empty Map and call
+ * `registerHandler` after the worker is wired into a DI container.
  */
-export abstract class QueueWorker {
+export class QueueWorker {
   private running = false;
   private loopPromise: Promise<void> | null = null;
   private readonly idlePollMs: number;
@@ -146,6 +148,18 @@ export abstract class QueueWorker {
       await this.loopPromise;
       this.loopPromise = null;
     }
+  }
+
+  /**
+   * Register a handler for an operation type. Throws if a handler is already
+   * registered for the same type — accidental double-registration is almost
+   * always a wiring bug.
+   */
+  registerHandler(type: string, handler: OperationHandler): void {
+    if (this.handlers.has(type)) {
+      throw new Error(`QueueWorker: handler for '${type}' already registered`);
+    }
+    this.handlers.set(type, handler);
   }
 
   /**

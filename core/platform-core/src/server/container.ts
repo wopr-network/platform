@@ -122,6 +122,19 @@ export interface PlatformContainer {
   nodeConnectionManager: import("../fleet/node-connection-manager.js").NodeConnectionManager | null;
   /** Leader election — gates singleton background services. Always present. */
   leaderElection: import("../leader/leader-election.js").LeaderElection;
+  /**
+   * DB-as-channel operation queue. Built unconditionally — every replica owns
+   * one and uses it as the durable channel between API requests and worker
+   * handlers. Handlers are registered post-construction by service wiring.
+   */
+  operationQueue: import("../queue/operation-queue.js").OperationQueue;
+  /**
+   * The replica's `core` target queue worker. Drains operations targeted at
+   * any core replica (instance.create, instance.destroy, etc.). Symmetric
+   * across replicas — Postgres SKIP LOCKED ensures only one replica claims
+   * each row.
+   */
+  coreQueueWorker: import("../queue/queue-worker.js").QueueWorker;
 }
 
 // ---------------------------------------------------------------------------
@@ -390,6 +403,28 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   const { DrizzleLeaderLeaseRepository } = await import("../leader/leader-lease-repository.js");
   const leaderElection = new LeaderElectionClass(new DrizzleLeaderLeaseRepository(db));
 
+  // 13b. DB-as-channel operation queue + the replica's core worker.
+  // The queue is built unconditionally — every replica needs one as the
+  // durable channel for in-flight operations. The core worker drains rows
+  // targeted at "core" (instance.create, instance.destroy, …). Handlers
+  // are registered post-construction by service wiring further down.
+  // The listener (PgNotificationSource over `pool`) and the worker drain
+  // loop are started in lifecycle.ts on every replica — they're symmetric,
+  // and Postgres SKIP LOCKED guarantees only one replica claims each row.
+  const { OperationQueue } = await import("../queue/operation-queue.js");
+  const { QueueWorker } = await import("../queue/queue-worker.js");
+  const { randomUUID: queueRandomUUID } = await import("node:crypto");
+  const operationQueue = new OperationQueue(db);
+  const coreQueueWorkerId = `core-${queueRandomUUID()}`;
+  const coreQueueWorker = new QueueWorker(operationQueue, "core", coreQueueWorkerId, new Map(), {
+    logger: {
+      debug: (msg, meta) => logger.debug(msg, meta),
+      info: (msg, meta) => logger.info(msg, meta),
+      warn: (msg, meta) => logger.warn(msg, meta),
+      error: (msg, meta) => logger.error(msg, meta),
+    },
+  });
+
   // 14. Build the container (hotPool bound after construction)
   const result: PlatformContainer = {
     db,
@@ -422,6 +457,8 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     productAuthManager: null,
     nodeConnectionManager: null,
     leaderElection,
+    operationQueue,
+    coreQueueWorker,
   };
 
   // Pool repository — shared by every per-node FleetManager and the Fleet composite.
@@ -449,8 +486,23 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     // Each per-node FleetManager gets the pool repo + config.
     // The Fleet composite (created below) will push specs onto each via
     // registerPoolSpec, so leaves know what to replenish.
+    // When the agentQueueDispatch feature is on, each leaf also gets the
+    // OperationQueue so its sendCommand routes through pending_operations
+    // instead of the WebSocket bus.
     for (const node of fleet.nodeRegistry.list()) {
-      node.fleet.setDeps({ poolRepo, poolConfig });
+      node.fleet.setDeps({
+        poolRepo,
+        poolConfig,
+        ...(bootConfig.features.agentQueueDispatch ? { operationQueue } : {}),
+      });
+    }
+  } else if (fleet && bootConfig.features.agentQueueDispatch) {
+    // hotPool is off but the queue dispatch flag is on — still wire the
+    // queue into every leaf. The hotPool branch above handles this case
+    // for typical fleet products, but a fleet without hotPool also needs
+    // the dispatch path wired.
+    for (const node of fleet.nodeRegistry.list()) {
+      node.fleet.setDeps({ operationQueue });
     }
   }
 
@@ -512,14 +564,25 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     fleet.orgInstanceResolver.setFleet(fleetComposite);
 
     const secrets = bootConfig.secrets;
-    result.instanceService = new InstanceService({
+    const instanceService = new InstanceService({
       creditLedger: result.creditLedger,
       profileStore: fleet.profileStore,
       botInstanceRepo,
       serviceKeyRepo: fleet.serviceKeyRepo,
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? null,
       fleet: fleetComposite,
+      operationQueue,
     });
+    result.instanceService = instanceService;
+
+    // Register the instance.create queue handler. The worker started in
+    // lifecycle.ts will dispatch claimed rows to this closure. The handler
+    // body is the same saga as before — moved off the public method so the
+    // public method can become a thin queue.execute() wrapper.
+    const { INSTANCE_CREATE_OP } = await import("../fleet/instance-service.js");
+    coreQueueWorker.registerHandler(INSTANCE_CREATE_OP, async (payload) =>
+      instanceService.handleCreateOperation(payload),
+    );
   }
 
   // Bind per-product OAuth manager (standalone mode)
