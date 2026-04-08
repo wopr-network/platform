@@ -114,8 +114,6 @@ export interface PlatformContainer {
   instanceService: import("../fleet/instance-service.js").InstanceService | null;
   /** Per-product OAuth provider config. Null when auth is not configured. */
   productAuthManager: import("../auth/product-auth-manager.js").ProductAuthManager | null;
-  /** Leader election — gates singleton background services. Always present. */
-  leaderElection: import("../leader/leader-election.js").LeaderElection;
   /**
    * DB-as-channel operation queue. Built unconditionally — every replica owns
    * one and uses it as the durable channel between API requests and worker
@@ -385,12 +383,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     tenantCustomerRepo = stripe.customerRepo;
   }
 
-  // 13. Leader election
-  const { LeaderElection: LeaderElectionClass } = await import("../leader/leader-election.js");
-  const { DrizzleLeaderLeaseRepository } = await import("../leader/leader-lease-repository.js");
-  const leaderElection = new LeaderElectionClass(new DrizzleLeaderLeaseRepository(db));
-
-  // 13b. DB-as-channel operation queue + the replica's core worker.
+  // 13. DB-as-channel operation queue + the replica's core worker.
   // The queue is built unconditionally — every replica needs one as the
   // durable channel for in-flight operations. The core worker drains rows
   // targeted at "core" (instance.create, instance.destroy, …). Handlers
@@ -462,7 +455,6 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     fleetComposite: null,
     instanceService: null,
     productAuthManager: null,
-    leaderElection,
     operationQueue,
     coreQueueWorker,
   };
@@ -508,8 +500,9 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       }
     }
 
-    // Ticker is started by lifecycle.ts under leader election (so non-leader
-    // replicas don't double-replenish).
+    // Fleet reconciliation ticks are fanned out via PeriodicScheduler in
+    // lifecycle.ts — every replica enqueues a bucketed `core.fleet.reconcile`
+    // row, and whichever core worker claims it runs the tick once.
     result.fleetComposite = fleetComposite;
 
     // Wire the composite into OrgInstanceResolver — it depends on Fleet but
@@ -548,6 +541,76 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     coreQueueWorker.registerHandler(INSTANCE_CREATE_CONTAINER_OP, async (payload) =>
       instanceService.handleCreateContainerOperation(payload),
     );
+  }
+
+  // Periodic maintenance handlers — these run on the core queue worker and
+  // replace the old leader-election-gated background services. Every replica
+  // enqueues bucketed idempotency keys via PeriodicScheduler; the unique
+  // partial index on `idempotency_key` guarantees exactly one row per bucket
+  // lands, and whichever core worker claims it runs the handler.
+  //
+  // See docs/2026-04-08-db-queue-architecture.md §9 (idempotency-key bucketing).
+  coreQueueWorker.registerHandler("core.janitor.sweep", async () => {
+    const swept = await operationQueue.janitorSweep();
+    if (swept.reset > 0) {
+      logger.info("Queue janitor reset stale processing rows", { reset: swept.reset });
+    }
+    return swept;
+  });
+
+  // Retention purge: delete terminal rows older than 7 days. Periodic ops
+  // accumulate forever otherwise (5k+/day once the scheduler is running).
+  const QUEUE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+  coreQueueWorker.registerHandler("core.queue.purge", async () => {
+    const purged = await operationQueue.purge(QUEUE_RETENTION_MS);
+    if (purged.deleted > 0) {
+      logger.info("Queue purge deleted old terminal rows", { deleted: purged.deleted });
+    }
+    return purged;
+  });
+
+  // Fleet reconciliation: cleanup orphan warm containers, replenish to spec.
+  // Runs every 60s via the scheduler. If fleet is disabled, this is a no-op.
+  if (result.fleetComposite) {
+    const composite = result.fleetComposite;
+    coreQueueWorker.registerHandler("core.fleet.reconcile", async () => {
+      await composite.cleanupWarmPool();
+      await composite.replenishWarmPool();
+      return null;
+    });
+  }
+
+  // Runtime billing: daily $0.17/bot deduction + tenant addons. Idempotent
+  // at the ledger level (keyed by date), so double-fire across the bucket
+  // boundary is a no-op. See runtime-cron.ts for the deduction logic.
+  if (fleet && result.creditLedger) {
+    const creditLedger = result.creditLedger;
+    coreQueueWorker.registerHandler("core.runtime.billing.tick", async () => {
+      const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
+      const { DrizzleTenantAddonRepository } = await import("../monetization/addons/addon-repository.js");
+      const { runRuntimeDeductions, buildResourceTierCosts } = await import("../monetization/credits/runtime-cron.js");
+      const { buildAddonCosts } = await import("../monetization/addons/addon-cron.js");
+
+      const botInstanceRepo = new DrizzleBotInstanceRepository(db);
+      const tenantAddonRepo = new DrizzleTenantAddonRepository(db);
+      const today = new Date().toISOString().slice(0, 10);
+
+      const deductionResult = await runRuntimeDeductions({
+        ledger: creditLedger,
+        date: today,
+        getActiveBotCount: async (tenantId) => {
+          const bots = await botInstanceRepo.listByTenant(tenantId);
+          return bots.filter((b) => b.billingState === "active").length;
+        },
+        getResourceTierCosts: buildResourceTierCosts(botInstanceRepo, async (tenantId) => {
+          const bots = await botInstanceRepo.listByTenant(tenantId);
+          return bots.filter((b) => b.billingState === "active").map((b) => b.id);
+        }),
+        getAddonCosts: buildAddonCosts(tenantAddonRepo),
+      });
+      logger.info("Runtime deductions complete", deductionResult);
+      return deductionResult;
+    });
   }
 
   // Bind per-product OAuth manager (standalone mode)

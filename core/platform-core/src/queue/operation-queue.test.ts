@@ -393,6 +393,155 @@ describe("OperationQueue", () => {
       expect(reclaimed?.claimedBy).toBe("worker-alive");
     });
   });
+
+  // -------------------------------------------------------------------------
+  // enqueue() — fire-and-forget
+  // -------------------------------------------------------------------------
+
+  describe("enqueue", () => {
+    it("inserts a pending row and returns its id without awaiting completion", async () => {
+      const { id } = await queue.enqueue({
+        type: "test.ping",
+        payload: { hello: "world" },
+        target: "core",
+      });
+      expect(id).toMatch(/.+/);
+      const [row] = await db.select().from(pendingOperations);
+      expect(row).toMatchObject({
+        id,
+        type: "test.ping",
+        target: "core",
+        status: "pending",
+      });
+    });
+
+    it("collapses duplicate idempotency keys to a single row", async () => {
+      const first = await queue.enqueue({
+        type: "core.janitor.sweep",
+        payload: {},
+        target: "core",
+        idempotencyKey: "core.janitor.sweep:42",
+      });
+      const second = await queue.enqueue({
+        type: "core.janitor.sweep",
+        payload: {},
+        target: "core",
+        idempotencyKey: "core.janitor.sweep:42",
+      });
+      expect(second.id).toBe(first.id);
+      const rows = await db.select().from(pendingOperations);
+      expect(rows).toHaveLength(1);
+    });
+
+    it("different idempotency keys produce different rows", async () => {
+      const a = await queue.enqueue({
+        type: "core.janitor.sweep",
+        payload: {},
+        target: "core",
+        idempotencyKey: "core.janitor.sweep:42",
+      });
+      const b = await queue.enqueue({
+        type: "core.janitor.sweep",
+        payload: {},
+        target: "core",
+        idempotencyKey: "core.janitor.sweep:43",
+      });
+      expect(b.id).not.toBe(a.id);
+      const rows = await db.select().from(pendingOperations);
+      expect(rows).toHaveLength(2);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // purge() — retention sweep
+  // -------------------------------------------------------------------------
+
+  describe("purge", () => {
+    it("deletes succeeded rows whose completed_at is older than the cutoff", async () => {
+      const old = new Date(1_000_000).toISOString();
+      const fresh = new Date(Date.now()).toISOString();
+      await db.insert(pendingOperations).values([
+        {
+          id: "op-old",
+          type: "test",
+          payload: {} as never,
+          target: "core",
+          status: "succeeded",
+          completedAt: old,
+        },
+        {
+          id: "op-fresh",
+          type: "test",
+          payload: {} as never,
+          target: "core",
+          status: "succeeded",
+          completedAt: fresh,
+        },
+      ]);
+      const result = await queue.purge(60_000);
+      expect(result.deleted).toBe(1);
+      const rows = await db.select().from(pendingOperations);
+      expect(rows.map((r) => r.id)).toEqual(["op-fresh"]);
+    });
+
+    it("deletes failed rows past the cutoff", async () => {
+      const old = new Date(1_000_000).toISOString();
+      await db.insert(pendingOperations).values({
+        id: "op-err-old",
+        type: "test",
+        payload: {} as never,
+        target: "core",
+        status: "failed",
+        errorMessage: "boom",
+        completedAt: old,
+      });
+      const result = await queue.purge(60_000);
+      expect(result.deleted).toBe(1);
+    });
+
+    it("leaves pending and processing rows alone regardless of age", async () => {
+      const ancient = new Date(1).toISOString();
+      await db.insert(pendingOperations).values([
+        {
+          id: "op-pending",
+          type: "test",
+          payload: {} as never,
+          target: "core",
+          status: "pending",
+          enqueuedAt: ancient,
+        },
+        {
+          id: "op-processing",
+          type: "test",
+          payload: {} as never,
+          target: "core",
+          status: "processing",
+          claimedBy: "w",
+          claimedAt: ancient,
+          enqueuedAt: ancient,
+        },
+      ]);
+      const result = await queue.purge(0);
+      expect(result.deleted).toBe(0);
+      const rows = await db.select().from(pendingOperations);
+      expect(rows).toHaveLength(2);
+    });
+
+    it("leaves terminal rows with null completed_at alone", async () => {
+      // Defensive: we should never insert a terminal row without completed_at
+      // in production code, but the delete guard should still skip them so
+      // the lt(null, x) comparison doesn't swallow untimestamped rows.
+      await db.insert(pendingOperations).values({
+        id: "op-weird",
+        type: "test",
+        payload: {} as never,
+        target: "core",
+        status: "succeeded",
+      });
+      const result = await queue.purge(0);
+      expect(result.deleted).toBe(0);
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

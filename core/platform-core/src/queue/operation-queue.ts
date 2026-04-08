@@ -29,7 +29,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, isNull, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
 import type { DrizzleDb } from "../db/index.js";
 import { type PendingOperationRow, pendingOperations } from "../db/schema/pending-operations.js";
 import type { NotificationSource } from "./notification-source.js";
@@ -78,6 +78,12 @@ export interface JanitorSweepResult {
   reset: number;
 }
 
+/** A summary of what a retention purge deleted, for logging and metrics. */
+export interface PurgeResult {
+  /** Number of terminal rows deleted. */
+  deleted: number;
+}
+
 /**
  * The queue interface. Used by `execute()` callers (which await completion)
  * and by workers (which claim/complete/fail rows).
@@ -91,6 +97,21 @@ export interface IOperationQueue {
    * no subscription — just `await queue.execute(...)`.
    */
   execute<T>(req: OperationRequest): Promise<T>;
+
+  /**
+   * Insert an operation row without awaiting its terminal state. Returns the
+   * row id (either a newly inserted row or the pre-existing row matched by
+   * `idempotencyKey`).
+   *
+   * Used by the periodic scheduler to race bucketed idempotency keys across
+   * every replica — all replicas call `enqueue()`, the unique partial index
+   * ensures only one row per bucket lands, and the winning row is drained
+   * by whichever core worker claims it first. No await, no timeout, no
+   * completion handler. Fire-and-forget.
+   *
+   * If a non-periodic caller needs the result, they should use `execute()`.
+   */
+  enqueue(req: OperationRequest): Promise<{ id: string }>;
 
   /**
    * Claim the oldest pending row for a given target. Transitions it to
@@ -121,6 +142,15 @@ export interface IOperationQueue {
    * Safe to call on a schedule; idempotent.
    */
   janitorSweep(nowMs?: number): Promise<JanitorSweepResult>;
+
+  /**
+   * Retention purge: delete terminal rows (`succeeded` or `failed`) whose
+   * `completed_at` is older than `olderThanMs`. Runs on a schedule to keep
+   * `pending_operations` from growing unbounded — especially now that all
+   * periodic maintenance tasks live in this table as bucketed idempotent
+   * rows. Safe to call repeatedly; idempotent.
+   */
+  purge(olderThanMs: number, nowMs?: number): Promise<PurgeResult>;
 
   /**
    * Attach a NotificationSource so `execute()` callers wake up immediately
@@ -254,6 +284,11 @@ export class OperationQueue implements IOperationQueue {
     const timeoutMs = req.timeoutMs ?? this.defaultExecuteTimeoutMs;
     const pollIntervalMs = req.pollIntervalMs ?? this.defaultPollIntervalMs;
     return this.awaitTerminal<T>(id, timeoutMs, pollIntervalMs);
+  }
+
+  async enqueue(req: OperationRequest): Promise<{ id: string }> {
+    const id = await this.enqueueOrJoin(req);
+    return { id };
   }
 
   /**
@@ -486,6 +521,24 @@ export class OperationQueue implements IOperationQueue {
       if (updated.length > 0) reset++;
     }
     return { reset };
+  }
+
+  // ---- purge() -------------------------------------------------------------
+
+  async purge(olderThanMs: number, nowMs?: number): Promise<PurgeResult> {
+    const now = nowMs ?? this.now();
+    const cutoffIso = new Date(now - olderThanMs).toISOString();
+    const deleted = await this.db
+      .delete(pendingOperations)
+      .where(
+        and(
+          inArray(pendingOperations.status, ["succeeded", "failed"]),
+          isNotNull(pendingOperations.completedAt),
+          lt(pendingOperations.completedAt, cutoffIso),
+        ),
+      )
+      .returning({ id: pendingOperations.id });
+    return { deleted: deleted.length };
   }
 }
 

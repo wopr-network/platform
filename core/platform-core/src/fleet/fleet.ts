@@ -22,8 +22,6 @@ import { Instance } from "./instance.js";
 import { type BotProfile, type BotStatus, containerNameFor } from "./types.js";
 
 export interface FleetOptions {
-  /** Replenish + cleanup ticker interval in ms. Default 60_000. */
-  replenishIntervalMs?: number;
   /**
    * Optional event emitter — passed through to Instance for lifecycle events.
    */
@@ -61,7 +59,6 @@ interface PoolWarmResult {
 
 export class Fleet implements IFleet {
   private readonly specs = new Map<string, PoolSpec>();
-  private timer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly queue: IOperationQueue,
@@ -69,40 +66,6 @@ export class Fleet implements IFleet {
     private readonly poolRepo: IPoolRepository | null,
     private readonly options: FleetOptions = {},
   ) {}
-
-  // ---------------------------------------------------------------------------
-  // Lifecycle ticker
-  // ---------------------------------------------------------------------------
-
-  async start(): Promise<{ stop: () => void }> {
-    // Run one sweep immediately so a fresh boot doesn't wait 60s before the
-    // first replenish. Errors are logged but don't block startup.
-    await this.tick().catch((err) => {
-      logger.warn("Fleet initial tick failed (non-fatal)", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-    const intervalMs = this.options.replenishIntervalMs ?? 60_000;
-    this.timer = setInterval(() => {
-      this.tick().catch((err) => {
-        logger.error("Fleet tick failed", { error: err instanceof Error ? err.message : String(err) });
-      });
-    }, intervalMs);
-    logger.info("Fleet started", { intervalMs, specs: [...this.specs.keys()] });
-    return { stop: () => this.stop() };
-  }
-
-  stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
-    }
-  }
-
-  private async tick(): Promise<void> {
-    await this.cleanupWarmPool();
-    await this.replenishWarmPool();
-  }
 
   // ---------------------------------------------------------------------------
   // Instance lifecycle
@@ -289,19 +252,129 @@ export class Fleet implements IFleet {
 
   async cleanupWarmPool(): Promise<void> {
     if (!this.poolRepo) return;
-    // Orphan reconciliation: the old per-node FleetManager had a `listPool`
-    // op it fired at each agent to compare Docker state to DB state. In the
-    // refactor that cross-checking moves to a later commit — for now we
-    // rely on the queue's janitor to recover stuck processing rows, and
-    // `markDead` + `deleteDead` are callable by operators as needed.
+
+    // Orphan reconciliation runs in two directions:
     //
-    // TODO(phase-4): enqueue `pool.list` pinned at each node with a row
-    // per node, reconcile with listActive() → markDead for missing rows,
-    // enqueue pinned pool.cleanup for dead rows.
+    //   1. DB → agent: for each pool_instances row, ask the agent whether
+    //      the container still exists. If not, mark the row `dead` so it
+    //      won't be claimed, then sweep dead rows at the end.
+    //
+    //   2. Agent → DB: for each container the agent reports, check whether
+    //      there's a matching pool_instances row. If not, it's an orphan
+    //      from a prior crash — enqueue a pinned `pool.cleanup` to remove it.
+    //
+    // We do both passes in a single loop per node: one `pool.list` op per
+    // node, then walk both sides of the set difference. All queue ops are
+    // pinned to the node because only the owning agent can inspect or
+    // remove a container — Docker sockets are local to the host.
+
+    // Group active (warm+claimed) rows by node so each agent gets one
+    // `pool.list` op regardless of how many warm containers it hosts.
+    const active = await this.poolRepo.listActive();
+    if (active.length === 0) return;
+
+    const byNode = new Map<string, typeof active>();
+    for (const row of active) {
+      const list = byNode.get(row.nodeId);
+      if (list === undefined) {
+        byNode.set(row.nodeId, [row]);
+      } else {
+        list.push(row);
+      }
+    }
+
+    // Reconcile each node independently. A single dead node doesn't block
+    // the others — we log and continue so a partial fleet outage doesn't
+    // freeze the reconcile loop forever.
+    for (const [nodeId, dbRows] of byNode) {
+      let liveContainers: { id: string; name: string; running: boolean }[] = [];
+      try {
+        liveContainers = await this.queue.execute<{ id: string; name: string; running: boolean }[]>({
+          type: "pool.list",
+          target: nodeId,
+          payload: {},
+          timeoutMs: 30_000,
+        });
+      } catch (err) {
+        logger.warn("Fleet.cleanupWarmPool: pool.list failed — skipping node", {
+          nodeId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        continue;
+      }
+
+      // Docker sometimes returns names with a leading slash ("/warm-slug-123").
+      // Normalize both sides so the set comparison matches on the logical name.
+      const liveNames = new Set(liveContainers.map((c) => stripLeadingSlash(c.name)));
+
+      // Pass 1: DB → agent. Rows whose container is gone → markDead.
+      for (const row of dbRows) {
+        if (!liveNames.has(row.id)) {
+          try {
+            await this.poolRepo.markDead(row.id);
+            logger.info("Fleet.cleanupWarmPool: marked dead (container missing)", {
+              nodeId,
+              id: row.id,
+            });
+          } catch (err) {
+            logger.warn("Fleet.cleanupWarmPool: markDead failed", {
+              nodeId,
+              id: row.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+
+      // Pass 2: agent → DB. Containers with no matching row → enqueue a
+      // pinned cleanup to remove the orphan. A "warm-*" name prefix guards
+      // against accidentally touching non-pool containers that happen to
+      // live on the same host.
+      const dbNames = new Set(dbRows.map((r) => r.id));
+      for (const container of liveContainers) {
+        const name = stripLeadingSlash(container.name);
+        if (!name.startsWith("warm-")) continue;
+        if (dbNames.has(name)) continue;
+        try {
+          await this.queue.execute({
+            type: "pool.cleanup",
+            target: nodeId,
+            payload: { name },
+            timeoutMs: 30_000,
+          });
+          logger.info("Fleet.cleanupWarmPool: removed orphan container", { nodeId, name });
+        } catch (err) {
+          logger.warn("Fleet.cleanupWarmPool: pool.cleanup failed", {
+            nodeId,
+            name,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+    }
+
+    // Finalize: purge any rows we (or an earlier sweep) marked dead. This
+    // keeps pool_instances from accumulating tombstones.
+    try {
+      await this.poolRepo.deleteDead();
+    } catch (err) {
+      logger.warn("Fleet.cleanupWarmPool: deleteDead failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   async warmCount(slug: string): Promise<number> {
     if (!this.poolRepo) return 0;
     return await this.poolRepo.warmCount(slug);
   }
+}
+
+/**
+ * Strip a leading "/" from Docker container names. Docker returns names
+ * with a leading slash (e.g. `/warm-slug-123`) in some APIs and without
+ * in others; we normalize so reconcile set operations work consistently.
+ */
+function stripLeadingSlash(name: string): string {
+  return name.startsWith("/") ? name.slice(1) : name;
 }

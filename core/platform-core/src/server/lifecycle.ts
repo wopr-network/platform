@@ -1,16 +1,29 @@
 /**
- * Lifecycle management — background services, leader election, and graceful shutdown.
+ * Lifecycle management — background services and graceful shutdown.
  *
- * Background services are split into two categories:
+ * There's no leader election anymore. Every replica starts the same set of
+ * background services:
  *
- * 1. **All-instance services** — safe to run on every platform-core instance
- *    (proxy hydration, profile backfill). Started immediately.
+ * 1. **Operation queue listener** — LISTEN `op_complete` / `op_enqueued` to
+ *    wake `execute()` waiters and worker drain loops without polling.
  *
- * 2. **Leader-only services** — singletons that must run on exactly one instance
- *    (hot pool, billing cron, health sweeps). Started/stopped by leader election.
+ * 2. **Core queue worker** — claim and process `core`-targeted rows from
+ *    `pending_operations`. Multi-replica safe via `SKIP LOCKED`.
+ *
+ * 3. **PeriodicScheduler** — fan out bucketed idempotency-key rows for
+ *    periodic maintenance tasks (janitor sweep, queue purge, fleet
+ *    reconciliation, runtime billing). Every replica enqueues; the unique
+ *    partial index on `idempotency_key` guarantees exactly one row per
+ *    bucket lands. See `queue/periodic-scheduler.ts`.
+ *
+ * 4. **Proxy hydration** — Caddy route sync (if enabled).
+ *
+ * 5. **bot_instances backfill** — one-time sync of YAML profiles into the
+ *    DB on startup.
  */
 
 import { logger } from "../config/logger.js";
+import { PeriodicScheduler, type ScheduledTask } from "../queue/periodic-scheduler.js";
 import type { PlatformContainer } from "./container.js";
 
 // ---------------------------------------------------------------------------
@@ -23,98 +36,31 @@ export interface BackgroundHandles {
 }
 
 // ---------------------------------------------------------------------------
-// startLeaderServices — only run on the leader instance
+// Periodic tasks
 // ---------------------------------------------------------------------------
 
-async function startLeaderServices(container: PlatformContainer): Promise<BackgroundHandles> {
-  const handles: BackgroundHandles = { intervals: [], unsubscribes: [] };
-  logger.info("Starting leader-only background services");
-
-  // Fleet composite ticker — runs cleanup + replenish across all connected
-  // nodes. Gated by leader election so non-leader replicas don't double-fire.
+/**
+ * The standard set of periodic maintenance tasks. Handlers are registered
+ * on the core queue worker in `container.ts` — this list is the cadence.
+ *
+ * Bucket sizes are intentional:
+ *   - `core.janitor.sweep` (30s) — short deadline so stuck rows recover fast.
+ *   - `core.fleet.reconcile` (60s) — matches the old fleet ticker cadence.
+ *   - `core.runtime.billing.tick` (day) — daily deduction, UTC aligned.
+ *   - `core.queue.purge` (day) — retention sweep, once per UTC day is plenty.
+ */
+function buildScheduledTasks(container: PlatformContainer): ScheduledTask[] {
+  const tasks: ScheduledTask[] = [
+    { type: "core.janitor.sweep", bucketSize: 30_000 },
+    { type: "core.queue.purge", bucketSize: "day" },
+  ];
   if (container.fleetComposite) {
-    try {
-      const fleetHandles = await container.fleetComposite.start();
-      handles.unsubscribes.push(fleetHandles.stop);
-    } catch (err) {
-      logger.warn("Fleet ticker start failed (non-fatal)", { error: (err as Error)?.message ?? err });
-    }
+    tasks.push({ type: "core.fleet.reconcile", bucketSize: 60_000 });
   }
-
-  // Queue janitor — reset `processing` rows whose `claimed_at + timeout_s`
-  // is in the past, so a worker crash doesn't strand in-flight work forever.
-  // Runs every 30s on the leader only; the sweep itself is idempotent and
-  // UPDATE-guarded on `status = 'processing'`, so double-firing would be
-  // safe anyway, but leader gating keeps DB load predictable.
-  const janitorInterval = setInterval(() => {
-    container.operationQueue
-      .janitorSweep()
-      .then((result) => {
-        if (result.reset > 0) {
-          logger.info("Queue janitor reset stale processing rows", { reset: result.reset });
-        }
-      })
-      .catch((err) => {
-        logger.warn("Queue janitor sweep failed", {
-          error: err instanceof Error ? err.message : String(err),
-        });
-      });
-  }, 30_000);
-  handles.intervals.push(janitorInterval);
-  logger.info("Queue janitor started (30s sweep interval)");
-
-  // Runtime billing cron — daily $0.17/bot deduction (requires fleet + creditLedger)
   if (container.fleet && container.creditLedger) {
-    try {
-      const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
-      const { DrizzleTenantAddonRepository } = await import("../monetization/addons/addon-repository.js");
-      const { startRuntimeScheduler } = await import("../monetization/credits/runtime-scheduler.js");
-
-      const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
-      const tenantAddonRepo = new DrizzleTenantAddonRepository(container.db);
-
-      const scheduler = startRuntimeScheduler({
-        ledger: container.creditLedger,
-        botInstanceRepo,
-        tenantAddonRepo,
-      });
-      handles.unsubscribes.push(scheduler.stop);
-
-      // Run immediately on startup (idempotent — skips if already billed today)
-      const { runRuntimeDeductions, buildResourceTierCosts } = await import("../monetization/credits/runtime-cron.js");
-      const { buildAddonCosts } = await import("../monetization/addons/addon-cron.js");
-      const today = new Date().toISOString().slice(0, 10);
-      void runRuntimeDeductions({
-        ledger: container.creditLedger,
-        date: today,
-        getActiveBotCount: async (tenantId) => {
-          const bots = await botInstanceRepo.listByTenant(tenantId);
-          return bots.filter((b) => b.billingState === "active").length;
-        },
-        getResourceTierCosts: buildResourceTierCosts(botInstanceRepo, async (tenantId) => {
-          const bots = await botInstanceRepo.listByTenant(tenantId);
-          return bots.filter((b) => b.billingState === "active").map((b) => b.id);
-        }),
-        getAddonCosts: buildAddonCosts(tenantAddonRepo),
-      })
-        .then((result) => logger.info("Initial runtime deductions complete", result))
-        .catch((err) => logger.error("Initial runtime deductions failed", { error: String(err) }));
-
-      logger.info("Runtime billing scheduler started (daily $0.17/bot deduction)");
-    } catch (err) {
-      logger.warn("Failed to start runtime billing scheduler (non-fatal)", { error: String(err) });
-    }
+    tasks.push({ type: "core.runtime.billing.tick", bucketSize: "day" });
   }
-
-  return handles;
-}
-
-function stopLeaderServices(handles: BackgroundHandles): void {
-  for (const interval of handles.intervals) clearInterval(interval);
-  for (const unsub of handles.unsubscribes) unsub();
-  handles.intervals.length = 0;
-  handles.unsubscribes.length = 0;
-  logger.info("Stopped leader-only background services");
+  return tasks;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,17 +68,12 @@ function stopLeaderServices(handles: BackgroundHandles): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Start background services after the server is listening.
- *
- * All-instance work runs immediately. Leader-only singletons are started
- * and stopped by the leader election callback — if this instance wins the
- * lease, it starts them; if it loses, it stops them.
+ * Start background services after the server is listening. Every service
+ * here runs on every replica — coordination happens at the DB layer via
+ * `pending_operations` claim/idempotency semantics, not at the process layer.
  */
 export async function startBackgroundServices(container: PlatformContainer): Promise<BackgroundHandles> {
   const handles: BackgroundHandles = { intervals: [], unsubscribes: [] };
-  let leaderHandles: BackgroundHandles | null = null;
-
-  // -- All-instance services (safe on every replica) --
 
   // DB-as-channel queue: start the LISTEN-side notification source over the
   // shared pg.Pool, then start the core worker's drain loop. Both are
@@ -197,26 +138,12 @@ export async function startBackgroundServices(container: PlatformContainer): Pro
     }
   }
 
-  // -- Leader election: gates singleton services --
-
-  const election = container.leaderElection;
-
-  election.onPromoted(async () => {
-    leaderHandles = await startLeaderServices(container);
-  });
-
-  election.onDemoted(() => {
-    if (leaderHandles) {
-      stopLeaderServices(leaderHandles);
-      leaderHandles = null;
-    }
-  });
-
-  election.start();
-  handles.unsubscribes.push(() => {
-    void election.stop();
-    if (leaderHandles) stopLeaderServices(leaderHandles);
-  });
+  // Periodic scheduler — enqueues bucketed rows on every replica. The DB's
+  // unique partial index on `idempotency_key` collapses duplicate inserts
+  // down to one row per bucket, so the underlying work runs exactly once.
+  const scheduler = new PeriodicScheduler(container.operationQueue, buildScheduledTasks(container));
+  scheduler.start();
+  handles.unsubscribes.push(() => scheduler.stop());
 
   return handles;
 }
