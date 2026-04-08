@@ -159,9 +159,6 @@ describe("createAdminRouter", () => {
 
       const container = createTestContainer({
         fleet: {
-          manager: {
-            status: vi.fn().mockResolvedValue(mockStatus),
-          } as never,
           docker: {} as never,
           proxy: {} as never,
           profileStore: {
@@ -173,6 +170,9 @@ describe("createAdminRouter", () => {
           },
           serviceKeyRepo: {} as never,
         },
+        fleetComposite: {
+          status: vi.fn().mockResolvedValue(mockStatus),
+        } as never,
         gateway: { serviceKeyRepo: {} as never, meter: {} as never, budgetChecker: {} as never },
       });
 
@@ -207,9 +207,6 @@ describe("createAdminRouter", () => {
 
       const container = createTestContainer({
         fleet: {
-          manager: {
-            status: vi.fn().mockRejectedValue(new Error("container not found")),
-          } as never,
           docker: {} as never,
           proxy: {} as never,
           profileStore: {
@@ -221,6 +218,9 @@ describe("createAdminRouter", () => {
           },
           serviceKeyRepo: {} as never,
         },
+        fleetComposite: {
+          status: vi.fn().mockRejectedValue(new Error("container not found")),
+        } as never,
         gateway: { serviceKeyRepo: {} as never, meter: {} as never, budgetChecker: {} as never },
       });
 

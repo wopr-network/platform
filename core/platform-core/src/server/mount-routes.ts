@@ -413,7 +413,7 @@ export async function mountRoutes(
               productConfig: container.productConfig, // Fallback — createInstance resolves per-product via resolveProductConfig
               serviceKeyRepo: container.fleet.serviceKeyRepo,
               assertOrgAdminOrOwner,
-              getFleetForInstance: (_instanceId: string) => need(container.fleet, "fleet").manager as never,
+              fleet: need(container.fleetComposite, "fleetComposite"),
               provisionSecret: config.provisionSecret,
               resolveProductConfig: (slug: string) => container.productConfigService.getBySlug(slug),
               instanceService: need(container.instanceService, "instanceService"),

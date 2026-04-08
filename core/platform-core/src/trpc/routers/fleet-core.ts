@@ -24,35 +24,6 @@ import { z } from "zod";
 // Deps
 // ---------------------------------------------------------------------------
 
-/** Fleet manager interface (subset used by the router). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FleetManagerLike = {
-  status: (id: string) => Promise<{
-    id: string;
-    name: string;
-    description: string;
-    image: string;
-    containerId: string | null;
-    state: string;
-    health: unknown;
-    uptime: unknown;
-    startedAt: string | null;
-    createdAt: string;
-    updatedAt: string;
-    stats: unknown;
-    applicationMetrics: unknown;
-  }>;
-  logs: (id: string, tail: number) => Promise<string>;
-  remove: (id: string) => Promise<void>;
-  getInstance: (
-    id: string,
-  ) => Promise<{ start: () => Promise<void>; stop: () => Promise<void>; startBilling: () => Promise<void> }>;
-  create: (
-    params: Record<string, unknown>,
-    resourceLimits?: unknown,
-  ) => Promise<{ id: string; profile: { name: string; tenantId: string } }>;
-};
-
 export interface FleetCoreRouterDeps {
   creditLedger: ILedger;
   profileStore: IProfileStore;
@@ -60,8 +31,11 @@ export interface FleetCoreRouterDeps {
   serviceKeyRepo: IServiceKeyRepository | null;
   /** Assert caller is admin/owner of the tenant. Skips check for personal tenants (tenantId === userId). */
   assertOrgAdminOrOwner: (tenantId: string, userId: string, roles?: string[]) => Promise<void>;
-  /** Get the FleetManager for a given instance. Product-specific resolution. */
-  getFleetForInstance: (instanceId: string) => FleetManagerLike;
+  /**
+   * The Fleet composite. Same interface as a leaf — single-target ops resolve
+   * the owning node from bot_instances.node_id and dispatch automatically.
+   */
+  fleet: import("../../fleet/i-fleet.js").IFleet;
   /** Remove route for an instance. */
   removeRoute?: (instanceId: string) => Promise<void>;
   /** Provision secret for calling container /internal/provision. */
@@ -91,7 +65,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
       const bots = await Promise.all(
         tenantProfiles.map(async (profile) => {
           try {
-            const fleet = d.getFleetForInstance(profile.id);
+            const fleet = d.fleet;
             return await fleet.status(profile.id);
           } catch {
             return {
@@ -127,7 +101,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         if (profile.tenantId !== tenant) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
         }
-        const fleet = d.getFleetForInstance(input.id);
+        const fleet = d.fleet;
         return await fleet.status(input.id);
       }),
 
@@ -157,7 +131,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           if (profile.tenantId !== tenant) {
             throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
           }
-          const fleet = d.getFleetForInstance(input.id);
+          const fleet = d.fleet;
           switch (input.action) {
             case "start": {
               const instance = await fleet.getInstance(input.id);
@@ -202,7 +176,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         if (profile.tenantId !== tenant) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
         }
-        const fleet = d.getFleetForInstance(input.id);
+        const fleet = d.fleet;
         const status = await fleet.status(input.id);
         return {
           id: status.id,
@@ -225,8 +199,8 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         if (profile.tenantId !== tenant) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
         }
-        const fleet = d.getFleetForInstance(input.id);
-        const rawLogs = await fleet.logs(input.id, input.tail ?? 100);
+        const fleet = d.fleet;
+        const rawLogs = await fleet.logs(input.id, { tail: input.tail ?? 100 });
         const logs = rawLogs.split("\n").filter((line) => line.trim().length > 0);
         return { logs };
       }),
@@ -243,7 +217,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         if (profile.tenantId !== tenant) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
         }
-        const fleet = d.getFleetForInstance(input.id);
+        const fleet = d.fleet;
         const status = await fleet.status(input.id);
         return { id: status.id, stats: status.stats };
       }),

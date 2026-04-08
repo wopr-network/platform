@@ -120,12 +120,27 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
       }
 
       const fleet = container.fleet;
+      const fleetComposite = container.fleetComposite;
       const profiles = await fleet.profileStore.list();
 
       const instances = await Promise.all(
         profiles.map(async (profile) => {
           try {
-            const status = await fleet.manager.status(profile.id);
+            if (!fleetComposite) {
+              return {
+                id: profile.id,
+                name: profile.name,
+                tenantId: profile.tenantId,
+                image: profile.image,
+                state: "stopped" as const,
+                health: null,
+                uptime: null,
+                containerId: null,
+                startedAt: null,
+              };
+            }
+            // Composite resolves the owning node from bot_instances.node_id.
+            const status = await fleetComposite.status(profile.id);
             return {
               id: profile.id,
               name: profile.name,

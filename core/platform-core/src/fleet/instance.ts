@@ -24,6 +24,8 @@ export interface InstanceDeps {
   containerId: string;
   containerName: string;
   url: string;
+  /** ID of the node this instance lives on. */
+  nodeId: string;
   /** Optional — managed instances use these for billing/proxy/events */
   instanceRepo?: IBotInstanceRepository;
   proxyManager?: ProxyManagerInterface;
@@ -37,6 +39,8 @@ export class Instance {
   readonly containerName: string;
   readonly url: string;
   readonly profile: BotProfile;
+  /** ID of the node this instance lives on. Set by the FleetManager that built it. */
+  readonly nodeId: string;
 
   private readonly docker: Docker | undefined;
   private readonly instanceRepo: IBotInstanceRepository | undefined;
@@ -59,6 +63,7 @@ export class Instance {
     this.containerName = deps.containerName;
     this.url = deps.url;
     this.profile = deps.profile;
+    this.nodeId = deps.nodeId;
     this.docker = deps.docker;
     this.instanceRepo = deps.instanceRepo;
     this.proxyManager = deps.proxyManager;

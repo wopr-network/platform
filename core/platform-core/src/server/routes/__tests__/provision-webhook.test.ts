@@ -89,12 +89,6 @@ function makeFleet(): FleetServices {
     placementStrategy: {
       selectNode: vi.fn().mockReturnValue({ config: { id: "local", maxContainers: 10 }, fleet: mockFleetManager }),
     } as never,
-    fleetResolver: {
-      addRoute: vi.fn(),
-      removeRoute: vi.fn(),
-      registerRoute: vi.fn(),
-      unregisterRoute: vi.fn(),
-    } as never,
     orgInstanceResolver: {} as never,
   };
 }

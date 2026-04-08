@@ -193,10 +193,11 @@ export function createTenantProxyMiddleware(
       logger.info("Tenant proxy: resolved from route table", { subdomain, upstream });
     }
 
-    // Primary path: get the Instance from fleet (Docker inspect — the truth)
-    if (!upstream && profile.id) {
+    // Primary path: get the Instance from the fleet composite, which resolves
+    // the owning node from bot_instances.node_id (no hardcoded local).
+    if (!upstream && profile.id && container.fleetComposite) {
       try {
-        const instance = await container.fleet.manager.getInstance(profile.id);
+        const instance = await container.fleetComposite.getInstance(profile.id);
         upstream = instance.url;
         logger.info("Tenant proxy: resolved from Instance", {
           subdomain,

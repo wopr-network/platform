@@ -332,7 +332,7 @@ describe("buildContainer", () => {
     const container = await buildContainer(config);
 
     expect(container.fleet).not.toBeNull();
-    expect(container.fleet?.manager).toBeDefined();
+    expect(container.fleetComposite).not.toBeNull();
     expect(container.fleet?.nodeRegistry).toBeDefined();
     expect(container.fleet?.proxy).toBeDefined();
     expect(container.fleet?.profileStore).toBeDefined();

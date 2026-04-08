@@ -20,8 +20,6 @@ import type { IAuthUserRepository } from "../db/auth-user-repository.js";
 import type { DrizzleDb } from "../db/index.js";
 import type { INotificationPreferencesRepository } from "../email/index.js";
 import type { ContainerPlacementStrategy } from "../fleet/container-placement.js";
-import type { FleetManager } from "../fleet/fleet-manager.js";
-import type { FleetResolver } from "../fleet/fleet-resolver.js";
 import type { NodeRegistry } from "../fleet/node-registry.js";
 import type { OrgInstanceResolver } from "../fleet/org-instance-resolver.js";
 import type { IPageContextRepository } from "../fleet/page-context-repository.js";
@@ -44,13 +42,11 @@ import type { BootConfig } from "./boot-config.js";
 // ---------------------------------------------------------------------------
 
 export interface FleetServices {
-  manager: FleetManager;
   proxy: ProxyManagerInterface;
   profileStore: IProfileStore;
   serviceKeyRepo: IServiceKeyRepository;
   nodeRegistry: NodeRegistry;
   placementStrategy: ContainerPlacementStrategy;
-  fleetResolver: FleetResolver;
   orgInstanceResolver: OrgInstanceResolver;
 }
 
@@ -247,7 +243,6 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { DrizzleServiceKeyRepository } = await import("../gateway/service-key-repository.js");
     const { NodeRegistry: NodeRegistryClass } = await import("../fleet/node-registry.js");
     const { createContainerPlacementStrategy } = await import("../fleet/container-placement.js");
-    const { FleetResolver: FleetResolverClass } = await import("../fleet/fleet-resolver.js");
     const { OrgInstanceResolver: OrgInstanceResolverClass } = await import("../fleet/org-instance-resolver.js");
 
     const profileStore: IProfileStore = new DrizzleBotProfileStore(db);
@@ -283,23 +278,17 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     await nodeRegistry.loadFromDb(db, profileStore);
 
     const placementStrategy = createContainerPlacementStrategy("least-loaded");
-    const fleetResolver = new FleetResolverClass(proxy);
     const orgInstanceResolver = new OrgInstanceResolverClass({ profileStore, proxyManager: proxy });
 
-    // The "manager" and "docker" are from the local node — for backwards compat
-    // with callers that haven't migrated to node-aware fleet operations yet.
-    // All new code should go through nodeRegistry.getFleetManager(nodeId).
-    const localNode = nodeRegistry.get("local");
-    if (!localNode) throw new Error("No local fleet node registered — ensure a 'local' row exists in the nodes table");
-
+    // No more `manager: localNode.fleet` shortcut. Callers go through the
+    // Fleet composite (container.fleetComposite) which dispatches to whichever
+    // node owns the instance — no hardcoded "local".
     fleet = {
-      manager: localNode.fleet,
       proxy,
       profileStore,
       serviceKeyRepo,
       nodeRegistry,
       placementStrategy,
-      fleetResolver,
       orgInstanceResolver,
     };
   }
@@ -525,10 +514,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
       botInstanceRepo,
       serviceKeyRepo: fleet.serviceKeyRepo,
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? null,
-      nodeRegistry: fleet.nodeRegistry,
-      placementStrategy: fleet.placementStrategy,
-      fleetResolver: fleet.fleetResolver,
-      poolRepo,
+      fleet: fleetComposite,
     });
   }
 

@@ -540,6 +540,7 @@ export class FleetManager implements INodeFleet {
 
     return new Instance({
       profile,
+      nodeId: this.nodeId,
       containerId: `${this.nodeId}:${containerName}`,
       containerName,
       url,

@@ -12,9 +12,7 @@ import type { ILedger } from "../credits/ledger.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
 import type { ProductConfig } from "../product-config/index.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
-import type { ContainerPlacementStrategy } from "./container-placement.js";
-import type { FleetResolver } from "./fleet-resolver.js";
-import type { NodeRegistry } from "./node-registry.js";
+import type { IFleet } from "./i-fleet.js";
 import type { IProfileStore } from "./profile-store.js";
 
 // ---------------------------------------------------------------------------
@@ -50,12 +48,12 @@ export interface InstanceServiceDeps {
   botInstanceRepo: IBotInstanceRepository;
   serviceKeyRepo: IServiceKeyRepository | null;
   provisionSecret: string | null;
-  /** Node-aware fleet infrastructure — placement, tracking, proxy registration. */
-  nodeRegistry: NodeRegistry;
-  placementStrategy: ContainerPlacementStrategy;
-  fleetResolver: FleetResolver;
-  /** Pool repository for warm container awareness in placement. Null when hot pool disabled. */
-  poolRepo: import("../server/services/pool-repository.js").IPoolRepository | null;
+  /**
+   * The Fleet composite. Hides node placement, pool claim, and per-node
+   * dispatch behind one IFleet interface — InstanceService never iterates
+   * nodes or knows which one will be picked.
+   */
+  fleet: IFleet;
 }
 
 // ---------------------------------------------------------------------------
@@ -93,36 +91,15 @@ export class InstanceService {
       }
     }
 
-    // 3. Acquire container via fleet (pool is handled inside FleetManager.create)
+    // 3. Acquire container via the Fleet composite. Placement, pool claim,
+    // and per-node dispatch all happen inside fleet.create — InstanceService
+    // doesn't know or care which node was picked until the result comes back.
     const instanceEnv: Record<string, string> = { ...env };
     if (d.provisionSecret) {
       instanceEnv.WOPR_PROVISION_SECRET = d.provisionSecret;
     }
 
-    // 4. Select target node via placement strategy
-    const nodes = d.nodeRegistry.list();
-    const containerCounts = await d.nodeRegistry.getContainerCounts();
-    const nodeMetrics = await d.nodeRegistry.getNodeMetrics();
-    const tenantInstances = await d.botInstanceRepo.listByTenant(tenantId);
-    const tenantNodes = new Set(tenantInstances.map((i) => i.nodeId).filter((n): n is string => n !== null));
-    const warmContainersByNode = d.poolRepo ? await d.poolRepo.warmCountByNode(productSlug) : undefined;
-    const targetNode = d.placementStrategy.selectNode(nodes, {
-      containerCounts,
-      nodeMetrics,
-      warmContainersByNode,
-      tenantId,
-      tenantNodes,
-    });
-    const fleet = targetNode.fleet;
-    logger.info("Instance.create: node selected", {
-      nodeId: targetNode.config.id,
-      nodeName: targetNode.config.name,
-      productSlug,
-      image,
-    });
-
-    // 3. Create container on the selected node
-    const result = await fleet.create({
+    const result = await d.fleet.create({
       tenantId,
       name,
       description: description ?? "",
@@ -134,7 +111,8 @@ export class InstanceService {
       updatePolicy: "manual",
     });
     const instanceId = result.id;
-    logger.info("Instance.create: container created", { instanceId, productSlug, nodeId: targetNode.config.id });
+    const nodeId = result.nodeId;
+    logger.info("Instance.create: container created", { instanceId, productSlug, nodeId });
 
     // From here on, anything that throws must roll back the container,
     // bot_instances row, and profile so we don't leak orphans. fleet.remove()
@@ -163,7 +141,7 @@ export class InstanceService {
         id: instanceId,
         tenantId,
         name,
-        nodeId: targetNode.config.id,
+        nodeId,
         containerPort,
         billingState: "inactive",
         createdByUserId: userId,
@@ -295,14 +273,14 @@ export class InstanceService {
         });
       }
 
-      return { id: instanceId, name, tenantId, nodeId: targetNode.config.id, containerUrl, gatewayKey, provisioned };
+      return { id: instanceId, name, tenantId, nodeId, containerUrl, gatewayKey, provisioned };
     } catch (err) {
       logger.error("Instance.create: post-create step failed, rolling back", {
         instanceId,
         error: err instanceof Error ? err.message : String(err),
       });
       try {
-        await fleet.remove(instanceId);
+        await d.fleet.remove(instanceId);
         logger.info("Instance.create: rollback removed container + profile + bot_instance", { instanceId });
       } catch (cleanupErr) {
         logger.warn("Instance.create: rollback fleet.remove failed (orphan reconciliation will sweep)", {
@@ -330,11 +308,10 @@ export class InstanceService {
     restartPolicy?: "no" | "always" | "on-failure" | "unless-stopped";
     readonlyRootfs?: boolean;
   }): Promise<{ id: string; url: string; containerId: string; name: string; gatewayKey: string | null }> {
-    // Bare container — use local node's fleet manager directly (no node placement).
-    // Products like holyship manage their own lifecycle.
-    const localNode = this.deps.nodeRegistry.list()[0];
-    const fleet = localNode.fleet;
-    const instance = await fleet.create({
+    // Bare container — products like holyship manage their own lifecycle.
+    // Goes through the Fleet composite so placement picks a node like any
+    // other create. No more nodes[0] hardcode.
+    const instance = await this.deps.fleet.create({
       tenantId: params.tenantId,
       name: params.name,
       description: "",
@@ -374,32 +351,19 @@ export class InstanceService {
   }
 
   /**
-   * Resolve the fleet manager for an existing instance.
-   * Reads node_id from bot_instances DB — survives restarts.
-   */
-  private async resolveFleetForInstance(instanceId: string) {
-    const d = this.deps;
-    const botInstance = await d.botInstanceRepo.getById(instanceId);
-    const nodeId = botInstance?.nodeId ?? null;
-    const fleet = nodeId ? d.nodeRegistry.getFleetManager(nodeId) : d.nodeRegistry.list()[0].fleet;
-    return { fleet, nodeId };
-  }
-
-  /**
    * Destroy a managed instance — deprovision, revoke keys, remove container,
-   * unassign node, remove proxy route, stop billing.
+   * stop billing. Owner-node lookup is handled inside fleet.getInstance/remove.
    */
   async destroy(params: { instanceId: string; provisionSecret: string; tenantEntityId?: string }): Promise<void> {
     const { instanceId, provisionSecret, tenantEntityId } = params;
     const d = this.deps;
-    const { fleet } = await this.resolveFleetForInstance(instanceId);
 
     logger.info("Instance.destroy: starting", { instanceId, hasTenantEntity: !!tenantEntityId });
 
     // 1. Deprovision (graceful teardown inside the container)
     if (tenantEntityId) {
       try {
-        const inst = await fleet.getInstance(instanceId);
+        const inst = await d.fleet.getInstance(instanceId);
         const { deprovisionContainer } = await import("@wopr-network/provision-client");
         await deprovisionContainer(inst.url, provisionSecret, tenantEntityId);
         logger.info("Instance.destroy: deprovisioned", { instanceId });
@@ -417,9 +381,9 @@ export class InstanceService {
       logger.info("Instance.destroy: service key revoked", { instanceId });
     }
 
-    // 3. Remove the Docker container
+    // 3. Remove the Docker container (composite resolves owner node, deletes profile + bot_instances)
     try {
-      await fleet.remove(instanceId);
+      await d.fleet.remove(instanceId);
       logger.info("Instance.destroy: container removed", { instanceId });
     } catch (err) {
       logger.warn("Instance.destroy: container removal failed (may already be gone)", {
@@ -428,11 +392,7 @@ export class InstanceService {
       });
     }
 
-    // 4. Remove proxy route (node assignment cleaned up when bot_instances row is deleted)
-    await d.fleetResolver.removeRoute(instanceId);
-    logger.info("Instance.destroy: route removed", { instanceId });
-
-    // 5. Stop billing
+    // 4. Stop billing
     try {
       await d.botInstanceRepo.setBillingState(instanceId, "inactive");
       logger.info("Instance.destroy: billing stopped", { instanceId });
@@ -455,9 +415,7 @@ export class InstanceService {
     perAgentCents?: number;
   }): Promise<void> {
     const { instanceId, provisionSecret, tenantEntityId, budgetCents, perAgentCents } = params;
-    const { fleet } = await this.resolveFleetForInstance(instanceId);
-
-    const inst = await fleet.getInstance(instanceId);
+    const inst = await this.deps.fleet.getInstance(instanceId);
     logger.info("Instance.updateBudget: forwarding", { instanceId, budgetCents, url: inst.url });
 
     const { updateBudget: sendBudgetUpdate } = await import("@wopr-network/provision-client");
