@@ -105,36 +105,39 @@ export class Fleet implements IFleet {
     });
   }
 
-  async remove(id: string, opts?: { removeVolumes?: boolean; nodeId?: string }): Promise<void> {
+  async remove(id: string, opts?: { removeVolumes?: boolean; nodeId?: string; productSlug?: string }): Promise<void> {
     // Lifecycle op — must run on the node that owns the container. If the
-    // caller passed an explicit nodeId (saga rollback path, where bot_instances
-    // isn't written yet), use it. Otherwise look up from the DB.
-    const nodeId = opts?.nodeId ?? (await this.locator.findNodeFor(id));
-    if (!nodeId) {
-      logger.warn("Fleet.remove: no owning node for instance", { id });
-      return;
+    // caller passed an explicit nodeId+productSlug (saga rollback path,
+    // where bot_instances isn't written yet), use them. Otherwise look up
+    // from the DB.
+    let nodeId = opts?.nodeId;
+    let productSlug = opts?.productSlug;
+    if (!nodeId || !productSlug) {
+      const located = await this.locator.locate(id);
+      if (!located) {
+        logger.warn("Fleet.remove: no owning node for instance", { id });
+        return;
+      }
+      nodeId = nodeId ?? located.nodeId;
+      productSlug = productSlug ?? located.productSlug;
     }
-    // Construct the name deterministically — bot_instances doesn't store it
-    // verbatim, but containerNameFor is stable given the instance id and
-    // product slug. For the rollback path the caller may not have the
-    // productSlug handy, so we accept the id-based naming convention used
-    // throughout the codebase.
+    const name = containerNameFor({ id, productSlug });
     await this.queue.execute({
       type: "bot.remove",
       target: nodeId,
-      payload: { id, name: id, removeVolumes: opts?.removeVolumes === true },
+      payload: { id, name, removeVolumes: opts?.removeVolumes === true },
     });
   }
 
   async getInstance(id: string): Promise<Instance> {
-    const nodeId = await this.locator.findNodeFor(id);
-    if (!nodeId) throw new Error(`Fleet.getInstance: no owning node for instance ${id}`);
-    // Minimal Instance handle built from the DB. Callers that need deeper
-    // inspection (runtime status, logs) use `.status()` / `.logs()` which
-    // enqueue pinned ops.
-    const name = id; // bot_instances doesn't store the container name separately
+    const located = await this.locator.locate(id);
+    if (!located) throw new Error(`Fleet.getInstance: no owning node for instance ${id}`);
+    const { nodeId, productSlug } = located;
+    // Recompute the deterministic container name from (productSlug, id) so
+    // the proxy URL matches what the agent actually created on Docker.
+    const name = containerNameFor({ id, productSlug });
     return new Instance({
-      profile: { id, name, image: "", tenantId: "", productSlug: "", env: {} } as BotProfile,
+      profile: { id, name, image: "", tenantId: "", productSlug, env: {} } as BotProfile,
       containerId: `${nodeId}:${name}`,
       containerName: name,
       url: `http://${name}:3100`,
@@ -145,23 +148,25 @@ export class Fleet implements IFleet {
   }
 
   async status(id: string): Promise<BotStatus> {
-    const nodeId = await this.locator.findNodeFor(id);
-    if (!nodeId) throw new Error(`Fleet.status: no owning node for instance ${id}`);
+    const located = await this.locator.locate(id);
+    if (!located) throw new Error(`Fleet.status: no owning node for instance ${id}`);
+    const name = containerNameFor({ id, productSlug: located.productSlug });
     const result = await this.queue.execute<BotStatus>({
       type: "bot.inspect",
-      target: nodeId,
-      payload: { name: id },
+      target: located.nodeId,
+      payload: { name },
     });
     return result;
   }
 
   async logs(id: string, opts?: { tail?: number }): Promise<string> {
-    const nodeId = await this.locator.findNodeFor(id);
-    if (!nodeId) throw new Error(`Fleet.logs: no owning node for instance ${id}`);
+    const located = await this.locator.locate(id);
+    if (!located) throw new Error(`Fleet.logs: no owning node for instance ${id}`);
+    const name = containerNameFor({ id, productSlug: located.productSlug });
     const result = await this.queue.execute<{ data?: string } | string>({
       type: "bot.logs",
-      target: nodeId,
-      payload: { name: id, tail: opts?.tail ?? 100 },
+      target: located.nodeId,
+      payload: { name, tail: opts?.tail ?? 100 },
     });
     if (typeof result === "string") return result;
     return typeof result?.data === "string" ? result.data : "";

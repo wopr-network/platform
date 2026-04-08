@@ -9,18 +9,20 @@
  */
 
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
-import type { IInstanceLocator } from "./i-fleet.js";
+import type { IInstanceLocator, InstanceLocation } from "./i-fleet.js";
 
 /**
- * Resolves an instance ID to its owning node by reading
- * `bot_instances.node_id`. Used by `Fleet` to dispatch lifecycle ops
- * (remove, status, logs) to the agent that hosts the container.
+ * Resolves an instance ID to its owning node + product slug by reading
+ * `bot_instances`. Used by `Fleet` to dispatch lifecycle ops to the agent
+ * that hosts the container and to recompute the deterministic container
+ * name from the slug.
  */
 export class DbInstanceLocator implements IInstanceLocator {
   constructor(private readonly botInstanceRepo: IBotInstanceRepository) {}
 
-  async findNodeFor(instanceId: string): Promise<string | null> {
+  async locate(instanceId: string): Promise<InstanceLocation | null> {
     const row = await this.botInstanceRepo.getById(instanceId);
-    return row?.nodeId ?? null;
+    if (!row?.nodeId) return null;
+    return { nodeId: row.nodeId, productSlug: row.productSlug };
   }
 }

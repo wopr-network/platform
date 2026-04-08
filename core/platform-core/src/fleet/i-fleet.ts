@@ -176,14 +176,21 @@ export interface IFleet {
 }
 
 /**
- * Resolves an instance ID to its owning node. Used by `Fleet` to dispatch
- * lifecycle ops (remove, status, logs, inspect) to the agent that hosts
- * the container.
+ * Resolves an instance ID to its owning node and product slug. Used by
+ * `Fleet` to dispatch lifecycle ops (remove, status, logs, inspect) to
+ * the agent that hosts the container, and to recompute the deterministic
+ * container name (`containerNameFor({ id, productSlug })`) so the proxy
+ * URL matches what the agent actually created on Docker.
  *
- * Backed by the `bot_instances` DB table, where `node_id` is persisted
- * after `create()` returns.
+ * Backed by the `bot_instances` DB table, where `node_id` and
+ * `product_slug` are persisted after `create()` returns.
  */
+export interface InstanceLocation {
+  nodeId: string;
+  productSlug: string;
+}
+
 export interface IInstanceLocator {
-  /** Returns the node ID that owns this instance, or null if not found. */
-  findNodeFor(instanceId: string): Promise<string | null>;
+  /** Returns the owning node + product slug, or null if not found. */
+  locate(instanceId: string): Promise<InstanceLocation | null>;
 }
