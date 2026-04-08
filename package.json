@@ -27,6 +27,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "@embedded-postgres/linux-x64",
       "better-sqlite3",
       "cpu-features",
       "esbuild",
@@ -42,6 +43,9 @@
       "drizzle-orm": "^0.45.1",
       "@types/pg": "^8.18.0",
       "rollup": "^4.59.0"
+    },
+    "patchedDependencies": {
+      "embedded-postgres@18.1.0-beta.16": "sidecars/paperclip/patches/embedded-postgres@18.1.0-beta.16.patch"
     }
   }
 }

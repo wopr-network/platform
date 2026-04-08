@@ -12,18 +12,7 @@ import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
 type JoinType = "human" | "agent";
 const joinAdapterOptions: AgentAdapterType[] = [...AGENT_ADAPTER_TYPES];
 
-const adapterLabels: Record<string, string> = {
-  claude_local: "Claude (local)",
-  codex_local: "Codex (local)",
-  gemini_local: "Gemini CLI (local)",
-  opencode_local: "OpenCode (local)",
-  pi_local: "Pi (local)",
-  openclaw_gateway: "OpenClaw Gateway",
-  cursor: "Cursor (local)",
-  hermes_local: "Hermes Agent",
-  process: "Process",
-  http: "HTTP",
-};
+import { getAdapterLabel } from "../adapters/adapter-display-registry";
 
 const ENABLED_INVITE_ADAPTERS = new Set([
   "claude_local",
@@ -32,7 +21,6 @@ const ENABLED_INVITE_ADAPTERS = new Set([
   "opencode_local",
   "pi_local",
   "cursor",
-  "hermes_local",
 ]);
 
 function dateTime(value: string) {
@@ -90,8 +78,6 @@ export function InviteLandingPage() {
       setJoinType(availableJoinTypes[0] ?? "human");
     }
   }, [availableJoinTypes, joinType]);
-
-  const isHosted = healthQuery.data?.hostedMode === true;
 
   const requiresAuthForHuman =
     joinType === "human" && healthQuery.data?.deploymentMode === "authenticated" && !sessionQuery.data;
@@ -278,23 +264,21 @@ export function InviteLandingPage() {
                 onChange={(event) => setAgentName(event.target.value)}
               />
             </label>
-            {!isHosted && (
-              <label className="block text-sm">
-                <span className="mb-1 block text-muted-foreground">Adapter type</span>
-                <select
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                  value={adapterType}
-                  onChange={(event) => setAdapterType(event.target.value as AgentAdapterType)}
-                >
-                  {joinAdapterOptions.map((type) => (
-                    <option key={type} value={type} disabled={!ENABLED_INVITE_ADAPTERS.has(type)}>
-                      {adapterLabels[type]}
-                      {!ENABLED_INVITE_ADAPTERS.has(type) ? " (Coming soon)" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">Adapter type</span>
+              <select
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={adapterType}
+                onChange={(event) => setAdapterType(event.target.value as AgentAdapterType)}
+              >
+                {joinAdapterOptions.map((type) => (
+                  <option key={type} value={type} disabled={!ENABLED_INVITE_ADAPTERS.has(type)}>
+                    {getAdapterLabel(type)}
+                    {!ENABLED_INVITE_ADAPTERS.has(type) ? " (Coming soon)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="block text-sm">
               <span className="mb-1 block text-muted-foreground">Capabilities (optional)</span>
               <textarea

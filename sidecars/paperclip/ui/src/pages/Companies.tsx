@@ -4,7 +4,6 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
-import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { formatCents, relativeTime } from "../lib/utils";
 import { Input } from "@/components/ui/input";
@@ -28,13 +27,6 @@ export function Companies() {
     queryKey: queryKeys.companies.stats,
     queryFn: () => companiesApi.stats(),
   });
-
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    staleTime: 60_000,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,14 +71,12 @@ export function Companies() {
 
   return (
     <div className="space-y-6">
-      {!isHosted && (
-        <div className="flex items-center justify-end">
-          <Button size="sm" onClick={() => openOnboarding()}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Company
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center justify-end">
+        <Button size="sm" onClick={() => openOnboarding()}>
+          <Plus className="h-3.5 w-3.5 mr-1.5" />
+          New Company
+        </Button>
+      </div>
 
       <div className="h-6">
         {loading && <p className="text-sm text-muted-foreground">Loading companies...</p>}

@@ -120,11 +120,14 @@ function setVersion(version) {
   const cliEntry = readFileSync(cliEntryPath, "utf8");
   const nextCliEntry = cliEntry.replace(/\.version\("([^"]+)"\)/, `.version("${version}")`);
 
-  if (cliEntry === nextCliEntry) {
-    throw new Error("failed to rewrite CLI version string in cli/src/index.ts");
+  if (cliEntry !== nextCliEntry) {
+    writeFileSync(cliEntryPath, nextCliEntry);
+    return;
   }
 
-  writeFileSync(cliEntryPath, nextCliEntry);
+  if (!cliEntry.includes(".version(cliVersion)")) {
+    throw new Error("failed to rewrite CLI version string in cli/src/index.ts");
+  }
 }
 
 function listPackages() {

@@ -1,12 +1,13 @@
 import { ChangeEvent, useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@/lib/router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION } from "@paperclipai/shared";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToast } from "../context/ToastContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { assetsApi } from "../api/assets";
-import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Settings, Check, Download, Upload } from "lucide-react";
@@ -19,17 +20,13 @@ type AgentSnippetInput = {
   testResolutionUrl?: string | null;
 };
 
+const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
+
 export function CompanySettings() {
   const { companies, selectedCompany, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    staleTime: 60_000,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
   // General settings local state
   const [companyName, setCompanyName] = useState("");
   const [description, setDescription] = useState("");
@@ -72,6 +69,27 @@ export function CompanySettings() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+    },
+  });
+
+  const feedbackSharingMutation = useMutation({
+    mutationFn: (enabled: boolean) =>
+      companiesApi.update(selectedCompanyId!, {
+        feedbackDataSharingEnabled: enabled,
+      }),
+    onSuccess: (_company, enabled) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
+      pushToast({
+        title: enabled ? "Feedback sharing enabled" : "Feedback sharing disabled",
+        tone: "success",
+      });
+    },
+    onError: (err) => {
+      pushToast({
+        title: "Failed to update feedback sharing",
+        body: err instanceof Error ? err.message : "Unknown error",
+        tone: "error",
+      });
     },
   });
 
@@ -347,75 +365,115 @@ export function CompanySettings() {
         </div>
       </div>
 
-      {/* Invites */}
-      {!isHosted && (
-        <div className="space-y-4" data-testid="company-settings-invites-section">
-          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Invites</div>
-          <div className="space-y-3 rounded-md border border-border px-4 py-4">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Generate an OpenClaw agent invite snippet.</span>
-              <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feedback Sharing</div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <ToggleField
+            label="Allow sharing voted AI outputs with Paperclip Labs"
+            hint="Only AI-generated outputs you explicitly vote on are eligible for feedback sharing."
+            checked={!!selectedCompany.feedbackDataSharingEnabled}
+            onChange={(enabled) => feedbackSharingMutation.mutate(enabled)}
+          />
+          <p className="text-sm text-muted-foreground">
+            Votes are always saved locally. This setting controls whether voted AI outputs may also be marked for
+            sharing with Paperclip Labs.
+          </p>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <div>
+              Terms version:{" "}
+              {selectedCompany.feedbackDataSharingTermsVersion ?? DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                data-testid="company-settings-invites-generate-button"
-                size="sm"
-                onClick={() => inviteMutation.mutate()}
-                disabled={inviteMutation.isPending}
-              >
-                {inviteMutation.isPending ? "Generating..." : "Generate OpenClaw Invite Prompt"}
-              </Button>
-            </div>
-            {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
-            {inviteSnippet && (
-              <div
-                className="rounded-md border border-border bg-muted/30 p-2"
-                data-testid="company-settings-invites-snippet"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-muted-foreground">OpenClaw Invite Prompt</div>
-                  {snippetCopied && (
-                    <span
-                      key={snippetCopyDelightId}
-                      className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
-                    >
-                      <Check className="h-3 w-3" />
-                      Copied
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1 space-y-1.5">
-                  <textarea
-                    data-testid="company-settings-invites-snippet-textarea"
-                    className="h-[28rem] w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none"
-                    value={inviteSnippet}
-                    readOnly
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      data-testid="company-settings-invites-copy-button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(inviteSnippet);
-                          setSnippetCopied(true);
-                          setSnippetCopyDelightId((prev) => prev + 1);
-                          setTimeout(() => setSnippetCopied(false), 2000);
-                        } catch {
-                          /* clipboard may not be available */
-                        }
-                      }}
-                    >
-                      {snippetCopied ? "Copied snippet" : "Copy snippet"}
-                    </Button>
-                  </div>
-                </div>
+            {selectedCompany.feedbackDataSharingConsentAt ? (
+              <div>
+                Enabled {new Date(selectedCompany.feedbackDataSharingConsentAt).toLocaleString()}
+                {selectedCompany.feedbackDataSharingConsentByUserId
+                  ? ` by ${selectedCompany.feedbackDataSharingConsentByUserId}`
+                  : ""}
               </div>
+            ) : (
+              <div>Sharing is currently disabled.</div>
             )}
+            {FEEDBACK_TERMS_URL ? (
+              <a
+                href={FEEDBACK_TERMS_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex text-foreground underline underline-offset-4"
+              >
+                Read our terms of service
+              </a>
+            ) : null}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Invites */}
+      <div className="space-y-4" data-testid="company-settings-invites-section">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Invites</div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Generate an OpenClaw agent invite snippet.</span>
+            <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              data-testid="company-settings-invites-generate-button"
+              size="sm"
+              onClick={() => inviteMutation.mutate()}
+              disabled={inviteMutation.isPending}
+            >
+              {inviteMutation.isPending ? "Generating..." : "Generate OpenClaw Invite Prompt"}
+            </Button>
+          </div>
+          {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
+          {inviteSnippet && (
+            <div
+              className="rounded-md border border-border bg-muted/30 p-2"
+              data-testid="company-settings-invites-snippet"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs text-muted-foreground">OpenClaw Invite Prompt</div>
+                {snippetCopied && (
+                  <span
+                    key={snippetCopyDelightId}
+                    className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
+                  >
+                    <Check className="h-3 w-3" />
+                    Copied
+                  </span>
+                )}
+              </div>
+              <div className="mt-1 space-y-1.5">
+                <textarea
+                  data-testid="company-settings-invites-snippet-textarea"
+                  className="h-[28rem] w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none"
+                  value={inviteSnippet}
+                  readOnly
+                />
+                <div className="flex justify-end">
+                  <Button
+                    data-testid="company-settings-invites-copy-button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(inviteSnippet);
+                        setSnippetCopied(true);
+                        setSnippetCopyDelightId((prev) => prev + 1);
+                        setTimeout(() => setSnippetCopied(false), 2000);
+                      } catch {
+                        /* clipboard may not be available */
+                      }
+                    }}
+                  >
+                    {snippetCopied ? "Copied snippet" : "Copy snippet"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Import / Export */}
       <div className="space-y-4">
@@ -430,64 +488,62 @@ export function CompanySettings() {
           </p>
           <div className="mt-3 flex items-center gap-2">
             <Button size="sm" variant="outline" asChild>
-              <a href="/company/export">
+              <Link to="/company/export">
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 Export
-              </a>
+              </Link>
             </Button>
             <Button size="sm" variant="outline" asChild>
-              <a href="/company/import">
+              <Link to="/company/import">
                 <Upload className="mr-1.5 h-3.5 w-3.5" />
                 Import
-              </a>
+              </Link>
             </Button>
           </div>
         </div>
       </div>
 
       {/* Danger Zone */}
-      {!isHosted && (
-        <div className="space-y-4">
-          <div className="text-xs font-medium text-destructive uppercase tracking-wide">Danger Zone</div>
-          <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Archive this company to hide it from the sidebar. This persists in the database.
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="destructive"
-                disabled={archiveMutation.isPending || selectedCompany.status === "archived"}
-                onClick={() => {
-                  if (!selectedCompanyId) return;
-                  const confirmed = window.confirm(
-                    `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`,
-                  );
-                  if (!confirmed) return;
-                  const nextCompanyId =
-                    companies.find((company) => company.id !== selectedCompanyId && company.status !== "archived")
-                      ?.id ?? null;
-                  archiveMutation.mutate({
-                    companyId: selectedCompanyId,
-                    nextCompanyId,
-                  });
-                }}
-              >
-                {archiveMutation.isPending
-                  ? "Archiving..."
-                  : selectedCompany.status === "archived"
-                    ? "Already archived"
-                    : "Archive company"}
-              </Button>
-              {archiveMutation.isError && (
-                <span className="text-xs text-destructive">
-                  {archiveMutation.error instanceof Error ? archiveMutation.error.message : "Failed to archive company"}
-                </span>
-              )}
-            </div>
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-destructive uppercase tracking-wide">Danger Zone</div>
+        <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Archive this company to hide it from the sidebar. This persists in the database.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={archiveMutation.isPending || selectedCompany.status === "archived"}
+              onClick={() => {
+                if (!selectedCompanyId) return;
+                const confirmed = window.confirm(
+                  `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`,
+                );
+                if (!confirmed) return;
+                const nextCompanyId =
+                  companies.find((company) => company.id !== selectedCompanyId && company.status !== "archived")?.id ??
+                  null;
+                archiveMutation.mutate({
+                  companyId: selectedCompanyId,
+                  nextCompanyId,
+                });
+              }}
+            >
+              {archiveMutation.isPending
+                ? "Archiving..."
+                : selectedCompany.status === "archived"
+                  ? "Already archived"
+                  : "Archive company"}
+            </Button>
+            {archiveMutation.isError && (
+              <span className="text-xs text-destructive">
+                {archiveMutation.error instanceof Error ? archiveMutation.error.message : "Failed to archive company"}
+              </span>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

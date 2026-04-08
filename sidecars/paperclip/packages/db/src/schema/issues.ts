@@ -49,6 +49,8 @@ export const issues = pgTable(
     requestDepth: integer("request_depth").notNull().default(0),
     billingCode: text("billing_code"),
     assigneeAdapterOverrides: jsonb("assignee_adapter_overrides").$type<Record<string, unknown>>(),
+    executionPolicy: jsonb("execution_policy").$type<Record<string, unknown>>(),
+    executionState: jsonb("execution_state").$type<Record<string, unknown>>(),
     executionWorkspaceId: uuid("execution_workspace_id").references((): AnyPgColumn => executionWorkspaces.id, {
       onDelete: "set null",
     }),
@@ -82,6 +84,9 @@ export const issues = pgTable(
       table.executionWorkspaceId,
     ),
     identifierIdx: uniqueIndex("issues_identifier_idx").on(table.identifier),
+    titleSearchIdx: index("issues_title_search_idx").using("gin", table.title.op("gin_trgm_ops")),
+    identifierSearchIdx: index("issues_identifier_search_idx").using("gin", table.identifier.op("gin_trgm_ops")),
+    descriptionSearchIdx: index("issues_description_search_idx").using("gin", table.description.op("gin_trgm_ops")),
     openRoutineExecutionIdx: uniqueIndex("issues_open_routine_execution_uq")
       .on(table.companyId, table.originKind, table.originId)
       .where(

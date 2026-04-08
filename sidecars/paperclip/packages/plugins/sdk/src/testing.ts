@@ -71,6 +71,7 @@ export interface TestHarness {
   logs: TestHarnessLogEntry[];
   activity: Array<{ message: string; entityType?: string; entityId?: string; metadata?: Record<string, unknown> }>;
   metrics: Array<{ name: string; value: number; tags?: Record<string, string> }>;
+  telemetry: Array<{ eventName: string; dimensions?: Record<string, string | number | boolean> }>;
 }
 
 type EventRegistration = {
@@ -150,6 +151,7 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
   const logs: TestHarnessLogEntry[] = [];
   const activity: TestHarness["activity"] = [];
   const metrics: TestHarness["metrics"] = [];
+  const telemetry: TestHarness["telemetry"] = [];
 
   const state = new Map<string, unknown>();
   const entities = new Map<string, PluginEntityRecord>();
@@ -425,7 +427,7 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
         if (!isInCompany(issues.get(issueId), companyId)) return [];
         return issueComments.get(issueId) ?? [];
       },
-      async createComment(issueId, body, companyId) {
+      async createComment(issueId, body, companyId, options) {
         requireCapability(manifest, capabilitySet, "issue.comments.create");
         const parentIssue = issues.get(issueId);
         if (!isInCompany(parentIssue, companyId)) {
@@ -436,7 +438,7 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
           id: randomUUID(),
           companyId: parentIssue.companyId,
           issueId,
-          authorAgentId: null,
+          authorAgentId: options?.authorAgentId ?? null,
           authorUserId: null,
           body,
           createdAt: now,
@@ -649,6 +651,12 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
         metrics.push({ name, value, tags });
       },
     },
+    telemetry: {
+      async track(eventName, dimensions) {
+        requireCapability(manifest, capabilitySet, "telemetry.track");
+        telemetry.push({ eventName, dimensions });
+      },
+    },
     logger: {
       info(message, meta) {
         logs.push({ level: "info", message, meta });
@@ -747,6 +755,7 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
     logs,
     activity,
     metrics,
+    telemetry,
   };
 
   return harness;

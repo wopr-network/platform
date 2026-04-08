@@ -1,9 +1,6 @@
 import { ChevronsUpDown, Plus, Settings } from "lucide-react";
 import { Link } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
-import { healthApi } from "../api/health";
-import { queryKeys } from "../lib/queryKeys";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,17 +26,7 @@ function statusDotColor(status?: string): string {
 
 export function CompanySwitcher() {
   const { companies, selectedCompany, setSelectedCompanyId } = useCompany();
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    staleTime: 60_000,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
   const sidebarCompanies = companies.filter((company) => company.status !== "archived");
-
-  if (isHosted && sidebarCompanies.length <= 1) {
-    return null;
-  }
 
   return (
     <DropdownMenu>
@@ -75,14 +62,12 @@ export function CompanySwitcher() {
             Company Settings
           </Link>
         </DropdownMenuItem>
-        {!isHosted && (
-          <DropdownMenuItem asChild>
-            <Link to="/companies" className="no-underline text-inherit">
-              <Plus className="h-4 w-4 mr-2" />
-              Manage Companies
-            </Link>
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem asChild>
+          <Link to="/companies" className="no-underline text-inherit">
+            <Plus className="h-4 w-4 mr-2" />
+            Manage Companies
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
