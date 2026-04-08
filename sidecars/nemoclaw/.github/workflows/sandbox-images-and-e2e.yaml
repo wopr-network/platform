@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build-sandbox-images:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -53,7 +53,7 @@ jobs:
 
   build-sandbox-images-arm64:
     if: inputs.run_arm64
-    runs-on: ubuntu-24.04-arm
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -69,7 +69,7 @@ jobs:
         run: docker build -f test/Dockerfile.sandbox --build-arg BASE_IMAGE=nemoclaw-production-arm64 -t nemoclaw-sandbox-test-arm64 .
 
   test-e2e-sandbox:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     needs: build-sandbox-images
     steps:
@@ -89,7 +89,7 @@ jobs:
         run: docker run --rm -v "${{ github.workspace }}/test:/opt/test" nemoclaw-sandbox-test /opt/test/e2e-test.sh
 
   test-e2e-gateway-isolation:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     needs: build-sandbox-images
     steps:

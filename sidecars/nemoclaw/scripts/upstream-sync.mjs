@@ -29,7 +29,14 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, appendFileSync, writeFileSync, copyFileSync } from "node:fs";
+import {
+  appendFileSync,
+  copyFileSync,
+  existsSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 const CWD = process.cwd();
@@ -73,6 +80,61 @@ function tryRun(cmd) {
 
 function log(msg) {
   console.log(`[upstream-sync] ${msg}`);
+}
+
+// ---------------------------------------------------------------------------
+// Runner label rewrite
+// ---------------------------------------------------------------------------
+//
+// wopr-network/nemoclaw uses a self-hosted runner pool exclusively. Upstream
+// NVIDIA/NemoClaw workflows default to `ubuntu-latest` (and sometimes
+// `ubuntu-24.04-arm` for the arm64 sandbox image build), which would queue
+// indefinitely on our runner pool. We rewrite every matching `runs-on:` line
+// to `[self-hosted, Linux, X64]` after each merge so upstream additions stay
+// runnable.
+//
+// Matches:
+//   "<indent>runs-on: ubuntu-latest"
+//   "<indent>runs-on: ubuntu-24.04"
+//   "<indent>runs-on: ubuntu-24.04-arm"
+//   "<indent>runs-on: self-hosted"       (bare — missing arch label)
+//   + trailing whitespace and/or comment
+//
+// Does NOT match:
+//   "<indent>runs-on: [self-hosted, Linux, X64]"   (already correct)
+//   "<indent>runs-on: ${{ matrix.os }}"             (matrix expression — manual review needed)
+//   "<indent>runs-on: windows-*" / "macos-*"        (not our business)
+//   values that appear inside strategy.matrix.os lists (prefixed with `- ` not `runs-on:`)
+
+const SELFHOSTED_LABEL = "[self-hosted, Linux, X64]";
+const RUNNER_REWRITE_REGEX = /^(\s+runs-on:[ \t]*)(ubuntu-[\w.-]+|self-hosted)([ \t]*(?:#[^\n]*)?)$/gm;
+
+function rewriteRunnerLabels() {
+  const workflowsDir = join(CWD, ".github", "workflows");
+  if (!existsSync(workflowsDir)) {
+    return { scanned: 0, rewritten: [], hitCount: 0 };
+  }
+  const entries = readdirSync(workflowsDir, { withFileTypes: true });
+  const yamlFiles = entries
+    .filter((e) => e.isFile() && (e.name.endsWith(".yml") || e.name.endsWith(".yaml")))
+    .map((e) => join(workflowsDir, e.name));
+
+  const rewritten = [];
+  let totalHits = 0;
+  for (const path of yamlFiles) {
+    const original = readFileSync(path, "utf8");
+    let fileHits = 0;
+    const updated = original.replace(RUNNER_REWRITE_REGEX, (_match, prefix, _label, trailing) => {
+      fileHits += 1;
+      return `${prefix}${SELFHOSTED_LABEL}${trailing}`;
+    });
+    if (fileHits > 0) {
+      writeFileSync(path, updated);
+      rewritten.push({ path, hits: fileHits });
+      totalHits += fileHits;
+    }
+  }
+  return { scanned: yamlFiles.length, rewritten, hitCount: totalHits };
 }
 
 function die(msg) {
@@ -206,6 +268,7 @@ async function mergeUpstream() {
 
   if (mergeResult.ok) {
     log("Merge succeeded cleanly.");
+    commitRunnerLabelRewrites();
     return { merged: true, behind, ahead };
   }
 
@@ -243,7 +306,53 @@ IMPORTANT: Do NOT use git merge --abort. Resolve all conflicts.`,
   }
 
   log("Merge completed after conflict resolution.");
+  commitRunnerLabelRewrites();
   return { merged: true, behind, ahead };
+}
+
+// Rewrite any upstream runner labels that landed from the merge and commit
+// the result as a separate follow-up commit. Idempotent — if everything is
+// already correct, this is a no-op.
+function commitRunnerLabelRewrites() {
+  const result = rewriteRunnerLabels();
+  log(`Runner label check: scanned ${result.scanned} workflow(s)`);
+  if (result.rewritten.length === 0) {
+    log("  no rewrites needed");
+    return;
+  }
+  const summary = result.rewritten
+    .map((r) => `${r.path.replace(`${CWD}/`, "")}: ${r.hits}`)
+    .join(", ");
+  log(`  rewrote ${result.hitCount} line(s) across ${result.rewritten.length} file(s): ${summary}`);
+
+  run("git add .github/workflows/");
+  const msgPath = "/tmp/nemoclaw-runner-rewrite-msg.txt";
+  writeFileSync(
+    msgPath,
+    [
+      "ci: rewrite upstream runner labels to self-hosted",
+      "",
+      "Auto-applied by scripts/upstream-sync.mjs after the upstream merge.",
+      "",
+      "NVIDIA/NemoClaw upstream workflows default to `runs-on: ubuntu-latest`",
+      "(and `ubuntu-24.04-arm` for the arm64 sandbox image build), but",
+      "wopr-network/nemoclaw uses a self-hosted runner pool exclusively.",
+      "Without this rewrite, every new or modified upstream workflow would",
+      "queue indefinitely on a runner pool that doesn't exist in this org.",
+      "",
+      "The rewrite is idempotent: already-correct `[self-hosted, Linux, X64]`",
+      "lines are left untouched, and bare `runs-on: self-hosted` (missing",
+      "arch labels) is also normalized to the full label array so jobs are",
+      "pinned to an x64 host in multi-arch pools.",
+      "",
+      `Files touched (${result.rewritten.length}):`,
+      ...result.rewritten.map((r) => `  ${r.path.replace(`${CWD}/`, "")}  (+${r.hits})`),
+      "",
+      "",
+    ].join("\n"),
+  );
+  run(`git commit -F ${msgPath}`);
+  log("  committed runner label rewrite");
 }
 
 // ---------------------------------------------------------------------------

@@ -43,7 +43,7 @@ concurrency:
 jobs:
   cloud-e2e:
     if: github.repository == 'NVIDIA/NemoClaw'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -69,7 +69,7 @@ jobs:
 
   cloud-experimental-e2e:
     if: github.repository == 'NVIDIA/NemoClaw'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     # Main suite + check-docs + network-policy skip script can exceed 45m on cold runners.
     timeout-minutes: 90
     steps:
@@ -172,7 +172,7 @@ jobs:
   # chain works. See: PR #1081
   messaging-providers-e2e:
     if: github.repository == 'NVIDIA/NemoClaw'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -201,7 +201,7 @@ jobs:
   # ── Sandbox survival (gateway restart recovery) ──────────────
   sandbox-survival-e2e:
     if: github.repository == 'NVIDIA/NemoClaw'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -233,7 +233,7 @@ jobs:
   # [self-hosted, linux, x64, gpu] once NVIDIA runner labels are confirmed.
   gpu-e2e:
     if: github.repository == 'NVIDIA/NemoClaw' && vars.GPU_E2E_ENABLED == 'true'
-    runs-on: self-hosted
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 60
     env:
       NEMOCLAW_NON_INTERACTIVE: "1"
@@ -276,7 +276,7 @@ jobs:
           if-no-files-found: ignore
 
   notify-on-failure:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs:
       [cloud-e2e, cloud-experimental-e2e, messaging-providers-e2e, sandbox-survival-e2e, gpu-e2e]
     if: ${{ always() && (needs.cloud-e2e.result == 'failure' || needs.cloud-experimental-e2e.result == 'failure' || needs.messaging-providers-e2e.result == 'failure' || needs.sandbox-survival-e2e.result == 'failure' || needs.gpu-e2e.result == 'failure') }}
