@@ -78,15 +78,7 @@ export class NodeRegistry {
       ? new Docker({ host: new URL(config.dockerUrl).hostname, port: Number(new URL(config.dockerUrl).port) || 2376 })
       : new Docker();
 
-    const fleet = new FleetManager(
-      docker,
-      store,
-      undefined, // no platformDiscovery
-      undefined, // no networkPolicy
-      undefined, // no proxyManager — routes managed separately
-      undefined, // no commandBus
-      undefined, // no instanceRepo
-    );
+    const fleet = new FleetManager(config.id, store);
 
     this.nodes.set(config.id, { config, docker, fleet });
     logger.info(`Registered node: ${config.name} (${config.id})`, {

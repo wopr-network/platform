@@ -724,6 +724,13 @@ export async function mountRoutes(
     const nodeConnectionManager = new NodeConnectionManager(nodeRepo, botInstanceRepo, recoveryRepo);
     container.nodeConnectionManager = nodeConnectionManager;
 
+    // Create the command bus and inject into all FleetManagers
+    const { NodeCommandBus } = await import("../fleet/node-command-bus.js");
+    const commandBus = new NodeCommandBus(nodeConnectionManager);
+    for (const node of container.fleet.nodeRegistry.list()) {
+      node.fleet.setCommandBus(commandBus);
+    }
+
     // Vault for reading Spaces credentials to pass to node agents
     const { resolveVaultConfig, VaultConfigProvider } = await import("../config/vault-provider.js");
     const vaultConfig = resolveVaultConfig();

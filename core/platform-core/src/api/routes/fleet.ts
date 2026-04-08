@@ -30,7 +30,6 @@ import type { IServiceKeyRepository } from "../../gateway/service-key-repository
 import type { IBotBilling } from "../../monetization/credits/bot-billing.js";
 import { checkInstanceQuota, DEFAULT_INSTANCE_LIMITS } from "../../monetization/quotas/quota-check.js";
 import { buildResourceLimits } from "../../monetization/quotas/resource-limits.js";
-import { NetworkPolicy } from "../../network/network-policy.js";
 import { getProxyManager } from "../../proxy/singleton.js";
 import { assertSafeRedirectUrl } from "../../security/index.js";
 
@@ -45,8 +44,6 @@ const store = new Proxy({} as IProfileStore, {
     return (getStore() as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
-const networkPolicy = new NetworkPolicy(docker);
-
 // Lazy singletons — defer DB-accessing service calls until first request so
 // that importing this module in tests (without DATABASE_URL) does not crash.
 let _fleet: FleetManager | null = null;
@@ -65,22 +62,16 @@ function getFleet(): FleetManager {
   if (!_fleet) {
     // Only resolve DB-backed services when DATABASE_URL is available.
     // In test environments that mock FleetManager, DATABASE_URL is absent and
-    // commandBus/instanceRepo are not needed (FleetManager gracefully handles
-    // undefined by skipping remote-node operations).
     const commandBus = process.env.DATABASE_URL ? getCommandBus() : undefined;
     const instanceRepo = process.env.DATABASE_URL ? getBotInstanceRepo() : undefined;
-    _fleet = new FleetManager(
-      docker,
-      store,
-      _deps?.discovery,
-      networkPolicy,
-      getProxyManager(),
-      commandBus,
+    _fleet = new FleetManager("local", store);
+    if (commandBus) _fleet.setCommandBus(commandBus);
+    _fleet.setDeps({
+      proxyManager: getProxyManager(),
       instanceRepo,
-      undefined,
-      getFleetEventEmitter(),
-      _deps?.pool ?? null,
-    );
+      eventEmitter: getFleetEventEmitter(),
+      pool: _deps?.pool ?? undefined,
+    });
   }
   return _fleet;
 }

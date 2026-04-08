@@ -1,130 +1,96 @@
+/**
+ * FleetManager — orchestrates bot container lifecycle via the node command bus.
+ *
+ * All Docker operations are delegated to the node agent through INodeCommandBus.
+ * There is NO direct Docker access. The local node is treated identically to
+ * remote nodes — same command protocol, same code path.
+ *
+ * Each FleetManager is bound to a specific node (nodeId). NodeRegistry creates
+ * one FleetManager per registered node.
+ */
+
 import { randomUUID } from "node:crypto";
 import { PassThrough } from "node:stream";
-import type Docker from "dockerode";
 import { logger } from "../config/logger.js";
-import { buildDiscoveryEnv } from "../discovery/discovery-config.js";
-import type { PlatformDiscoveryConfig } from "../discovery/types.js";
 import type { BotMetricsTracker } from "../gateway/bot-metrics-tracker.js";
 import type { ContainerResourceLimits } from "../monetization/quotas/resource-limits.js";
-import type { NetworkPolicy } from "../network/network-policy.js";
 import type { ProxyManagerInterface } from "../proxy/types.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { BotEventType, FleetEventEmitter } from "./fleet-event-emitter.js";
 import { Instance } from "./instance.js";
 import type { INodeCommandBus } from "./node-command-bus.js";
 import type { IProfileStore } from "./profile-store.js";
-import { getSharedVolumeConfig } from "./shared-volume-config.js";
 import { type BotProfile, type BotStatus, containerNameFor } from "./types.js";
 
-const CONTAINER_LABEL = "wopr.managed";
-const CONTAINER_ID_LABEL = "wopr.bot-id";
-
 export class FleetManager {
-  private readonly docker: Docker;
+  /** The node this FleetManager manages. All commands go to this node. */
+  readonly nodeId: string;
+  private commandBus: INodeCommandBus | null = null;
   private readonly store: IProfileStore;
-  private readonly platformDiscovery: PlatformDiscoveryConfig | undefined;
-  private readonly networkPolicy: NetworkPolicy | undefined;
-  private readonly proxyManager: ProxyManagerInterface | undefined;
-  private readonly commandBus: INodeCommandBus | undefined;
-  private readonly instanceRepo: IBotInstanceRepository | undefined;
-  private readonly botMetricsTracker: BotMetricsTracker | undefined;
-  private readonly eventEmitter: FleetEventEmitter | undefined;
+  private proxyManager: ProxyManagerInterface | undefined;
+  private instanceRepo: IBotInstanceRepository | undefined;
+  private botMetricsTracker: BotMetricsTracker | undefined;
+  private eventEmitter: FleetEventEmitter | undefined;
+  private pool: {
+    claim(key: string, nodeId?: string): Promise<{ id: string; containerId: string } | null>;
+  } | null = null;
   private locks = new Map<string, Promise<void>>();
 
-  private async withLock<T>(botId: string, fn: () => Promise<T>): Promise<T> {
-    const prev = this.locks.get(botId) ?? Promise.resolve();
-    let resolve!: () => void;
-    const next = new Promise<void>((r) => {
-      resolve = r;
-    });
-    this.locks.set(botId, next);
-    try {
-      await prev;
-      return await fn();
-    } finally {
-      resolve();
-      if (this.locks.get(botId) === next) this.locks.delete(botId);
-    }
-  }
-
-  private readonly pool: { claim(key: string): Promise<{ id: string; containerId: string } | null> } | null;
-
-  /**
-   * Callback to resolve upstream host for a container.
-   * Delegates to NodeRegistry.resolveUpstreamHost(nodeId, containerName).
-   * Set via setResolveHost() after construction to avoid circular deps.
-   */
+  /** Resolve upstream host for a container. Injected from NodeRegistry. */
   private resolveHost: ((nodeId: string | null, containerName: string) => string) | null = null;
 
-  /** Inject the host resolver (from NodeRegistry). */
   setResolveHost(fn: (nodeId: string | null, containerName: string) => string): void {
     this.resolveHost = fn;
   }
 
-  constructor(
-    docker: Docker,
-    store: IProfileStore,
-    platformDiscovery?: PlatformDiscoveryConfig,
-    networkPolicy?: NetworkPolicy,
-    proxyManager?: ProxyManagerInterface,
-    commandBus?: INodeCommandBus,
-    instanceRepo?: IBotInstanceRepository,
-    botMetricsTracker?: BotMetricsTracker,
-    eventEmitter?: FleetEventEmitter,
-    pool?: { claim(key: string): Promise<{ id: string; containerId: string } | null> } | null,
-  ) {
-    this.docker = docker;
+  /** Inject the command bus after construction (breaks circular dep with NodeConnectionManager). */
+  setCommandBus(bus: INodeCommandBus): void {
+    this.commandBus = bus;
+  }
+
+  /** Inject optional dependencies after construction. */
+  setDeps(deps: {
+    proxyManager?: ProxyManagerInterface;
+    instanceRepo?: IBotInstanceRepository;
+    botMetricsTracker?: BotMetricsTracker;
+    eventEmitter?: FleetEventEmitter;
+    pool?: { claim(key: string, nodeId?: string): Promise<{ id: string; containerId: string } | null> };
+  }): void {
+    if (deps.proxyManager) this.proxyManager = deps.proxyManager;
+    if (deps.instanceRepo) this.instanceRepo = deps.instanceRepo;
+    if (deps.botMetricsTracker) this.botMetricsTracker = deps.botMetricsTracker;
+    if (deps.eventEmitter) this.eventEmitter = deps.eventEmitter;
+    if (deps.pool) this.pool = deps.pool;
+  }
+
+  constructor(nodeId: string, store: IProfileStore) {
+    this.nodeId = nodeId;
     this.store = store;
-    this.platformDiscovery = platformDiscovery;
-    this.networkPolicy = networkPolicy;
-    this.proxyManager = proxyManager;
-    this.commandBus = commandBus;
-    this.instanceRepo = instanceRepo;
-    this.botMetricsTracker = botMetricsTracker;
-    this.eventEmitter = eventEmitter;
-    this.pool = pool ?? null;
   }
 
-  private emitEvent(type: BotEventType, botId: string, tenantId?: string): void {
-    if (!this.eventEmitter) return;
-    if (!tenantId) return; // skip — event with no tenant would be invisible to all subscribers
-    this.eventEmitter.emit({ type, botId, tenantId, timestamp: new Date().toISOString() });
-  }
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
   /**
-   * Look up which node a bot is assigned to.
-   * Returns { nodeId, commandBus } when the bot has a remote assignment,
-   * or null when it should be handled locally.
-   * Callers use the returned commandBus reference directly, avoiding the need
-   * to re-check this.commandBus after the call.
-   */
-  private async resolveNodeId(botId: string): Promise<{ nodeId: string; commandBus: INodeCommandBus } | null> {
-    if (!this.commandBus || !this.instanceRepo) return null;
-    const instance = await this.instanceRepo.getById(botId);
-    if (!instance?.nodeId) return null;
-    return { nodeId: instance.nodeId, commandBus: this.commandBus };
-  }
-
-  /**
-   * Create a new bot: persist profile, pull image, create container.
-   * Rolls back profile on container creation failure.
-   *
-   * @param params - Bot profile fields (without id)
-   * @param resourceLimits - Optional Docker resource constraints (from tier)
+   * Create a new bot: persist profile, send bot.start to node via command bus.
+   * Pool claim attempted first — DB claim + rename command.
+   * Rolls back profile on failure.
    */
   async create(
     params: Omit<BotProfile, "id"> & { id?: string },
-    resourceLimits?: ContainerResourceLimits,
+    _resourceLimits?: ContainerResourceLimits,
   ): Promise<Instance> {
     const id = params.id ?? randomUUID();
     const hasExplicitId = "id" in params && params.id !== undefined;
     logger.info("Fleet.create: starting", {
       id,
+      nodeId: this.nodeId,
       productSlug: params.productSlug,
       image: params.image,
-      hasExplicitId,
       hasPool: !!this.pool,
     });
+
     const doCreate = async (): Promise<Instance> => {
       const profile: BotProfile = { ...params, id };
 
@@ -133,14 +99,11 @@ export class FleetManager {
       }
 
       await this.store.save(profile);
-      logger.info("Fleet.create: profile saved", { id, name: profile.name });
 
       try {
-        // Try pool first — only replaces container acquisition
         let poolClaimed = false;
         if (this.pool && params.productSlug) {
-          logger.info("Fleet.create: attempting pool claim", { id, productSlug: params.productSlug });
-          const claimed = await this.pool.claim(params.productSlug);
+          const claimed = await this.pool.claim(params.productSlug, this.nodeId);
           if (claimed) {
             const cname = containerNameFor({ id, productSlug: params.productSlug });
             logger.info("Fleet.create: pool claimed, renaming", {
@@ -148,75 +111,29 @@ export class FleetManager {
               containerId: claimed.containerId,
               newName: cname,
             });
-            const container = this.docker.getContainer(claimed.containerId);
-            await container.rename({ name: cname });
-            logger.info("Fleet.create: pool claim complete", {
-              id,
-              productSlug: params.productSlug,
-              containerName: cname,
-            });
+            await this.sendCommand("bot.update", { name: cname, containerId: claimed.containerId, rename: true });
             poolClaimed = true;
-          } else {
-            logger.info("Fleet.create: pool empty, falling back to direct create", {
-              id,
-              productSlug: params.productSlug,
-            });
           }
         }
 
         if (!poolClaimed) {
-          const remote = await this.resolveNodeId(id);
-          if (remote) {
-            logger.info("Fleet.create: dispatching to remote node", { id, nodeId: remote.nodeId });
-            await remote.commandBus.send(remote.nodeId, {
-              type: "bot.start",
-              payload: {
-                name: profile.name,
-                image: profile.image,
-                env: profile.env,
-                restart: profile.restartPolicy,
-              },
-            });
-            const containerName = containerNameFor(profile);
-            const remoteInstance = new Instance({
-              docker: this.docker,
-              profile,
-              containerId: `remote:${remote.nodeId}`,
-              containerName,
-              url: `remote://${remote.nodeId}/${containerName}`,
-              instanceRepo: this.instanceRepo,
-              proxyManager: this.proxyManager,
-              eventEmitter: this.eventEmitter,
-              botMetricsTracker: this.botMetricsTracker,
-            });
-            remoteInstance.emitCreated();
-            return remoteInstance;
-          } else {
-            logger.info("Fleet.create: pulling image", { id, image: profile.image });
-            await this.pullImage(profile.image);
-            logger.info("Fleet.create: creating container", {
-              id,
-              containerName: containerNameFor(profile),
-              network: profile.network ?? "platform",
-            });
-            await this.createContainer(profile, resourceLimits);
-            logger.info("Fleet.create: container created and started", { id });
-          }
+          logger.info("Fleet.create: sending bot.start to node", { id, nodeId: this.nodeId });
+          await this.sendCommand("bot.start", {
+            name: containerNameFor(profile),
+            image: profile.image,
+            env: profile.env,
+            restart: profile.restartPolicy,
+          });
         }
       } catch (err) {
-        logger.error("Fleet.create: FAILED, rolling back profile", {
-          id,
-          error: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-        });
+        logger.error("Fleet.create: failed, rolling back profile", { id, nodeId: this.nodeId, err });
         await this.store.delete(profile.id);
         throw err;
       }
 
-      const instance = await this.buildInstance(profile);
+      const instance = this.buildInstance(profile);
       instance.emitCreated();
 
-      // Register in bot_instances DB table for billing
       if (this.instanceRepo) {
         try {
           await this.instanceRepo.register(id, profile.tenantId, profile.name);
@@ -232,17 +149,7 @@ export class FleetManager {
   }
 
   /**
-   * Build an Instance from a profile after container creation.
-   * Inspects the Docker container to resolve container name and URL.
-   */
-  private resolvePort(profile: BotProfile): number {
-    const envPort = profile.env?.PORT;
-    return envPort ? Number.parseInt(envPort, 10) || 7437 : 7437;
-  }
-
-  /**
    * Get an Instance handle for an existing bot by ID.
-   * Looks up the profile and inspects the Docker container.
    */
   async getInstance(id: string): Promise<Instance> {
     const profile = await this.store.get(id);
@@ -250,64 +157,20 @@ export class FleetManager {
     return this.buildInstance(profile);
   }
 
-  private async buildInstance(profile: BotProfile): Promise<Instance> {
-    const dockerContainer = await this.findContainer(profile.id);
-    if (!dockerContainer) throw new Error(`Container for ${profile.id} not found after creation`);
-    const info = await dockerContainer.inspect();
-    const containerName = info.Name.replace(/^\//, "");
-    const containerId = info.Id;
-
-    const botInstance = await this.instanceRepo?.getById(profile.id);
-    const port = botInstance?.containerPort ?? this.resolvePort(profile);
-    const nodeId = botInstance?.nodeId ?? null;
-    const upstreamHost = this.resolveHost?.(nodeId, containerName) ?? containerName;
-    const url = `http://${upstreamHost}:${port}`;
-
-    return new Instance({
-      docker: this.docker,
-      profile,
-      containerId,
-      containerName,
-      url,
-      instanceRepo: this.instanceRepo,
-      proxyManager: this.proxyManager,
-      eventEmitter: this.eventEmitter,
-      botMetricsTracker: this.botMetricsTracker,
-    });
-  }
-
   /**
-   * Remove a bot: stop container, remove it, optionally remove volumes, delete profile.
-   * For remote bots, delegates stop+remove to the node agent via NodeCommandBus.
-   * Container removal is delegated to Instance.remove(); fleet-level cleanup
-   * (profile store, network policy) stays here.
+   * Remove a bot: send bot.remove to node, clean up DB.
    */
   async remove(id: string, removeVolumes = false): Promise<void> {
     return this.withLock(id, async () => {
       const profile = await this.store.get(id);
       if (!profile) throw new BotNotFoundError(id);
 
-      const remote = await this.resolveNodeId(id);
-      if (remote) {
-        await remote.commandBus.send(remote.nodeId, {
-          type: "bot.remove",
-          payload: { name: profile.name, removeVolumes },
-        });
-      } else {
-        try {
-          const instance = await this.buildInstance(profile);
-          await instance.remove(removeVolumes);
-        } catch {
-          // Container may already be gone — not fatal for fleet-level cleanup
-        }
+      try {
+        await this.sendCommand("bot.remove", { name: containerNameFor(profile), removeVolumes });
+      } catch {
+        // Container may already be gone — not fatal for fleet-level cleanup
       }
 
-      // Clean up tenant network if no more containers remain
-      if (this.networkPolicy) {
-        await this.networkPolicy.cleanupAfterRemoval(profile.tenantId);
-      }
-
-      // Remove from bot_instances DB table
       if (this.instanceRepo) {
         try {
           await this.instanceRepo.deleteById(id);
@@ -323,93 +186,8 @@ export class FleetManager {
   }
 
   /**
-   * Get live status of a single bot.
-   * Delegates to Instance.status() which returns a full BotStatus.
-   * Falls back to offline status when no container exists.
-   */
-  async status(id: string): Promise<BotStatus> {
-    const profile = await this.store.get(id);
-    if (!profile) throw new BotNotFoundError(id);
-    return this.statusForProfile(profile);
-  }
-
-  /**
-   * List all bots with live status.
-   */
-  async listAll(): Promise<BotStatus[]> {
-    const profiles = await this.store.list();
-    return Promise.all(profiles.map((p) => this.statusForProfile(p)));
-  }
-
-  /**
-   * List bots belonging to a specific tenant with live status.
-   */
-  async listByTenant(tenantId: string): Promise<BotStatus[]> {
-    const profiles = await this.store.list();
-    const tenantProfiles = profiles.filter((p) => p.tenantId === tenantId);
-    return Promise.all(tenantProfiles.map((p) => this.statusForProfile(p)));
-  }
-
-  /**
-   * Get container logs. Delegates to Instance.logs().
-   */
-  async logs(id: string, tail = 100): Promise<string> {
-    const instance = await this.getInstance(id);
-    return instance.logs(tail);
-  }
-
-  /**
-   * Stream container logs in real-time (follow mode).
-   * For remote bots, proxies via node-agent bot.logs command and returns a one-shot stream.
-   * For local bots, delegates to Instance.logStream().
-   */
-  async logStream(id: string, opts: { since?: string; tail?: number }): Promise<NodeJS.ReadableStream> {
-    // Check for remote node assignment first (mirrors start/stop/restart pattern)
-    const remote = await this.resolveNodeId(id);
-    if (remote) {
-      const profile = await this.store.get(id);
-      if (!profile) throw new BotNotFoundError(id);
-      const result = await remote.commandBus.send(remote.nodeId, {
-        type: "bot.logs",
-        payload: { name: profile.name, tail: opts.tail ?? 100 },
-      });
-      const logData = typeof result.data === "string" ? result.data : "";
-      const pt = new PassThrough();
-      pt.end(logData);
-      return pt;
-    }
-
-    const instance = await this.getInstance(id);
-    return instance.logStream(opts);
-  }
-
-  /**
-   * Get disk usage for a bot's /data volume. Delegates to Instance.getVolumeUsage().
-   */
-  async getVolumeUsage(id: string): Promise<{ usedBytes: number; totalBytes: number; availableBytes: number } | null> {
-    try {
-      const instance = await this.getInstance(id);
-      return instance.getVolumeUsage();
-    } catch {
-      return null;
-    }
-  }
-
-  /** Fields that require container recreation when changed. */
-  private static readonly CONTAINER_FIELDS = new Set<string>([
-    "image",
-    "env",
-    "restartPolicy",
-    "volumeName",
-    "name",
-    "discovery",
-    "network",
-    "readonlyRootfs",
-  ]);
-
-  /**
-   * Update a bot profile. Only recreates the container if container-relevant
-   * fields changed. Rolls back the profile if container recreation fails.
+   * Update a bot profile. Sends bot.update to the node if container-relevant
+   * fields changed.
    */
   async update(id: string, updates: Partial<Omit<BotProfile, "id">>): Promise<BotProfile> {
     return this.withLock(id, async () => {
@@ -417,207 +195,144 @@ export class FleetManager {
       if (!existing) throw new BotNotFoundError(id);
 
       const updated: BotProfile = { ...existing, ...updates };
+      const needsRecreate = Object.keys(updates).some((k) => CONTAINER_FIELDS.has(k));
 
-      const needsRecreate = Object.keys(updates).some((k) => FleetManager.CONTAINER_FIELDS.has(k));
+      await this.store.save(updated);
 
-      const container = await this.findContainer(id);
-      if (container && needsRecreate) {
-        const info = await container.inspect();
-        const wasRunning = info.State.Running;
-
-        // Save the updated profile only after pre-checks succeed
-        if (updates.image) {
-          await this.pullImage(updated.image);
-        }
-
-        await this.store.save(updated);
-
+      if (needsRecreate) {
         try {
-          if (wasRunning) {
-            try {
-              await container.stop();
-            } catch (err) {
-              logger.warn(`Failed to stop container ${id} during update`, { botId: id, err });
-              throw err;
-            }
-          }
-          try {
-            await container.remove();
-          } catch (err) {
-            logger.warn(`Failed to remove container ${id} during update`, { botId: id, err });
-            throw err;
-          }
-          await this.createContainer(updated);
-
-          if (wasRunning) {
-            const newContainer = await this.findContainer(id);
-            if (newContainer) await newContainer.start();
-          }
+          await this.sendCommand("bot.update", {
+            name: containerNameFor(updated),
+            image: updated.image,
+            env: updated.env,
+            restart: updated.restartPolicy,
+          });
         } catch (err) {
-          // Rollback profile to the previous state
-          logger.error(`Failed to recreate container for bot ${id}, rolling back profile`, { err });
+          logger.error(`Fleet.update: failed for bot ${id}, rolling back`, { err });
           await this.store.save(existing);
           throw err;
         }
-      } else {
-        // Metadata-only change or no container — just save the profile
-        await this.store.save(updated);
       }
 
       return updated;
     });
   }
 
-  /** Get the underlying profile store */
+  // ---------------------------------------------------------------------------
+  // Query
+  // ---------------------------------------------------------------------------
+
+  async status(id: string): Promise<BotStatus> {
+    const profile = await this.store.get(id);
+    if (!profile) throw new BotNotFoundError(id);
+    return this.statusForProfile(profile);
+  }
+
+  async listAll(): Promise<BotStatus[]> {
+    const profiles = await this.store.list();
+    return Promise.all(profiles.map((p) => this.statusForProfile(p)));
+  }
+
+  async listByTenant(tenantId: string): Promise<BotStatus[]> {
+    const profiles = await this.store.list();
+    return Promise.all(profiles.filter((p) => p.tenantId === tenantId).map((p) => this.statusForProfile(p)));
+  }
+
+  async logs(id: string, tail = 100): Promise<string> {
+    const profile = await this.store.get(id);
+    if (!profile) throw new BotNotFoundError(id);
+    const result = await this.sendCommand("bot.logs", { name: containerNameFor(profile), tail });
+    return typeof result.data === "string" ? result.data : "";
+  }
+
+  async logStream(id: string, opts: { since?: string; tail?: number }): Promise<NodeJS.ReadableStream> {
+    const profile = await this.store.get(id);
+    if (!profile) throw new BotNotFoundError(id);
+    const result = await this.sendCommand("bot.logs", { name: containerNameFor(profile), tail: opts.tail ?? 100 });
+    const pt = new PassThrough();
+    pt.end(typeof result.data === "string" ? result.data : "");
+    return pt;
+  }
+
+  async getVolumeUsage(id: string): Promise<{ usedBytes: number; totalBytes: number; availableBytes: number } | null> {
+    try {
+      const profile = await this.store.get(id);
+      if (!profile) return null;
+      const result = await this.sendCommand("bot.inspect", { name: containerNameFor(profile) });
+      return (
+        (result.data as { volumeUsage?: { usedBytes: number; totalBytes: number; availableBytes: number } })
+          ?.volumeUsage ?? null
+      );
+    } catch {
+      return null;
+    }
+  }
+
   get profiles(): IProfileStore {
     return this.store;
   }
 
-  // --- Private helpers ---
+  // ---------------------------------------------------------------------------
+  // Private
+  // ---------------------------------------------------------------------------
 
-  private async pullImage(image: string): Promise<void> {
-    logger.info(`Pulling image ${image}`);
-
-    // Build authconfig from environment variables if present.
-    // REGISTRY_USERNAME / REGISTRY_PASSWORD / REGISTRY_SERVER are optional;
-    // when set they allow pulling from private registries (e.g. ghcr.io).
-    const username = process.env.REGISTRY_USERNAME;
-    const password = process.env.REGISTRY_PASSWORD;
-    const server = process.env.REGISTRY_SERVER;
-    const authconfig = username && password ? { username, password, serveraddress: server ?? "ghcr.io" } : undefined;
-
-    const stream = await this.docker.pull(image, authconfig ? { authconfig } : {});
-    await new Promise<void>((resolve, reject) => {
-      this.docker.modem.followProgress(stream, (err: Error | null) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+  /** Send a command to this node and return the result. */
+  private sendCommand(type: string, payload: Record<string, unknown>) {
+    if (!this.commandBus)
+      throw new Error(`FleetManager(${this.nodeId}): command bus not set — call setCommandBus() first`);
+    return this.commandBus.send(this.nodeId, { type, payload });
   }
 
-  private async createContainer(
-    profile: BotProfile,
-    resourceLimits?: ContainerResourceLimits,
-  ): Promise<Docker.Container> {
-    const restartPolicyMap: Record<string, string> = {
-      no: "no",
-      always: "always",
-      "on-failure": "on-failure",
-      "unless-stopped": "unless-stopped",
-    };
+  /** Build an Instance from a profile (no Docker inspect — uses DB data). */
+  private buildInstance(profile: BotProfile): Instance {
+    const containerName = containerNameFor(profile);
+    const upstreamHost = this.resolveHost?.(this.nodeId, containerName) ?? containerName;
+    const url = `http://${upstreamHost}:3100`;
 
-    const binds: string[] = [];
-    if (profile.volumeName) {
-      binds.push(`${profile.volumeName}:/data`);
-    }
-
-    // Mount shared node_modules volume read-only (WOP-973)
-    const sharedVolConfig = getSharedVolumeConfig();
-    if (sharedVolConfig.enabled) {
-      binds.push(`${sharedVolConfig.volumeName}:${sharedVolConfig.mountPath}:ro`);
-    }
-
-    const hardened = profile.readonlyRootfs ?? false;
-
-    const hostConfig: Docker.ContainerCreateOptions["HostConfig"] = {
-      RestartPolicy: {
-        Name: restartPolicyMap[profile.restartPolicy] || "",
-      },
-      Binds: binds.length > 0 ? binds : undefined,
-      SecurityOpt: ["no-new-privileges"],
-      CapDrop: hardened ? ["ALL"] : undefined,
-      CapAdd: hardened ? ["NET_BIND_SERVICE", "CHOWN", "DAC_OVERRIDE"] : undefined,
-      ReadonlyRootfs: hardened,
-      Tmpfs: hardened
-        ? {
-            "/tmp": "rw,noexec,nosuid,size=64m",
-            "/var/tmp": "rw,noexec,nosuid,size=64m",
-          }
-        : undefined,
-    };
-
-    // Set network: explicit profile.network takes precedence, then NetworkPolicy, then "platform"
-    if (profile.network) {
-      hostConfig.NetworkMode = profile.network;
-    } else if (this.networkPolicy) {
-      const networkMode = await this.networkPolicy.prepareForContainer(profile.tenantId);
-      hostConfig.NetworkMode = networkMode;
-    } else {
-      hostConfig.NetworkMode = "platform";
-    }
-
-    // Apply resource limits from tier if provided
-    if (resourceLimits) {
-      hostConfig.Memory = resourceLimits.Memory;
-      hostConfig.CpuQuota = resourceLimits.CpuQuota;
-      hostConfig.PidsLimit = resourceLimits.PidsLimit;
-    }
-
-    // Merge discovery env vars into the container environment.
-    // discoveryEnv overrides profile.env (spread order matters).
-    // Empty-string values mean "explicitly remove" — filter them out.
-    const discoveryEnv = buildDiscoveryEnv(profile.discovery, this.platformDiscovery);
-    const sharedNodePath = sharedVolConfig.enabled ? { NODE_PATH: sharedVolConfig.mountPath } : {};
-    const mergedEnv = { ...profile.env, ...sharedNodePath, ...discoveryEnv };
-
-    const container = await this.docker.createContainer({
-      Image: profile.image,
-      name: containerNameFor(profile),
-      Env: Object.entries(mergedEnv)
-        .filter(([, v]) => v !== "")
-        .map(([k, v]) => `${k}=${v}`),
-      Labels: {
-        [CONTAINER_LABEL]: "true",
-        [CONTAINER_ID_LABEL]: profile.id,
-      },
-      HostConfig: hostConfig,
-      Healthcheck: {
-        Test: ["CMD-SHELL", "node -e 'process.exit(0)'"],
-        Interval: 30_000_000_000, // 30s in nanoseconds
-        Timeout: 10_000_000_000,
-        Retries: 3,
-        StartPeriod: 15_000_000_000,
-      },
+    return new Instance({
+      profile,
+      containerId: `${this.nodeId}:${containerName}`,
+      containerName,
+      url,
+      instanceRepo: this.instanceRepo,
+      proxyManager: this.proxyManager,
+      eventEmitter: this.eventEmitter,
+      botMetricsTracker: this.botMetricsTracker,
     });
-
-    await container.start();
-    logger.info(`Created and started container ${container.id} for bot ${profile.id}`);
-    return container;
-  }
-
-  private async findContainer(botId: string): Promise<Docker.Container | null> {
-    // 1. Try by label (cold-created containers)
-    const containers = await this.docker.listContainers({
-      all: true,
-      filters: {
-        label: [`${CONTAINER_ID_LABEL}=${botId}`],
-      },
-    });
-    if (containers.length > 0) return this.docker.getContainer(containers[0].Id);
-
-    // 2. Try by deterministic name (pool-claimed containers don't have labels)
-    const profile = await this.store.get(botId);
-    if (profile) {
-      const { containerNameFor } = await import("./types.js");
-      const name = containerNameFor(profile);
-      try {
-        const container = this.docker.getContainer(name);
-        await container.inspect();
-        return container;
-      } catch {
-        // Not found
-      }
-    }
-
-    return null;
   }
 
   private async statusForProfile(profile: BotProfile): Promise<BotStatus> {
     try {
-      const instance = await this.buildInstance(profile);
-      return instance.status();
+      const result = await this.sendCommand("bot.inspect", { name: containerNameFor(profile) });
+      const data = result.data as Record<string, unknown> | undefined;
+      const state = (data?.state as string) ?? "running";
+      const validStates = [
+        "running",
+        "stopped",
+        "paused",
+        "error",
+        "pulling",
+        "created",
+        "restarting",
+        "exited",
+        "dead",
+      ] as const;
+      return {
+        id: profile.id,
+        name: profile.name,
+        description: profile.description,
+        image: profile.image,
+        containerId: (data?.containerId as string) ?? null,
+        state: (validStates as readonly string[]).includes(state) ? (state as BotStatus["state"]) : "running",
+        health: (data?.health as string) ?? null,
+        uptime: (data?.uptime as string) ?? null,
+        startedAt: (data?.startedAt as string) ?? null,
+        createdAt: (data?.createdAt as string) ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        stats: null,
+        applicationMetrics: null,
+      };
     } catch {
-      // Container not found — return offline status
       const now = new Date().toISOString();
       return {
         id: profile.id,
@@ -636,7 +351,31 @@ export class FleetManager {
       };
     }
   }
+
+  private emitEvent(type: BotEventType, botId: string, tenantId?: string): void {
+    if (!this.eventEmitter) return;
+    if (!tenantId) return;
+    this.eventEmitter.emit({ type, botId, tenantId, timestamp: new Date().toISOString() });
+  }
+
+  private async withLock<T>(botId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(botId) ?? Promise.resolve();
+    let resolve!: () => void;
+    const next = new Promise<void>((r) => {
+      resolve = r;
+    });
+    this.locks.set(botId, next);
+    try {
+      await prev;
+      return await fn();
+    } finally {
+      resolve();
+      if (this.locks.get(botId) === next) this.locks.delete(botId);
+    }
+  }
 }
+
+const CONTAINER_FIELDS = new Set<string>(["image", "env", "restartPolicy", "volumeName", "name", "network"]);
 
 export class BotNotFoundError extends Error {
   constructor(id: string) {

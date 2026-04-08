@@ -18,7 +18,8 @@ import type { BotProfile, BotStatus, ContainerStats } from "./types.js";
  */
 
 export interface InstanceDeps {
-  docker: Docker;
+  /** @deprecated Docker access is being removed — all ops go through command bus. */
+  docker?: Docker;
   profile: BotProfile;
   containerId: string;
   containerName: string;
@@ -37,7 +38,7 @@ export class Instance {
   readonly url: string;
   readonly profile: BotProfile;
 
-  private readonly docker: Docker;
+  private readonly docker: Docker | undefined;
   private readonly instanceRepo: IBotInstanceRepository | undefined;
   private readonly proxyManager: ProxyManagerInterface | undefined;
   private readonly eventEmitter: FleetEventEmitter | undefined;
@@ -45,6 +46,12 @@ export class Instance {
 
   /** Simple per-instance mutex to serialize start/stop/restart/remove. */
   private lockPromise = Promise.resolve();
+
+  /** @deprecated Get Docker client — throws if not available (command bus path). */
+  private getDocker(): Docker {
+    if (!this.docker) throw new Error(`Instance ${this.id}: Docker not available — use command bus`);
+    return this.docker;
+  }
 
   constructor(deps: InstanceDeps) {
     this.id = deps.profile.id;
@@ -133,7 +140,7 @@ export class Instance {
   async start(): Promise<void> {
     this.assertLocal("start()");
     return this.withLock(async () => {
-      const container = this.docker.getContainer(this.containerId);
+      const container = this.getDocker().getContainer(this.containerId);
       await container.start();
       logger.info(`Instance started`, { id: this.id, containerName: this.containerName, url: this.url });
       this.emit("bot.started");
@@ -143,7 +150,7 @@ export class Instance {
   async stop(): Promise<void> {
     this.assertLocal("stop()");
     return this.withLock(async () => {
-      const container = this.docker.getContainer(this.containerId);
+      const container = this.getDocker().getContainer(this.containerId);
       try {
         await container.stop({ t: 10 });
       } catch (err: unknown) {
@@ -165,7 +172,7 @@ export class Instance {
     this.assertLocal("restart()");
     return this.withLock(async () => {
       this.botMetricsTracker?.reset(this.id);
-      const container = this.docker.getContainer(this.containerId);
+      const container = this.getDocker().getContainer(this.containerId);
       const info = await container.inspect();
       const validStates = new Set(["running", "stopped", "exited", "dead"]);
       const currentState = typeof info.State.Status === "string" && info.State.Status ? info.State.Status : "unknown";
@@ -192,9 +199,9 @@ export class Instance {
     const password = process.env.REGISTRY_PASSWORD;
     const server = process.env.REGISTRY_SERVER;
     const authconfig = username && password ? { username, password, serveraddress: server ?? "ghcr.io" } : undefined;
-    const stream = await this.docker.pull(this.profile.image, authconfig ? { authconfig } : {});
+    const stream = await this.getDocker().pull(this.profile.image, authconfig ? { authconfig } : {});
     await new Promise<void>((resolve, reject) => {
-      this.docker.modem.followProgress(stream, (err: Error | null) => {
+      this.getDocker().modem.followProgress(stream, (err: Error | null) => {
         if (err) reject(err);
         else resolve();
       });
@@ -205,7 +212,7 @@ export class Instance {
   async remove(removeVolumes = false): Promise<void> {
     this.assertLocal("remove()");
     return this.withLock(async () => {
-      const container = this.docker.getContainer(this.containerId);
+      const container = this.getDocker().getContainer(this.containerId);
       try {
         await container.stop({ t: 5 }).catch(() => {});
         await container.remove({ force: true, v: removeVolumes });
@@ -235,7 +242,7 @@ export class Instance {
   async containerState(): Promise<"running" | "stopped" | "gone"> {
     this.assertLocal("containerState()");
     try {
-      const container = this.docker.getContainer(this.containerId);
+      const container = this.getDocker().getContainer(this.containerId);
       const info = await container.inspect();
       return info.State.Running ? "running" : "stopped";
     } catch {
@@ -250,7 +257,7 @@ export class Instance {
   async status(): Promise<BotStatus> {
     this.assertLocal("status()");
     try {
-      const container = this.docker.getContainer(this.containerId);
+      const container = this.getDocker().getContainer(this.containerId);
       const info = await container.inspect();
 
       let stats: ContainerStats | null = null;
@@ -288,7 +295,7 @@ export class Instance {
    */
   async logs(tail = 100): Promise<string> {
     this.assertLocal("logs()");
-    const container = this.docker.getContainer(this.containerId);
+    const container = this.getDocker().getContainer(this.containerId);
     const logBuffer = await container.logs({
       stdout: true,
       stderr: true,
@@ -320,7 +327,7 @@ export class Instance {
    */
   async logStream(opts: { since?: string; tail?: number }): Promise<NodeJS.ReadableStream> {
     this.assertLocal("logStream()");
-    const container = this.docker.getContainer(this.containerId);
+    const container = this.getDocker().getContainer(this.containerId);
     const logOpts: Record<string, unknown> = {
       stdout: true,
       stderr: true,
@@ -338,7 +345,7 @@ export class Instance {
     const multiplexed = (await container.logs(logOpts)) as unknown as NodeJS.ReadableStream;
     const pt = new PassThrough();
     (
-      this.docker.modem as unknown as {
+      this.getDocker().modem as unknown as {
         demuxStream(stream: NodeJS.ReadableStream, stdout: PassThrough, stderr: PassThrough): void;
       }
     ).demuxStream(multiplexed, pt, pt);
@@ -352,7 +359,7 @@ export class Instance {
   async getVolumeUsage(): Promise<{ usedBytes: number; totalBytes: number; availableBytes: number } | null> {
     this.assertLocal("getVolumeUsage()");
     try {
-      const container = this.docker.getContainer(this.containerId);
+      const container = this.getDocker().getContainer(this.containerId);
       const info = await container.inspect();
       if (!info.State.Running) return null;
 

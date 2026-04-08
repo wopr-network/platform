@@ -372,6 +372,14 @@ export class NodeConnectionManager {
   }
 
   /**
+   * Get the WebSocket for a node — satisfies NodeConnectionRegistry interface
+   * so NodeCommandBus can send commands through this manager.
+   */
+  getSocket(nodeId: string): { send(data: string): void; readyState: number } | null {
+    return this.connections.get(nodeId) ?? null;
+  }
+
+  /**
    * Register a self-hosted node with owner and per-node secret hash.
    */
   async registerSelfHostedNode(
