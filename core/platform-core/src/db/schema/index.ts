@@ -42,6 +42,7 @@ export * from "./onboarding-sessions.js";
 export * from "./org-memberships.js";
 export * from "./organization-members.js";
 export * from "./page-contexts.js";
+export * from "./pending-operations.js";
 export * from "./platform-api-keys.js";
 export * from "./plugin-configs.js";
 export * from "./plugin-marketplace-content.js";

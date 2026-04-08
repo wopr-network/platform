@@ -295,6 +295,20 @@
       "when": 1775973600000,
       "tag": "0041_pool_instances_node_id",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1776060000000,
+      "tag": "0042_pending_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1776060060000,
+      "tag": "0043_pending_operations_notify",
+      "breakpoints": true
     }
   ]
 }
