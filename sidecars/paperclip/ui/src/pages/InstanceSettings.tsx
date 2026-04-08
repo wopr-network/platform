@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Clock3, ExternalLink, Settings, ShieldCheck } from "lucide-react";
+import { Clock3, ExternalLink, Settings } from "lucide-react";
 import type { InstanceSchedulerHeartbeatAgent } from "@paperclipai/shared";
 import { Link } from "@/lib/router";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
-import { healthApi } from "../api/health";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { EmptyState } from "../components/EmptyState";
 import { Badge } from "@/components/ui/badge";
@@ -31,13 +30,6 @@ export function InstanceSettings() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    staleTime: 60_000,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Instance Settings" }, { label: "Heartbeats" }]);
@@ -151,22 +143,6 @@ export function InstanceSettings() {
     }
     return [...map.values()];
   }, [agents]);
-
-  if (isHosted) {
-    return (
-      <div className="max-w-5xl space-y-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Managed Instance</h1>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Instance settings are managed by the platform. No configuration is needed.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (heartbeatsQuery.isLoading) {
     return <div className="text-sm text-muted-foreground">Loading scheduler heartbeats...</div>;

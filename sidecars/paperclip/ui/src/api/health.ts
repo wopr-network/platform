@@ -16,7 +16,6 @@ export type HealthStatus = {
   status: "ok";
   version?: string;
   deploymentMode?: "local_trusted" | "authenticated" | "hosted_proxy";
-  hostedMode?: boolean;
   deploymentExposure?: "private" | "public";
   authReady?: boolean;
   bootstrapStatus?: "ready" | "bootstrap_pending";

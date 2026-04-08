@@ -7,6 +7,7 @@ const brandColorSchema = z
   .regex(/^#[0-9a-fA-F]{6}$/)
   .nullable()
   .optional();
+const feedbackDataSharingTermsVersionSchema = z.string().min(1).nullable().optional();
 
 export const createCompanySchema = z.object({
   name: z.string().min(1),
@@ -20,6 +21,10 @@ export const updateCompanySchema = createCompanySchema.partial().extend({
   status: z.enum(COMPANY_STATUSES).optional(),
   spentMonthlyCents: z.number().int().nonnegative().optional(),
   requireBoardApprovalForNewAgents: z.boolean().optional(),
+  feedbackDataSharingEnabled: z.boolean().optional(),
+  feedbackDataSharingConsentAt: z.coerce.date().nullable().optional(),
+  feedbackDataSharingConsentByUserId: z.string().min(1).nullable().optional(),
+  feedbackDataSharingTermsVersion: feedbackDataSharingTermsVersionSchema,
   brandColor: brandColorSchema,
   logoAssetId: logoAssetIdSchema,
 });

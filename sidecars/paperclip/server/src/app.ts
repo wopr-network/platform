@@ -30,6 +30,7 @@ import { llmRoutes } from "./routes/llms.js";
 import { assetRoutes } from "./routes/assets.js";
 import { accessRoutes } from "./routes/access.js";
 import { pluginRoutes } from "./routes/plugins.js";
+import { adapterRoutes } from "./routes/adapters.js";
 import { pluginUiStaticRoutes } from "./routes/plugin-ui-static.js";
 import { applyUiBranding } from "./ui-branding.js";
 import { logger } from "./middleware/logger.js";
@@ -50,6 +51,7 @@ import { createHostClientHandlers } from "@paperclipai/plugin-sdk";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 
 type UiMode = "none" | "static" | "vite-dev";
+const FEEDBACK_EXPORT_FLUSH_INTERVAL_MS = 5_000;
 
 export function resolveViteHmrPort(serverPort: number): number {
   if (serverPort <= 55_535) {
@@ -64,13 +66,21 @@ export async function createApp(
     uiMode: UiMode;
     serverPort: number;
     storageService: StorageService;
+    feedbackExportService?: {
+      flushPendingFeedbackTraces(input?: {
+        companyId?: string;
+        traceId?: string;
+        limit?: number;
+        now?: Date;
+      }): Promise<unknown>;
+    };
     deploymentMode: DeploymentMode;
     deploymentExposure: DeploymentExposure;
+    hostedMode?: boolean;
     allowedHostnames: string[];
     bindHost: string;
     authReady: boolean;
     companyDeletionEnabled: boolean;
-    hostedMode?: boolean;
     instanceId?: string;
     hostVersion?: string;
     localPluginDir?: string;
@@ -126,7 +136,7 @@ export async function createApp(
     });
   });
   if (opts.betterAuthHandler) {
-    app.all("/api/auth/*authPath", opts.betterAuthHandler);
+    app.all("/api/auth/{*authPath}", opts.betterAuthHandler);
   }
   app.use(llmRoutes(db));
 
@@ -145,7 +155,6 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
-      hostedMode: opts.hostedMode,
     }),
   );
   api.use("/companies", companyRoutes(db, opts.storageService));
@@ -153,7 +162,11 @@ export async function createApp(
   api.use(agentRoutes(db));
   api.use(assetRoutes(db, opts.storageService));
   api.use(projectRoutes(db));
-  api.use(issueRoutes(db, opts.storageService));
+  api.use(
+    issueRoutes(db, opts.storageService, {
+      feedbackExportService: opts.feedbackExportService,
+    }),
+  );
   api.use(routineRoutes(db));
   api.use(executionWorkspaceRoutes(db));
   api.use(goalRoutes(db));
@@ -287,6 +300,19 @@ export async function createApp(
 
   jobCoordinator.start();
   scheduler.start();
+  const feedbackExportTimer = opts.feedbackExportService
+    ? setInterval(() => {
+        void opts.feedbackExportService?.flushPendingFeedbackTraces().catch((err) => {
+          logger.error({ err }, "Failed to flush pending feedback exports");
+        });
+      }, FEEDBACK_EXPORT_FLUSH_INTERVAL_MS)
+    : null;
+  feedbackExportTimer?.unref?.();
+  if (opts.feedbackExportService) {
+    void opts.feedbackExportService.flushPendingFeedbackTraces().catch((err) => {
+      logger.error({ err }, "Failed to flush pending feedback exports");
+    });
+  }
   void toolDispatcher.initialize().catch((err) => {
     logger.error({ err }, "Failed to initialize plugin tool dispatcher");
   });
@@ -311,6 +337,7 @@ export async function createApp(
       logger.error({ err }, "Failed to load ready plugins on startup");
     });
   process.once("exit", () => {
+    if (feedbackExportTimer) clearInterval(feedbackExportTimer);
     devWatcher?.close();
     hostServiceCleanup.disposeAll();
     hostServiceCleanup.teardown();

@@ -101,7 +101,12 @@ export function MarkdownBody({ children, className, resolveImageSrc }: MarkdownB
     a: ({ href, children: linkChildren }) => {
       const parsed = href ? parseMentionChipHref(href) : null;
       if (parsed) {
-        const targetHref = parsed.kind === "project" ? `/projects/${parsed.projectId}` : `/agents/${parsed.agentId}`;
+        const targetHref =
+          parsed.kind === "project"
+            ? `/projects/${parsed.projectId}`
+            : parsed.kind === "skill"
+              ? `/skills/${parsed.skillId}`
+              : `/agents/${parsed.agentId}`;
         return (
           <a
             href={targetHref}

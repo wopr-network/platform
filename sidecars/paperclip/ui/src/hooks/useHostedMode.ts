@@ -10,6 +10,6 @@ export function useHostedMode() {
   });
 
   return {
-    isHosted: health?.hostedMode === true,
+    isHosted: health?.deploymentMode === "hosted_proxy",
   };
 }

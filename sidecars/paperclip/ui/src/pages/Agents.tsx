@@ -3,7 +3,6 @@ import { Link, useNavigate, useLocation } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
-import { healthApi } from "../api/health";
 import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -21,17 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Bot, Plus, List, GitBranch, SlidersHorizontal } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@paperclipai/shared";
 
-const adapterLabels: Record<string, string> = {
-  claude_local: "Claude",
-  codex_local: "Codex",
-  gemini_local: "Gemini",
-  opencode_local: "OpenCode",
-  cursor: "Cursor",
-  hermes_local: "Hermes",
-  openclaw_gateway: "OpenClaw Gateway",
-  process: "Process",
-  http: "HTTP",
-};
+import { getAdapterLabel } from "../adapters/adapter-display-registry";
 
 const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
 
@@ -71,12 +60,6 @@ export function Agents() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile } = useSidebar();
-  const healthQuery = useQuery({
-    queryKey: queryKeys.health,
-    queryFn: () => healthApi.get(),
-    staleTime: 60_000,
-  });
-  const isHosted = healthQuery.data?.hostedMode === true;
   const pathSegment = location.pathname.split("/").pop() ?? "all";
   const tab: FilterTab =
     pathSegment === "all" || pathSegment === "active" || pathSegment === "paused" || pathSegment === "error"
@@ -254,6 +237,7 @@ export function Agents() {
                 title={agent.name}
                 subtitle={`${roleLabels[agent.role] ?? agent.role}${agent.title ? ` - ${agent.title}` : ""}`}
                 to={agentUrl(agent)}
+                className={agent.pausedAt && tab !== "paused" ? "opacity-50" : ""}
                 leading={
                   <span className="relative flex h-2.5 w-2.5">
                     <span
@@ -282,11 +266,9 @@ export function Agents() {
                           liveCount={liveRunByAgent.get(agent.id)!.liveCount}
                         />
                       )}
-                      {!isHosted && (
-                        <span className="text-xs text-muted-foreground font-mono w-14 text-right">
-                          {adapterLabels[agent.adapterType] ?? agent.adapterType}
-                        </span>
-                      )}
+                      <span className="text-xs text-muted-foreground font-mono w-14 text-right">
+                        {getAdapterLabel(agent.adapterType)}
+                      </span>
                       <span className="text-xs text-muted-foreground w-16 text-right">
                         {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
                       </span>
@@ -316,7 +298,7 @@ export function Agents() {
               depth={0}
               agentMap={agentMap}
               liveRunByAgent={liveRunByAgent}
-              hostedMode={isHosted}
+              tab={tab}
             />
           ))}
         </div>
@@ -338,13 +320,13 @@ function OrgTreeNode({
   depth,
   agentMap,
   liveRunByAgent,
-  hostedMode,
+  tab,
 }: {
   node: OrgNode;
   depth: number;
   agentMap: Map<string, Agent>;
   liveRunByAgent: Map<string, { runId: string; liveCount: number }>;
-  hostedMode?: boolean;
+  tab: FilterTab;
 }) {
   const agent = agentMap.get(node.id);
 
@@ -354,7 +336,10 @@ function OrgTreeNode({
     <div style={{ paddingLeft: depth * 24 }}>
       <Link
         to={agent ? agentUrl(agent) : `/agents/${node.id}`}
-        className="flex items-center gap-3 px-3 py-2 hover:bg-accent/30 transition-colors w-full text-left no-underline text-inherit"
+        className={cn(
+          "flex items-center gap-3 px-3 py-2 hover:bg-accent/30 transition-colors w-full text-left no-underline text-inherit",
+          agent?.pausedAt && tab !== "paused" && "opacity-50",
+        )}
       >
         <span className="relative flex h-2.5 w-2.5 shrink-0">
           <span className={`absolute inline-flex h-full w-full rounded-full ${statusColor}`} />
@@ -388,11 +373,9 @@ function OrgTreeNode({
             )}
             {agent && (
               <>
-                {!hostedMode && (
-                  <span className="text-xs text-muted-foreground font-mono w-14 text-right">
-                    {adapterLabels[agent.adapterType] ?? agent.adapterType}
-                  </span>
-                )}
+                <span className="text-xs text-muted-foreground font-mono w-14 text-right">
+                  {getAdapterLabel(agent.adapterType)}
+                </span>
                 <span className="text-xs text-muted-foreground w-16 text-right">
                   {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
                 </span>
@@ -413,7 +396,7 @@ function OrgTreeNode({
               depth={depth + 1}
               agentMap={agentMap}
               liveRunByAgent={liveRunByAgent}
-              hostedMode={hostedMode}
+              tab={tab}
             />
           ))}
         </div>
