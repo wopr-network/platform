@@ -11,16 +11,29 @@ export function validateBotImage(botImage: string): void {
   }
 }
 
+/** Options for cloud-init generation. */
+export interface CloudInitOptions {
+  botImage: string;
+  nodeSecret?: string;
+  platformUrl?: string;
+  registryHost?: string;
+  /** Swarm worker join token — if provided, node joins the swarm overlay. */
+  swarmToken?: string;
+  /** Swarm manager address (ip:port) — required when swarmToken is set. */
+  swarmManagerAddr?: string;
+}
+
 /**
  * Generate the cloud-init user-data script for a new WOPR node.
- * Installs Docker, pulls bot image + node-agent, starts the agent daemon.
- * Injects per-node secret + platform URL for agent registration.
+ * Installs Docker, joins swarm overlay, pulls bot image + node-agent,
+ * starts the agent daemon.
  */
 export function generateCloudInit(
   botImage: string,
   nodeSecret?: string,
   platformUrl = "https://api.wopr.bot",
   registryHost = "registry.wopr.bot",
+  swarmOpts?: { token: string; managerAddr: string },
 ): string {
   validateBotImage(botImage);
   if (nodeSecret && !NODE_SECRET_PATTERN.test(nodeSecret)) {
@@ -28,6 +41,7 @@ export function generateCloudInit(
   }
   const secretEnv = nodeSecret ? `  - echo 'WOPR_NODE_SECRET=${nodeSecret}' >> /etc/environment\n` : "";
   const platformEnv = `  - echo 'PLATFORM_URL=${platformUrl}' >> /etc/environment\n`;
+  const swarmJoin = swarmOpts ? `  - docker swarm join --token "${swarmOpts.token}" "${swarmOpts.managerAddr}"\n` : "";
   return `#cloud-config
 packages:
   - docker.io
@@ -36,7 +50,7 @@ packages:
 runcmd:
   - systemctl enable docker
   - systemctl start docker
-${secretEnv}${platformEnv}  - docker pull "${botImage}"
+${secretEnv}${platformEnv}${swarmJoin}  - docker pull "${botImage}"
   - docker pull "${registryHost}/node-agent:latest"
   - mkdir -p /etc/wopr /var/wopr/backups
   - |

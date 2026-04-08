@@ -64,6 +64,23 @@ export class VaultConfigProvider {
     return data.data.data;
   }
 
+  /** Write a KV v2 secret. */
+  async write(path: string, data: Record<string, string>): Promise<void> {
+    if (!this.token) await this.login();
+    const res = await fetch(`${this.config.addr}/v1/secret/data/${path}`, {
+      method: "POST",
+      headers: {
+        "X-Vault-Token": this.token as string,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ data }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Vault write ${path} failed (${res.status}): ${body}`);
+    }
+  }
+
   /** Read multiple paths and merge into one object. */
   async readAll(paths: string[]): Promise<Record<string, string>> {
     const results = await Promise.all(paths.map((p) => this.read(p)));

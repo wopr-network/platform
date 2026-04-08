@@ -4,6 +4,7 @@ import { generateCloudInit, validateBotImage } from "./cloud-init.js";
 import type { FleetEventEmitter } from "./fleet-event-emitter.js";
 import type { INodeProvider, ProviderRegion, ProviderSize } from "./node-provider.js";
 import type { INodeRepository } from "./node-repository.js";
+import type { SwarmManager } from "./swarm-manager.js";
 
 export interface ProvisionNodeParams {
   region?: string;
@@ -39,6 +40,7 @@ export class NodeProvisioner {
   private readonly defaultSize: string;
   private readonly botImage: string;
   private readonly eventEmitter?: FleetEventEmitter;
+  private readonly swarmManager?: SwarmManager;
 
   constructor(
     nodeRepo: INodeRepository,
@@ -48,6 +50,7 @@ export class NodeProvisioner {
       defaultRegion?: string;
       defaultSize?: string;
       botImage?: string;
+      swarmManager?: SwarmManager;
     },
     eventEmitter?: FleetEventEmitter,
   ) {
@@ -57,6 +60,7 @@ export class NodeProvisioner {
     this.defaultRegion = options.defaultRegion ?? "nyc1";
     this.defaultSize = options.defaultSize ?? "s-4vcpu-8gb";
     this.botImage = options.botImage ?? "ghcr.io/wopr-network/wopr:latest";
+    this.swarmManager = options.swarmManager;
     this.eventEmitter = eventEmitter;
     validateBotImage(this.botImage);
   }
@@ -95,7 +99,18 @@ export class NodeProvisioner {
     let createdExternalId: string | undefined;
     try {
       // 2. Create node via provider
-      const userData = generateCloudInit(this.botImage, nodeSecret);
+      let swarmOpts: { token: string; managerAddr: string } | undefined;
+      if (this.swarmManager) {
+        try {
+          const creds = await this.swarmManager.getJoinCredentials();
+          swarmOpts = { token: creds.workerToken, managerAddr: creds.managerAddr };
+        } catch (err) {
+          logger.warn("Swarm credentials unavailable — node will not join overlay", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      const userData = generateCloudInit(this.botImage, nodeSecret, undefined, undefined, swarmOpts);
       const { externalId } = await this.provider.createNode({
         name: `wopr-${nodeId}`,
         region,
