@@ -359,6 +359,10 @@ host_bucket = %(bucket)s.${spaces.endpoint}
         return this.dockerManager.restartBot(String(p.name));
 
       case "bot.update":
+        // Two modes: rename a pool container into a tenant container, or update env.
+        if (p.rename === true && p.containerId) {
+          return this.dockerManager.renameContainer(String(p.containerId), String(p.name));
+        }
         return this.dockerManager.updateBot({
           name: String(p.name),
           env: NodeAgent.parseJsonOrObject(p.env) ?? {},

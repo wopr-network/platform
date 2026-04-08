@@ -475,6 +475,12 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     }
 
     result.hotPool = hotPool;
+
+    // Wire pool into every per-node FleetManager so create() can claim warm
+    // containers instead of cold-starting via bot.start (which has no registry auth).
+    for (const node of fleet.nodeRegistry.list()) {
+      node.fleet.setDeps({ pool: hotPool });
+    }
   }
 
   // Bind InstanceService — orchestrates create, provision, billing

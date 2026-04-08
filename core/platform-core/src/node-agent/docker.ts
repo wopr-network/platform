@@ -155,6 +155,18 @@ export class DockerManager {
     }
   }
 
+  /**
+   * Rename a container by ID. Used by HotPool claims to rebrand a warm
+   * pool container (pool-foo-XYZ) into a tenant container (tenant_<id>).
+   * Returns the new container ID (unchanged — Docker rename only swaps names).
+   */
+  async renameContainer(containerId: string, newName: string): Promise<{ containerId: string }> {
+    const name = newName.startsWith(TENANT_PREFIX) ? newName : `${TENANT_PREFIX}${newName}`;
+    const container = this.docker.getContainer(containerId);
+    await container.rename({ name });
+    return { containerId };
+  }
+
   /** Remove a tenant container by name. */
   async removeBot(name: string): Promise<void> {
     const container = this.docker.getContainer(name);
