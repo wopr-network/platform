@@ -53,7 +53,7 @@ describe("DockerManager", () => {
   });
 
   describe("listTenantContainers", () => {
-    it("returns containers tagged wopr.managed=true that aren't pool containers", async () => {
+    it("returns containers tagged wopr.managed=true that aren't warm pool containers", async () => {
       (docker.listContainers as ReturnType<typeof vi.fn>).mockResolvedValue([
         // Tenant container (managed, not in pool)
         { Names: ["/paperclip-abc-bot1"], Id: "c1", State: "running", Labels: { "wopr.managed": "true" } },
@@ -61,8 +61,8 @@ describe("DockerManager", () => {
         { Names: ["/redis"], Id: "c2", State: "running", Labels: {} },
         // Tenant container with old "tenant_" name still works once labeled
         { Names: ["/tenant_xyz-bot2"], Id: "c3", State: "exited", Labels: { "wopr.managed": "true" } },
-        // Pool container — managed but excluded by prefix
-        { Names: ["/pool-paperclip-foo"], Id: "c4", State: "running", Labels: { "wopr.managed": "true" } },
+        // Warm pool container — managed but excluded by `warm-` prefix
+        { Names: ["/warm-paperclip-foo"], Id: "c4", State: "running", Labels: { "wopr.managed": "true" } },
       ]);
 
       const result = await manager.listTenantContainers();

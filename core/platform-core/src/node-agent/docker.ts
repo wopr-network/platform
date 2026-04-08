@@ -53,7 +53,7 @@ export class DockerManager {
    * List tenant containers managed by this agent.
    *
    * Filter rule: containers tagged `wopr.managed=true` whose name does NOT
-   * start with the `pool-` prefix (those are still in the warm pool).
+   * start with the `warm-` prefix (those are still in the warm pool).
    * Pool containers carry the same `wopr.managed` label so the agent owns
    * them too — they're filtered out here so backups/heartbeat metrics only
    * cover claimed tenant instances, not the warm pool.
@@ -63,7 +63,7 @@ export class DockerManager {
     return all.filter((c) => {
       if (c.Labels?.["wopr.managed"] !== "true") return false;
       const name = (c.Names?.[0] ?? "").replace(/^\//, "");
-      return !name.startsWith("pool-");
+      return !name.startsWith("warm-");
     });
   }
 
@@ -412,13 +412,14 @@ export class DockerManager {
   }
 
   /**
-   * List all pool containers on this node (name starts with "pool-").
-   * Returns minimal info for orphan reconciliation.
+   * List all warm pool containers on this node (name starts with "warm-").
+   * Returns minimal info for orphan reconciliation. Used by Fleet.cleanupWarmPool
+   * to compare host state with pool_instances DB rows in both directions.
    */
   async listPoolContainers(): Promise<{ id: string; name: string; running: boolean }[]> {
     const all = await this.docker.listContainers({ all: true });
     return all
-      .filter((c) => c.Names?.some((n) => n.replace(/^\//, "").startsWith("pool-")))
+      .filter((c) => c.Names?.some((n) => n.replace(/^\//, "").startsWith("warm-")))
       .map((c) => ({
         id: c.Id,
         name: (c.Names?.[0] ?? "").replace(/^\//, ""),
