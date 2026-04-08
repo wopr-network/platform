@@ -278,7 +278,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     await nodeRegistry.loadFromDb(db, profileStore);
 
     const placementStrategy = createContainerPlacementStrategy("least-loaded");
-    const orgInstanceResolver = new OrgInstanceResolverClass({ profileStore, proxyManager: proxy });
+    const orgInstanceResolver = new OrgInstanceResolverClass({ profileStore });
 
     // No more `manager: localNode.fleet` shortcut. Callers go through the
     // Fleet composite (container.fleetComposite) which dispatches to whichever
@@ -506,6 +506,10 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     // Ticker is started by lifecycle.ts under leader election (so non-leader
     // replicas don't double-replenish).
     result.fleetComposite = fleetComposite;
+
+    // Wire the composite into OrgInstanceResolver — it depends on Fleet but
+    // was constructed earlier in boot (before fleetComposite existed).
+    fleet.orgInstanceResolver.setFleet(fleetComposite);
 
     const secrets = bootConfig.secrets;
     result.instanceService = new InstanceService({

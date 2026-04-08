@@ -122,21 +122,9 @@ export class InstanceService {
       // upstreams directly from the Instance (Docker DNS via node_id) — see
       // tenant-proxy.ts "primary path".
 
-      // 5. Register — profile (for listInstances) + bot_instances (for billing)
-      const profile = {
-        id: instanceId,
-        tenantId,
-        name,
-        productSlug,
-        description: description ?? "",
-        image,
-        env: instanceEnv,
-        restartPolicy: "unless-stopped" as const,
-        releaseChannel: "stable" as const,
-        updatePolicy: "manual" as const,
-      };
-      await d.profileStore.save(profile);
-      logger.info("Instance.create: profile saved", { instanceId });
+      // 5. Write the bot_instances row (for billing + lookup). The profile
+      // is already persisted by fleet.create() — no second save here.
+      // InstanceService is the single owner of the bot_instances row.
       await d.botInstanceRepo.create({
         id: instanceId,
         tenantId,

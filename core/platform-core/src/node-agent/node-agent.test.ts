@@ -255,7 +255,7 @@ describe("DockerManager", () => {
     expect(docker.createContainer).toHaveBeenCalledWith(
       expect.objectContaining({
         Image: "ghcr.io/wopr-network/bot:latest",
-        name: "tenant_mybot",
+        name: "mybot",
         Env: ["TOKEN=abc"],
       }),
     );
@@ -263,16 +263,12 @@ describe("DockerManager", () => {
     expect(id).toBe("abc123");
   });
 
-  it("prefixes tenant_ to container names", async () => {
+  it("uses container names as given (no implicit prefix)", async () => {
     const { docker } = mockDockerode();
     const manager = new DockerManager(docker as never);
 
-    await manager.startBot({ name: "bot1", image: "img:latest" });
-    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: "tenant_bot1" }));
-
-    // Already prefixed names should not be double-prefixed
-    await manager.startBot({ name: "tenant_bot2", image: "img:latest" });
-    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: "tenant_bot2" }));
+    await manager.startBot({ name: "paperclip-bot1", image: "img:latest" });
+    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: "paperclip-bot1" }));
   });
 });
 
@@ -537,8 +533,8 @@ describe("ALLOWED_COMMANDS", () => {
     }
   });
 
-  it("has exactly 13 commands", () => {
-    expect(ALLOWED_COMMANDS).toHaveLength(13);
+  it("has exactly 16 commands", () => {
+    expect(ALLOWED_COMMANDS).toHaveLength(16);
   });
 });
 
@@ -572,7 +568,7 @@ describe("DockerManager.updateBot", () => {
     expect(result.containerId).toBe("abc123");
   });
 
-  it("prefixes tenant_ to bare names", async () => {
+  it("uses the name as given (no implicit prefix)", async () => {
     const { docker, container } = mockDockerode();
     container.inspect.mockResolvedValue({
       Config: { Image: "img:latest", Env: [] },
@@ -581,10 +577,10 @@ describe("DockerManager.updateBot", () => {
     });
     const manager = new DockerManager(docker as never);
 
-    await manager.updateBot({ name: "mybot", env: { A: "1" } });
+    await manager.updateBot({ name: "paperclip-mybot", env: { A: "1" } });
 
-    expect(docker.getContainer).toHaveBeenCalledWith("tenant_mybot");
-    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: "tenant_mybot" }));
+    expect(docker.getContainer).toHaveBeenCalledWith("paperclip-mybot");
+    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: "paperclip-mybot" }));
   });
 
   it("rolls back on create failure", async () => {
@@ -734,34 +730,25 @@ describe("DockerManager.exportBot", () => {
 });
 
 describe("DockerManager.importBot", () => {
-  it("imports tar.gz and creates container with tenant prefix", async () => {
+  it("imports tar.gz and creates container with name as-given", async () => {
     const { docker, container } = mockDockerode();
     const manager = new DockerManager(docker as never);
 
-    const id = await manager.importBot("mybot", "/backups", "imported:latest", { TOKEN: "abc" });
+    const id = await manager.importBot("paperclip-mybot", "/backups", "imported:latest", { TOKEN: "abc" });
 
     expect(id).toBe("abc123");
-    expect(createReadStream).toHaveBeenCalledWith("/backups/mybot.tar.gz");
+    expect(createReadStream).toHaveBeenCalledWith("/backups/paperclip-mybot.tar.gz");
     expect(docker.importImage).toHaveBeenCalledWith("gunzipped-stream");
     expect(docker.modem.followProgress).toHaveBeenCalled();
     expect(docker.createContainer).toHaveBeenCalledWith(
       expect.objectContaining({
         Image: "imported:latest",
-        name: "tenant_mybot",
+        name: "paperclip-mybot",
         Env: ["TOKEN=abc"],
         HostConfig: { RestartPolicy: { Name: "unless-stopped" } },
       }),
     );
     expect(container.start).toHaveBeenCalled();
-  });
-
-  it("does not double-prefix names already starting with tenant_", async () => {
-    const { docker } = mockDockerode();
-    const manager = new DockerManager(docker as never);
-
-    await manager.importBot("tenant_existing", "/backups", "img:latest");
-
-    expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: "tenant_existing" }));
   });
 
   it("passes empty env array when env is undefined", async () => {

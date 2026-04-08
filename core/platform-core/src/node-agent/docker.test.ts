@@ -89,8 +89,11 @@ describe("DockerManager", () => {
 
   describe("startBot", () => {
     it("pulls image, creates container, and starts it", async () => {
+      // Names are passed through as-given — caller (FleetManager via
+      // containerNameFor) owns the convention. The agent no longer adds a
+      // legacy `tenant_` prefix.
       const id = await manager.startBot({
-        name: "my-bot",
+        name: "paperclip-my-bot",
         image: "wopr/bot:latest",
         env: { TOKEN: "secret", MODE: "prod" },
       });
@@ -98,7 +101,7 @@ describe("DockerManager", () => {
       expect(docker.pull).toHaveBeenCalledWith("wopr/bot:latest");
       expect(docker.createContainer).toHaveBeenCalledWith({
         Image: "wopr/bot:latest",
-        name: "tenant_my-bot",
+        name: "paperclip-my-bot",
         Env: expect.arrayContaining(["TOKEN=secret", "MODE=prod"]),
         HostConfig: {
           RestartPolicy: { Name: "unless-stopped" },
@@ -106,12 +109,6 @@ describe("DockerManager", () => {
       });
       expect(mockContainer.start).toHaveBeenCalled();
       expect(id).toBe("abc123");
-    });
-
-    it("prepends tenant_ prefix only when not already present", async () => {
-      await manager.startBot({ name: "tenant_already", image: "img:1" });
-
-      expect(docker.createContainer).toHaveBeenCalledWith(expect.objectContaining({ name: "tenant_already" }));
     });
 
     it("uses custom restart policy when provided", async () => {

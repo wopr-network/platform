@@ -187,14 +187,10 @@ export class FleetManager implements INodeFleet {
         const instance = this.buildInstance(profile);
         instance.emitCreated();
 
-        if (this.instanceRepo) {
-          try {
-            await this.instanceRepo.register(id, profile.tenantId, profile.name);
-          } catch (err) {
-            // Non-fatal: cleanup loop reconciles bot_instances rows from DB state.
-            logger.warn("Failed to register bot instance in DB (non-fatal)", { id, err });
-          }
-        }
+        // bot_instances is owned by InstanceService — it has the full field
+        // set (nodeId, containerPort, billingState, createdByUserId). The
+        // FleetManager only owns profiles + containers. Single source of
+        // truth for the row, no double-write race.
 
         return instance;
       } catch (err) {

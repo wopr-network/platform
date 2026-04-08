@@ -24,16 +24,16 @@ describe("IPoolRepository (InMemory)", () => {
     const repo = new InMemoryPoolRepository();
     expect(await repo.warmCount()).toBe(0);
 
-    await repo.insertWarm("a", "container-a");
-    await repo.insertWarm("b", "container-b");
+    await repo.insertWarm("a", "container-a", "local", "default", "img:latest");
+    await repo.insertWarm("b", "container-b", "local", "default", "img:latest");
 
     expect(await repo.warmCount()).toBe(2);
   });
 
   it("lists active instances (warm + claimed)", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("a", "container-a");
-    await repo.insertWarm("b", "container-b");
+    await repo.insertWarm("a", "container-a", "local", "default", "img:latest");
+    await repo.insertWarm("b", "container-b", "local", "default", "img:latest");
 
     const active = await repo.listActive();
     expect(active).toHaveLength(2);
@@ -42,7 +42,7 @@ describe("IPoolRepository (InMemory)", () => {
     expect(active[0].status).toBe("warm");
 
     // Claim one — it stays in listActive
-    await repo.claim();
+    await repo.claim("default");
     const afterClaim = await repo.listActive();
     expect(afterClaim).toHaveLength(2);
     expect(afterClaim.filter((i) => i.status === "claimed")).toHaveLength(1);
@@ -51,10 +51,10 @@ describe("IPoolRepository (InMemory)", () => {
 
   it("claims warm instance FIFO", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("first", "c-first");
-    await repo.insertWarm("second", "c-second");
+    await repo.insertWarm("first", "c-first", "local", "default", "img:latest");
+    await repo.insertWarm("second", "c-second", "local", "default", "img:latest");
 
-    const claimed = await repo.claim();
+    const claimed = await repo.claim("default");
     expect(claimed).not.toBeNull();
     expect(claimed?.id).toBe("first");
     expect(claimed?.containerId).toBe("c-first");
@@ -65,24 +65,24 @@ describe("IPoolRepository (InMemory)", () => {
 
   it("returns null when claiming from empty pool", async () => {
     const repo = new InMemoryPoolRepository();
-    const result = await repo.claim();
+    const result = await repo.claim("default");
     expect(result).toBeNull();
   });
 
   it("does not re-claim already claimed instances", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("only", "c-only");
+    await repo.insertWarm("only", "c-only", "local", "default", "img:latest");
 
-    const first = await repo.claim();
+    const first = await repo.claim("default");
     expect(first).not.toBeNull();
 
-    const second = await repo.claim();
+    const second = await repo.claim("default");
     expect(second).toBeNull();
   });
 
   it("marks instances dead and excludes from listActive", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("a", "c-a");
+    await repo.insertWarm("a", "c-a", "local", "default", "img:latest");
     await repo.markDead("a");
 
     expect(await repo.warmCount()).toBe(0);
@@ -92,8 +92,8 @@ describe("IPoolRepository (InMemory)", () => {
 
   it("deletes dead instances", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("a", "c-a");
-    await repo.insertWarm("b", "c-b");
+    await repo.insertWarm("a", "c-a", "local", "default", "img:latest");
+    await repo.insertWarm("b", "c-b", "local", "default", "img:latest");
     await repo.markDead("a");
 
     await repo.deleteDead();
@@ -105,7 +105,7 @@ describe("IPoolRepository (InMemory)", () => {
 
   it("updates instance status", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("a", "c-a");
+    await repo.insertWarm("a", "c-a", "local", "default", "img:latest");
     await repo.updateInstanceStatus("a", "dead");
 
     expect(await repo.warmCount()).toBe(0);
@@ -113,14 +113,14 @@ describe("IPoolRepository (InMemory)", () => {
 
   it("handles multiple claims in order", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("1", "c-1");
-    await repo.insertWarm("2", "c-2");
-    await repo.insertWarm("3", "c-3");
+    await repo.insertWarm("1", "c-1", "local", "default", "img:latest");
+    await repo.insertWarm("2", "c-2", "local", "default", "img:latest");
+    await repo.insertWarm("3", "c-3", "local", "default", "img:latest");
 
-    const c1 = await repo.claim();
-    const c2 = await repo.claim();
-    const c3 = await repo.claim();
-    const c4 = await repo.claim();
+    const c1 = await repo.claim("default");
+    const c2 = await repo.claim("default");
+    const c3 = await repo.claim("default");
+    const c4 = await repo.claim("default");
 
     expect(c1?.id).toBe("1");
     expect(c2?.id).toBe("2");
@@ -131,17 +131,17 @@ describe("IPoolRepository (InMemory)", () => {
 
   it("dead instances are not claimable", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("a", "c-a");
+    await repo.insertWarm("a", "c-a", "local", "default", "img:latest");
     await repo.markDead("a");
 
-    const result = await repo.claim();
+    const result = await repo.claim("default");
     expect(result).toBeNull();
   });
 
   it("partitions by key", async () => {
     const repo = new InMemoryPoolRepository();
-    await repo.insertWarm("a", "c-a", "alpha");
-    await repo.insertWarm("b", "c-b", "beta");
+    await repo.insertWarm("a", "c-a", "local", "alpha", "img:latest");
+    await repo.insertWarm("b", "c-b", "local", "beta", "img:latest");
 
     expect(await repo.warmCount("alpha")).toBe(1);
     expect(await repo.warmCount("beta")).toBe(1);

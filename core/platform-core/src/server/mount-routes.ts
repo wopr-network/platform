@@ -802,7 +802,6 @@ export async function mountRoutes(
     app.use(
       "*",
       createTenantProxyMiddleware(container, {
-        platformDomains: (await container.productConfigService.listAll()).map((pc) => pc.product.domain),
         resolveUser: async (req: Request) => {
           try {
             const { getAuthForProduct } = await import("../auth/better-auth.js");
