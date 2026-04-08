@@ -249,12 +249,22 @@ export class DockerManager {
     port: number;
     network: string;
     provisionSecret?: string;
+    registryAuth?: { username: string; password: string; serveraddress: string };
   }): Promise<string> {
-    const { name, image, port, network, provisionSecret } = payload;
+    const { name, image, port, network, provisionSecret, registryAuth } = payload;
     const volumeName = name; // volume matches container name
 
-    // Pull image
-    const stream = await this.docker.pull(image);
+    // Pull image (with auth if provided)
+    const pullOpts = registryAuth
+      ? {
+          authconfig: {
+            username: registryAuth.username,
+            password: registryAuth.password,
+            serveraddress: registryAuth.serveraddress,
+          },
+        }
+      : {};
+    const stream = await this.docker.pull(image, pullOpts);
     await new Promise<void>((resolve, reject) => {
       this.docker.modem.followProgress(stream, (err: Error | null) => (err ? reject(err) : resolve()));
     });

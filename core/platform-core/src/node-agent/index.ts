@@ -403,6 +403,9 @@ host_bucket = %(bucket)s.${spaces.endpoint}
           port: p.port ? Number(p.port) : 3100,
           network: p.network ? String(p.network) : "platform-overlay",
           provisionSecret: p.provisionSecret ? String(p.provisionSecret) : undefined,
+          registryAuth: p.registryAuth
+            ? (p.registryAuth as { username: string; password: string; serveraddress: string })
+            : undefined,
         });
 
       case "pool.cleanup":

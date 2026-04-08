@@ -224,6 +224,7 @@ export class HotPool {
           port,
           network: network || "platform-overlay",
           provisionSecret,
+          ...(this.config.registryAuth ? { registryAuth: this.config.registryAuth } : {}),
         },
       });
 
