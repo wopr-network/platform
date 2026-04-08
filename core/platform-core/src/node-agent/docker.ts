@@ -22,6 +22,17 @@ export interface RegistryAuth {
 export interface DockerManagerOptions {
   /** Default registry auth used by all pulls when the per-call payload doesn't override. */
   defaultRegistryAuth?: RegistryAuth | null;
+  /**
+   * Default docker network to attach spawned containers to (after start).
+   * The host's per-instance compose stack is on a swarm overlay network like
+   * `platform-overlay`; tenant containers MUST join it to be reachable from
+   * the core service by name. Without this, containers land on the default
+   * `bridge` network and core can't curl them for the sidecar health check.
+   *
+   * Per-call payloads can still override (warm pool spec carries its own
+   * network field per-product); this is the fallback for everything else.
+   */
+  defaultNetwork?: string | null;
 }
 
 /**
@@ -31,10 +42,31 @@ export interface DockerManagerOptions {
 export class DockerManager {
   readonly docker: Docker;
   private readonly defaultRegistryAuth: RegistryAuth | null;
+  private readonly defaultNetwork: string | null;
 
   constructor(docker?: Docker, options: DockerManagerOptions = {}) {
     this.docker = docker ?? new Docker({ socketPath: "/var/run/docker.sock" });
     this.defaultRegistryAuth = options.defaultRegistryAuth ?? null;
+    this.defaultNetwork = options.defaultNetwork ?? null;
+  }
+
+  /**
+   * Attach a container to a docker network if one is configured. Same fallback
+   * shape as `pullOpts`: per-call override → agent default → no-op. Failures
+   * are logged-non-fatal because a container that fails to join the overlay
+   * still runs (just not reachable from sibling services), and we'd rather
+   * the create succeed and surface the connectivity issue at health-check time
+   * than crash the entire create flow.
+   */
+  private async attachNetwork(containerId: string, override?: string | null): Promise<void> {
+    const network = override ?? this.defaultNetwork;
+    if (!network) return;
+    try {
+      const net = this.docker.getNetwork(network);
+      await net.connect({ Container: containerId });
+    } catch {
+      // Already connected or network gone — non-fatal
+    }
   }
 
   /**
@@ -73,6 +105,8 @@ export class DockerManager {
     image: string;
     env?: Record<string, string>;
     restart?: string;
+    /** Optional override of the agent's default network. */
+    network?: string;
   }): Promise<string> {
     const { name } = payload;
     const envArr = payload.env ? Object.entries(payload.env).map(([k, v]) => `${k}=${v}`) : [];
@@ -97,6 +131,13 @@ export class DockerManager {
     });
 
     await container.start();
+
+    // Attach the tenant container to the host's overlay network so core can
+    // reach it by name for the sidecar health check + tRPC proxy. Without
+    // this the container is reachable only on the default `bridge` network
+    // and `http://<name>:3100` from core resolves to nothing.
+    await this.attachNetwork(container.id, payload.network);
+
     return container.id;
   }
 
@@ -400,13 +441,9 @@ export class DockerManager {
 
     await container.start();
 
-    // Connect to overlay network
-    try {
-      const net = this.docker.getNetwork(network);
-      await net.connect({ Container: container.id });
-    } catch {
-      // Network connect failure is non-fatal — container still runs
-    }
+    // Connect to overlay network — per-call `network` from the spec wins,
+    // falls back to the agent's default. Same shape as startBot().
+    await this.attachNetwork(container.id, network);
 
     return container.id;
   }

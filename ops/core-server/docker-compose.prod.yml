@@ -309,6 +309,9 @@ services:
       REGISTRY_USERNAME: ${REGISTRY_USERNAME}
       REGISTRY_PASSWORD: ${REGISTRY_PASSWORD}
       REGISTRY_SERVER: ${REGISTRY_SERVER}
+      # Default docker network for spawned tenant containers — must match
+      # the network core is on so `http://<container-name>:3100` resolves.
+      DOCKER_NETWORK: ${DOCKER_NETWORK:-platform-overlay}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - agent_credentials:/etc/wopr

@@ -334,7 +334,11 @@ if (isMain) {
     registryUsername && registryPassword && registryServer
       ? { username: registryUsername, password: registryPassword, serveraddress: registryServer }
       : null;
-  const dockerManager = new DockerManager(undefined, { defaultRegistryAuth });
+  // Default docker network so spawned tenant containers can reach (and be
+  // reached by) the rest of the core stack via the host overlay. Same role
+  // as registry auth — per-host bootstrap config, not application secret.
+  const defaultNetwork = process.env.DOCKER_NETWORK ?? null;
+  const dockerManager = new DockerManager(undefined, { defaultRegistryAuth, defaultNetwork });
 
   const agent = new NodeAgent(config, dockerManager);
 
