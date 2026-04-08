@@ -22,14 +22,14 @@ export class DockerManager {
     return all.filter((c) => c.Names.some((n) => n.replace(/^\//, "").startsWith(TENANT_PREFIX)));
   }
 
-  /** Start a new tenant container. */
+  /** Start a new tenant container. Name is used as-given — caller owns the convention. */
   async startBot(payload: {
     name: string;
     image: string;
     env?: Record<string, string>;
     restart?: string;
   }): Promise<string> {
-    const name = payload.name.startsWith(TENANT_PREFIX) ? payload.name : `${TENANT_PREFIX}${payload.name}`;
+    const { name } = payload;
     const envArr = payload.env ? Object.entries(payload.env).map(([k, v]) => `${k}=${v}`) : [];
 
     // Pull image first
@@ -99,8 +99,7 @@ export class DockerManager {
    * No image pull — uses the image already cached on the node.
    */
   async updateBot(payload: { name: string; env: Record<string, string> }): Promise<{ containerId: string }> {
-    const name = payload.name.startsWith(TENANT_PREFIX) ? payload.name : `${TENANT_PREFIX}${payload.name}`;
-
+    const { name } = payload;
     const container = this.docker.getContainer(name);
 
     // Inspect old container to capture image + config for rollback
@@ -167,7 +166,10 @@ export class DockerManager {
    * Returns the (unchanged) container ID — Docker rename only swaps names.
    */
   async renameContainer(containerId: string, newName: string): Promise<{ containerId: string }> {
-    const name = newName.startsWith(TENANT_PREFIX) ? newName : `${TENANT_PREFIX}${newName}`;
+    // Use name as-given. The TENANT_PREFIX legacy convention doesn't match
+    // containerNameFor() in core, which would cause subsequent bot.inspect /
+    // bot.logs / bot.remove calls to look up the wrong name and 404.
+    const name = newName;
     const container = this.docker.getContainer(containerId);
 
     // Snapshot networks before rename so we can reconnect on failure or success.
@@ -260,7 +262,7 @@ export class DockerManager {
     });
 
     // Create and start a new container from the imported image
-    const containerName = name.startsWith(TENANT_PREFIX) ? name : `${TENANT_PREFIX}${name}`;
+    const containerName = name;
     const envArr = env ? Object.entries(env).map(([k, v]) => `${k}=${v}`) : [];
 
     const container = await this.docker.createContainer({

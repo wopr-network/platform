@@ -136,161 +136,182 @@ export class InstanceService {
     const instanceId = result.id;
     logger.info("Instance.create: container created", { instanceId, productSlug, nodeId: targetNode.config.id });
 
-    // Subdomain-based proxy routes are no longer used. tenant-proxy resolves
-    // upstreams directly from the Instance (Docker DNS via node_id) — see
-    // tenant-proxy.ts "primary path".
+    // From here on, anything that throws must roll back the container,
+    // bot_instances row, and profile so we don't leak orphans. fleet.remove()
+    // handles all three in one call.
+    try {
+      // Subdomain-based proxy routes are no longer used. tenant-proxy resolves
+      // upstreams directly from the Instance (Docker DNS via node_id) — see
+      // tenant-proxy.ts "primary path".
 
-    // 5. Register — profile (for listInstances) + bot_instances (for billing)
-    const profile = {
-      id: instanceId,
-      tenantId,
-      name,
-      productSlug,
-      description: description ?? "",
-      image,
-      env: instanceEnv,
-      restartPolicy: "unless-stopped" as const,
-      releaseChannel: "stable" as const,
-      updatePolicy: "manual" as const,
-    };
-    await d.profileStore.save(profile);
-    logger.info("Instance.create: profile saved", { instanceId });
-    await d.botInstanceRepo.create({
-      id: instanceId,
-      tenantId,
-      name,
-      nodeId: targetNode.config.id,
-      containerPort,
-      billingState: "inactive",
-      createdByUserId: userId,
-    });
-    logger.info("Instance.create: bot instance registered", { instanceId, tenantId });
-
-    // 6. Gateway key
-    let gatewayKey: string | null = null;
-    if (d.serviceKeyRepo) {
-      try {
-        gatewayKey = await d.serviceKeyRepo.generate(tenantId, instanceId, productSlug);
-        logger.info("Instance.create: gateway key generated", { instanceId, hasKey: true });
-      } catch (err) {
-        logger.warn("Instance.create: gateway key generation failed", {
-          instanceId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-      }
-    } else {
-      logger.info("Instance.create: no service key repo, skipping gateway key", { instanceId });
-    }
-
-    // 7. Provision — give the container its identity
-    let provisioned = false;
-    if (!productConfig.product?.domain) {
-      throw new Error(`Product ${productSlug} has no domain configured`);
-    }
-    const gatewayUrl = `https://api.${productConfig.product.domain}/v1`;
-    const containerUrl = result.url;
-    logger.info("Instance.create: provisioning setup", {
-      instanceId,
-      containerName: result.containerName,
-      containerUrl,
-      gatewayUrl,
-      hasSecret: !!d.provisionSecret,
-      hasKey: !!gatewayKey,
-    });
-
-    if (d.provisionSecret && gatewayKey) {
-      const provisionPayload = {
+      // 5. Register — profile (for listInstances) + bot_instances (for billing)
+      const profile = {
+        id: instanceId,
         tenantId,
-        tenantName: name,
-        gatewayUrl,
-        apiKey: gatewayKey,
-        budgetCents: balance.toCentsRounded(),
-        adminUser: { id: userId, email: userEmail, name },
-        agents: [{ name: (params.extra?.ceoName as string) || "CEO", role: "ceo", title: "Chief Executive Officer" }],
-        extra: {
-          instanceConfig: {
-            deploymentMode: "hosted_proxy",
-            hostedMode: true,
-            deploymentExposure: "private",
-          },
-          ...params.extra,
-        },
+        name,
+        productSlug,
+        description: description ?? "",
+        image,
+        env: instanceEnv,
+        restartPolicy: "unless-stopped" as const,
+        releaseChannel: "stable" as const,
+        updatePolicy: "manual" as const,
       };
-
-      // Wait for sidecar to accept connections before provisioning
-      let sidecarReady = false;
-      logger.info("Instance.create: waiting for sidecar health", { instanceId, containerUrl });
-      for (let i = 0; i < 30; i++) {
-        try {
-          const res = await fetch(`${containerUrl}/health`, { signal: AbortSignal.timeout(2000) });
-          if (res.ok) {
-            sidecarReady = true;
-            logger.info("Instance.create: sidecar healthy", { instanceId, waitedSeconds: i * 2 });
-            break;
-          }
-          logger.info("Instance.create: sidecar responded but not ok", {
-            instanceId,
-            status: res.status,
-            attempt: i + 1,
-          });
-        } catch (err) {
-          if (i % 5 === 0) {
-            logger.info("Instance.create: sidecar not ready yet", {
-              instanceId,
-              attempt: i + 1,
-              error: err instanceof Error ? err.message : "fetch failed",
-            });
-          }
-        }
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-      if (!sidecarReady) {
-        logger.warn("Instance.create: sidecar not ready after 60s, provisioning anyway", { instanceId, containerUrl });
-      }
-
-      const { provisionContainer } = await import("@wopr-network/provision-client");
-      logger.info("Instance.create: sending provision request", {
-        instanceId,
-        containerUrl,
+      await d.profileStore.save(profile);
+      logger.info("Instance.create: profile saved", { instanceId });
+      await d.botInstanceRepo.create({
+        id: instanceId,
         tenantId,
-        budgetCents: provisionPayload.budgetCents,
+        name,
+        nodeId: targetNode.config.id,
+        containerPort,
+        billingState: "inactive",
+        createdByUserId: userId,
       });
-      try {
-        await provisionContainer(containerUrl, d.provisionSecret, provisionPayload);
-        provisioned = true;
-        logger.info("Instance.create: provisioned successfully", { instanceId, containerUrl });
-      } catch (err) {
-        logger.error("Instance.create: provisioning FAILED", {
-          instanceId,
-          containerUrl,
-          error: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-        });
+      logger.info("Instance.create: bot instance registered", { instanceId, tenantId });
+
+      // 6. Gateway key
+      let gatewayKey: string | null = null;
+      if (d.serviceKeyRepo) {
+        try {
+          gatewayKey = await d.serviceKeyRepo.generate(tenantId, instanceId, productSlug);
+          logger.info("Instance.create: gateway key generated", { instanceId, hasKey: true });
+        } catch (err) {
+          logger.warn("Instance.create: gateway key generation failed", {
+            instanceId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } else {
+        logger.info("Instance.create: no service key repo, skipping gateway key", { instanceId });
       }
-    } else {
-      logger.warn("Instance.create: skipping provision — missing secret or gateway key", {
+
+      // 7. Provision — give the container its identity
+      let provisioned = false;
+      if (!productConfig.product?.domain) {
+        throw new Error(`Product ${productSlug} has no domain configured`);
+      }
+      const gatewayUrl = `https://api.${productConfig.product.domain}/v1`;
+      const containerUrl = result.url;
+      logger.info("Instance.create: provisioning setup", {
         instanceId,
+        containerName: result.containerName,
+        containerUrl,
+        gatewayUrl,
         hasSecret: !!d.provisionSecret,
         hasKey: !!gatewayKey,
       });
-    }
 
-    // 8. Start billing — only if provisioning succeeded
-    if (provisioned) {
+      if (d.provisionSecret && gatewayKey) {
+        const provisionPayload = {
+          tenantId,
+          tenantName: name,
+          gatewayUrl,
+          apiKey: gatewayKey,
+          budgetCents: balance.toCentsRounded(),
+          adminUser: { id: userId, email: userEmail, name },
+          agents: [{ name: (params.extra?.ceoName as string) || "CEO", role: "ceo", title: "Chief Executive Officer" }],
+          extra: {
+            instanceConfig: {
+              deploymentMode: "hosted_proxy",
+              hostedMode: true,
+              deploymentExposure: "private",
+            },
+            ...params.extra,
+          },
+        };
+
+        // Wait for sidecar to accept connections before provisioning.
+        // Fail fast on permanent DNS errors (ENOTFOUND) — the container literally
+        // does not exist by that name, no point retrying for 60 seconds.
+        let sidecarReady = false;
+        logger.info("Instance.create: waiting for sidecar health", { instanceId, containerUrl });
+        for (let i = 0; i < 30; i++) {
+          try {
+            const res = await fetch(`${containerUrl}/health`, { signal: AbortSignal.timeout(2000) });
+            if (res.ok) {
+              sidecarReady = true;
+              logger.info("Instance.create: sidecar healthy", { instanceId, waitedSeconds: i * 2 });
+              break;
+            }
+            logger.info("Instance.create: sidecar responded but not ok", {
+              instanceId,
+              status: res.status,
+              attempt: i + 1,
+            });
+          } catch (err) {
+            // Permanent failure: DNS says the container doesn't exist. Bail
+            // immediately so the saga rollback fires and the user gets a real
+            // error instead of a 60-second wait followed by a fake success.
+            const code = (err as { cause?: { code?: string } } | null)?.cause?.code;
+            const msg = err instanceof Error ? err.message : String(err);
+            if (code === "ENOTFOUND" || /ENOTFOUND|getaddrinfo/.test(msg)) {
+              throw new Error(`Sidecar DNS lookup failed for ${containerUrl}: container does not exist`);
+            }
+            if (i % 5 === 0) {
+              logger.info("Instance.create: sidecar not ready yet", {
+                instanceId,
+                attempt: i + 1,
+                error: msg,
+              });
+            }
+          }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+        if (!sidecarReady) {
+          throw new Error(`Sidecar not ready after 60s: ${containerUrl}`);
+        }
+
+        const { provisionContainer } = await import("@wopr-network/provision-client");
+        logger.info("Instance.create: sending provision request", {
+          instanceId,
+          containerUrl,
+          tenantId,
+          budgetCents: provisionPayload.budgetCents,
+        });
+        // Provisioning failure is fatal — the instance is useless without it.
+        // The outer try/catch (added below) rolls back the partial state.
+        await provisionContainer(containerUrl, d.provisionSecret, provisionPayload);
+        provisioned = true;
+        logger.info("Instance.create: provisioned successfully", { instanceId, containerUrl });
+      } else {
+        logger.warn("Instance.create: skipping provision — missing secret or gateway key", {
+          instanceId,
+          hasSecret: !!d.provisionSecret,
+          hasKey: !!gatewayKey,
+        });
+      }
+
+      // 8. Start billing — provisioned is always true here (failure throws above)
       try {
         await d.botInstanceRepo.setBillingState(instanceId, "active");
         logger.info("Instance: billing started", { instanceId });
       } catch (err) {
+        // Billing failure is non-fatal for the create call: the instance is
+        // alive and provisioned, the operator can fix billing afterwards.
         logger.warn("Instance: startBilling failed", {
           instanceId,
           error: err instanceof Error ? err.message : String(err),
         });
       }
-    } else {
-      logger.warn("Instance: billing NOT started — provisioning failed", { instanceId });
-    }
 
-    return { id: instanceId, name, tenantId, nodeId: targetNode.config.id, containerUrl, gatewayKey, provisioned };
+      return { id: instanceId, name, tenantId, nodeId: targetNode.config.id, containerUrl, gatewayKey, provisioned };
+    } catch (err) {
+      logger.error("Instance.create: post-create step failed, rolling back", {
+        instanceId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      try {
+        await fleet.remove(instanceId);
+        logger.info("Instance.create: rollback removed container + profile + bot_instance", { instanceId });
+      } catch (cleanupErr) {
+        logger.warn("Instance.create: rollback fleet.remove failed (orphan reconciliation will sweep)", {
+          instanceId,
+          err: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+        });
+      }
+      throw err;
+    }
   }
 
   /**
