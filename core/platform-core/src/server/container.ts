@@ -75,8 +75,8 @@ export interface GatewayServices {
   budgetChecker: import("../monetization/budget/budget-checker.js").IBudgetChecker;
 }
 
-/** @deprecated Use HotPool class directly. */
-export type HotPoolServices = import("./services/hot-pool.js").HotPool;
+/** @deprecated Pool is now per-node on FleetManager + composite on Fleet — use container.fleetComposite. */
+export type HotPoolServices = import("../fleet/fleet.js").Fleet;
 
 // ---------------------------------------------------------------------------
 // Main container
@@ -117,7 +117,7 @@ export interface PlatformContainer {
   /** Null when the product does not expose a metered inference gateway. */
   gateway: GatewayServices | null;
   /** Null when the product does not use a hot-pool of pre-provisioned instances. */
-  hotPool: import("./services/hot-pool.js").HotPool | null;
+  fleetComposite: import("../fleet/fleet.js").Fleet | null;
   /** Instance lifecycle service — orchestrates create, provision, billing. Null only when fleet is disabled. */
   instanceService: import("../fleet/instance-service.js").InstanceService | null;
   /** Per-product OAuth provider config. Null when auth is not configured. */
@@ -428,23 +428,24 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     crypto,
     stripe,
     gateway,
-    hotPool: null,
+    fleetComposite: null,
     instanceService: null,
     productAuthManager: null,
     nodeConnectionManager: null,
     leaderElection,
   };
 
-  // Pool repository — shared between HotPool and InstanceService
+  // Pool repository — shared by every per-node FleetManager and the Fleet composite.
   const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
   const poolRepo = new DrizzlePoolRepository(db);
 
-  // Bind hot pool after container construction
+  // Wire warm pool through the Fleet composite + per-node FleetManagers.
+  // No more HotPool singleton — pool ops live on FleetManager (per-node leaf)
+  // and Fleet (composite). The composite owns the spec registry and the ticker;
+  // each leaf creates/cleans its own warm containers.
   if (bootConfig.features.hotPool && fleet) {
-    const { HotPool } = await import("./services/hot-pool.js");
-
     const secrets = bootConfig.secrets;
-    const hotPool = new HotPool(poolRepo, {
+    const poolConfig = {
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? "",
       registryAuth:
         secrets?.registryUsername && secrets?.registryPassword
@@ -454,32 +455,13 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
               serveraddress: secrets.registryUrl ?? "https://registry.wopr.bot",
             }
           : undefined,
-    });
+    };
 
-    // Register all fleet-enabled products — each gets its own pool partition
-    const products = bootConfig.standalone
-      ? (await result.productConfigService.listAll()).filter((pc) => pc.fleet && pc.product?.slug)
-      : [result.productConfig].filter((pc) => pc.fleet);
-
-    for (const pc of products) {
-      const fleet = pc.fleet;
-      if (!fleet) continue;
-      const slug = pc.product?.slug ?? "default";
-      const dbSize = await poolRepo.getPoolSize(slug);
-      hotPool.register(slug, {
-        image: fleet.containerImage,
-        port: fleet.containerPort,
-        network: fleet.dockerNetwork,
-        size: dbSize,
-      });
-    }
-
-    result.hotPool = hotPool;
-
-    // Wire pool into every per-node FleetManager so create() can claim warm
-    // containers instead of cold-starting via bot.start (which has no registry auth).
+    // Each per-node FleetManager gets the pool repo + config.
+    // The Fleet composite (created below) will push specs onto each via
+    // registerPoolSpec, so leaves know what to replenish.
     for (const node of fleet.nodeRegistry.list()) {
-      node.fleet.setDeps({ pool: hotPool });
+      node.fleet.setDeps({ poolRepo, poolConfig });
     }
   }
 
@@ -488,6 +470,8 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { InstanceService } = await import("../fleet/instance-service.js");
     const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
     const { DrizzleNodeRepository } = await import("../fleet/drizzle-node-repository.js");
+    const { Fleet } = await import("../fleet/fleet.js");
+    const { FleetMembershipAdapter, DbInstanceLocator } = await import("../fleet/fleet-wiring.js");
     const botInstanceRepo = new DrizzleBotInstanceRepository(result.db);
     const nodeRepo = new DrizzleNodeRepository(result.db);
 
@@ -498,6 +482,41 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
         fleet.nodeRegistry.resolveUpstreamHost(nodeId, containerName),
       );
     }
+
+    // Build the Fleet composite. NodeConnectionManager isn't created until
+    // mount-routes.ts wires it up later, so connectivity defers to the
+    // container reference: until then, treat every registered node as
+    // connected (single-node baseline).
+    const membership = new FleetMembershipAdapter(fleet.nodeRegistry, {
+      isConnected: (nodeId) => result.nodeConnectionManager?.isConnected(nodeId) ?? true,
+    });
+    const locator = new DbInstanceLocator(botInstanceRepo);
+    const fleetComposite = new Fleet(membership, locator, fleet.placementStrategy);
+
+    // Register pool specs for every fleet-enabled product. The composite
+    // pushes each spec to every per-node FleetManager so they know what to
+    // replenish on the next tick.
+    if (bootConfig.features.hotPool) {
+      const products = bootConfig.standalone
+        ? (await result.productConfigService.listAll()).filter((pc) => pc.fleet && pc.product?.slug)
+        : [result.productConfig].filter((pc) => pc.fleet);
+      for (const pc of products) {
+        const f = pc.fleet;
+        if (!f) continue;
+        const slug = pc.product?.slug ?? "default";
+        const dbSize = await poolRepo.getPoolSize(slug);
+        fleetComposite.registerPoolSpec(slug, {
+          image: f.containerImage,
+          port: f.containerPort,
+          network: f.dockerNetwork,
+          sizePerNode: dbSize,
+        });
+      }
+    }
+
+    // Ticker is started by lifecycle.ts under leader election (so non-leader
+    // replicas don't double-replenish).
+    result.fleetComposite = fleetComposite;
 
     const secrets = bootConfig.secrets;
     result.instanceService = new InstanceService({

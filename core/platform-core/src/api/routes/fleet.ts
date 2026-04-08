@@ -70,7 +70,6 @@ function getFleet(): FleetManager {
       proxyManager: getProxyManager(),
       instanceRepo,
       eventEmitter: getFleetEventEmitter(),
-      pool: _deps?.pool ?? undefined,
     });
   }
   return _fleet;
@@ -370,7 +369,9 @@ fleetRoutes.post(
     }
 
     try {
-      const profile = await fleet.create({ ...parsed.data, nodeId }, resourceLimits);
+      // resourceLimits is currently a no-op in FleetManager.create — preserved here for future hookup.
+      void resourceLimits;
+      const profile = await fleet.create({ ...parsed.data, nodeId });
 
       // Generate a per-instance gateway service key for metered inference.
       // Failures must not block instance creation — the key can be regenerated later.
@@ -656,7 +657,7 @@ fleetRoutes.get("/bots/:id/logs", readAuth, async (c) => {
   const parsed = raw != null ? Number.parseInt(raw, 10) : 100;
   const tail = Number.isNaN(parsed) || parsed < 1 ? 100 : Math.min(parsed, 10_000);
   try {
-    const logs = await fleet.logs(botId, tail);
+    const logs = await fleet.logs(botId, { tail });
     return c.json(parseLogLines(logs));
   } catch (err) {
     if (err instanceof BotNotFoundError) return c.json({ error: err.message }, 404);

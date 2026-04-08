@@ -316,7 +316,7 @@ describe("buildContainer", () => {
     expect(container.crypto).toBeNull();
     expect(container.stripe).toBeNull();
     expect(container.gateway).toBeNull();
-    expect(container.hotPool).toBeNull();
+    expect(container.fleetComposite).toBeNull();
   });
 
   it("builds fleet services when feature is enabled", async () => {

@@ -1,28 +1,38 @@
 /**
- * FleetManager — orchestrates bot container lifecycle via the node command bus.
+ * FleetManager — the leaf in the IFleet composite. Bound to ONE node.
  *
- * All Docker operations are delegated to the node agent through INodeCommandBus.
- * There is NO direct Docker access. The local node is treated identically to
- * remote nodes — same command protocol, same code path.
+ * All Docker operations go through the node agent via INodeCommandBus —
+ * there is no direct Docker access. Both instance lifecycle and warm-pool
+ * operations live here, scoped to this node. The Fleet composite holds N
+ * FleetManagers and presents the same IFleet interface for cluster-wide ops.
  *
- * Each FleetManager is bound to a specific node (nodeId). NodeRegistry creates
- * one FleetManager per registered node.
+ * Implements INodeFleet (the leaf shape). The composite is `fleet.ts`.
  */
 
 import { randomUUID } from "node:crypto";
 import { PassThrough } from "node:stream";
 import { logger } from "../config/logger.js";
 import type { BotMetricsTracker } from "../gateway/bot-metrics-tracker.js";
-import type { ContainerResourceLimits } from "../monetization/quotas/resource-limits.js";
 import type { ProxyManagerInterface } from "../proxy/types.js";
+import type { IPoolRepository } from "../server/services/pool-repository.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { BotEventType, FleetEventEmitter } from "./fleet-event-emitter.js";
+import { friendlyName } from "./friendly-names.js";
+import type { CreateOptions, INodeFleet, PoolClaim, PoolSpec } from "./i-fleet.js";
 import { Instance } from "./instance.js";
 import type { INodeCommandBus } from "./node-command-bus.js";
 import type { IProfileStore } from "./profile-store.js";
 import { type BotProfile, type BotStatus, containerNameFor } from "./types.js";
 
-export class FleetManager {
+/** Shared per-node config for warm pool operations. */
+export interface NodeFleetPoolConfig {
+  /** Shared secret injected into warm containers for provision auth. */
+  provisionSecret: string;
+  /** Registry auth for pulling private images. */
+  registryAuth?: { username: string; password: string; serveraddress: string };
+}
+
+export class FleetManager implements INodeFleet {
   /** The node this FleetManager manages. All commands go to this node. */
   readonly nodeId: string;
   private commandBus: INodeCommandBus | null = null;
@@ -31,9 +41,12 @@ export class FleetManager {
   private instanceRepo: IBotInstanceRepository | undefined;
   private botMetricsTracker: BotMetricsTracker | undefined;
   private eventEmitter: FleetEventEmitter | undefined;
-  private pool: {
-    claim(key: string, nodeId?: string): Promise<{ id: string; containerId: string } | null>;
-  } | null = null;
+  private poolRepo: IPoolRepository | null = null;
+  private poolConfig: NodeFleetPoolConfig | null = null;
+  /** Per-node pool spec registry. The composite Fleet pushes specs here. */
+  private readonly poolSpecs = new Map<string, PoolSpec>();
+  /** Mutex on warm-pool tick (cleanup + replenish) so concurrent ticks can't pile up. */
+  private warmTicking = false;
   private locks = new Map<string, Promise<void>>();
 
   /** Resolve upstream host for a container. Injected from NodeRegistry. */
@@ -54,13 +67,15 @@ export class FleetManager {
     instanceRepo?: IBotInstanceRepository;
     botMetricsTracker?: BotMetricsTracker;
     eventEmitter?: FleetEventEmitter;
-    pool?: { claim(key: string, nodeId?: string): Promise<{ id: string; containerId: string } | null> };
+    poolRepo?: IPoolRepository;
+    poolConfig?: NodeFleetPoolConfig;
   }): void {
     if (deps.proxyManager) this.proxyManager = deps.proxyManager;
     if (deps.instanceRepo) this.instanceRepo = deps.instanceRepo;
     if (deps.botMetricsTracker) this.botMetricsTracker = deps.botMetricsTracker;
     if (deps.eventEmitter) this.eventEmitter = deps.eventEmitter;
-    if (deps.pool) this.pool = deps.pool;
+    if (deps.poolRepo) this.poolRepo = deps.poolRepo;
+    if (deps.poolConfig) this.poolConfig = deps.poolConfig;
   }
 
   constructor(nodeId: string, store: IProfileStore) {
@@ -77,10 +92,10 @@ export class FleetManager {
    * Pool claim attempted first — DB claim + rename command.
    * Rolls back profile on failure.
    */
-  async create(
-    params: Omit<BotProfile, "id"> & { id?: string },
-    _resourceLimits?: ContainerResourceLimits,
-  ): Promise<Instance> {
+  async create(params: Omit<BotProfile, "id"> & { id?: string }, _opts?: CreateOptions): Promise<Instance> {
+    // _opts.nodeId is honored by the Fleet composite, not by the leaf — the
+    // leaf only ever creates on its own node. The composite has already done
+    // the routing if it called us.
     const id = params.id ?? randomUUID();
     const hasExplicitId = "id" in params && params.id !== undefined;
     logger.info("Fleet.create: starting", {
@@ -88,7 +103,7 @@ export class FleetManager {
       nodeId: this.nodeId,
       productSlug: params.productSlug,
       image: params.image,
-      hasPool: !!this.pool,
+      hasPool: this.poolSpecs.has(params.productSlug ?? ""),
     });
 
     const doCreate = async (): Promise<Instance> => {
@@ -129,8 +144,8 @@ export class FleetManager {
         });
 
         let poolClaimed = false;
-        if (this.pool && params.productSlug) {
-          const claimed = await this.pool.claim(params.productSlug, this.nodeId);
+        if (this.poolRepo && params.productSlug) {
+          const claimed = await this.claimWarm(params.productSlug);
           if (claimed) {
             // Pool DB row is consumed irrevocably; if anything else fails we
             // must remove this container so it doesn't leak.
@@ -281,10 +296,10 @@ export class FleetManager {
     return Promise.all(profiles.filter((p) => p.tenantId === tenantId).map((p) => this.statusForProfile(p)));
   }
 
-  async logs(id: string, tail = 100): Promise<string> {
+  async logs(id: string, opts?: { tail?: number }): Promise<string> {
     const profile = await this.store.get(id);
     if (!profile) throw new BotNotFoundError(id);
-    const result = await this.sendCommand("bot.logs", { name: containerNameFor(profile), tail });
+    const result = await this.sendCommand("bot.logs", { name: containerNameFor(profile), tail: opts?.tail ?? 100 });
     return typeof result.data === "string" ? result.data : "";
   }
 
@@ -313,6 +328,197 @@ export class FleetManager {
 
   get profiles(): IProfileStore {
     return this.store;
+  }
+
+  // ---------------------------------------------------------------------------
+  // FleetView (composite-friendly introspection)
+  // ---------------------------------------------------------------------------
+
+  nodeIds(): string[] {
+    return [this.nodeId];
+  }
+
+  connectedNodeIds(): string[] {
+    // The leaf doesn't track its own connection state — only the composite
+    // (which has the NodeRegistry) does. From a leaf's perspective, if you're
+    // calling it, it's "connected enough". Composite filters before delegating.
+    return [this.nodeId];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Warm pool (per-node leaf operations)
+  // ---------------------------------------------------------------------------
+
+  registerPoolSpec(slug: string, spec: PoolSpec): void {
+    this.poolSpecs.set(slug, { ...spec });
+  }
+
+  async unregisterPoolSpec(slug: string): Promise<void> {
+    this.poolSpecs.delete(slug);
+    if (!this.poolRepo) return;
+    const instances = await this.poolRepo.listActive(slug);
+    for (const inst of instances) {
+      if (inst.nodeId !== this.nodeId) continue;
+      await this.poolRepo.markDead(inst.id);
+      await this.removeWarmContainer(inst.containerId);
+    }
+    await this.poolRepo.deleteDead();
+  }
+
+  poolSpecKeys(): string[] {
+    return [...this.poolSpecs.keys()];
+  }
+
+  /**
+   * Claim a warm container for the given product slug from THIS node.
+   * Returns null if this node has no warm container for the slug.
+   */
+  async claimWarm(slug: string, _opts?: { nodeId?: string }): Promise<PoolClaim | null> {
+    if (!this.poolRepo) return null;
+    return this.poolRepo.claim(slug, this.nodeId);
+  }
+
+  /**
+   * Refill THIS node's warm pool to spec.sizePerNode for every registered spec.
+   * Mutex'd: skips if a tick is already running so concurrent ticks can't pile up.
+   */
+  async replenishWarmPool(): Promise<void> {
+    if (!this.poolRepo) return;
+    if (this.warmTicking) {
+      logger.debug(`FleetManager(${this.nodeId}): pool tick already running, skipping replenish`);
+      return;
+    }
+    this.warmTicking = true;
+    try {
+      for (const [slug, spec] of this.poolSpecs) {
+        const counts = await this.poolRepo.warmCountByNode(slug);
+        const current = counts.get(this.nodeId) ?? 0;
+        const deficit = spec.sizePerNode - current;
+        if (deficit <= 0) continue;
+        logger.info(
+          `FleetManager(${this.nodeId})[${slug}]: replenishing ${deficit} (have ${current}, want ${spec.sizePerNode})`,
+        );
+        for (let i = 0; i < deficit; i++) {
+          await this.createWarm(slug, spec);
+        }
+      }
+    } finally {
+      this.warmTicking = false;
+    }
+  }
+
+  /**
+   * Reconcile this node's pool: mark dead any DB row whose container is gone,
+   * remove any orphan pool container not tracked in the DB. Cleanup runs
+   * orphan removal in parallel — bounded by docker stop time, not N * stop time.
+   */
+  async cleanupWarmPool(): Promise<void> {
+    if (!this.poolRepo || !this.commandBus) return;
+
+    let nodeContainers: { id: string; name: string; running: boolean }[] = [];
+    try {
+      const result = await this.commandBus.send(this.nodeId, { type: "pool.list", payload: {} });
+      nodeContainers = (result.data as { id: string; name: string; running: boolean }[]) ?? [];
+    } catch (err) {
+      logger.warn(`FleetManager(${this.nodeId}): pool.list failed`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
+    const onNodeIds = new Set(nodeContainers.map((c) => c.id));
+
+    // 1. Reconcile DB rows pinned to this node
+    const activeInstances = await this.poolRepo.listActive();
+    const tracked = new Set<string>();
+    for (const inst of activeInstances) {
+      if (inst.nodeId !== this.nodeId) continue;
+      tracked.add(inst.containerId);
+      if (!onNodeIds.has(inst.containerId)) {
+        await this.poolRepo.markDead(inst.id);
+        logger.warn(`FleetManager(${this.nodeId}): missing container ${inst.id} (was ${inst.status})`);
+        continue;
+      }
+      const nodeContainer = nodeContainers.find((c) => c.id === inst.containerId);
+      if (!nodeContainer?.running) {
+        await this.poolRepo.markDead(inst.id);
+        await this.removeWarmContainer(nodeContainer?.name ?? inst.containerId);
+        logger.warn(`FleetManager(${this.nodeId}): dead container ${inst.id}`);
+      }
+    }
+    await this.poolRepo.deleteDead();
+
+    // 2. Orphan reconciliation — pool containers on node not tracked in DB.
+    // Run removals in parallel to bound cleanup time.
+    const orphans = nodeContainers.filter((c) => !tracked.has(c.id));
+    await Promise.all(
+      orphans.map(async (container) => {
+        await this.removeWarmContainer(container.name);
+        logger.info(`FleetManager(${this.nodeId}): removed orphan ${container.name}`);
+      }),
+    );
+  }
+
+  async warmCount(slug: string): Promise<number> {
+    if (!this.poolRepo) return 0;
+    const counts = await this.poolRepo.warmCountByNode(slug);
+    return counts.get(this.nodeId) ?? 0;
+  }
+
+  async warmCountByNode(slug: string): Promise<Map<string, number>> {
+    // Leaf returns a single-entry map for this node only.
+    if (!this.poolRepo) return new Map();
+    const counts = await this.poolRepo.warmCountByNode(slug);
+    const result = new Map<string, number>();
+    const c = counts.get(this.nodeId);
+    if (c !== undefined) result.set(this.nodeId, c);
+    return result;
+  }
+
+  /** Create a single warm container on this node via the command bus. */
+  private async createWarm(slug: string, spec: PoolSpec): Promise<void> {
+    if (!this.commandBus || !this.poolRepo || !this.poolConfig) {
+      logger.warn(`FleetManager(${this.nodeId}): cannot create warm container — missing deps`);
+      return;
+    }
+    const id = randomUUID();
+    const friendly = friendlyName(id);
+    const containerName = `pool-${slug}-${friendly}`;
+
+    try {
+      const result = await this.commandBus.send(this.nodeId, {
+        type: "pool.warm",
+        payload: {
+          name: containerName,
+          image: spec.image,
+          port: spec.port,
+          network: spec.network || "platform-overlay",
+          provisionSecret: this.poolConfig.provisionSecret,
+          ...(this.poolConfig.registryAuth ? { registryAuth: this.poolConfig.registryAuth } : {}),
+        },
+      });
+      const containerId = typeof result.data === "string" ? result.data : containerName;
+      await this.poolRepo.insertWarm(id, containerId, this.nodeId, slug, spec.image);
+      logger.info(`FleetManager(${this.nodeId}): created warm container ${containerName} for "${slug}"`);
+    } catch (err) {
+      logger.error(`FleetManager(${this.nodeId}): failed to create warm container`, {
+        slug,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /** Best-effort stop + remove a pool container. */
+  private async removeWarmContainer(containerIdOrName: string): Promise<void> {
+    if (!this.commandBus) return;
+    try {
+      await this.commandBus.send(this.nodeId, {
+        type: "pool.cleanup",
+        payload: { name: containerIdOrName },
+      });
+    } catch {
+      /* already gone */
+    }
   }
 
   // ---------------------------------------------------------------------------

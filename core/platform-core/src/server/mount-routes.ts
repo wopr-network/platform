@@ -731,12 +731,10 @@ export async function mountRoutes(
     const commandBus = new NodeCommandBus(nodeConnectionManager);
     nodeConnectionManager.setCommandBus(commandBus);
 
-    // Inject bus into FleetManagers + HotPool
+    // Inject bus into every per-node FleetManager. The Fleet composite
+    // delegates to these leaves, so it has no command bus of its own.
     for (const node of container.fleet.nodeRegistry.list()) {
       node.fleet.setCommandBus(commandBus);
-    }
-    if (container.hotPool) {
-      container.hotPool.setCommandBus(commandBus, "local");
     }
 
     // Vault for reading Spaces credentials to pass to node agents

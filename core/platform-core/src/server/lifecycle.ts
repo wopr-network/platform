@@ -30,13 +30,14 @@ async function startLeaderServices(container: PlatformContainer): Promise<Backgr
   const handles: BackgroundHandles = { intervals: [], unsubscribes: [] };
   logger.info("Starting leader-only background services");
 
-  // Hot pool manager (if enabled)
-  if (container.hotPool) {
+  // Fleet composite ticker — runs cleanup + replenish across all connected
+  // nodes. Gated by leader election so non-leader replicas don't double-fire.
+  if (container.fleetComposite) {
     try {
-      const poolHandles = await container.hotPool.start();
-      handles.unsubscribes.push(poolHandles.stop);
+      const fleetHandles = await container.fleetComposite.start();
+      handles.unsubscribes.push(fleetHandles.stop);
     } catch (err) {
-      logger.warn("Hot pool start failed (non-fatal)", { error: (err as Error)?.message ?? err });
+      logger.warn("Fleet ticker start failed (non-fatal)", { error: (err as Error)?.message ?? err });
     }
   }
 

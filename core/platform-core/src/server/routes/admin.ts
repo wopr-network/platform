@@ -280,22 +280,29 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
     // -----------------------------------------------------------------------
 
     getPoolConfig: adminProcedure.query(async () => {
-      if (!container.hotPool) {
+      if (!container.fleetComposite) {
         return { enabled: false, keys: [], pools: [] };
       }
-      const pool = container.hotPool;
-      const keys = pool.registeredKeys();
-      const pools = keys.map((key) => ({ key, size: pool.size(key) }));
+      const fleet = container.fleetComposite;
+      const keys = fleet.poolSpecKeys();
+      const pools = keys.map((key) => {
+        const spec = fleet.getPoolSpec(key);
+        return { key, size: spec?.sizePerNode ?? 0 };
+      });
       return { enabled: true, keys, pools };
     }),
 
     setPoolSize: adminProcedure
       .input(z.object({ key: z.string(), size: z.number().int().min(0).max(50) }))
       .mutation(async ({ input }) => {
-        if (!container.hotPool) {
+        if (!container.fleetComposite) {
           throw new Error("Hot pool not enabled");
         }
-        await container.hotPool.resize(input.key, input.size);
+        container.fleetComposite.resizePool(input.key, input.size);
+        // Persist via the same poolRepo that boot uses for getPoolSize.
+        const { DrizzlePoolRepository } = await import("../services/pool-repository.js");
+        const poolRepo = new DrizzlePoolRepository(container.db);
+        await poolRepo.setPoolSize(input.size, input.key);
         return { key: input.key, poolSize: input.size };
       }),
   });

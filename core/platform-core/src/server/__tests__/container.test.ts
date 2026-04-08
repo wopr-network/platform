@@ -14,7 +14,7 @@ describe("PlatformContainer", () => {
     expect(c.crypto).toBeNull();
     expect(c.stripe).toBeNull();
     expect(c.gateway).toBeNull();
-    expect(c.hotPool).toBeNull();
+    expect(c.fleetComposite).toBeNull();
   });
 
   it("requires core services to be present", () => {
@@ -102,7 +102,7 @@ describe("createTestContainer", () => {
     expect(c.crypto).toBeNull();
     expect(c.stripe).toBeNull();
     expect(c.gateway).toBeNull();
-    expect(c.hotPool).toBeNull();
+    expect(c.fleetComposite).toBeNull();
     expect(c.productConfig.product).toBeDefined();
   });
 
@@ -173,25 +173,27 @@ describe("createTestContainer", () => {
       budgetChecker: {} as never,
     };
 
-    const hotPool = {
+    const fleetComposite = {
       start: async () => ({ stop: () => {} }),
       stop: () => {},
-      claim: async () => null,
-      register: () => {},
-      unregister: async () => {},
-      registeredKeys: () => [],
-      size: () => 0,
-      resize: async () => {},
-    } as unknown as import("../services/hot-pool.js").HotPool;
+      claimWarm: async () => null,
+      registerPoolSpec: () => {},
+      unregisterPoolSpec: async () => {},
+      poolSpecKeys: () => [],
+      getPoolSpec: () => undefined,
+      resizePool: () => {},
+      replenishWarmPool: async () => {},
+      cleanupWarmPool: async () => {},
+    } as unknown as import("../../fleet/fleet.js").Fleet;
 
-    const c = createTestContainer({ fleet, crypto, stripe, gateway, hotPool });
+    const c = createTestContainer({ fleet, crypto, stripe, gateway, fleetComposite });
 
     expect(c.fleet).not.toBeNull();
     expect(c.crypto).not.toBeNull();
     expect(c.stripe).not.toBeNull();
     expect(c.stripe?.webhookSecret).toBe("whsec_test");
     expect(c.gateway).not.toBeNull();
-    expect(c.hotPool).not.toBeNull();
+    expect(c.fleetComposite).not.toBeNull();
   });
 
   it("overrides merge without affecting other defaults", () => {
@@ -206,7 +208,7 @@ describe("createTestContainer", () => {
     expect(c.fleet).toBeNull();
     expect(c.crypto).toBeNull();
     expect(c.stripe).toBeNull();
-    expect(c.hotPool).toBeNull();
+    expect(c.fleetComposite).toBeNull();
 
     // Core services still present
     expect(c.creditLedger).toBeDefined();

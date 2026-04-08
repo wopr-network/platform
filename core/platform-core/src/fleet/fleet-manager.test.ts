@@ -96,17 +96,19 @@ describe("FleetManager", () => {
     });
 
     it("tries pool claim first when pool is available", async () => {
-      const pool = { claim: vi.fn().mockResolvedValue({ id: "pool-1", containerId: "c-pool-1" }) };
-      fm.setDeps({ pool });
+      const poolRepo = {
+        claim: vi.fn().mockResolvedValue({ id: "pool-1", containerId: "c-pool-1" }),
+      } as never;
+      fm.setDeps({ poolRepo });
       await fm.create({ ...baseProfile(), productSlug: "paperclip" });
-      expect(pool.claim).toHaveBeenCalledWith("paperclip", "local");
+      expect((poolRepo as { claim: ReturnType<typeof vi.fn> }).claim).toHaveBeenCalledWith("paperclip", "local");
       // bot.update for rename, not bot.start
       expect(bus.send).toHaveBeenCalledWith("local", expect.objectContaining({ type: "bot.update" }));
     });
 
     it("falls back to bot.start when pool is empty", async () => {
-      const pool = { claim: vi.fn().mockResolvedValue(null) };
-      fm.setDeps({ pool });
+      const poolRepo = { claim: vi.fn().mockResolvedValue(null) } as never;
+      fm.setDeps({ poolRepo });
       await fm.create({ ...baseProfile(), productSlug: "paperclip" });
       expect(bus.send).toHaveBeenCalledWith("local", expect.objectContaining({ type: "bot.start" }));
     });
