@@ -195,28 +195,9 @@ describe("HealthMonitor", () => {
     monitor.stop();
   });
 
-  it("ignores events for non-tenant containers", async () => {
-    const stream = new EventEmitter();
-    const dm = mockDockerManager(stream);
-    const { events, handler } = collectEvents();
-    const monitor = new HealthMonitor(dm, "node-1", handler);
-
-    await monitor.start();
-
-    stream.emit(
-      "data",
-      Buffer.from(
-        JSON.stringify({
-          Action: "die",
-          Actor: { Attributes: { name: "wopr-platform", exitCode: "1" } },
-        }),
-      ),
-    );
-
-    expect(events).toHaveLength(0);
-
-    monitor.stop();
-  });
+  // Non-tenant container filtering is now done at the Docker subscription
+  // level via the `wopr.managed=true` label filter — see "passes filters to
+  // getEventStream" below. The handler no longer receives non-managed events.
 
   it("ignores malformed event data", async () => {
     const stream = new EventEmitter();
@@ -434,7 +415,7 @@ describe("HealthMonitor", () => {
     await monitor.start();
 
     expect(dm.getEventStream).toHaveBeenCalledWith({
-      filters: { type: ["container"] },
+      filters: { type: ["container"], label: ["wopr.managed=true"] },
     });
 
     monitor.stop();

@@ -53,18 +53,22 @@ describe("DockerManager", () => {
   });
 
   describe("listTenantContainers", () => {
-    it("returns only containers whose names start with tenant_ prefix", async () => {
+    it("returns containers tagged wopr.managed=true that aren't pool containers", async () => {
       (docker.listContainers as ReturnType<typeof vi.fn>).mockResolvedValue([
-        { Names: ["/tenant_abc-bot1"], Id: "c1", State: "running" },
-        { Names: ["/other-container"], Id: "c2", State: "running" },
-        { Names: ["/tenant_xyz-bot2"], Id: "c3", State: "exited" },
+        // Tenant container (managed, not in pool)
+        { Names: ["/paperclip-abc-bot1"], Id: "c1", State: "running", Labels: { "wopr.managed": "true" } },
+        // Unmanaged infra container (no label)
+        { Names: ["/redis"], Id: "c2", State: "running", Labels: {} },
+        // Tenant container with old "tenant_" name still works once labeled
+        { Names: ["/tenant_xyz-bot2"], Id: "c3", State: "exited", Labels: { "wopr.managed": "true" } },
+        // Pool container — managed but excluded by prefix
+        { Names: ["/pool-paperclip-foo"], Id: "c4", State: "running", Labels: { "wopr.managed": "true" } },
       ]);
 
       const result = await manager.listTenantContainers();
 
       expect(result).toHaveLength(2);
-      expect(result[0].Names).toEqual(["/tenant_abc-bot1"]);
-      expect(result[1].Names).toEqual(["/tenant_xyz-bot2"]);
+      expect(result.map((c) => c.Id)).toEqual(["c1", "c3"]);
     });
 
     it("calls docker.listContainers with all: true", async () => {
@@ -73,9 +77,9 @@ describe("DockerManager", () => {
       expect(docker.listContainers).toHaveBeenCalledWith({ all: true });
     });
 
-    it("returns empty array when no tenant containers exist", async () => {
+    it("returns empty array when no managed containers exist", async () => {
       (docker.listContainers as ReturnType<typeof vi.fn>).mockResolvedValue([
-        { Names: ["/redis"], Id: "c1", State: "running" },
+        { Names: ["/redis"], Id: "c1", State: "running", Labels: {} },
       ]);
 
       const result = await manager.listTenantContainers();
@@ -103,6 +107,7 @@ describe("DockerManager", () => {
         Image: "wopr/bot:latest",
         name: "paperclip-my-bot",
         Env: expect.arrayContaining(["TOKEN=secret", "MODE=prod"]),
+        Labels: { "wopr.managed": "true" },
         HostConfig: {
           RestartPolicy: { Name: "unless-stopped" },
         },

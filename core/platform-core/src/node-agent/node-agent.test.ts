@@ -87,8 +87,8 @@ function mockDockerode() {
       pull: vi.fn().mockResolvedValue("stream"),
       createContainer: vi.fn().mockResolvedValue(container),
       listContainers: vi.fn().mockResolvedValue([
-        { Id: "abc123", Names: ["/tenant_bot1"], State: "running" },
-        { Id: "def456", Names: ["/tenant_bot2"], State: "running" },
+        { Id: "abc123", Names: ["/tenant_bot1"], State: "running", Labels: { "wopr.managed": "true" } },
+        { Id: "def456", Names: ["/tenant_bot2"], State: "running", Labels: { "wopr.managed": "true" } },
       ]),
       getContainer: vi.fn().mockReturnValue(container),
       getEvents: vi.fn().mockResolvedValue({
@@ -183,12 +183,17 @@ describe("commandSchema", () => {
 // ---------------------------------------------------------------------------
 
 describe("DockerManager", () => {
-  it("lists only tenant containers", async () => {
+  it("lists only managed tenant containers (excludes pool + unmanaged)", async () => {
     const { docker } = mockDockerode();
     docker.listContainers.mockResolvedValue([
-      { Id: "1", Names: ["/tenant_abc"], State: "running" },
-      { Id: "2", Names: ["/wopr-platform"], State: "running" },
-      { Id: "3", Names: ["/tenant_def"], State: "stopped" },
+      // Tenant: managed, not pool
+      { Id: "1", Names: ["/paperclip-abc"], State: "running", Labels: { "wopr.managed": "true" } },
+      // Infra: unmanaged
+      { Id: "2", Names: ["/wopr-platform"], State: "running", Labels: {} },
+      // Tenant: managed, not pool
+      { Id: "3", Names: ["/paperclip-def"], State: "stopped", Labels: { "wopr.managed": "true" } },
+      // Pool: managed but excluded
+      { Id: "4", Names: ["/pool-paperclip-foo"], State: "running", Labels: { "wopr.managed": "true" } },
     ]);
 
     const manager = new DockerManager(docker as never);
@@ -339,11 +344,11 @@ describe("collectHeartbeat", () => {
     expect(typeof hb.disk_used_gb).toBe("number");
   });
 
-  it("skips non-tenant containers in metrics", async () => {
+  it("skips non-managed containers in metrics", async () => {
     const { docker, container } = mockDockerode();
     docker.listContainers.mockResolvedValue([
-      { Id: "1", Names: ["/tenant_bot1"], State: "running" },
-      { Id: "2", Names: ["/system_monitor"], State: "running" },
+      { Id: "1", Names: ["/tenant_bot1"], State: "running", Labels: { "wopr.managed": "true" } },
+      { Id: "2", Names: ["/system_monitor"], State: "running", Labels: {} },
     ]);
     docker.getContainer.mockReturnValue(container);
     const manager = new DockerManager(docker as never);
@@ -356,7 +361,9 @@ describe("collectHeartbeat", () => {
 
   it("reports zero memory and uptime for non-running containers", async () => {
     const { docker, container } = mockDockerode();
-    docker.listContainers.mockResolvedValue([{ Id: "1", Names: ["/tenant_stopped"], State: "exited" }]);
+    docker.listContainers.mockResolvedValue([
+      { Id: "1", Names: ["/tenant_stopped"], State: "exited", Labels: { "wopr.managed": "true" } },
+    ]);
     docker.getContainer.mockReturnValue(container);
     const manager = new DockerManager(docker as never);
 
@@ -374,7 +381,9 @@ describe("collectHeartbeat", () => {
       stats: vi.fn().mockRejectedValue(new Error("stats unavailable")),
       inspect: vi.fn().mockRejectedValue(new Error("inspect failed")),
     };
-    docker.listContainers.mockResolvedValue([{ Id: "1", Names: ["/tenant_broken"], State: "running" }]);
+    docker.listContainers.mockResolvedValue([
+      { Id: "1", Names: ["/tenant_broken"], State: "running", Labels: { "wopr.managed": "true" } },
+    ]);
     docker.getContainer.mockReturnValue(failContainer);
     const manager = new DockerManager(docker as never);
 

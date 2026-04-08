@@ -1,7 +1,7 @@
 import { statfsSync } from "node:fs";
 import { logger } from "../config/logger.js";
 import type { DockerManager } from "./docker.js";
-import { type HealthEvent, TENANT_PREFIX } from "./types.js";
+import type { HealthEvent } from "./types.js";
 
 /** Disk usage threshold (percentage) to trigger low disk alerts */
 const DISK_WARN_THRESHOLD = 85;
@@ -50,8 +50,11 @@ export class HealthMonitor {
 
   private async watchDockerEvents(): Promise<void> {
     try {
+      // Only watch container events for OUR managed containers (the agent
+      // adds Labels: { "wopr.managed": "true" } when it creates them).
+      // Docker filters at subscription time, no per-event check needed.
       const stream = await this.dockerManager.getEventStream({
-        filters: { type: ["container"] },
+        filters: { type: ["container"], label: ["wopr.managed=true"] },
       });
 
       stream.on("data", (chunk: Buffer) => {
@@ -87,7 +90,7 @@ export class HealthMonitor {
     Actor?: { Attributes?: { name?: string; exitCode?: string } };
   }): void {
     const containerName = event.Actor?.Attributes?.name;
-    if (!containerName?.startsWith(TENANT_PREFIX)) return;
+    if (!containerName) return;
 
     const action = event.Action;
     const exitCode = event.Actor?.Attributes?.exitCode;

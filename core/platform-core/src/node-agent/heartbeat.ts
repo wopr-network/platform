@@ -1,7 +1,7 @@
 import { freemem, totalmem, uptime } from "node:os";
 import { logger } from "../config/logger.js";
 import type { DockerManager } from "./docker.js";
-import { type ContainerMetric, type HeartbeatMessage, TENANT_PREFIX } from "./types.js";
+import type { ContainerMetric, HeartbeatMessage } from "./types.js";
 
 /**
  * Collect system metrics and build a heartbeat payload.
@@ -50,7 +50,6 @@ async function collectContainerMetrics(dockerManager: DockerManager): Promise<Co
 
     for (const info of containers) {
       const name = info.Names[0]?.replace(/^\//, "") ?? "unknown";
-      if (!name.startsWith(TENANT_PREFIX)) continue;
 
       let memoryMb = 0;
       let uptimeS = 0;

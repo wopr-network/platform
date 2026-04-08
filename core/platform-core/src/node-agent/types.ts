@@ -3,9 +3,6 @@ import { z } from "zod";
 /** Agent version string, read from package.json at build time */
 export const AGENT_VERSION = "1.0.0";
 
-/** Container name prefix for tenant containers managed by this agent */
-export const TENANT_PREFIX = "tenant_";
-
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
