@@ -201,3 +201,109 @@ describe("instance.create end-to-end through OperationQueue", () => {
     expect(rows).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// instance.destroy + instance.update_budget
+// ---------------------------------------------------------------------------
+
+describe("instance.destroy end-to-end through OperationQueue", () => {
+  let queue: OperationQueue;
+  let worker: QueueWorker;
+  let svc: InstanceService;
+
+  beforeEach(async () => {
+    await truncateAllTables(pool);
+    queue = new OperationQueue(db, { defaultPollIntervalMs: 0, sleep: fastSleep });
+    const deps: InstanceServiceDeps = {
+      creditLedger: makeStubLedger(1000),
+      profileStore: stubProfileStore,
+      botInstanceRepo: stubBotInstanceRepo,
+      serviceKeyRepo: null,
+      provisionSecret: "test-secret",
+      fleet: makeStubFleet(),
+      operationQueue: queue,
+    };
+    svc = new InstanceService(deps);
+    worker = new QueueWorker(queue, "core", "w-test", new Map());
+    worker.registerHandler("instance.destroy", async (payload) => {
+      await svc.handleDestroyOperation(payload);
+      return null;
+    });
+  });
+
+  it("dispatches destroy() through the queue and completes", async () => {
+    const promise = svc.destroy({ instanceId: "inst-1", provisionSecret: "test-secret" });
+    await fastSleep();
+    const ran = await worker.tickOnce();
+    expect(ran).toBe(true);
+    await expect(promise).resolves.toBeUndefined();
+
+    const rows = await db.query.pendingOperations.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe("instance.destroy");
+    expect(rows[0].status).toBe("succeeded");
+  });
+
+  it("falls back to inline when no queue is wired", async () => {
+    const inlineSvc = new InstanceService({
+      creditLedger: makeStubLedger(1000),
+      profileStore: stubProfileStore,
+      botInstanceRepo: stubBotInstanceRepo,
+      serviceKeyRepo: null,
+      provisionSecret: "x",
+      fleet: makeStubFleet(),
+    });
+    await expect(inlineSvc.destroy({ instanceId: "inst-1", provisionSecret: "x" })).resolves.toBeUndefined();
+    expect(await db.query.pendingOperations.findMany()).toHaveLength(0);
+  });
+});
+
+describe("instance.update_budget end-to-end through OperationQueue", () => {
+  let queue: OperationQueue;
+  let svc: InstanceService;
+
+  beforeEach(async () => {
+    await truncateAllTables(pool);
+    queue = new OperationQueue(db, { defaultPollIntervalMs: 0, sleep: fastSleep });
+  });
+
+  it("dispatches through the queue (even when underlying call fails, row reaches terminal state)", async () => {
+    // The stub fleet's getInstance returns a canned Instance, and the real
+    // provision-client import will fail to actually reach the URL. We expect
+    // the row to land in `failed` and the Promise to reject — proving the
+    // queue transport itself works.
+    const deps: InstanceServiceDeps = {
+      creditLedger: makeStubLedger(1000),
+      profileStore: stubProfileStore,
+      botInstanceRepo: stubBotInstanceRepo,
+      serviceKeyRepo: null,
+      provisionSecret: "s",
+      fleet: makeStubFleet(),
+      operationQueue: queue,
+    };
+    svc = new InstanceService(deps);
+    const worker = new QueueWorker(queue, "core", "w-ub", new Map());
+    worker.registerHandler("instance.update_budget", async (payload) => {
+      await svc.handleUpdateBudgetOperation(payload);
+      return null;
+    });
+
+    const promise = svc.updateBudget({
+      instanceId: "inst-1",
+      provisionSecret: "s",
+      tenantEntityId: "t-1",
+      budgetCents: 100,
+    });
+    await fastSleep();
+    await worker.tickOnce();
+
+    // The row reached a terminal state — either succeeded (unlikely, no
+    // real HTTP target) or failed with the fetch error. Either way the
+    // queue transport completed.
+    await promise.catch(() => {}); // swallow to inspect row
+    const rows = await db.query.pendingOperations.findMany();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe("instance.update_budget");
+    expect(["succeeded", "failed"]).toContain(rows[0].status);
+  });
+});

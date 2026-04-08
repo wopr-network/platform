@@ -74,10 +74,12 @@ export interface InstanceServiceDeps {
 // ---------------------------------------------------------------------------
 
 /**
- * Operation type registered with the core QueueWorker. The handler is wired
+ * Operation types registered with the core QueueWorker. Handlers are wired
  * in container.ts after both InstanceService and the worker are constructed.
  */
 export const INSTANCE_CREATE_OP = "instance.create" as const;
+export const INSTANCE_DESTROY_OP = "instance.destroy" as const;
+export const INSTANCE_UPDATE_BUDGET_OP = "instance.update_budget" as const;
 
 export class InstanceService {
   constructor(private readonly deps: InstanceServiceDeps) {}
@@ -390,8 +392,33 @@ export class InstanceService {
   /**
    * Destroy a managed instance — deprovision, revoke keys, remove container,
    * stop billing. Owner-node lookup is handled inside fleet.getInstance/remove.
+   *
+   * Dispatches through the queue when `operationQueue` is wired. Same
+   * contract as `create`: Promise<void> resolves on success, rejects on
+   * any failure, transport is invisible to callers.
    */
   async destroy(params: { instanceId: string; provisionSecret: string; tenantEntityId?: string }): Promise<void> {
+    if (this.deps.operationQueue) {
+      await this.deps.operationQueue.execute<void>({
+        type: INSTANCE_DESTROY_OP,
+        target: "core",
+        payload: params as never,
+      });
+      return;
+    }
+    return await this.runDestroy(params);
+  }
+
+  /** Queue handler entry point for `instance.destroy`. */
+  async handleDestroyOperation(payload: unknown): Promise<void> {
+    await this.runDestroy(payload as { instanceId: string; provisionSecret: string; tenantEntityId?: string });
+  }
+
+  private async runDestroy(params: {
+    instanceId: string;
+    provisionSecret: string;
+    tenantEntityId?: string;
+  }): Promise<void> {
     const { instanceId, provisionSecret, tenantEntityId } = params;
     const d = this.deps;
 
@@ -442,9 +469,42 @@ export class InstanceService {
   }
 
   /**
-   * Update the spending budget on a running instance.
+   * Update the spending budget on a running instance. Dispatches through
+   * the queue when `operationQueue` is wired. Public Promise<void> contract
+   * is identical regardless of transport.
    */
   async updateBudget(params: {
+    instanceId: string;
+    provisionSecret: string;
+    tenantEntityId: string;
+    budgetCents: number;
+    perAgentCents?: number;
+  }): Promise<void> {
+    if (this.deps.operationQueue) {
+      await this.deps.operationQueue.execute<void>({
+        type: INSTANCE_UPDATE_BUDGET_OP,
+        target: "core",
+        payload: params as never,
+      });
+      return;
+    }
+    return await this.runUpdateBudget(params);
+  }
+
+  /** Queue handler entry point for `instance.update_budget`. */
+  async handleUpdateBudgetOperation(payload: unknown): Promise<void> {
+    await this.runUpdateBudget(
+      payload as {
+        instanceId: string;
+        provisionSecret: string;
+        tenantEntityId: string;
+        budgetCents: number;
+        perAgentCents?: number;
+      },
+    );
+  }
+
+  private async runUpdateBudget(params: {
     instanceId: string;
     provisionSecret: string;
     tenantEntityId: string;

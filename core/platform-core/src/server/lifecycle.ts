@@ -41,6 +41,28 @@ async function startLeaderServices(container: PlatformContainer): Promise<Backgr
     }
   }
 
+  // Queue janitor — reset `processing` rows whose `claimed_at + timeout_s`
+  // is in the past, so a worker crash doesn't strand in-flight work forever.
+  // Runs every 30s on the leader only; the sweep itself is idempotent and
+  // UPDATE-guarded on `status = 'processing'`, so double-firing would be
+  // safe anyway, but leader gating keeps DB load predictable.
+  const janitorInterval = setInterval(() => {
+    container.operationQueue
+      .janitorSweep()
+      .then((result) => {
+        if (result.reset > 0) {
+          logger.info("Queue janitor reset stale processing rows", { reset: result.reset });
+        }
+      })
+      .catch((err) => {
+        logger.warn("Queue janitor sweep failed", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, 30_000);
+  handles.intervals.push(janitorInterval);
+  logger.info("Queue janitor started (30s sweep interval)");
+
   // Runtime billing cron — daily $0.17/bot deduction (requires fleet + creditLedger)
   if (container.fleet && container.creditLedger) {
     try {
