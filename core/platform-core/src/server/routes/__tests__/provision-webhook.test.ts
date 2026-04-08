@@ -66,30 +66,12 @@ function makeFleet(): FleetServices {
       stop: vi.fn().mockResolvedValue(undefined),
       reload: vi.fn().mockResolvedValue(undefined),
     },
-    profileStore: {
-      init: vi.fn().mockResolvedValue(undefined),
-      save: vi.fn().mockResolvedValue(undefined),
-      get: vi.fn().mockResolvedValue(null),
-      list: vi.fn().mockResolvedValue([]),
-      delete: vi.fn().mockResolvedValue(true),
-    },
     serviceKeyRepo: {
       generate: vi.fn().mockResolvedValue("key-abc"),
       resolve: vi.fn().mockResolvedValue(null),
       revokeByInstance: vi.fn().mockResolvedValue(undefined),
       revokeByTenant: vi.fn().mockResolvedValue(undefined),
     } as never,
-    nodeRegistry: {
-      getFleetManager: vi.fn().mockReturnValue(mockFleetManager),
-      resolveUpstreamHost: vi.fn().mockReturnValue("test-myapp"),
-      getContainerCounts: vi.fn().mockResolvedValue(new Map()),
-      setRepos: vi.fn(),
-      list: vi.fn().mockReturnValue([{ config: { id: "local", maxContainers: 10 }, fleet: mockFleetManager }]),
-    } as never,
-    placementStrategy: {
-      selectNode: vi.fn().mockReturnValue({ config: { id: "local", maxContainers: 10 }, fleet: mockFleetManager }),
-    } as never,
-    orgInstanceResolver: {} as never,
   };
 }
 

@@ -86,7 +86,7 @@ describe("BotBilling", () => {
 
   describe("registerBot", () => {
     it("registers a bot in active billing state", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       const info = await billing.getBotBilling("bot-1");
       expect(info).not.toBeNull();
@@ -104,11 +104,11 @@ describe("BotBilling", () => {
     });
 
     it("counts only active bots for the tenant", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
-      await billing.registerBot("bot-2", "tenant-1", "bot-b");
+      await billing.registerBot("bot-2", "tenant-1", "test", "bot-b");
       await repo.startBilling("bot-2");
-      await billing.registerBot("bot-3", "tenant-2", "bot-c");
+      await billing.registerBot("bot-3", "tenant-2", "test", "bot-c");
       await repo.startBilling("bot-3");
 
       expect(await billing.getActiveBotCount("tenant-1")).toBe(2);
@@ -116,9 +116,9 @@ describe("BotBilling", () => {
     });
 
     it("does not count suspended bots", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
-      await billing.registerBot("bot-2", "tenant-1", "bot-b");
+      await billing.registerBot("bot-2", "tenant-1", "test", "bot-b");
       await repo.startBilling("bot-2");
       await billing.suspendBot("bot-1");
 
@@ -126,7 +126,7 @@ describe("BotBilling", () => {
     });
 
     it("does not count destroyed bots", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
       await billing.destroyBot("bot-1");
 
@@ -136,7 +136,7 @@ describe("BotBilling", () => {
 
   describe("suspendBot", () => {
     it("transitions bot from active to suspended", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       await billing.suspendBot("bot-1");
 
@@ -147,7 +147,7 @@ describe("BotBilling", () => {
     });
 
     it("sets destroyAfter to 30 days after suspension", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       await billing.suspendBot("bot-1");
 
@@ -162,11 +162,11 @@ describe("BotBilling", () => {
 
   describe("suspendAllForTenant", () => {
     it("suspends all active bots for a tenant", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
-      await billing.registerBot("bot-2", "tenant-1", "bot-b");
+      await billing.registerBot("bot-2", "tenant-1", "test", "bot-b");
       await repo.startBilling("bot-2");
-      await billing.registerBot("bot-3", "tenant-2", "bot-c");
+      await billing.registerBot("bot-3", "tenant-2", "test", "bot-c");
       await repo.startBilling("bot-3");
 
       const suspended = await billing.suspendAllForTenant("tenant-1");
@@ -184,7 +184,7 @@ describe("BotBilling", () => {
 
   describe("reactivateBot", () => {
     it("transitions bot from suspended to active", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       await billing.suspendBot("bot-1");
       await billing.reactivateBot("bot-1");
@@ -196,7 +196,7 @@ describe("BotBilling", () => {
     });
 
     it("does not reactivate a destroyed bot", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       await billing.destroyBot("bot-1");
       await billing.reactivateBot("bot-1");
@@ -206,7 +206,7 @@ describe("BotBilling", () => {
     });
 
     it("does not affect already-active bots", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       await billing.reactivateBot("bot-1");
 
@@ -217,9 +217,9 @@ describe("BotBilling", () => {
 
   describe("checkReactivation", () => {
     it("reactivates suspended bots when balance is positive", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
-      await billing.registerBot("bot-2", "tenant-1", "bot-b");
+      await billing.registerBot("bot-2", "tenant-1", "test", "bot-b");
       await repo.startBilling("bot-2");
       await billing.suspendBot("bot-1");
       await billing.suspendBot("bot-2");
@@ -236,7 +236,7 @@ describe("BotBilling", () => {
     });
 
     it("does not reactivate when balance is zero", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
       await billing.suspendBot("bot-1");
 
@@ -246,7 +246,7 @@ describe("BotBilling", () => {
     });
 
     it("does not reactivate destroyed bots", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
       await billing.destroyBot("bot-1");
 
@@ -273,7 +273,7 @@ describe("BotBilling", () => {
 
   describe("destroyBot", () => {
     it("marks bot as destroyed", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       await billing.destroyBot("bot-1");
 
@@ -284,7 +284,7 @@ describe("BotBilling", () => {
 
   describe("destroyExpiredBots", () => {
     it("destroys bots past their grace period", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
 
       // Set destroyAfter to the past using drizzle sql
@@ -305,7 +305,7 @@ describe("BotBilling", () => {
     });
 
     it("does not destroy bots still within grace period", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
       await billing.suspendBot("bot-1");
 
@@ -317,7 +317,7 @@ describe("BotBilling", () => {
     });
 
     it("does not touch active bots", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
 
       const destroyed = await billing.destroyExpiredBots();
@@ -330,7 +330,7 @@ describe("BotBilling", () => {
       const { operationQueue, botInstanceRepo } = createMockDeps();
       const billingWithQueue = new BotBilling(botInstanceRepo, operationQueue);
 
-      await billingWithQueue.registerBot("bot-1", "tenant-1", "my-bot");
+      await billingWithQueue.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await billingWithQueue.suspendBot("bot-1");
 
       expect(operationQueue.execute).toHaveBeenCalledWith({
@@ -345,7 +345,7 @@ describe("BotBilling", () => {
       (operationQueue.execute as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("queue unavailable"));
       const billingWithQueue = new BotBilling(botInstanceRepo, operationQueue);
 
-      await billingWithQueue.registerBot("bot-1", "tenant-1", "my-bot");
+      await billingWithQueue.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await expect(billingWithQueue.suspendBot("bot-1")).resolves.toBeUndefined();
     });
 
@@ -353,14 +353,14 @@ describe("BotBilling", () => {
       const { operationQueue, botInstanceRepo } = createMockDeps(null);
       const billingWithQueue = new BotBilling(botInstanceRepo, operationQueue);
 
-      await billingWithQueue.registerBot("bot-1", "tenant-1", "my-bot");
+      await billingWithQueue.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await billingWithQueue.suspendBot("bot-1");
 
       expect(operationQueue.execute).not.toHaveBeenCalled();
     });
 
     it("skips enqueue when no operation queue injected", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await expect(billing.suspendBot("bot-1")).resolves.toBeUndefined();
     });
   });
@@ -370,7 +370,7 @@ describe("BotBilling", () => {
       const { operationQueue, botInstanceRepo } = createMockDeps();
       const billingWithQueue = new BotBilling(botInstanceRepo, operationQueue);
 
-      await billingWithQueue.registerBot("bot-1", "tenant-1", "my-bot");
+      await billingWithQueue.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await billingWithQueue.suspendBot("bot-1");
 
       (operationQueue.execute as ReturnType<typeof vi.fn>).mockClear();
@@ -387,7 +387,7 @@ describe("BotBilling", () => {
       const { operationQueue, botInstanceRepo } = createMockDeps();
       const billingWithQueue = new BotBilling(botInstanceRepo, operationQueue);
 
-      await billingWithQueue.registerBot("bot-1", "tenant-1", "my-bot");
+      await billingWithQueue.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await billingWithQueue.suspendBot("bot-1");
 
       (operationQueue.execute as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("timeout"));
@@ -401,10 +401,10 @@ describe("BotBilling", () => {
     });
 
     it("returns correct daily cost for known storage tiers", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
       await billing.setStorageTier("bot-1", "pro");
-      await billing.registerBot("bot-2", "tenant-1", "bot-b");
+      await billing.registerBot("bot-2", "tenant-1", "test", "bot-b");
       await repo.startBilling("bot-2");
       await billing.setStorageTier("bot-2", "plus");
 
@@ -412,7 +412,7 @@ describe("BotBilling", () => {
     });
 
     it("returns 0 for unknown storage tier (fallback branch)", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
       // Bypass setStorageTier to insert an unrecognized tier value directly
       await pool.query(`UPDATE bot_instances SET storage_tier = 'unknown_tier' WHERE id = 'bot-1'`);
@@ -422,7 +422,7 @@ describe("BotBilling", () => {
     });
 
     it("does not include suspended bots in storage tier cost", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
       await billing.setStorageTier("bot-1", "pro");
       await billing.suspendBot("bot-1");
@@ -433,11 +433,11 @@ describe("BotBilling", () => {
 
   describe("listForTenant", () => {
     it("lists all bots regardless of billing state", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "bot-a");
+      await billing.registerBot("bot-1", "tenant-1", "test", "bot-a");
       await repo.startBilling("bot-1");
-      await billing.registerBot("bot-2", "tenant-1", "bot-b");
+      await billing.registerBot("bot-2", "tenant-1", "test", "bot-b");
       await repo.startBilling("bot-2");
-      await billing.registerBot("bot-3", "tenant-2", "bot-c");
+      await billing.registerBot("bot-3", "tenant-2", "test", "bot-c");
       await repo.startBilling("bot-3");
       await billing.suspendBot("bot-2");
 
@@ -448,7 +448,7 @@ describe("BotBilling", () => {
 
   describe("full lifecycle", () => {
     it("active -> suspended -> reactivated -> active", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       expect(((await billing.getBotBilling("bot-1")) as any)?.billingState).toBe("active");
 
@@ -463,7 +463,7 @@ describe("BotBilling", () => {
     });
 
     it("active -> suspended -> destroyed (after grace period)", async () => {
-      await billing.registerBot("bot-1", "tenant-1", "my-bot");
+      await billing.registerBot("bot-1", "tenant-1", "test", "my-bot");
       await repo.startBilling("bot-1");
       await billing.suspendBot("bot-1");
 

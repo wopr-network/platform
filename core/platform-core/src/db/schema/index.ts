@@ -9,7 +9,6 @@ export * from "./affiliate-fraud.js";
 export * from "./audit.js";
 export * from "./backup-status.js";
 export * from "./bot-instances.js";
-export * from "./bot-profiles.js";
 export * from "./bulk-undo-grants.js";
 export * from "./circuit-breaker-states.js";
 export * from "./coupon-codes.js";

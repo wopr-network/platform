@@ -12,6 +12,13 @@ export interface IBotInstanceRepository {
   getById(id: string): Promise<BotInstance | null>;
   listByNode(nodeId: string): Promise<BotInstance[]>;
   listByTenant(tenantId: string): Promise<BotInstance[]>;
+  /**
+   * List every instance visible to a user — personal tenant (tenants.owner_id)
+   * plus any instance whose tenant is in the user's org memberships. Used by
+   * the tenant proxy and org instance resolver to route a request without
+   * going through a separate profile store.
+   */
+  findByUser(userId: string): Promise<BotInstance[]>;
   create(data: NewBotInstance): Promise<BotInstance>;
   reassign(id: string, nodeId: string | null): Promise<BotInstance>;
   setBillingState(id: string, state: BillingState): Promise<BotInstance>;
@@ -43,7 +50,7 @@ export interface IBotInstanceRepository {
   /** Mark a bot as destroyed. */
   markDestroyed(botId: string): Promise<void>;
   /** Register a new bot instance. */
-  register(botId: string, tenantId: string, name: string): Promise<void>;
+  register(botId: string, tenantId: string, productSlug: string, name: string): Promise<void>;
   /** Get storage tier for a bot. */
   getStorageTier(botId: string): Promise<string | null>;
   /** Set storage tier for a bot. */

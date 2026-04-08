@@ -148,10 +148,7 @@ describe("createTestContainer", () => {
 
   it("allows enabling feature services via overrides", () => {
     const fleet: FleetServices = {
-      manager: {} as never,
-      docker: {} as never,
       proxy: {} as never,
-      profileStore: {} as never,
       serviceKeyRepo: {} as never,
     };
 

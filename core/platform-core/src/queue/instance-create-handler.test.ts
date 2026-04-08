@@ -74,10 +74,6 @@ const stubBotInstanceRepo = {
   setBillingState: async () => {},
 } as never;
 
-const stubProfileStore = {
-  list: async () => [],
-} as never;
-
 function makeProductConfig(): ProductConfig {
   return {
     product: { id: "p", slug: "test", name: "Test", domain: "test.local" } as never,
@@ -119,7 +115,6 @@ describe("instance.create end-to-end through OperationQueue", () => {
     });
     const deps: InstanceServiceDeps = {
       creditLedger: makeStubLedger(1000),
-      profileStore: stubProfileStore,
       botInstanceRepo: stubBotInstanceRepo,
       serviceKeyRepo: null,
       provisionSecret: null,
@@ -159,7 +154,6 @@ describe("instance.create end-to-end through OperationQueue", () => {
     // Force the saga to fail at the credit-check step.
     const failingDeps: InstanceServiceDeps = {
       creditLedger: makeStubLedger(0),
-      profileStore: stubProfileStore,
       botInstanceRepo: stubBotInstanceRepo,
       serviceKeyRepo: null,
       provisionSecret: null,
@@ -184,7 +178,6 @@ describe("instance.create end-to-end through OperationQueue", () => {
   it("falls back to inline saga when no operationQueue is wired", async () => {
     const inlineDeps: InstanceServiceDeps = {
       creditLedger: makeStubLedger(1000),
-      profileStore: stubProfileStore,
       botInstanceRepo: stubBotInstanceRepo,
       serviceKeyRepo: null,
       provisionSecret: null,
@@ -216,7 +209,6 @@ describe("instance.destroy end-to-end through OperationQueue", () => {
     queue = new OperationQueue(db, { defaultPollIntervalMs: 0, sleep: fastSleep });
     const deps: InstanceServiceDeps = {
       creditLedger: makeStubLedger(1000),
-      profileStore: stubProfileStore,
       botInstanceRepo: stubBotInstanceRepo,
       serviceKeyRepo: null,
       provisionSecret: "test-secret",
@@ -247,7 +239,6 @@ describe("instance.destroy end-to-end through OperationQueue", () => {
   it("falls back to inline when no queue is wired", async () => {
     const inlineSvc = new InstanceService({
       creditLedger: makeStubLedger(1000),
-      profileStore: stubProfileStore,
       botInstanceRepo: stubBotInstanceRepo,
       serviceKeyRepo: null,
       provisionSecret: "x",
@@ -281,7 +272,6 @@ describe("instance.create_container end-to-end through OperationQueue", () => {
     } as never;
     const deps: InstanceServiceDeps = {
       creditLedger: makeStubLedger(1000),
-      profileStore: stubProfileStore,
       botInstanceRepo: stubBotInstanceRepo,
       serviceKeyRepo: null,
       provisionSecret: null,
@@ -332,7 +322,6 @@ describe("instance.update_budget end-to-end through OperationQueue", () => {
     // queue transport itself works.
     const deps: InstanceServiceDeps = {
       creditLedger: makeStubLedger(1000),
-      profileStore: stubProfileStore,
       botInstanceRepo: stubBotInstanceRepo,
       serviceKeyRepo: null,
       provisionSecret: "s",

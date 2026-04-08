@@ -13,8 +13,8 @@
  */
 
 import type { MiddlewareHandler } from "hono";
-import { validateTenantAccess } from "../../auth/index.js";
 import { logger } from "../../config/logger.js";
+import { DrizzleBotInstanceRepository } from "../../fleet/drizzle-bot-instance-repository.js";
 import type { PlatformContainer } from "../container.js";
 
 /**
@@ -106,37 +106,35 @@ export function createTenantProxyMiddleware(
       return c.json({ error: "Authentication required" }, 401);
     }
 
-    // --- Resolve the user's tenant profile ---
-
-    const profiles = await container.fleet.profileStore.list();
-    let profile: (typeof profiles)[number] | undefined;
-    for (const p of profiles) {
-      const hasAccess = await validateTenantAccess(user.id, p.tenantId, container.orgMemberRepo);
-      if (hasAccess) {
-        profile = p;
-        break;
-      }
-    }
-    if (!profile) {
+    // --- Resolve the user's instance from bot_instances ---
+    //
+    // One query: every instance whose tenant is owned by this user or
+    // whose tenant is an org the user is a member of. Post-profile-store,
+    // bot_instances is the single source of truth; there's no parallel
+    // profile layer to walk.
+    const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
+    const instances = await botInstanceRepo.findByUser(user.id);
+    const instance = instances[0];
+    if (!instance) {
       logger.warn("Tenant proxy: no instance for user", { userId: user.id, path: url.pathname });
       return c.json({ error: "Tenant not found" }, 404);
     }
-    const tenantName = profile.name;
+    const tenantName = instance.name;
 
     // --- Resolve upstream from the Fleet composite ---
 
     let upstream: string | null = null;
     try {
-      const instance = await container.fleetComposite.getInstance(profile.id);
-      upstream = instance.url;
+      const liveInstance = await container.fleetComposite.getInstance(instance.id);
+      upstream = liveInstance.url;
       logger.info("Tenant proxy: resolved from Instance", {
-        instanceId: profile.id,
-        containerName: instance.containerName,
+        instanceId: instance.id,
+        containerName: liveInstance.containerName,
         upstream,
       });
     } catch (err) {
       logger.warn("Tenant proxy: getInstance failed", {
-        instanceId: profile.id,
+        instanceId: instance.id,
         error: err instanceof Error ? err.message : String(err),
       });
     }
@@ -144,8 +142,8 @@ export function createTenantProxyMiddleware(
     if (!upstream) {
       logger.warn("Tenant proxy: no upstream", {
         tenantName,
-        instanceId: profile.id,
-        productSlug: profile.productSlug,
+        instanceId: instance.id,
+        productSlug: instance.productSlug,
       });
       return c.json({ error: "Container unavailable" }, 503);
     }

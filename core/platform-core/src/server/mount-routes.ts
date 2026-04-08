@@ -16,6 +16,7 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
 import { createVerifyEmailRoutesLazy } from "../api/routes/verify-email.js";
+import { DrizzleBotInstanceRepository } from "../fleet/drizzle-bot-instance-repository.js";
 import { deriveCorsOrigins } from "../product-config/repository-types.js";
 import type { BootConfig, RoutePlugin } from "./boot-config.js";
 import type { PlatformContainer } from "./container.js";
@@ -409,7 +410,7 @@ export async function mountRoutes(
         ? {
             fleet: {
               creditLedger: container.creditLedger,
-              profileStore: container.fleet.profileStore,
+              botInstanceRepo: new DrizzleBotInstanceRepository(container.db),
               productConfig: container.productConfig, // Fallback — createInstance resolves per-product via resolveProductConfig
               serviceKeyRepo: container.fleet.serviceKeyRepo,
               assertOrgAdminOrOwner,

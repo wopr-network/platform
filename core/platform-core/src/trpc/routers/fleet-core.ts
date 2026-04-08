@@ -1,16 +1,19 @@
 /**
  * tRPC fleet-core router — shared instance lifecycle procedures.
  *
- * Contains the 11 procedures shared across Paperclip, NemoClaw, and (potentially) WOPR.
- * Product-specific fleet procedures (WOPR's 14 DHT/GPU/node procedures) stay in wopr-platform.
+ * Contains the instance lifecycle procedures shared across Paperclip,
+ * NemoClaw, and (potentially) WOPR. Product-specific fleet procedures
+ * stay in their product platform packages.
  *
- * Pure platform-core — all infrastructure injected via deps.
+ * Pure platform-core — all infrastructure injected via deps. Reads
+ * come from `bot_instances` directly (no profile store).
  */
 
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 import { logger } from "../../config/logger.js";
 import type { ILedger } from "../../credits/ledger.js";
-import type { IProfileStore } from "../../fleet/profile-store.js";
+import type { IBotInstanceRepository } from "../../fleet/bot-instance-repository.js";
 import type { IServiceKeyRepository } from "../../gateway/service-key-repository.js";
 import type { ProductConfig } from "../../product-config/repository-types.js";
 import { protectedProcedure, router, type TRPCContext } from "../init.js";
@@ -18,15 +21,13 @@ import { protectedProcedure, router, type TRPCContext } from "../init.js";
 // Narrowed context after protectedProcedure middleware (user is non-optional)
 type ProtectedCtx = TRPCContext & { user: NonNullable<TRPCContext["user"]> };
 
-import { z } from "zod";
-
 // ---------------------------------------------------------------------------
 // Deps
 // ---------------------------------------------------------------------------
 
 export interface FleetCoreRouterDeps {
   creditLedger: ILedger;
-  profileStore: IProfileStore;
+  botInstanceRepo: IBotInstanceRepository;
   productConfig: ProductConfig;
   serviceKeyRepo: IServiceKeyRepository | null;
   /** Assert caller is admin/owner of the tenant. Skips check for personal tenants (tenantId === userId). */
@@ -56,30 +57,44 @@ function tenantFromCtx(ctx: { user: { id: string }; tenantId: string | undefined
 // ---------------------------------------------------------------------------
 
 export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
+  /**
+   * Load an instance and check that it belongs to the caller's tenant.
+   * Replaces the pre-refactor `profileStore.get` + tenantId comparison that
+   * was repeated across every per-id procedure.
+   */
+  async function loadOwnedInstance(id: string, tenant: string) {
+    const instance = await d.botInstanceRepo.getById(id);
+    if (!instance) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
+    }
+    if (instance.tenantId !== tenant) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+    }
+    return instance;
+  }
+
   return router({
     /** List all instances for the authenticated user's tenant. */
     listInstances: protectedProcedure.query(async ({ ctx }: { ctx: ProtectedCtx }) => {
       const tenant = tenantFromCtx(ctx);
-      const profiles = await d.profileStore.list();
-      const tenantProfiles = profiles.filter((p) => p.tenantId === tenant);
+      const rows = await d.botInstanceRepo.listByTenant(tenant);
       const bots = await Promise.all(
-        tenantProfiles.map(async (profile) => {
+        rows.map(async (row) => {
           try {
-            const fleet = d.fleet;
-            return await fleet.status(profile.id);
+            return await d.fleet.status(row.id);
           } catch {
             return {
-              id: profile.id,
-              name: profile.name,
-              description: profile.description,
-              image: profile.image,
+              id: row.id,
+              name: row.name,
+              description: "",
+              image: "",
               containerId: null,
               state: "error" as const,
               health: null,
               uptime: null,
               startedAt: null,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
               stats: null,
               applicationMetrics: null,
             };
@@ -93,16 +108,8 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
     getInstance: protectedProcedure
       .input(z.object({ id: z.string().min(1) }))
       .query(async ({ input, ctx }: { input: { id: string }; ctx: ProtectedCtx }) => {
-        const tenant = tenantFromCtx(ctx);
-        const profile = await d.profileStore.get(input.id);
-        if (!profile) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
-        }
-        if (profile.tenantId !== tenant) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-        }
-        const fleet = d.fleet;
-        return await fleet.status(input.id);
+        await loadOwnedInstance(input.id, tenantFromCtx(ctx));
+        return await d.fleet.status(input.id);
       }),
 
     /** Control an instance: start, stop, restart, destroy. */
@@ -124,13 +131,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         }) => {
           const tenant = input.orgId ?? tenantFromCtx(ctx);
           await d.assertOrgAdminOrOwner(tenant, ctx.user.id, ctx.user.roles);
-          const profile = await d.profileStore.get(input.id);
-          if (!profile) {
-            throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
-          }
-          if (profile.tenantId !== tenant) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-          }
+          await loadOwnedInstance(input.id, tenant);
           const fleet = d.fleet;
           switch (input.action) {
             case "start": {
@@ -168,16 +169,8 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
     getInstanceHealth: protectedProcedure
       .input(z.object({ id: z.string().min(1) }))
       .query(async ({ input, ctx }: { input: { id: string }; ctx: ProtectedCtx }) => {
-        const tenant = tenantFromCtx(ctx);
-        const profile = await d.profileStore.get(input.id);
-        if (!profile) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
-        }
-        if (profile.tenantId !== tenant) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-        }
-        const fleet = d.fleet;
-        const status = await fleet.status(input.id);
+        await loadOwnedInstance(input.id, tenantFromCtx(ctx));
+        const status = await d.fleet.status(input.id);
         return {
           id: status.id,
           state: status.state,
@@ -191,16 +184,8 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
     getInstanceLogs: protectedProcedure
       .input(z.object({ id: z.string().min(1), tail: z.number().int().positive().max(1000).optional() }))
       .query(async ({ input, ctx }: { input: { id: string; tail?: number }; ctx: ProtectedCtx }) => {
-        const tenant = tenantFromCtx(ctx);
-        const profile = await d.profileStore.get(input.id);
-        if (!profile) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
-        }
-        if (profile.tenantId !== tenant) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-        }
-        const fleet = d.fleet;
-        const rawLogs = await fleet.logs(input.id, { tail: input.tail ?? 100 });
+        await loadOwnedInstance(input.id, tenantFromCtx(ctx));
+        const rawLogs = await d.fleet.logs(input.id, { tail: input.tail ?? 100 });
         const logs = rawLogs.split("\n").filter((line) => line.trim().length > 0);
         return { logs };
       }),
@@ -209,16 +194,8 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
     getInstanceMetrics: protectedProcedure
       .input(z.object({ id: z.string().min(1) }))
       .query(async ({ input, ctx }: { input: { id: string }; ctx: ProtectedCtx }) => {
-        const tenant = tenantFromCtx(ctx);
-        const profile = await d.profileStore.get(input.id);
-        if (!profile) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Instance not found" });
-        }
-        if (profile.tenantId !== tenant) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
-        }
-        const fleet = d.fleet;
-        const status = await fleet.status(input.id);
+        await loadOwnedInstance(input.id, tenantFromCtx(ctx));
+        const status = await d.fleet.status(input.id);
         return { id: status.id, stats: status.stats };
       }),
 

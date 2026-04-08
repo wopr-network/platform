@@ -21,7 +21,7 @@ export interface IBotBilling {
   destroyExpiredBots(): Promise<string[]>;
   getBotBilling(botId: string): Promise<unknown>;
   listForTenant(tenantId: string): Promise<unknown[]>;
-  registerBot(botId: string, tenantId: string, name: string): Promise<void>;
+  registerBot(botId: string, tenantId: string, productSlug: string, name: string): Promise<void>;
   getStorageTier(botId: string): Promise<string | null>;
   setStorageTier(botId: string, tier: string): Promise<void>;
   getStorageTierCostsForTenant(tenantId: string): Promise<Credit>;
@@ -166,8 +166,8 @@ export class DrizzleBotBilling implements IBotBilling {
   }
 
   /** Register a new bot instance for billing. */
-  async registerBot(botId: string, tenantId: string, name: string): Promise<void> {
-    await this.botInstanceRepo.register(botId, tenantId, name);
+  async registerBot(botId: string, tenantId: string, productSlug: string, name: string): Promise<void> {
+    await this.botInstanceRepo.register(botId, tenantId, productSlug, name);
   }
 }
 

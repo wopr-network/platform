@@ -29,6 +29,7 @@ describe("DrizzleBotInstanceRepository", () => {
       const bot = await repo.create({
         id: "bot-1",
         tenantId: "tenant-1",
+        productSlug: "test",
         name: "my-bot",
         nodeId: "node-1",
       });
@@ -47,6 +48,7 @@ describe("DrizzleBotInstanceRepository", () => {
       const bot = await repo.create({
         id: "bot-2",
         tenantId: "tenant-1",
+        productSlug: "test",
         name: "suspended-bot",
         nodeId: null,
         billingState: "suspended",
@@ -58,6 +60,7 @@ describe("DrizzleBotInstanceRepository", () => {
       const bot = await repo.create({
         id: "bot-3",
         tenantId: "tenant-1",
+        productSlug: "test",
         name: "unassigned-bot",
         nodeId: null,
       });
@@ -67,7 +70,7 @@ describe("DrizzleBotInstanceRepository", () => {
 
   describe("getById", () => {
     it("returns the bot instance when it exists", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b", nodeId: "n-1" });
       const bot = await repo.getById("bot-1");
       expect(bot).not.toBeNull();
       expect(bot?.id).toBe("bot-1");
@@ -80,9 +83,9 @@ describe("DrizzleBotInstanceRepository", () => {
 
   describe("listByNode", () => {
     it("returns all instances on a node", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "node-A" });
-      await repo.create({ id: "bot-2", tenantId: "t-2", name: "b2", nodeId: "node-A" });
-      await repo.create({ id: "bot-3", tenantId: "t-3", name: "b3", nodeId: "node-B" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "node-A" });
+      await repo.create({ id: "bot-2", tenantId: "t-2", productSlug: "test", name: "b2", nodeId: "node-A" });
+      await repo.create({ id: "bot-3", tenantId: "t-3", productSlug: "test", name: "b3", nodeId: "node-B" });
 
       const result = await repo.listByNode("node-A");
       expect(result).toHaveLength(2);
@@ -94,16 +97,16 @@ describe("DrizzleBotInstanceRepository", () => {
     });
 
     it("does not return instances with null nodeId", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: null });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: null });
       expect(await repo.listByNode("any-node")).toEqual([]);
     });
   });
 
   describe("listByTenant", () => {
     it("returns all instances for a tenant", async () => {
-      await repo.create({ id: "bot-1", tenantId: "tenant-X", name: "b1", nodeId: "n-1" });
-      await repo.create({ id: "bot-2", tenantId: "tenant-X", name: "b2", nodeId: "n-2" });
-      await repo.create({ id: "bot-3", tenantId: "tenant-Y", name: "b3", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "tenant-X", productSlug: "test", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-2", tenantId: "tenant-X", productSlug: "test", name: "b2", nodeId: "n-2" });
+      await repo.create({ id: "bot-3", tenantId: "tenant-Y", productSlug: "test", name: "b3", nodeId: "n-1" });
 
       const result = await repo.listByTenant("tenant-X");
       expect(result).toHaveLength(2);
@@ -117,7 +120,7 @@ describe("DrizzleBotInstanceRepository", () => {
 
   describe("reassign", () => {
     it("updates nodeId and returns updated instance", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "node-old" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "node-old" });
 
       const updated = await repo.reassign("bot-1", "node-new");
       expect(updated.nodeId).toBe("node-new");
@@ -125,7 +128,7 @@ describe("DrizzleBotInstanceRepository", () => {
     });
 
     it("updates updatedAt timestamp", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "node-old" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "node-old" });
 
       const updated = await repo.reassign("bot-1", "node-new");
       expect(updated.updatedAt).toEqual(expect.any(String));
@@ -141,6 +144,7 @@ describe("DrizzleBotInstanceRepository", () => {
       const bot = await repo.create({
         id: "00000000-0000-4000-8000-000000000099",
         tenantId: "tenant-1",
+        productSlug: "test",
         name: "test-bot",
         nodeId: null,
         createdByUserId: "user-42",
@@ -152,6 +156,7 @@ describe("DrizzleBotInstanceRepository", () => {
       const bot = await repo.create({
         id: "00000000-0000-4000-8000-000000000098",
         tenantId: "tenant-1",
+        productSlug: "test",
         name: "legacy-bot",
         nodeId: null,
       });
@@ -162,6 +167,7 @@ describe("DrizzleBotInstanceRepository", () => {
       await repo.create({
         id: "00000000-0000-4000-8000-000000000097",
         tenantId: "tenant-1",
+        productSlug: "test",
         name: "owned-bot",
         nodeId: null,
         createdByUserId: "user-7",
@@ -174,6 +180,7 @@ describe("DrizzleBotInstanceRepository", () => {
       await repo.create({
         id: "00000000-0000-4000-8000-000000000096",
         tenantId: "tenant-2",
+        productSlug: "test",
         name: "org-bot",
         nodeId: null,
         createdByUserId: "user-A",
@@ -188,6 +195,7 @@ describe("DrizzleBotInstanceRepository", () => {
       await repo.create({
         id: "00000000-0000-4000-8000-000000000090",
         tenantId: "org-tenant-1",
+        productSlug: "test",
         name: "org-bot-1",
         nodeId: null,
         createdByUserId: "user-A",
@@ -205,6 +213,7 @@ describe("DrizzleBotInstanceRepository", () => {
       await repo.create({
         id: "00000000-0000-4000-8000-000000000089",
         tenantId: "org-tenant-2",
+        productSlug: "test",
         name: "bot-by-A",
         nodeId: null,
         createdByUserId: "user-A",
@@ -212,6 +221,7 @@ describe("DrizzleBotInstanceRepository", () => {
       await repo.create({
         id: "00000000-0000-4000-8000-000000000088",
         tenantId: "org-tenant-2",
+        productSlug: "test",
         name: "bot-by-B",
         nodeId: null,
         createdByUserId: "user-B",
@@ -226,18 +236,18 @@ describe("DrizzleBotInstanceRepository", () => {
 
   describe("getResourceTier / setResourceTier", () => {
     it("returns the default 'standard' tier when none has been explicitly set", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
       expect(await repo.getResourceTier("bot-1")).toBe("standard");
     });
 
     it("sets and gets resource tier", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
       await repo.setResourceTier("bot-1", "gpu-large");
       expect(await repo.getResourceTier("bot-1")).toBe("gpu-large");
     });
 
     it("overwrites existing resource tier", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
       await repo.setResourceTier("bot-1", "gpu-small");
       await repo.setResourceTier("bot-1", "gpu-large");
       expect(await repo.getResourceTier("bot-1")).toBe("gpu-large");
@@ -246,9 +256,9 @@ describe("DrizzleBotInstanceRepository", () => {
 
   describe("deleteAllByTenant", () => {
     it("deletes all bots for a tenant", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
-      await repo.create({ id: "bot-2", tenantId: "t-1", name: "b2", nodeId: "n-1" });
-      await repo.create({ id: "bot-3", tenantId: "t-2", name: "b3", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-2", tenantId: "t-1", productSlug: "test", name: "b2", nodeId: "n-1" });
+      await repo.create({ id: "bot-3", tenantId: "t-2", productSlug: "test", name: "b3", nodeId: "n-1" });
 
       await repo.deleteAllByTenant("t-1");
 
@@ -264,8 +274,8 @@ describe("DrizzleBotInstanceRepository", () => {
 
   describe("deleteById", () => {
     it("deletes a single bot instance by id", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
-      await repo.create({ id: "bot-2", tenantId: "t-1", name: "b2", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-2", tenantId: "t-1", productSlug: "test", name: "b2", nodeId: "n-1" });
 
       await repo.deleteById("bot-1");
 
@@ -281,7 +291,7 @@ describe("DrizzleBotInstanceRepository", () => {
 
   describe("setBillingState", () => {
     it("suspends a bot and sets suspension timestamps", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
 
       const suspended = await repo.setBillingState("bot-1", "suspended");
       expect(suspended.billingState).toBe("suspended");
@@ -290,7 +300,7 @@ describe("DrizzleBotInstanceRepository", () => {
     });
 
     it("reactivates a bot and clears suspension timestamps", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
       await repo.setBillingState("bot-1", "suspended");
 
       const reactivated = await repo.setBillingState("bot-1", "active");
@@ -300,7 +310,7 @@ describe("DrizzleBotInstanceRepository", () => {
     });
 
     it("sets billing state to destroyed", async () => {
-      await repo.create({ id: "bot-1", tenantId: "t-1", name: "b1", nodeId: "n-1" });
+      await repo.create({ id: "bot-1", tenantId: "t-1", productSlug: "test", name: "b1", nodeId: "n-1" });
 
       const destroyed = await repo.setBillingState("bot-1", "destroyed");
       expect(destroyed.billingState).toBe("destroyed");

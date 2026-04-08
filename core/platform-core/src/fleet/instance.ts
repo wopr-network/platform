@@ -404,7 +404,7 @@ export class Instance {
       logger.warn("No instance repo — billing setup skipped", { id: this.id });
       return;
     }
-    await this.instanceRepo.register(this.id, this.profile.tenantId, this.profile.name);
+    await this.instanceRepo.register(this.id, this.profile.tenantId, this.profile.productSlug, this.profile.name);
     logger.info("Billing registered", { id: this.id, tenantId: this.profile.tenantId });
   }
 

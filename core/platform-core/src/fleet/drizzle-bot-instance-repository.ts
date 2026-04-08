@@ -1,6 +1,6 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../db/index.js";
-import { botInstances, tenantCustomers } from "../db/schema/index.js";
+import { botInstances, organizationMembers, tenantCustomers } from "../db/schema/index.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { BillingState, BotInstance, NewBotInstance, TenantWithTier } from "./repository-types.js";
 
@@ -23,11 +23,30 @@ export class DrizzleBotInstanceRepository implements IBotInstanceRepository {
     return rows.map(toInstance);
   }
 
+  /**
+   * Every instance the user can see — personal tenant + any org the user is
+   * a member of. Replaces the legacy pattern of walking every profile and
+   * calling validateTenantAccess one at a time. Two tenancy rules, both in
+   * one query via an `OR (tenant IN subquery)`.
+   */
+  async findByUser(userId: string): Promise<BotInstance[]> {
+    const userOrgs = this.db
+      .select({ orgId: organizationMembers.orgId })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userId, userId));
+    const rows = await this.db
+      .select()
+      .from(botInstances)
+      .where(or(eq(botInstances.tenantId, userId), inArray(botInstances.tenantId, userOrgs)));
+    return rows.map(toInstance);
+  }
+
   async create(data: NewBotInstance): Promise<BotInstance> {
     const now = new Date().toISOString();
     await this.db.insert(botInstances).values({
       id: data.id,
       tenantId: data.tenantId,
+      productSlug: data.productSlug,
       name: data.name,
       nodeId: data.nodeId,
       containerPort: data.containerPort,
@@ -222,12 +241,14 @@ export class DrizzleBotInstanceRepository implements IBotInstanceRepository {
   async register(
     botId: string,
     tenantId: string,
+    productSlug: string,
     name: string,
     billingState: BillingState = "inactive",
   ): Promise<void> {
     await this.db.insert(botInstances).values({
       id: botId,
       tenantId,
+      productSlug,
       name,
       billingState,
     });
@@ -275,6 +296,7 @@ function toInstance(row: typeof botInstances.$inferSelect): BotInstance {
   return {
     id: row.id,
     tenantId: row.tenantId,
+    productSlug: row.productSlug,
     name: row.name,
     nodeId: row.nodeId,
     containerPort: row.containerPort,

@@ -8,6 +8,7 @@
 
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { botInstances } from "../../db/schema/index.js";
 import { adminProcedure, router } from "../../trpc/init.js";
 import type { PlatformContainer } from "../container.js";
 
@@ -119,19 +120,21 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
         return { instances: [], error: "Fleet not configured" };
       }
 
-      const fleet = container.fleet;
       const fleetComposite = container.fleetComposite;
-      const profiles = await fleet.profileStore.list();
+      const rows = await container.db.select().from(botInstances);
 
       const instances = await Promise.all(
-        profiles.map(async (profile) => {
+        rows.map(async (row) => {
+          const base = {
+            id: row.id,
+            name: row.name,
+            tenantId: row.tenantId,
+            productSlug: row.productSlug,
+          };
           try {
             if (!fleetComposite) {
               return {
-                id: profile.id,
-                name: profile.name,
-                tenantId: profile.tenantId,
-                image: profile.image,
+                ...base,
                 state: "stopped" as const,
                 health: null,
                 uptime: null,
@@ -140,12 +143,9 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
               };
             }
             // Composite resolves the owning node from bot_instances.node_id.
-            const status = await fleetComposite.status(profile.id);
+            const status = await fleetComposite.status(row.id);
             return {
-              id: profile.id,
-              name: profile.name,
-              tenantId: profile.tenantId,
-              image: profile.image,
+              ...base,
               state: status.state,
               health: status.health,
               uptime: status.uptime,
@@ -154,10 +154,7 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
             };
           } catch {
             return {
-              id: profile.id,
-              name: profile.name,
-              tenantId: profile.tenantId,
-              image: profile.image,
+              ...base,
               state: "error" as const,
               health: null,
               uptime: null,
@@ -194,12 +191,12 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
         ORDER BY o.created_at DESC
       `);
 
-      // Count instances per tenant from fleet profiles
+      // Count instances per tenant from bot_instances (single source of truth).
       const instanceCountByTenant = new Map<string, number>();
       if (container.fleet) {
-        const profiles = await container.fleet.profileStore.list();
-        for (const p of profiles) {
-          instanceCountByTenant.set(p.tenantId, (instanceCountByTenant.get(p.tenantId) ?? 0) + 1);
+        const rows = await container.db.select({ tenantId: botInstances.tenantId }).from(botInstances);
+        for (const r of rows) {
+          instanceCountByTenant.set(r.tenantId, (instanceCountByTenant.get(r.tenantId) ?? 0) + 1);
         }
       }
 

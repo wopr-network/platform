@@ -84,6 +84,8 @@ export type BillingState = "active" | "inactive" | "suspended" | "destroyed";
 export interface BotInstance {
   id: string;
   tenantId: string;
+  /** Product slug — resolves image/port/network via productConfigService. */
+  productSlug: string;
   name: string;
   nodeId: string | null;
   containerPort: number;
@@ -99,6 +101,7 @@ export interface BotInstance {
 export interface NewBotInstance {
   id: string;
   tenantId: string;
+  productSlug: string;
   name: string;
   nodeId: string | null;
   containerPort: number;

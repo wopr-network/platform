@@ -1,0 +1,32 @@
+-- Collapse bot_profiles into bot_instances.
+--
+-- Pre-refactor architecture had two stores tracking the same conceptual
+-- entity (a tenant's running instance):
+--
+--   bot_profiles  — declarative spec (image, env, port) — pre-refactor
+--                   source of truth, originally backed by YAML files on
+--                   disk, later mirrored to a Drizzle table.
+--   bot_instances — runtime state (node_id, billing_state) — post-refactor
+--                   source of truth, written by Instance.create.
+--
+-- The split made sense when profiles were operator-managed declarative
+-- state and instances were a runtime cache. Post-refactor that's reversed:
+-- instances are the only source of truth, the container spec is uniform
+-- per product (resolved at runtime from product_configs), and there's no
+-- per-instance "profile" worth persisting.
+--
+-- This migration:
+--   1. Adds `product_slug` to bot_instances so consumers can resolve
+--      image/port/network from productConfigService at the moment
+--      they're needed (instead of carrying a stale spec on the row).
+--   2. Drops bot_profiles entirely.
+--
+-- No data migration: tables are empty in production at the time of this
+-- migration (operator nuked stale rows ahead of the deploy). The
+-- IProfileStore interface, ProfileStore (YAML), DrizzleBotProfileStore,
+-- the lifecycle.ts backfill loop, and every tenant-proxy / org-resolver
+-- consumer that read from profileStore are deleted in the same commit.
+
+ALTER TABLE "bot_instances" ADD COLUMN "product_slug" text NOT NULL;
+--> statement-breakpoint
+DROP TABLE IF EXISTS "bot_profiles";

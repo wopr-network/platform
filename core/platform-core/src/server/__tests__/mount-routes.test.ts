@@ -59,7 +59,6 @@ function stubFleet(): PlatformContainer["fleet"] {
       removeRoute: () => {},
       getRoutes: () => [],
     } as never,
-    profileStore: { list: async () => [] } as never,
     serviceKeyRepo: {} as never,
   };
 }

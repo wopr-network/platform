@@ -19,9 +19,7 @@ import type { ITenantCustomerRepository } from "../credits/tenant-customer-repos
 import type { IAuthUserRepository } from "../db/auth-user-repository.js";
 import type { DrizzleDb } from "../db/index.js";
 import type { INotificationPreferencesRepository } from "../email/index.js";
-import type { OrgInstanceResolver } from "../fleet/org-instance-resolver.js";
 import type { IPageContextRepository } from "../fleet/page-context-repository.js";
-import type { IProfileStore } from "../fleet/profile-store.js";
 import type { IServiceKeyRepository } from "../gateway/service-key-repository.js";
 import type { IMeterAggregator } from "../metering/index.js";
 import type { IAffiliateRepository } from "../monetization/affiliate/drizzle-affiliate-repository.js";
@@ -41,9 +39,7 @@ import type { BootConfig } from "./boot-config.js";
 
 export interface FleetServices {
   proxy: ProxyManagerInterface;
-  profileStore: IProfileStore;
   serviceKeyRepo: IServiceKeyRepository;
-  orgInstanceResolver: OrgInstanceResolver;
 }
 
 export interface CryptoServices {
@@ -243,12 +239,9 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   // No parallel paths — the registry IS the source of truth.
   let fleet: FleetServices | null = null;
   if (bootConfig.features.fleet) {
-    const { DrizzleBotProfileStore } = await import("../fleet/drizzle-profile-store.js");
     const { ProxyManager } = await import("../proxy/manager.js");
     const { DrizzleServiceKeyRepository } = await import("../gateway/service-key-repository.js");
-    const { OrgInstanceResolver: OrgInstanceResolverClass } = await import("../fleet/org-instance-resolver.js");
 
-    const profileStore: IProfileStore = new DrizzleBotProfileStore(db);
     // Build product route configs for Caddy from DB — zero hardcoded infra
     const allProducts = await productConfigService.listAll();
     const productRouteConfigs = allProducts
@@ -276,18 +269,15 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     });
     const serviceKeyRepo: IServiceKeyRepository = new DrizzleServiceKeyRepository(db as never);
 
-    const orgInstanceResolver = new OrgInstanceResolverClass({ profileStore });
-
     // In the null-target refactor core no longer owns node identity. The
     // Fleet class enqueues creation ops with target=null and any agent
     // claims; lifecycle ops look up the owning node from bot_instances.
     // There is no in-memory NodeRegistry, no placement strategy, no
-    // per-node FleetManager leaves.
+    // per-node FleetManager leaves, and no separate profile store —
+    // bot_instances is the single source of truth.
     fleet = {
       proxy,
-      profileStore,
       serviceKeyRepo,
-      orgInstanceResolver,
     };
   }
 
@@ -505,14 +495,9 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     // row, and whichever core worker claims it runs the tick once.
     result.fleetComposite = fleetComposite;
 
-    // Wire the composite into OrgInstanceResolver — it depends on Fleet but
-    // was constructed earlier in boot (before fleetComposite existed).
-    fleet.orgInstanceResolver.setFleet(fleetComposite);
-
     const secrets = bootConfig.secrets;
     const instanceService = new InstanceService({
       creditLedger: result.creditLedger,
-      profileStore: fleet.profileStore,
       botInstanceRepo,
       serviceKeyRepo: fleet.serviceKeyRepo,
       provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? null,

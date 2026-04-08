@@ -28,13 +28,13 @@ describe("bot-billing storage tier", () => {
   });
 
   it("new bot defaults to standard storage tier", async () => {
-    await billing.registerBot("bot-1", "tenant-1", "TestBot");
+    await billing.registerBot("bot-1", "tenant-1", "test", "TestBot");
     await repo.startBilling("bot-1");
     expect(await billing.getStorageTier("bot-1")).toBe("standard");
   });
 
   it("setStorageTier updates tier", async () => {
-    await billing.registerBot("bot-1", "tenant-1", "TestBot");
+    await billing.registerBot("bot-1", "tenant-1", "test", "TestBot");
     await repo.startBilling("bot-1");
     await billing.setStorageTier("bot-1", "pro");
     expect(await billing.getStorageTier("bot-1")).toBe("pro");
@@ -45,11 +45,11 @@ describe("bot-billing storage tier", () => {
   });
 
   it("getStorageTierCostsForTenant sums active bot storage costs", async () => {
-    await billing.registerBot("bot-1", "tenant-1", "Bot1");
+    await billing.registerBot("bot-1", "tenant-1", "test", "Bot1");
     await repo.startBilling("bot-1");
-    await billing.registerBot("bot-2", "tenant-1", "Bot2");
+    await billing.registerBot("bot-2", "tenant-1", "test", "Bot2");
     await repo.startBilling("bot-2");
-    await billing.registerBot("bot-3", "tenant-1", "Bot3");
+    await billing.registerBot("bot-3", "tenant-1", "test", "Bot3");
     await repo.startBilling("bot-3");
     await billing.setStorageTier("bot-1", "plus"); // 3 credits/day
     await billing.setStorageTier("bot-2", "max"); // 15 credits/day
@@ -58,7 +58,7 @@ describe("bot-billing storage tier", () => {
   });
 
   it("getStorageTierCostsForTenant excludes suspended bots", async () => {
-    await billing.registerBot("bot-1", "tenant-1", "Bot1");
+    await billing.registerBot("bot-1", "tenant-1", "test", "Bot1");
     await repo.startBilling("bot-1");
     await billing.setStorageTier("bot-1", "pro"); // 8 credits/day
     await billing.suspendBot("bot-1");

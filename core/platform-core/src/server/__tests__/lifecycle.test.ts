@@ -24,7 +24,6 @@ describe("startBackgroundServices", () => {
           removeRoute: () => {},
           getRoutes: () => [],
         } as never,
-        profileStore: { list: async () => [] } as never,
         serviceKeyRepo: {} as never,
       },
     });
@@ -45,7 +44,6 @@ describe("startBackgroundServices", () => {
           removeRoute: () => {},
           getRoutes: () => [],
         } as never,
-        profileStore: { list: async () => [] } as never,
         serviceKeyRepo: {} as never,
       },
     });

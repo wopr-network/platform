@@ -112,32 +112,6 @@ export async function startBackgroundServices(container: PlatformContainer): Pro
     }
   }
 
-  // Backfill bot_instances from YAML profiles (one-time sync on startup)
-  if (container.fleet) {
-    try {
-      const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
-      const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
-      const profiles = await container.fleet.profileStore.list();
-      let synced = 0;
-      for (const profile of profiles) {
-        const existing = await botInstanceRepo.getById(profile.id);
-        if (!existing) {
-          try {
-            await botInstanceRepo.register(profile.id, profile.tenantId, profile.name);
-            synced++;
-          } catch {
-            // Ignore duplicates / constraint violations
-          }
-        }
-      }
-      if (synced > 0) {
-        logger.info(`Backfilled ${synced} bot instances from profiles into DB`);
-      }
-    } catch (err) {
-      logger.warn("Failed to backfill bot_instances (non-fatal)", { error: String(err) });
-    }
-  }
-
   // Periodic scheduler — enqueues bucketed rows on every replica. The DB's
   // unique partial index on `idempotency_key` collapses duplicate inserts
   // down to one row per bucket, so the underlying work runs exactly once.

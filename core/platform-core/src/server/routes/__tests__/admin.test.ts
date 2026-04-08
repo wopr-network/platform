@@ -143,10 +143,23 @@ describe("createAdminRouter", () => {
   // -------------------------------------------------------------------------
 
   describe("listAllInstances", () => {
-    it("lists instances using container.fleet", async () => {
-      const mockProfiles = [
-        { id: "inst-1", name: "Bot A", tenantId: "t1", image: "img:latest" },
-        { id: "inst-2", name: "Bot B", tenantId: "t2", image: "img:v2" },
+    /**
+     * Admin lists now come from `bot_instances` via Drizzle — no profile store.
+     * The test stubs just enough of the query chain: `db.select().from(table)`
+     * returns a Promise that resolves to whatever we want the row set to be.
+     */
+    function stubDbWithRows<T>(rows: T[]) {
+      return {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockResolvedValue(rows),
+        }),
+      };
+    }
+
+    it("lists instances using bot_instances + fleetComposite.status", async () => {
+      const mockRows = [
+        { id: "inst-1", name: "Bot A", tenantId: "t1", productSlug: "wopr" },
+        { id: "inst-2", name: "Bot B", tenantId: "t2", productSlug: "paperclip" },
       ];
 
       const mockStatus = {
@@ -158,16 +171,10 @@ describe("createAdminRouter", () => {
       };
 
       const container = createTestContainer({
+        db: stubDbWithRows(mockRows) as never,
         fleet: {
           docker: {} as never,
           proxy: {} as never,
-          profileStore: {
-            list: vi.fn().mockResolvedValue(mockProfiles),
-            init: vi.fn(),
-            save: vi.fn(),
-            get: vi.fn(),
-            delete: vi.fn(),
-          },
           serviceKeyRepo: {} as never,
         },
         fleetComposite: {
@@ -184,7 +191,7 @@ describe("createAdminRouter", () => {
         id: "inst-1",
         name: "Bot A",
         tenantId: "t1",
-        image: "img:latest",
+        productSlug: "wopr",
         state: "running",
         health: "healthy",
         uptime: 3600,
@@ -203,19 +210,13 @@ describe("createAdminRouter", () => {
     });
 
     it("returns error state for instances that fail status check", async () => {
-      const mockProfiles = [{ id: "inst-bad", name: "Bad Bot", tenantId: "t1", image: "img:latest" }];
+      const mockRows = [{ id: "inst-bad", name: "Bad Bot", tenantId: "t1", productSlug: "wopr" }];
 
       const container = createTestContainer({
+        db: stubDbWithRows(mockRows) as never,
         fleet: {
           docker: {} as never,
           proxy: {} as never,
-          profileStore: {
-            list: vi.fn().mockResolvedValue(mockProfiles),
-            init: vi.fn(),
-            save: vi.fn(),
-            get: vi.fn(),
-            delete: vi.fn(),
-          },
           serviceKeyRepo: {} as never,
         },
         fleetComposite: {

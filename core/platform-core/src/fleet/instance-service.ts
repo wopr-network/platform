@@ -14,7 +14,6 @@ import type { ProductConfig } from "../product-config/index.js";
 import type { IOperationQueue } from "../queue/operation-queue.js";
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
 import type { IFleet } from "./i-fleet.js";
-import type { IProfileStore } from "./profile-store.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,7 +44,6 @@ export interface CreatedInstance {
 
 export interface InstanceServiceDeps {
   creditLedger: ILedger;
-  profileStore: IProfileStore;
   botInstanceRepo: IBotInstanceRepository;
   serviceKeyRepo: IServiceKeyRepository | null;
   provisionSecret: string | null;
@@ -169,8 +167,7 @@ export class InstanceService {
     // 2. Instance limit check
     const maxInstances = fleetConfig?.maxInstances ?? 0;
     if (maxInstances > 0) {
-      const profiles = await d.profileStore.list();
-      const tenantInstances = profiles.filter((p) => p.tenantId === tenantId);
+      const tenantInstances = await d.botInstanceRepo.listByTenant(tenantId);
       if (tenantInstances.length >= maxInstances) {
         throw new Error(`Instance limit reached: maximum ${maxInstances} per tenant`);
       }
@@ -207,12 +204,13 @@ export class InstanceService {
       // upstreams directly from the Instance (Docker DNS via node_id) — see
       // tenant-proxy.ts "primary path".
 
-      // 5. Write the bot_instances row (for billing + lookup). The profile
-      // is already persisted by fleet.create() — no second save here.
-      // InstanceService is the single owner of the bot_instances row.
+      // 5. Write the bot_instances row — the single source of truth for
+      // "tenant X has instance Y". Post-collapse, there's no separate
+      // profile store — InstanceService is the only writer.
       await d.botInstanceRepo.create({
         id: instanceId,
         tenantId,
+        productSlug,
         name,
         nodeId,
         containerPort,

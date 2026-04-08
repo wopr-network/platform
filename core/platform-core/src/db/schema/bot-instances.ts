@@ -10,10 +10,16 @@ import { index, integer, pgTable, text } from "drizzle-orm/pg-core";
 export const botInstances = pgTable(
   "bot_instances",
   {
-    /** Bot UUID (matches fleet profile ID) */
+    /** Bot UUID. */
     id: text("id").primaryKey(),
     /** Owning tenant */
     tenantId: text("tenant_id").notNull(),
+    /**
+     * Product slug this instance belongs to. Resolves the container image,
+     * port, network, and provision flow from `productConfigService` at the
+     * moment they're needed (instead of carrying a stale spec on the row).
+     */
+    productSlug: text("product_slug").notNull(),
     /** Bot display name */
     name: text("name").notNull(),
     /** Node where this bot is deployed (for recovery tracking) */
@@ -44,6 +50,7 @@ export const botInstances = pgTable(
   },
   (table) => [
     index("idx_bot_instances_tenant").on(table.tenantId),
+    index("idx_bot_instances_product").on(table.productSlug),
     index("idx_bot_instances_billing_state").on(table.billingState),
     index("idx_bot_instances_destroy_after").on(table.destroyAfter),
     index("idx_bot_instances_node").on(table.nodeId),
