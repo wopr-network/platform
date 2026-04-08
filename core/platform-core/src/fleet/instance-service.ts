@@ -136,10 +136,9 @@ export class InstanceService {
     const instanceId = result.id;
     logger.info("Instance.create: container created", { instanceId, productSlug, nodeId: targetNode.config.id });
 
-    // 4. Register proxy route (node assignment persisted in bot_instances below)
-    const upstreamHost = d.nodeRegistry.resolveUpstreamHost(targetNode.config.id, result.containerName);
-    await d.fleetResolver.registerRoute(instanceId, name, upstreamHost, containerPort);
-    logger.info("Instance.create: proxy registered", { instanceId, upstreamHost, nodeId: targetNode.config.id });
+    // Subdomain-based proxy routes are no longer used. tenant-proxy resolves
+    // upstreams directly from the Instance (Docker DNS via node_id) — see
+    // tenant-proxy.ts "primary path".
 
     // 5. Register — profile (for listInstances) + bot_instances (for billing)
     const profile = {
