@@ -1,11 +1,11 @@
 ---
-name: nemoclaw-manage-policy
-description: Reviews and approve blocked agent network requests in the TUI. Also covers adds, remove, or modify allowed endpoints in the sandbox policy. Use when approve deny nemoclaw agent, customize nemoclaw network policy, customize nemoclaw sandbox network, nemoclaw, nemoclaw approve network requests, network policy, openclaw, openshell.
+name: "nemoclaw-manage-policy"
+description: "Reviews and approves blocked agent network requests in the TUI. Use when approving or denying sandbox egress requests, managing blocked network calls, or using the approval TUI. Adds, removes, or modifies allowed endpoints in the sandbox policy. Use when customizing network policy, changing egress rules, or configuring sandbox endpoint access."
 ---
 
-# Nemoclaw Manage Policy
+# NemoClaw Manage Policy
 
-Review and approve blocked agent network requests in the TUI.
+Reviews and approves blocked agent network requests in the TUI. Use when approving or denying sandbox egress requests, managing blocked network calls, or using the approval TUI.
 
 ## Prerequisites
 
@@ -138,17 +138,17 @@ Apply a preset as-is or use it as a starting template for a custom policy.
 
 Available presets:
 
-| Preset | Endpoints |
-|--------|-----------|
-| `discord` | Discord webhook API |
-| `docker` | Docker Hub, NVIDIA container registry |
-| `huggingface` | Hugging Face model registry |
-| `jira` | Atlassian Jira API |
-| `npm` | npm and Yarn registries |
-| `outlook` | Microsoft 365 and Outlook |
-| `pypi` | Python Package Index |
-| `slack` | Slack API and webhooks |
-| `telegram` | Telegram Bot API |
+| Preset        | Endpoints                             |
+| ------------- | ------------------------------------- |
+| `discord`     | Discord webhook API                   |
+| `docker`      | Docker Hub, NVIDIA container registry |
+| `huggingface` | Hugging Face model registry           |
+| `jira`        | Atlassian Jira API                    |
+| `npm`         | npm and Yarn registries               |
+| `outlook`     | Microsoft 365 and Outlook             |
+| `pypi`        | Python Package Index                  |
+| `slack`       | Slack API and webhooks                |
+| `telegram`    | Telegram Bot API                      |
 
 To apply a preset to a running sandbox, pass it as a policy file:
 

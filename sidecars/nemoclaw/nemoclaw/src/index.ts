@@ -12,7 +12,11 @@
  */
 
 import { handleSlashCommand } from "./commands/slash.js";
-import { describeOnboardEndpoint, describeOnboardProvider, loadOnboardConfig } from "./onboard/config.js";
+import {
+  describeOnboardEndpoint,
+  describeOnboardProvider,
+  loadOnboardConfig,
+} from "./onboard/config.js";
 
 // ---------------------------------------------------------------------------
 // OpenClaw Plugin SDK compatible types (mirrors openclaw/plugin-sdk)
@@ -129,7 +133,9 @@ export interface NemoClawConfig {
   inferenceProvider: string;
 }
 
-function activeModelEntries(onboardCfg: ReturnType<typeof loadOnboardConfig>): ModelProviderEntry[] {
+function activeModelEntries(
+  onboardCfg: ReturnType<typeof loadOnboardConfig>,
+): ModelProviderEntry[] {
   if (!onboardCfg?.model) {
     return [
       {
@@ -206,12 +212,21 @@ export function getPluginConfig(api: OpenClawPluginApi): NemoClawConfig {
   const raw = api.pluginConfig ?? {};
   return {
     blueprintVersion:
-      typeof raw["blueprintVersion"] === "string" ? raw["blueprintVersion"] : DEFAULT_PLUGIN_CONFIG.blueprintVersion,
+      typeof raw["blueprintVersion"] === "string"
+        ? raw["blueprintVersion"]
+        : DEFAULT_PLUGIN_CONFIG.blueprintVersion,
     blueprintRegistry:
-      typeof raw["blueprintRegistry"] === "string" ? raw["blueprintRegistry"] : DEFAULT_PLUGIN_CONFIG.blueprintRegistry,
-    sandboxName: typeof raw["sandboxName"] === "string" ? raw["sandboxName"] : DEFAULT_PLUGIN_CONFIG.sandboxName,
+      typeof raw["blueprintRegistry"] === "string"
+        ? raw["blueprintRegistry"]
+        : DEFAULT_PLUGIN_CONFIG.blueprintRegistry,
+    sandboxName:
+      typeof raw["sandboxName"] === "string"
+        ? raw["sandboxName"]
+        : DEFAULT_PLUGIN_CONFIG.sandboxName,
     inferenceProvider:
-      typeof raw["inferenceProvider"] === "string" ? raw["inferenceProvider"] : DEFAULT_PLUGIN_CONFIG.inferenceProvider,
+      typeof raw["inferenceProvider"] === "string"
+        ? raw["inferenceProvider"]
+        : DEFAULT_PLUGIN_CONFIG.inferenceProvider,
   };
 }
 

@@ -13,16 +13,18 @@ import { describe, it, expect } from "vitest";
 import YAML from "yaml";
 
 const BLUEPRINT_PATH = new URL("../nemoclaw-blueprint/blueprint.yaml", import.meta.url);
-const BASE_POLICY_PATH = new URL("../nemoclaw-blueprint/policies/openclaw-sandbox.yaml", import.meta.url);
+const BASE_POLICY_PATH = new URL(
+  "../nemoclaw-blueprint/policies/openclaw-sandbox.yaml",
+  import.meta.url,
+);
 const REQUIRED_PROFILE_FIELDS = ["provider_type", "endpoint"] as const;
 
 const bp = YAML.parse(readFileSync(BLUEPRINT_PATH, "utf-8")) as Record<string, unknown>;
 const declared = Array.isArray(bp?.profiles) ? (bp.profiles as string[]) : [];
 const defined =
   (bp?.components as Record<string, unknown> | undefined)?.inference != null
-    ? (((bp.components as Record<string, unknown>).inference as Record<string, unknown>).profiles as
-        | Record<string, Record<string, unknown>>
-        | undefined)
+    ? (((bp.components as Record<string, unknown>).inference as Record<string, unknown>)
+        .profiles as Record<string, Record<string, unknown>> | undefined)
     : undefined;
 
 describe("blueprint.yaml", () => {
@@ -80,5 +82,62 @@ describe("base sandbox policy", () => {
 
   it("has 'network_policies'", () => {
     expect("network_policies" in policy).toBe(true);
+  });
+
+  it("no endpoint rule uses wildcard method", () => {
+    const np = policy.network_policies as Record<string, Record<string, unknown>>;
+    const violations: string[] = [];
+    for (const [policyName, cfg] of Object.entries(np)) {
+      const endpoints = cfg.endpoints as Array<Record<string, unknown>> | undefined;
+      if (!endpoints) continue;
+      for (const ep of endpoints) {
+        const rules = ep.rules as Array<Record<string, Record<string, string>>> | undefined;
+        if (!rules) continue;
+        for (const rule of rules) {
+          const method = rule.allow?.method;
+          if (method === "*") {
+            violations.push(`${policyName} → ${ep.host}: method "*"`);
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("every endpoint with rules has protocol: rest and enforcement: enforce", () => {
+    const np = policy.network_policies as Record<string, Record<string, unknown>>;
+    const violations: string[] = [];
+    for (const [policyName, cfg] of Object.entries(np)) {
+      const endpoints = cfg.endpoints as Array<Record<string, unknown>> | undefined;
+      if (!endpoints) continue;
+      for (const ep of endpoints) {
+        if (!ep.rules) continue;
+        if (ep.protocol !== "rest") {
+          violations.push(`${policyName} → ${ep.host}: missing protocol: rest`);
+        }
+        if (ep.enforcement !== "enforce") {
+          violations.push(`${policyName} → ${ep.host}: missing enforcement: enforce`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("allows NVIDIA embeddings on both NVIDIA inference hosts", () => {
+    const np = policy.network_policies as Record<string, Record<string, unknown>>;
+    const endpoints = np.nvidia?.endpoints as
+      | Array<{ host?: string; rules?: Array<{ allow?: { method?: string; path?: string } }> }>
+      | undefined;
+    const missingHosts: string[] = [];
+    for (const host of ["integrate.api.nvidia.com", "inference-api.nvidia.com"]) {
+      const endpoint = endpoints?.find((entry) => entry.host === host);
+      const hasEmbeddingsRule = endpoint?.rules?.some(
+        (rule) => rule.allow?.method === "POST" && rule.allow?.path === "/v1/embeddings",
+      );
+      if (!hasEmbeddingsRule) {
+        missingHosts.push(host);
+      }
+    }
+    expect(missingHosts).toEqual([]);
   });
 });

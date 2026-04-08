@@ -14,7 +14,7 @@ Open an issue when you encounter one of the following situations.
 
 Install the following before you begin.
 
-- Node.js 20+ and npm 10+
+- Node.js 22.16+ and npm 10+
 - Python 3.11+ (for blueprint and documentation builds)
 - Docker (running)
 - [uv](https://docs.astral.sh/uv/) (for Python dependency management)
@@ -45,30 +45,37 @@ npm run build        # one-time compile
 npm run dev          # watch mode
 ```
 
+The CLI (`bin/`, `scripts/`) is type-checked separately:
+
+```bash
+npm run typecheck:cli   # or: npx tsc -p tsconfig.cli.json
+```
+
 ## Main Tasks
 
 These are the primary `make` and `npm` targets for day-to-day development:
 
-| Task | Purpose |
-|------|---------|
-| `make check` | Run all linters (TypeScript + Python) |
-| `make lint` | Same as `make check` |
-| `make format` | Auto-format TypeScript and Python source |
-| `npm test` | Run root-level tests (`test/*.test.js`) |
-| `cd nemoclaw && npm test` | Run plugin unit tests (Vitest) |
-| `make docs` | Build documentation (Sphinx/MyST) |
-| `make docs-live` | Serve docs locally with auto-rebuild |
+| Task                       | Purpose                                                  |
+| -------------------------- | -------------------------------------------------------- |
+| `make check`               | Run all linters (TypeScript + Python)                    |
+| `make lint`                | Same as `make check`                                     |
+| `make format`              | Auto-format TypeScript and Python source                 |
+| `npm run typecheck:cli`    | Type-check CLI TypeScript (`bin/`, `scripts/`)           |
+| `npm test`                 | Run root-level tests (`test/*.test.js`)                  |
+| `cd nemoclaw && npm test`  | Run plugin unit tests (Vitest)                           |
+| `make docs`                | Build documentation (Sphinx/MyST)                        |
+| `make docs-live`           | Serve docs locally with auto-rebuild                     |
 | `npx prek run --all-files` | Run all hooks from `.pre-commit-config.yaml` — see below |
 
 ### Git hooks (prek)
 
 All git hooks are managed by [prek](https://prek.j178.dev/), a fast, single-binary pre-commit hook runner installed as a devDependency (`@j178/prek`). The `npm install` step runs `prek install` automatically via the `prepare` script, which wires up the following hooks from [`.pre-commit-config.yaml`](.pre-commit-config.yaml):
 
-| Hook | What runs |
-|------|-----------|
-| **pre-commit** | File fixers, formatters, linters, Vitest (plugin) |
-| **commit-msg** | commitlint (Conventional Commits) |
-| **pre-push** | TypeScript type check (`tsc --noEmit`), Pyright (Python) |
+| Hook           | What runs                                                                     |
+| -------------- | ----------------------------------------------------------------------------- |
+| **pre-commit** | File fixers, formatters, linters, doc-to-skills regeneration, Vitest (plugin) |
+| **commit-msg** | commitlint (Conventional Commits)                                             |
+| **pre-push**   | TypeScript type check (`tsc --noEmit` for plugin, JS, and CLI)                |
 
 For a full manual check: `npx prek run --all-files`. For scoped runs: `npx prek run --from-ref <base> --to-ref HEAD`.
 
@@ -80,14 +87,22 @@ If you still have `core.hooksPath` set from an old Husky setup, Git will ignore 
 
 The repository is organized as follows.
 
-| Path | Purpose |
-|------|---------|
-| `nemoclaw/` | TypeScript plugin (Commander CLI, OpenClaw extension) |
-| `nemoclaw-blueprint/` | Python blueprint for sandbox orchestration |
-| `bin/` | CLI entry point (`nemoclaw.js`) |
-| `scripts/` | Install helpers and automation scripts |
-| `test/` | Root-level integration tests |
-| `docs/` | User-facing documentation (Sphinx/MyST) |
+| Path                  | Purpose                                               |
+| --------------------- | ----------------------------------------------------- |
+| `nemoclaw/`           | TypeScript plugin (Commander CLI, OpenClaw extension) |
+| `nemoclaw-blueprint/` | Python blueprint for sandbox orchestration            |
+| `bin/`                | CLI entry point (`nemoclaw.js`)                       |
+| `scripts/`            | Install helpers and automation scripts                |
+| `test/`               | Root-level integration tests                          |
+| `docs/`               | User-facing documentation (Sphinx/MyST)               |
+
+## Language Policy
+
+All new source files must be TypeScript. Do not add new `.js` files to the project. When modifying an existing JavaScript file, prefer migrating it to TypeScript in the same PR.
+
+Existing JavaScript in `bin/` and `scripts/` is being incrementally migrated (see `src/lib/` for completed migrations). Tests in `test/` may remain ESM JavaScript for now but new test files should use TypeScript where practical.
+
+Shell scripts (`scripts/*.sh`) must pass ShellCheck and use `shfmt` formatting.
 
 ## Documentation
 
@@ -106,42 +121,51 @@ See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for the full style guide and wr
 
 ### Doc-to-Skills Pipeline
 
-Always edit pages in `docs/`. Never edit files under `.agents/skills/docs/` — that entire directory is autogenerated by the script below and your changes will be overwritten on the next run.
+The `docs/` directory is the source of truth for user-facing documentation.
+The script `scripts/docs-to-skills.py` converts doc pages into agent skills under `.agents/skills/`.
+These generated skills let AI agents answer user questions and walk through procedures without reading raw doc pages.
 
-The `docs/` directory is the source of truth for user-facing documentation. The script `scripts/docs-to-skills.py` converts those pages into agent skills stored in `.agents/skills/docs/`. These generated skills let AI agents answer user questions and walk through procedures without reading raw doc pages.
+Always edit pages in `docs/`.
+Never edit generated skill files under `.agents/skills/nemoclaw-*/` — your changes will be overwritten on the next run.
 
-After changing any page in `docs/`, regenerate the skills. Run the canonical command from the repo root:
+A pre-commit hook regenerates skills automatically whenever you commit changes to `docs/**/*.md` files. The hook runs `scripts/docs-to-skills.py` and stages the updated skills so they are included in the same commit. No manual step is needed for normal workflows.
+
+To regenerate skills manually (for example, after rebasing or outside of a commit), run from the repo root:
 
 ```bash
-python scripts/docs-to-skills.py docs/ .agents/skills/docs/ --prefix nemoclaw
+python scripts/docs-to-skills.py docs/ .agents/skills/ --prefix nemoclaw
 ```
 
-Always use this exact output path and prefix so skill names and locations stay consistent across the project.
+Always use this exact output path (`.agents/skills/`) and prefix (`nemoclaw`) so skill names and locations stay consistent.
 
-Useful flags:
+Preview what would change before writing files:
 
-| Flag | Purpose |
-|------|---------|
-| `--dry-run` | Preview what would be generated without writing files. |
-| `--strategy <name>` | Grouping strategy: `smart` (default), `grouped`, or `individual`. |
+```bash
+python scripts/docs-to-skills.py docs/ .agents/skills/ --prefix nemoclaw --dry-run
+```
+
+Other useful flags:
+
+| Flag                  | Purpose                                                             |
+| --------------------- | ------------------------------------------------------------------- |
+| `--strategy <name>`   | Grouping strategy: `smart` (default), `grouped`, or `individual`.   |
 | `--name-map CAT=NAME` | Override a generated skill name (e.g. `--name-map about=overview`). |
-| `--exclude <file>` | Skip specific files (e.g. `--exclude "release-notes.md"`). |
-
-The generated `.agents/skills/docs/` directory is committed to the repo but is entirely autogenerated. Do not hand-edit any file under it — edit the source page in `docs/` and re-run the script instead. The one exception is the `## Gotchas` section at the bottom of each generated `SKILL.md`, which is reserved for project-specific notes you add manually and is preserved across regenerations.
+| `--exclude <file>`    | Skip specific files (e.g. `--exclude "release-notes.md"`).          |
 
 #### Generated skill structure
 
 Each skill directory contains:
 
 ```text
-.agents/skills/docs/<skill-name>/
+.agents/skills/<skill-name>/
 ├── SKILL.md              # Frontmatter + procedures + related skills
 └── references/           # Detailed concept and reference content (loaded on demand)
     ├── <concept-page>.md
     └── <reference-page>.md
 ```
 
-The `references/` directory holds full-length content that agents load only when needed (progressive disclosure). The `SKILL.md` itself stays concise — under 500 lines — so agents can read it quickly.
+Agents load the `references/` directory only when needed (progressive disclosure).
+The `SKILL.md` itself stays under 500 lines so agents can read it quickly.
 
 ## Pull Requests
 

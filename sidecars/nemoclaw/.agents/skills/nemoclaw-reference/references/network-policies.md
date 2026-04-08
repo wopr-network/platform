@@ -10,10 +10,10 @@ The baseline policy is defined in `nemoclaw-blueprint/policies/openclaw-sandbox.
 
 ### Filesystem
 
-| Path | Access |
-|---|---|
-| `/sandbox`, `/tmp`, `/dev/null` | Read-write |
-| `/usr`, `/lib`, `/proc`, `/dev/urandom`, `/app`, `/etc`, `/var/log` | Read-only |
+| Path                                                                | Access     |
+| ------------------------------------------------------------------- | ---------- |
+| `/sandbox`, `/tmp`, `/dev/null`                                     | Read-write |
+| `/usr`, `/lib`, `/proc`, `/dev/urandom`, `/app`, `/etc`, `/var/log` | Read-only  |
 
 The sandbox process runs as a dedicated `sandbox` user and group.
 Landlock LSM enforcement applies on a best-effort basis.
@@ -26,52 +26,52 @@ The following endpoint groups are allowed by default:
 :header-rows: 1
 :widths: 20 30 20 30
 
-* - Policy
+- - Policy
   - Endpoints
   - Binaries
   - Rules
 
-* - `claude_code`
+- - `claude_code`
   - `api.anthropic.com:443`, `statsig.anthropic.com:443`, `sentry.io:443`
   - `/usr/local/bin/claude`
   - All methods
 
-* - `nvidia`
+- - `nvidia`
   - `integrate.api.nvidia.com:443`, `inference-api.nvidia.com:443`
   - `/usr/local/bin/claude`, `/usr/local/bin/openclaw`
   - All methods
 
-* - `github`
+- - `github`
   - `github.com:443`
   - `/usr/bin/gh`, `/usr/bin/git`
   - All methods, all paths
 
-* - `github_rest_api`
+- - `github_rest_api`
   - `api.github.com:443`
   - `/usr/bin/gh`
   - GET, POST, PATCH, PUT, DELETE
 
-* - `clawhub`
-  - `clawhub.com:443`
-  - `/usr/local/bin/openclaw`
+- - `clawhub`
+  - `clawhub.ai:443`
+  - `/usr/local/bin/openclaw`, `/usr/local/bin/node`
   - GET, POST
 
-* - `openclaw_api`
+- - `openclaw_api`
   - `openclaw.ai:443`
-  - `/usr/local/bin/openclaw`
+  - `/usr/local/bin/openclaw`, `/usr/local/bin/node`
   - GET, POST
 
-* - `openclaw_docs`
+- - `openclaw_docs`
   - `docs.openclaw.ai:443`
   - `/usr/local/bin/openclaw`
   - GET only
 
-* - `npm_registry`
+- - `npm_registry`
   - `registry.npmjs.org:443`
-  - `/usr/local/bin/openclaw`, `/usr/local/bin/npm`
-  - GET only
+  - `/usr/local/bin/openclaw`, `/usr/local/bin/npm`, `/usr/local/bin/node`
+  - All methods, all paths
 
-* - `telegram`
+- - `telegram`
   - `api.telegram.org:443`
   - Any binary
   - GET, POST on `/bot*/**`

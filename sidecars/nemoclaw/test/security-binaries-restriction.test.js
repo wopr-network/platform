@@ -5,8 +5,20 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 
-const BASELINE = path.join(import.meta.dirname, "..", "nemoclaw-blueprint", "policies", "openclaw-sandbox.yaml");
-const PRESETS_DIR = path.join(import.meta.dirname, "..", "nemoclaw-blueprint", "policies", "presets");
+const BASELINE = path.join(
+  import.meta.dirname,
+  "..",
+  "nemoclaw-blueprint",
+  "policies",
+  "openclaw-sandbox.yaml",
+);
+const PRESETS_DIR = path.join(
+  import.meta.dirname,
+  "..",
+  "nemoclaw-blueprint",
+  "policies",
+  "presets",
+);
 
 describe("binaries restriction: baseline policy", () => {
   it("every network_policies entry has a binaries section", () => {

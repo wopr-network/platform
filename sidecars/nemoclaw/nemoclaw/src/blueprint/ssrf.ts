@@ -15,8 +15,12 @@ const PRIVATE_NETWORKS: CidrRange[] = [
   cidr("172.16.0.0", 12),
   cidr("192.168.0.0", 16),
   cidr("169.254.0.0", 16),
+  cidr("100.64.0.0", 10), // RFC 6598 CGNAT (shared address space)
   cidr6("::1", 128),
-  cidr6("fd00::", 8),
+  cidr6("::", 128),
+  cidr6("fc00::", 7),
+  cidr6("fe80::", 10),
+  cidr6("ff00::", 8),
 ];
 
 const ALLOWED_SCHEMES = new Set(["https:", "http:"]);
@@ -87,7 +91,12 @@ function ipInCidr(ipBytes: Uint8Array, range: CidrRange): boolean {
 
 function isIPv4Mapped(bytes: Uint8Array): boolean {
   // ::ffff:x.x.x.x — first 10 bytes zero, bytes 10-11 are 0xff
-  return bytes.length === 16 && bytes[10] === 0xff && bytes[11] === 0xff && bytes.slice(0, 10).every((b) => b === 0);
+  return (
+    bytes.length === 16 &&
+    bytes[10] === 0xff &&
+    bytes[11] === 0xff &&
+    bytes.slice(0, 10).every((b) => b === 0)
+  );
 }
 
 export function isPrivateIp(addr: string): boolean {

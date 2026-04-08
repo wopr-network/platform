@@ -45,18 +45,18 @@ git log v0.1.0..HEAD --oneline --no-merges --name-only
 
 For each relevant commit, determine which doc page(s) it affects. Use this mapping as a starting point:
 
-| Code area | Likely doc page(s) |
-|---|---|
-| `nemoclaw/src/commands/` (launch, connect, status, logs) | `docs/reference/commands.md` |
-| `nemoclaw/src/commands/` (new command) | May need a new page or entry in `docs/reference/commands.md` |
-| `nemoclaw/src/blueprint/` | `docs/about/architecture.md` |
-| `nemoclaw/src/cli.ts` or `nemoclaw/src/index.ts` | `docs/reference/commands.md`, `docs/get-started/quickstart.md` |
-| `nemoclaw-blueprint/orchestrator/` | `docs/about/architecture.md` |
-| `nemoclaw-blueprint/policies/` | `docs/reference/network-policies.md` |
-| `nemoclaw-blueprint/blueprint.yaml` | `docs/about/architecture.md`, `docs/reference/inference-profiles.md` |
-| `scripts/` (setup, start) | `docs/get-started/quickstart.md` |
-| `Dockerfile` | `docs/about/architecture.md` |
-| Inference-related changes | `docs/reference/inference-profiles.md` |
+| Code area                                                | Likely doc page(s)                                                   |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| `nemoclaw/src/commands/` (launch, connect, status, logs) | `docs/reference/commands.md`                                         |
+| `nemoclaw/src/commands/` (new command)                   | May need a new page or entry in `docs/reference/commands.md`         |
+| `nemoclaw/src/blueprint/`                                | `docs/about/architecture.md`                                         |
+| `nemoclaw/src/cli.ts` or `nemoclaw/src/index.ts`         | `docs/reference/commands.md`, `docs/get-started/quickstart.md`       |
+| `nemoclaw-blueprint/orchestrator/`                       | `docs/about/architecture.md`                                         |
+| `nemoclaw-blueprint/policies/`                           | `docs/reference/network-policies.md`                                 |
+| `nemoclaw-blueprint/blueprint.yaml`                      | `docs/about/architecture.md`, `docs/reference/inference-profiles.md` |
+| `scripts/` (setup, start)                                | `docs/get-started/quickstart.md`                                     |
+| `Dockerfile`                                             | `docs/about/architecture.md`                                         |
+| Inference-related changes                                | `docs/reference/inference-profiles.md`                               |
 
 If a commit does not map to any existing page but introduces a user-visible concept, flag it as needing a new page.
 
@@ -119,13 +119,16 @@ After drafting all updates, present a summary to the user:
 ## Doc Updates from Commits
 
 ### Updated pages
+
 - `docs/reference/commands.md`: Added `eject` command documentation (from commit abc1234).
 - `docs/reference/network-policies.md`: Updated policy schema for new egress rule (from commit def5678).
 
 ### New pages needed
+
 - None (or list any new pages created).
 
 ### Commits with no doc impact
+
 - `chore(deps): bump typescript` (abc1234) — internal dependency, no user-facing change.
 - `test: add launch command test` (def5678) — test-only change.
 ```

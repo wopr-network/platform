@@ -41,7 +41,10 @@ class ResultRenderer {
    */
   renderResultItem(result, query, isSelected = false) {
     const title = this.utils.highlightText(result.title || "Untitled", query);
-    const summary = this.utils.highlightText(result.summary || result.content?.substring(0, 200) || "", query);
+    const summary = this.utils.highlightText(
+      result.summary || result.content?.substring(0, 200) || "",
+      query,
+    );
     const breadcrumb = this.utils.generateBreadcrumb(result.id);
 
     // Render matching sections
@@ -49,7 +52,9 @@ class ResultRenderer {
 
     // Show multiple matches indicator
     const multipleMatchesIndicator =
-      result.totalMatches > 1 ? `<span class="search-result-matches-count">${result.totalMatches} matches</span>` : "";
+      result.totalMatches > 1
+        ? `<span class="search-result-matches-count">${result.totalMatches} matches</span>`
+        : "";
 
     return `
             <div class="search-result-item ${isSelected ? "selected" : ""}" tabindex="0" data-url="${this.utils.getDocumentUrl(result)}">

@@ -53,9 +53,15 @@ function copyDirectory(src, dest) {
 function buildSnapshotDir(parentDir, manifest) {
   const snapshotDir = path.join(parentDir, "snapshot");
   fs.mkdirSync(path.join(snapshotDir, "openclaw"), { recursive: true });
-  fs.writeFileSync(path.join(snapshotDir, "openclaw", "sentinel.txt"), "attacker-controlled-content");
+  fs.writeFileSync(
+    path.join(snapshotDir, "openclaw", "sentinel.txt"),
+    "attacker-controlled-content",
+  );
   fs.mkdirSync(path.join(snapshotDir, "config"), { recursive: true });
-  fs.writeFileSync(path.join(snapshotDir, "config", "openclaw.json"), JSON.stringify({ model: "attacker-model" }));
+  fs.writeFileSync(
+    path.join(snapshotDir, "config", "openclaw.json"),
+    JSON.stringify({ model: "attacker-model" }),
+  );
   fs.writeFileSync(path.join(snapshotDir, "snapshot.json"), JSON.stringify(manifest, null, 2));
   return snapshotDir;
 }
@@ -127,7 +133,9 @@ function restoreFixed(snapshotDir, trustedRoot) {
 
   if (manifest.hasExternalConfig) {
     if (typeof manifest.configPath !== "string" || !manifest.configPath.trim()) {
-      errors.push(`Snapshot manifest has hasExternalConfig=true but configPath is missing or empty.`);
+      errors.push(
+        `Snapshot manifest has hasExternalConfig=true but configPath is missing or empty.`,
+      );
       return { result: false, errors, written };
     }
 
@@ -185,7 +193,9 @@ describe("C-4 PoC: vulnerable restoreSnapshotToHost allows path traversal", () =
       expect(result).toBeTruthy();
       expect(written).toBeTruthy();
       expect(fs.existsSync(path.join(traversalTarget, "sentinel.txt"))).toBeTruthy();
-      expect(fs.readFileSync(path.join(traversalTarget, "sentinel.txt"), "utf-8")).toBe("attacker-controlled-content");
+      expect(fs.readFileSync(path.join(traversalTarget, "sentinel.txt"), "utf-8")).toBe(
+        "attacker-controlled-content",
+      );
     } finally {
       fs.rmSync(workDir, { recursive: true, force: true });
     }
