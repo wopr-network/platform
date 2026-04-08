@@ -76,7 +76,6 @@ export async function createApp(
     };
     deploymentMode: DeploymentMode;
     deploymentExposure: DeploymentExposure;
-    hostedMode?: boolean;
     allowedHostnames: string[];
     bindHost: string;
     authReady: boolean;
@@ -140,8 +139,10 @@ export async function createApp(
   }
   app.use(llmRoutes(db));
 
-  // Mount provision endpoint (internal, outside board mutation guard)
-  if (opts.hostedMode) {
+  // Mount provision endpoint (internal, outside board mutation guard).
+  // Only active in hosted_proxy deployments where platform-core fleet
+  // manager calls /internal/provision during instance creation.
+  if (opts.deploymentMode === "hosted_proxy") {
     app.use("/internal", provisionRoutes(db));
   }
 
@@ -177,6 +178,7 @@ export async function createApp(
   api.use(dashboardRoutes(db));
   api.use(sidebarBadgeRoutes(db));
   api.use(instanceSettingsRoutes(db));
+  api.use(adapterRoutes());
   const hostServicesDisposers = new Map<string, () => void>();
   const workerManager = createPluginWorkerManager();
   const pluginRegistry = pluginRegistryService(db);
