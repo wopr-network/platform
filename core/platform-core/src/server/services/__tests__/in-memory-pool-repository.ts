@@ -69,7 +69,7 @@ export class InMemoryPoolRepository implements IPoolRepository {
     this.instances = this.instances.filter((i) => i.status !== "dead");
   }
 
-  async claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string } | null> {
+  async claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string; nodeId: string } | null> {
     const warm = this.instances
       .filter((i) => i.status === "warm" && i.partition === partition && (!nodeId || i.nodeId === nodeId))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
@@ -77,7 +77,7 @@ export class InMemoryPoolRepository implements IPoolRepository {
     const target = warm[0];
     target.status = "claimed";
     target.claimedAt = new Date();
-    return { id: target.id, containerId: target.containerId };
+    return { id: target.id, containerId: target.containerId, nodeId: target.nodeId };
   }
 
   async updateInstanceStatus(id: string, status: PoolInstanceStatus): Promise<void> {

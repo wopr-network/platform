@@ -115,6 +115,10 @@ export async function startAgentQueueWorker(opts: AgentQueueWorkerOptions): Prom
   }
 
   const worker = new QueueWorker(queue, opts.nodeId, opts.workerId, opts.handlers, {
+    // Agents also claim null-target creation-class rows so any agent can
+    // fulfill a `bot.start` or `pool.warm`. The winning agent stamps its
+    // own node id into the result via getAgentNodeId in operation-handlers.
+    includeNullTarget: true,
     logger: {
       debug: (msg, meta) => logger.debug(msg, meta),
       info: (msg, meta) => logger.info(msg, meta),

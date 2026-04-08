@@ -75,6 +75,10 @@ export class NodeAgent {
       backupManager: this.backupManager,
       hotBackupScheduler: this.hotBackupScheduler,
       backupDir: config.backupDir,
+      // Node id is resolved at handler invocation time because token-based
+      // registration assigns it AFTER the handler map is built. Reading
+      // this.config.nodeId per-call picks up the assigned value.
+      getAgentNodeId: () => this.config.nodeId ?? "",
     });
   }
 

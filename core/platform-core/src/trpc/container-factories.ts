@@ -10,11 +10,9 @@
  */
 
 import type { INotificationTemplateRepository } from "../email/notification-template-repository.js";
-import type { RolloutOrchestrator } from "../fleet/rollout-orchestrator.js";
 import type { ITenantUpdateConfigRepository } from "../fleet/tenant-update-config-repository.js";
 import type { ProductConfigService } from "../product-config/service.js";
 import type { PlatformContainer } from "../server/container.js";
-import { createAdminFleetUpdateRouter } from "./admin-fleet-update-router.js";
 import { createFleetUpdateConfigRouter } from "./fleet-update-config-router.js";
 import { setTrpcOrgMemberRepo } from "./init.js";
 import { createNotificationTemplateRouter } from "./notification-template-router.js";
@@ -42,21 +40,6 @@ export function initTrpcFromContainer(container: PlatformContainer): void {
 // ---------------------------------------------------------------------------
 // Router factories — thin wrappers over existing factory functions
 // ---------------------------------------------------------------------------
-
-/**
- * Create the admin fleet-update router from a container.
- *
- * Requires additional fleet-specific deps (orchestrator + config repo) that
- * are constructed at boot when fleet is enabled and are not yet on the
- * PlatformContainer itself.
- */
-export function createAdminFleetUpdateRouterFromContainer(
-  _container: PlatformContainer,
-  getOrchestrator: () => RolloutOrchestrator,
-  getConfigRepo: () => ITenantUpdateConfigRepository,
-) {
-  return createAdminFleetUpdateRouter(getOrchestrator, getConfigRepo);
-}
 
 /**
  * Create the fleet-update-config router from a container.

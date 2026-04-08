@@ -26,6 +26,18 @@ export interface AgentOperationDeps {
   backupManager: BackupManager;
   hotBackupScheduler: HotBackupScheduler;
   backupDir: string;
+  /**
+   * This agent's node id, evaluated at handler invocation time. Stamped
+   * into the result payload of creation-class ops (`bot.start`, `pool.warm`)
+   * so the caller on the core side can record which agent won the
+   * null-target claim and persist it (e.g., to `bot_instances.node_id` /
+   * `pool_instances.node_id`).
+   *
+   * This is a function (not a string) because the id is assigned by
+   * token-registration AFTER the handler map is built. Every handler
+   * invocation reads the current id.
+   */
+  getAgentNodeId: () => string;
 }
 
 /**
@@ -34,17 +46,22 @@ export interface AgentOperationDeps {
  * and the same string set the legacy WebSocket bus uses for `command.type`.
  */
 export function buildAgentOperationHandlers(deps: AgentOperationDeps): Map<string, OperationHandler> {
-  const { dockerManager, backupManager, hotBackupScheduler, backupDir } = deps;
+  const { dockerManager, backupManager, hotBackupScheduler, backupDir, getAgentNodeId } = deps;
   const handlers = new Map<string, OperationHandler>();
 
   handlers.set("bot.start", async (payload) => {
     const p = asRecord(payload);
-    return await dockerManager.startBot({
+    const result = await dockerManager.startBot({
       name: String(p.name),
       image: String(p.image),
       env: parseJsonOrObject(p.env),
       restart: p.restart != null ? String(p.restart) : undefined,
     });
+    // Creation-class op: stamp our node id into the result so the core-side
+    // caller (Fleet.create → queue.execute → this) learns which agent
+    // fulfilled the null-target claim. DockerManager.startBot may return a
+    // string (container id) or an object; normalize to an object shape.
+    return wrapCreationResult(result, getAgentNodeId());
   });
 
   handlers.set("bot.stop", async (payload) => {
@@ -114,7 +131,7 @@ export function buildAgentOperationHandlers(deps: AgentOperationDeps): Map<strin
 
   handlers.set("pool.warm", async (payload) => {
     const p = asRecord(payload);
-    return await dockerManager.createWarmContainer({
+    const result = await dockerManager.createWarmContainer({
       name: String(p.name),
       image: String(p.image),
       port: p.port ? Number(p.port) : 3100,
@@ -124,6 +141,10 @@ export function buildAgentOperationHandlers(deps: AgentOperationDeps): Map<strin
         ? (p.registryAuth as { username: string; password: string; serveraddress: string })
         : undefined,
     });
+    // Creation-class op: same treatment as bot.start — stamp this agent's
+    // node id so the core caller knows where the warm container landed and
+    // can persist it to `pool_instances.node_id`.
+    return wrapCreationResult(result, getAgentNodeId());
   });
 
   handlers.set("pool.cleanup", async (payload) => {
@@ -153,4 +174,21 @@ export function parseJsonOrObject(value: unknown): Record<string, string> | unde
   if (typeof value === "string") return JSON.parse(value) as Record<string, string>;
   if (typeof value === "object") return value as Record<string, string>;
   return undefined;
+}
+
+/**
+ * Normalize a creation-class handler result into an object with `nodeId`.
+ * DockerManager.startBot / createWarmContainer may return a bare string
+ * (the container id) or an object — we accept both and stamp the node id
+ * onto an object shape so the core caller can destructure `result.nodeId`
+ * predictably.
+ */
+function wrapCreationResult(result: unknown, nodeId: string): Record<string, unknown> {
+  if (typeof result === "string") {
+    return { containerId: result, nodeId };
+  }
+  if (result !== null && typeof result === "object") {
+    return { ...(result as Record<string, unknown>), nodeId };
+  }
+  return { result, nodeId };
 }

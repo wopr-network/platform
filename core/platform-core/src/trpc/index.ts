@@ -1,8 +1,6 @@
-export { createAdminFleetUpdateRouter } from "./admin-fleet-update-router.js";
 export { createAssertOrgAdminOrOwner } from "./auth-helpers.js";
 export { authSocialRouter } from "./auth-social-router.js";
 export {
-  createAdminFleetUpdateRouterFromContainer,
   createFleetUpdateConfigRouterFromContainer,
   createNotificationTemplateRouterFromContainer,
   createOrgRemovePaymentMethodRouterFromContainer,

@@ -1,58 +1,20 @@
 /**
- * Wiring helpers — adapters that connect the existing NodeRegistry +
- * NodeConnectionManager + repositories to the abstract Fleet composite.
+ * Fleet wiring helpers.
  *
- * Keeps the Fleet class decoupled from concrete registry/connection
- * implementations: those are platform-specific, the composite logic is not.
+ * After the null-target refactor, the only wiring adapter that survives is
+ * `DbInstanceLocator`. The old `FleetMembershipAdapter` (bridging
+ * NodeRegistry → IFleetMembership) and `INodeConnectivity` (bridging
+ * NodeConnectionManager) are both gone — there's no membership to enumerate
+ * and no per-node connectivity concept in the new Fleet.
  */
 
 import type { IBotInstanceRepository } from "./bot-instance-repository.js";
-import type { IFleetMembership } from "./fleet.js";
-import type { IInstanceLocator, INodeFleet } from "./i-fleet.js";
-import type { NodeRegistry } from "./node-registry.js";
+import type { IInstanceLocator } from "./i-fleet.js";
 
 /**
- * Connection-state interface — just the methods Fleet needs from
- * NodeConnectionManager. Letting Fleet depend on this rather than the full
- * NodeConnectionManager keeps the boundary thin and tests easy.
- */
-export interface INodeConnectivity {
-  isConnected(nodeId: string): boolean;
-}
-
-/**
- * Adapter: presents NodeRegistry + NodeConnectionManager as the
- * IFleetMembership interface that Fleet consumes.
- */
-export class FleetMembershipAdapter implements IFleetMembership {
-  constructor(
-    private readonly registry: NodeRegistry,
-    private readonly connectivity: INodeConnectivity,
-  ) {}
-
-  list(): INodeFleet[] {
-    // NodeRegistry.list() returns NodeEntry[]; FleetManager (entry.fleet) implements INodeFleet.
-    return this.registry.list().map((e) => e.fleet as unknown as INodeFleet);
-  }
-
-  isConnected(nodeId: string): boolean {
-    return this.connectivity.isConnected(nodeId);
-  }
-
-  getContainerCounts(): Promise<Map<string, number>> {
-    return this.registry.getContainerCounts();
-  }
-
-  getNodeMetrics(): Promise<Map<string, { capacityMb: number; usedMb: number; status: string }>> {
-    return this.registry.getNodeMetrics() as unknown as Promise<
-      Map<string, { capacityMb: number; usedMb: number; status: string }>
-    >;
-  }
-}
-
-/**
- * IInstanceLocator backed by IBotInstanceRepository. Reads node_id from the
- * bot_instances row — DB is the source of truth, no in-memory cache.
+ * Resolves an instance ID to its owning node by reading
+ * `bot_instances.node_id`. Used by `Fleet` to dispatch lifecycle ops
+ * (remove, status, logs) to the agent that hosts the container.
  */
 export class DbInstanceLocator implements IInstanceLocator {
   constructor(private readonly botInstanceRepo: IBotInstanceRepository) {}

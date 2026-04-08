@@ -29,7 +29,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import type { DrizzleDb } from "../db/index.js";
 import { type PendingOperationRow, pendingOperations } from "../db/schema/pending-operations.js";
 import type { NotificationSource } from "./notification-source.js";
@@ -97,10 +97,17 @@ export interface IOperationQueue {
    * `processing` and marks `claimed_by`/`claimed_at`. Returns the row if
    * one was claimed, or `null` if no work is available.
    *
+   * When `options.includeNullTarget` is set, the claim also picks up rows
+   * whose `target IS NULL` — used by agent workers to drain creation-class
+   * ops that any agent can fulfill (`bot.start`, `pool.warm`). The winning
+   * agent stamps its own nodeId into the handler result. Core workers pass
+   * `includeNullTarget: false` (the default) so they only drain their own
+   * `target = 'core'` rows.
+   *
    * Uses `SELECT … FOR UPDATE SKIP LOCKED` so concurrent workers never
    * collide on the same row.
    */
-  claim(target: string, workerId: string): Promise<ClaimedOperation | null>;
+  claim(target: string, workerId: string, options?: { includeNullTarget?: boolean }): Promise<ClaimedOperation | null>;
 
   /** Mark a claimed row as succeeded with a result payload. */
   complete(id: string, result: unknown): Promise<void>;
@@ -373,12 +380,24 @@ export class OperationQueue implements IOperationQueue {
 
   // ---- claim() -------------------------------------------------------------
 
-  async claim(target: string, workerId: string): Promise<ClaimedOperation | null> {
+  async claim(
+    target: string,
+    workerId: string,
+    options?: { includeNullTarget?: boolean },
+  ): Promise<ClaimedOperation | null> {
+    const includeNull = options?.includeNullTarget === true;
     return await this.db.transaction(async (tx) => {
+      // Predicate: either `target` matches exactly, or (for agents)
+      // `target IS NULL` (creation-class ops). The `idx_pending_ops_claim`
+      // partial index covers this efficiently because it's keyed on
+      // `(target, enqueued_at) WHERE status = 'pending'`.
+      const targetPredicate = includeNull
+        ? or(isNull(pendingOperations.target), eq(pendingOperations.target, target))
+        : eq(pendingOperations.target, target);
       const rows = await tx
         .select()
         .from(pendingOperations)
-        .where(and(eq(pendingOperations.status, "pending"), eq(pendingOperations.target, target)))
+        .where(and(eq(pendingOperations.status, "pending"), targetPredicate))
         .orderBy(asc(pendingOperations.enqueuedAt))
         .limit(1)
         .for("update", { skipLocked: true });

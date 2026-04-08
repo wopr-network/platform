@@ -19,8 +19,6 @@ import type { ITenantCustomerRepository } from "../credits/tenant-customer-repos
 import type { IAuthUserRepository } from "../db/auth-user-repository.js";
 import type { DrizzleDb } from "../db/index.js";
 import type { INotificationPreferencesRepository } from "../email/index.js";
-import type { ContainerPlacementStrategy } from "../fleet/container-placement.js";
-import type { NodeRegistry } from "../fleet/node-registry.js";
 import type { OrgInstanceResolver } from "../fleet/org-instance-resolver.js";
 import type { IPageContextRepository } from "../fleet/page-context-repository.js";
 import type { IProfileStore } from "../fleet/profile-store.js";
@@ -45,8 +43,6 @@ export interface FleetServices {
   proxy: ProxyManagerInterface;
   profileStore: IProfileStore;
   serviceKeyRepo: IServiceKeyRepository;
-  nodeRegistry: NodeRegistry;
-  placementStrategy: ContainerPlacementStrategy;
   orgInstanceResolver: OrgInstanceResolver;
 }
 
@@ -254,8 +250,6 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     const { DrizzleBotProfileStore } = await import("../fleet/drizzle-profile-store.js");
     const { ProxyManager } = await import("../proxy/manager.js");
     const { DrizzleServiceKeyRepository } = await import("../gateway/service-key-repository.js");
-    const { NodeRegistry: NodeRegistryClass } = await import("../fleet/node-registry.js");
-    const { createContainerPlacementStrategy } = await import("../fleet/container-placement.js");
     const { OrgInstanceResolver: OrgInstanceResolverClass } = await import("../fleet/org-instance-resolver.js");
 
     const profileStore: IProfileStore = new DrizzleBotProfileStore(db);
@@ -286,22 +280,17 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     });
     const serviceKeyRepo: IServiceKeyRepository = new DrizzleServiceKeyRepository(db as never);
 
-    // Build node registry from DB — single source of truth for all Docker hosts
-    const nodeRegistry = new NodeRegistryClass();
-    await nodeRegistry.loadFromDb(db, profileStore);
-
-    const placementStrategy = createContainerPlacementStrategy("least-loaded");
     const orgInstanceResolver = new OrgInstanceResolverClass({ profileStore });
 
-    // No more `manager: localNode.fleet` shortcut. Callers go through the
-    // Fleet composite (container.fleetComposite) which dispatches to whichever
-    // node owns the instance — no hardcoded "local".
+    // In the null-target refactor core no longer owns node identity. The
+    // Fleet class enqueues creation ops with target=null and any agent
+    // claims; lifecycle ops look up the owning node from bot_instances.
+    // There is no in-memory NodeRegistry, no placement strategy, no
+    // per-node FleetManager leaves.
     fleet = {
       proxy,
       profileStore,
       serviceKeyRepo,
-      nodeRegistry,
-      placementStrategy,
       orgInstanceResolver,
     };
   }
@@ -481,82 +470,29 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
     coreQueueWorker,
   };
 
-  // Pool repository — shared by every per-node FleetManager and the Fleet composite.
+  // Pool repository — shared state for warm containers across the cluster.
   const { DrizzlePoolRepository } = await import("./services/pool-repository.js");
   const poolRepo = new DrizzlePoolRepository(db);
-
-  // Wire warm pool through the Fleet composite + per-node FleetManagers.
-  // No more HotPool singleton — pool ops live on FleetManager (per-node leaf)
-  // and Fleet (composite). The composite owns the spec registry and the ticker;
-  // each leaf creates/cleans its own warm containers.
-  if (bootConfig.features.hotPool && fleet) {
-    const secrets = bootConfig.secrets;
-    const poolConfig = {
-      provisionSecret: secrets?.provisionSecret ?? bootConfig.provisionSecret ?? "",
-      registryAuth:
-        secrets?.registryUsername && secrets?.registryPassword
-          ? {
-              username: secrets.registryUsername,
-              password: secrets.registryPassword,
-              serveraddress: secrets.registryUrl ?? "https://registry.wopr.bot",
-            }
-          : undefined,
-    };
-
-    // Each per-node FleetManager gets the pool repo + config.
-    // The Fleet composite (created below) will push specs onto each via
-    // registerPoolSpec, so leaves know what to replenish.
-    // When the agentQueueDispatch feature is on, each leaf also gets the
-    // OperationQueue so its sendCommand routes through pending_operations
-    // instead of the WebSocket bus.
-    for (const node of fleet.nodeRegistry.list()) {
-      node.fleet.setDeps({
-        poolRepo,
-        poolConfig,
-        ...(bootConfig.features.agentQueueDispatch ? { operationQueue } : {}),
-      });
-    }
-  } else if (fleet && bootConfig.features.agentQueueDispatch) {
-    // hotPool is off but the queue dispatch flag is on — still wire the
-    // queue into every leaf. The hotPool branch above handles this case
-    // for typical fleet products, but a fleet without hotPool also needs
-    // the dispatch path wired.
-    for (const node of fleet.nodeRegistry.list()) {
-      node.fleet.setDeps({ operationQueue });
-    }
-  }
 
   // Bind InstanceService — orchestrates create, provision, billing
   if (fleet) {
     const { InstanceService } = await import("../fleet/instance-service.js");
     const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
-    const { DrizzleNodeRepository } = await import("../fleet/drizzle-node-repository.js");
     const { Fleet } = await import("../fleet/fleet.js");
-    const { FleetMembershipAdapter, DbInstanceLocator } = await import("../fleet/fleet-wiring.js");
+    const { DbInstanceLocator } = await import("../fleet/fleet-wiring.js");
     const botInstanceRepo = new DrizzleBotInstanceRepository(result.db);
-    const nodeRepo = new DrizzleNodeRepository(result.db);
 
-    // Wire DB-backed node resolution into registry + fleet managers
-    fleet.nodeRegistry.setRepos(botInstanceRepo, nodeRepo);
-    for (const node of fleet.nodeRegistry.list()) {
-      node.fleet.setResolveHost((nodeId, containerName) =>
-        fleet.nodeRegistry.resolveUpstreamHost(nodeId, containerName),
-      );
-    }
-
-    // Build the Fleet composite. NodeConnectionManager isn't created until
-    // mount-routes.ts wires it up later, so connectivity defers to the
-    // container reference: until then, treat every registered node as
-    // connected (single-node baseline).
-    const membership = new FleetMembershipAdapter(fleet.nodeRegistry, {
-      isConnected: (nodeId) => result.nodeConnectionManager?.isConnected(nodeId) ?? true,
-    });
+    // Build the Fleet — single class, no composite, no per-node leaves.
+    // Creation enqueues target=null; lifecycle ops look up the owning
+    // node via DbInstanceLocator and enqueue pinned.
     const locator = new DbInstanceLocator(botInstanceRepo);
-    const fleetComposite = new Fleet(membership, locator, fleet.placementStrategy);
+    const fleetComposite = new Fleet(operationQueue, locator, bootConfig.features.hotPool ? poolRepo : null, {
+      botInstanceRepo,
+    });
 
-    // Register pool specs for every fleet-enabled product. The composite
-    // pushes each spec to every per-node FleetManager so they know what to
-    // replenish on the next tick.
+    // Register pool specs for every fleet-enabled product. The Fleet
+    // holds these in memory and uses them on each replenish tick to
+    // decide how many warm containers to enqueue.
     if (bootConfig.features.hotPool) {
       const products = bootConfig.standalone
         ? (await result.productConfigService.listAll()).filter((pc) => pc.fleet && pc.product?.slug)
@@ -570,7 +506,7 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
           image: f.containerImage,
           port: f.containerPort,
           network: f.dockerNetwork,
-          sizePerNode: dbSize,
+          size: dbSize,
         });
       }
     }

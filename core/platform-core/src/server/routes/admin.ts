@@ -302,7 +302,7 @@ export function createAdminRouter(container: PlatformContainer, config?: AdminRo
       const keys = fleet.poolSpecKeys();
       const pools = keys.map((key) => {
         const spec = fleet.getPoolSpec(key);
-        return { key, size: spec?.sizePerNode ?? 0 };
+        return { key, size: spec?.size ?? 0 };
       });
       return { enabled: true, keys, pools };
     }),

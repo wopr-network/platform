@@ -724,18 +724,13 @@ export async function mountRoutes(
     const nodeConnectionManager = new NodeConnectionManager(nodeRepo, botInstanceRepo, recoveryRepo);
     container.nodeConnectionManager = nodeConnectionManager;
 
-    // NodeCommandBus owns the pending command map and sends via NodeConnectionManager
-    // (which satisfies the NodeConnectionRegistry interface via getSocket).
-    // NodeConnectionManager forwards command_result messages to the bus.
-    const { NodeCommandBus } = await import("../fleet/node-command-bus.js");
-    const commandBus = new NodeCommandBus(nodeConnectionManager);
-    nodeConnectionManager.setCommandBus(commandBus);
-
-    // Inject bus into every per-node FleetManager. The Fleet composite
-    // delegates to these leaves, so it has no command bus of its own.
-    for (const node of container.fleet.nodeRegistry.list()) {
-      node.fleet.setCommandBus(commandBus);
-    }
+    // Note: the NodeCommandBus + per-node setCommandBus wiring that used
+    // to live here is gone. After the null-target refactor all agent-facing
+    // operations flow through the DB-as-channel queue, not the WS bus.
+    // The NodeConnectionManager + /internal/nodes/register-token HTTP
+    // registration endpoints remain in use (agents still register over
+    // HTTP before starting their queue worker), but the WebSocket upgrade
+    // handler and the command bus are dead code.
 
     // Vault for reading Spaces credentials to pass to node agents
     const { resolveVaultConfig, VaultConfigProvider } = await import("../config/vault-provider.js");

@@ -1,112 +1,66 @@
 /**
- * IFleet — the unified interface for both per-node and aggregate fleet operations.
+ * IFleet — the single fleet interface, after the null-target refactor.
  *
- * This file is the contract for the Composite pattern (GoF) as applied to
- * fleet management. Read this before adding methods, before adding fields to
- * implementations, and especially before "simplifying" things by reaching
- * past the interface.
+ * Earlier versions of this file described a Composite pattern with per-node
+ * FleetManager leaves and a placement strategy picking which leaf would
+ * fulfill a `create`. That pattern was a holdover from the WebSocket-bus
+ * era when core had to pick a specific agent's WS endpoint before sending.
  *
- * ── The shape ──────────────────────────────────────────────────────────────
+ * In the DB-as-channel world, core doesn't route work to a specific agent
+ * at all. It enqueues a row in `pending_operations` and lets the agents
+ * self-select via `SELECT … FOR UPDATE SKIP LOCKED`. The "which node
+ * fulfilled this" question is answered AFTER the fact, by reading the
+ * winning agent's `nodeId` out of the result payload.
  *
- *                            IFleet
- *                       ─────────────────
- *                       create / remove / inspect / logs
- *                       claimWarm / replenishWarmPool / cleanupWarmPool
- *                       registerPoolSpec / warmCount / warmCountByNode
- *                              ▲
- *                    ┌─────────┴─────────┐
- *                    │                   │
- *               INodeFleet              Fleet
- *               (leaf)                  (composite)
- *               ─────────               ──────────
- *               FleetManager,           Holds N NodeFleets,
- *               bound to one nodeId,    presents the same IFleet
- *               talks to one Docker     by picking a node or
- *               via the command bus     fanning out
+ * ── Two classes of operations ──────────────────────────────────────────────
  *
- * ── The contract ───────────────────────────────────────────────────────────
+ * **Creation-class** (stateless, placement-flexible):
+ *   - `create(profile)` — cold start a new container
+ *   - Pool replenishment (`pool.warm` under the hood)
  *
- * 1. **Every method on IFleet must have a sensible meaning at both layers.**
- *    - `inspect(id)` on a leaf reads its local container.
- *    - `inspect(id)` on the composite resolves the owning node via
- *      {@link IInstanceLocator} (DB lookup of bot_instances.node_id) and
- *      delegates to that leaf.
- *    - If a method only makes sense on one layer, it doesn't belong here.
- *      Put it on the concrete class instead. The leaf has its own `nodeId`
- *      field; the composite has its own ticker. Neither belongs on IFleet.
+ * These enqueue with `target = null` in `pending_operations`. Any agent
+ * claims. The winning agent creates the container on its own host and
+ * stamps its own `nodeId` into the result. The caller reads that `nodeId`
+ * from the returned `Instance` and persists it (e.g., to
+ * `bot_instances.node_id`).
  *
- * 2. **The composite has NO leaf field.** No `defaultNode`, no `localNode`,
- *    no `if (this.nodes.length === 1)` shortcut. Every operation iterates
- *    or dispatches. The composite is the single-node case. The single-node
- *    case is the multi-node case. They're the same case.
+ * **Lifecycle-class** (stateful, pinned):
+ *   - `remove(id)`, `getInstance(id)`, `status(id)`, `logs(id)` — act on
+ *     an existing container
+ *   - Pool cleanup, pool claim-and-rename
  *
- *    This rule exists because we got it wrong once: HotPool had a
- *    `this.nodeId = "local"` placeholder from the original Docker-direct
- *    era. After moving to the command bus, the field looked like a harmless
- *    one-line default. It was actually a load-bearing assumption that
- *    single-node ≡ multi-node — the exact thing the refactor was trying to
- *    break. Multi-node would have appeared to "work" until the second node
- *    connected, at which point silent breakage would surface in production.
- *    The fix wasn't to add a NodeProvider abstraction; it was to delete the
- *    field and accept that the composite already exists, we just hadn't
- *    named it. The "brilliance" of the Composite pattern is the discipline,
- *    not the class hierarchy.
+ * These look up `bot_instances.node_id` (or `pool_instances.node_id`) and
+ * enqueue with `target = <that node id>`. Only the owning agent claims.
+ * The container's home is pinned from the moment it's created — Docker's
+ * daemon is local to one host, so stop/logs/inspect must execute where the
+ * container lives.
  *
- * 3. **Operations split into two dispatch flavors in the composite.**
+ * ── What this replaces ─────────────────────────────────────────────────────
  *
- *    Single-target (acts on one node):
- *    - `create(profile, opts?)` — placement strategy picks the node, OR
- *      `opts.nodeId` pins explicitly. Delegates to one leaf.
- *    - `remove(id)`, `inspect(id)`, `logs(id)` — instance locator finds the
- *      owning node from `bot_instances.node_id`. Delegates.
- *    - `claimWarm(slug)` — placement orders nodes by preference; first node
- *      with a warm container wins.
- *
- *    All-target (acts on every connected node):
- *    - `replenishWarmPool()`, `cleanupWarmPool()` — `Promise.all` over
- *      connected leaves. Disconnected nodes are skipped; the next tick
- *      picks them up when they reconnect.
- *    - `registerPoolSpec(slug, spec)` — pushed to every leaf so each refills
- *      its own slots from `spec.sizePerNode`.
- *
- * 4. **Membership is dynamic, not static.** The composite re-derives its
- *    leaf list from {@link IFleetMembership} on each call. When a node
- *    connects or disconnects at runtime, the next operation picks it up
- *    automatically — no special-case "what if a node went away" branches
- *    at any call site.
- *
- * 5. **Pool sizes are per-node, not global.** `PoolSpec.sizePerNode` means
- *    "maintain N warm containers on each node". With 3 nodes and
- *    `sizePerNode = 2`, you get 6 warm containers total. The composite
- *    fans replenishment out so each leaf hits its own target.
- *
- * ── What this saves callers ────────────────────────────────────────────────
- *
- * Before: every caller wrote variations of
- *   const nodes = nodeRegistry.list();
- *   const counts = await nodeRegistry.getContainerCounts();
- *   const targetNode = placementStrategy.selectNode(nodes, ctx);
- *   const result = await targetNode.fleet.create(profile);
- *
- * After:
- *   const result = await fleet.create(profile);
- *
- * Iteration, placement, dispatch, owner-by-DB-lookup, and pool spec
- * replication all live in one place. Callers write single-node code; the
- * composite makes it multi-node.
+ * - `ContainerPlacementStrategy` (deleted): creation is placement-free.
+ * - Per-node `FleetManager` leaves (deleted): there's one Fleet class.
+ * - `NodeRegistry` in-memory iteration (deleted): the queue is the only
+ *   place where "which nodes exist" matters, and it's a set of consumers
+ *   rather than a list we enumerate.
+ * - `IFleetMembership` / `FleetMembershipAdapter` (deleted): there's no
+ *   membership to enumerate.
+ * - `INodeFleet` / `nodeIds()` / `connectedNodeIds()` (deleted): core has
+ *   no per-node handles.
+ * - `PoolSpec.sizePerNode` → `PoolSpec.size` (cluster-wide target).
+ * - `warmCountByNode(slug)` (deleted): we only care about the cluster
+ *   total; per-node breakdown was only used by the deleted placement code.
  *
  * ── See also ───────────────────────────────────────────────────────────────
  *
- * - `fleet.ts` — the {@link IFleet} composite implementation (Fleet class).
- * - `fleet-manager.ts` — the {@link INodeFleet} leaf (FleetManager class).
- * - `fleet-wiring.ts` — adapters: FleetMembershipAdapter (NodeRegistry →
- *   IFleetMembership) and DbInstanceLocator (botInstanceRepo → IInstanceLocator).
+ * - `fleet.ts` — the single Fleet implementation.
+ * - `fleet-wiring.ts` — `DbInstanceLocator` (resolves instanceId → nodeId
+ *   via bot_instances for lifecycle dispatch).
  */
 
 import type { Instance } from "./instance.js";
 import type { BotProfile, BotStatus } from "./types.js";
 
-/** Spec for a warm pool partition. Same shape on every node. */
+/** Spec for a warm pool partition. Cluster-wide, not per-node. */
 export interface PoolSpec {
   /** Docker image to pre-warm. */
   image: string;
@@ -114,122 +68,120 @@ export interface PoolSpec {
   port: number;
   /** Docker network to attach warm containers to. */
   network: string;
-  /** Target warm container count PER NODE — not global. */
-  sizePerNode: number;
+  /** Target warm container count across the whole cluster. */
+  size: number;
 }
 
 /** Successful warm-pool claim. */
 export interface PoolClaim {
   id: string;
   containerId: string;
+  /**
+   * The node that hosts the claimed warm container. Used by the caller to
+   * target a `bot.update` (rename) op at the specific agent that owns the
+   * container — the rename must execute where the container lives.
+   */
+  nodeId: string;
 }
 
-/** Optional placement hints for create(). */
+/** Optional hints for create(). Kept for future use; unused today. */
 export interface CreateOptions {
-  /** Pin the container to this node. If omitted, the composite uses placement. */
+  /**
+   * Pin the container to a specific node. Rarely used — the default is to
+   * let any agent claim the null-target row. Provided as an escape hatch
+   * for tests and for operations that genuinely need to pin (e.g., recovery
+   * flows that want to land work on a specific replacement node).
+   */
   nodeId?: string;
 }
 
-/** Read-only fleet introspection. */
-export interface FleetView {
-  /** All known node IDs (composite) or just this one (leaf). */
-  nodeIds(): string[];
-  /** Connected (WS-live) node IDs only. */
-  connectedNodeIds(): string[];
-}
-
 /**
- * The unified fleet interface.
- *
- * Implementations:
- * - `NodeFleet` (current `FleetManager`) — bound to one node, the leaf.
- * - `Fleet` (the composite) — holds many NodeFleets, fans out or delegates.
+ * The fleet interface. One implementation (`Fleet`), no leaves, no composite.
+ * Production, tests, everyone uses the same shape.
  */
-export interface IFleet extends FleetView {
-  // ---- Instance lifecycle (single-target) ----------------------------------
+export interface IFleet {
+  // ---- Instance lifecycle ---------------------------------------------------
 
   /**
-   * Create a new instance. On the leaf, creates on this node. On the composite,
-   * `opts.nodeId` pins to a node, otherwise placement picks one.
+   * Create a new instance. Enqueues `bot.start` with `target = null` so
+   * any agent claims. The winning agent stamps its own nodeId into the
+   * result; the returned `Instance` carries that nodeId. The caller
+   * persists it to `bot_instances.node_id` for subsequent lifecycle ops.
    */
   create(profile: Omit<BotProfile, "id"> & { id?: string }, opts?: CreateOptions): Promise<Instance>;
 
-  /** Remove an instance by ID. Composite resolves the owning node automatically. */
-  remove(id: string, removeVolumes?: boolean): Promise<void>;
+  /**
+   * Remove an instance by ID. Looks up `bot_instances.node_id` to learn
+   * which agent owns the container, then enqueues `bot.remove` pinned to
+   * that agent.
+   *
+   * When `opts.nodeId` is provided, the DB lookup is skipped and the op
+   * is enqueued directly at that node. Used by the create saga's rollback
+   * path: after `create()` returns but before `bot_instances` is persisted,
+   * the rollback closure captures the nodeId from the create result and
+   * passes it explicitly — there's no bot_instances row to look up yet.
+   */
+  remove(id: string, opts?: { removeVolumes?: boolean; nodeId?: string }): Promise<void>;
 
-  /** Get an Instance handle by ID. Composite resolves the owning node. */
+  /** Get an Instance handle by ID. Backed by `bot_instances`. */
   getInstance(id: string): Promise<Instance>;
 
-  /** Inspect raw container status by ID. */
+  /** Inspect raw container status by ID. Pinned to the owning node. */
   status(id: string): Promise<BotStatus>;
 
-  /** Stream of recent log lines. */
+  /** Recent log lines. Pinned to the owning node (Docker log socket is local). */
   logs(id: string, opts?: { tail?: number }): Promise<string>;
 
-  // ---- Warm pool (composite + per-node) ------------------------------------
+  // ---- Warm pool ------------------------------------------------------------
 
-  /**
-   * Register a pool spec. On the leaf, the spec applies to this node only.
-   * On the composite, the spec applies to every node.
-   */
+  /** Register a pool spec. One spec per product slug, cluster-wide. */
   registerPoolSpec(slug: string, spec: PoolSpec): void;
 
-  /** Unregister a spec and drain its containers (per-node or fan-out). */
+  /** Unregister a spec and drain its warm containers. */
   unregisterPoolSpec(slug: string): Promise<void>;
 
   /** All currently registered spec keys. */
   poolSpecKeys(): string[];
 
-  /**
-   * Claim a warm container for the given product slug.
-   *
-   * On the leaf: claim from THIS node's pool only. Returns null if empty.
-   * On the composite: pick the most-preferred node (via placement) that has a
-   * warm container ready and delegate. Returns null if no node has one.
-   */
-  claimWarm(slug: string, opts?: { nodeId?: string }): Promise<PoolClaim | null>;
+  /** Return a registered pool spec, or undefined. */
+  getPoolSpec(slug: string): PoolSpec | undefined;
+
+  /** Update the cluster-wide target size for a registered pool spec. */
+  resizePool(slug: string, size: number): void;
 
   /**
-   * Refill the warm pool to the per-node target.
-   *
-   * On the leaf: refill THIS node's slots up to spec.sizePerNode.
-   * On the composite: fan out — every node refills in parallel.
+   * Claim a warm container for the given product slug. Picks any warm row
+   * from `pool_instances` (no node preference). Returns null if the pool
+   * is empty. The returned `nodeId` tells the caller which agent hosts the
+   * container so they can enqueue a pinned `bot.update` (rename) op.
+   */
+  claimWarm(slug: string): Promise<PoolClaim | null>;
+
+  /**
+   * Refill the warm pool until it hits `spec.size` cluster-wide. Enqueues
+   * `pool.warm` rows with `target = null` — any agent claims and creates
+   * the container on its own host.
    */
   replenishWarmPool(): Promise<void>;
 
   /**
-   * Reconcile the warm pool against the actual node state.
-   *
-   * On the leaf: list THIS node's containers, mark dead any DB row whose
-   * container is gone, remove any orphan container not tracked in the DB.
-   * On the composite: fan out to every node.
+   * Reconcile warm pool rows against actual container state. For each
+   * slug, looks at `pool_instances` and enqueues pinned `pool.cleanup`
+   * ops for rows whose container is gone.
    */
   cleanupWarmPool(): Promise<void>;
 
-  /** Number of warm containers. Leaf: this node's count. Composite: sum. */
+  /** Total warm container count cluster-wide for a given slug. */
   warmCount(slug: string): Promise<number>;
-
-  /** Per-node breakdown — used by placement to prefer nodes that have warm. */
-  warmCountByNode(slug: string): Promise<Map<string, number>>;
 }
 
 /**
- * Marker subtype for the leaf — useful when a caller specifically needs a
- * single-node handle (e.g. internal fan-out from the composite). Has no
- * additional methods; semantics are "this fleet operates on exactly one node".
- */
-export interface INodeFleet extends IFleet {
-  /** The single node this fleet is bound to. */
-  readonly nodeId: string;
-}
-
-/**
- * Resolves an instance ID to its owning node. The composite uses this to
- * dispatch single-target operations (remove, inspect, logs) to the right
- * NodeFleet without iterating.
+ * Resolves an instance ID to its owning node. Used by `Fleet` to dispatch
+ * lifecycle ops (remove, status, logs, inspect) to the agent that hosts
+ * the container.
  *
- * Backed by the bot_instances DB table, where node_id is persisted at create
- * time. No in-memory cache — that was the containerNodeMap mistake.
+ * Backed by the `bot_instances` DB table, where `node_id` is persisted
+ * after `create()` returns.
  */
 export interface IInstanceLocator {
   /** Returns the node ID that owns this instance, or null if not found. */

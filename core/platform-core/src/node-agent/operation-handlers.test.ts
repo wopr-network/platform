@@ -40,13 +40,14 @@ function makeRecorder(): {
   };
 }
 
-function makeHandlers() {
+function makeHandlers(agentNodeId = "node-test") {
   const recorder = makeRecorder();
   const handlers = buildAgentOperationHandlers({
     dockerManager: recorder.proxy<DockerManager>("docker"),
     backupManager: recorder.proxy<BackupManager>("backup"),
     hotBackupScheduler: recorder.proxy<HotBackupScheduler>("hotBackup"),
     backupDir: "/test/backups",
+    getAgentNodeId: () => agentNodeId,
   });
   return { handlers, calls: recorder.calls };
 }
@@ -84,6 +85,28 @@ describe("buildAgentOperationHandlers", () => {
       env: { FOO: "bar" },
       restart: "unless-stopped",
     });
+  });
+
+  it("bot.start stamps the agent's nodeId into the result (null-target dispatch)", async () => {
+    const { handlers } = makeHandlers("node-42");
+    const handler = handlers.get("bot.start");
+    if (!handler) throw new Error("missing handler");
+    const result = (await handler({
+      name: "bot-1",
+      image: "test:latest",
+    })) as { nodeId?: string };
+    expect(result.nodeId).toBe("node-42");
+  });
+
+  it("pool.warm stamps the agent's nodeId into the result", async () => {
+    const { handlers } = makeHandlers("node-42");
+    const handler = handlers.get("pool.warm");
+    if (!handler) throw new Error("missing handler");
+    const result = (await handler({
+      name: "warm-1",
+      image: "img:1",
+    })) as { nodeId?: string };
+    expect(result.nodeId).toBe("node-42");
   });
 
   it("bot.update routes to renameContainer when rename=true", async () => {

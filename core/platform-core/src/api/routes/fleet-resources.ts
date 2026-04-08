@@ -2,14 +2,14 @@
 
 import { Hono } from "hono";
 import type { AuditEnv } from "../../audit/types.js";
-import type { FleetManager } from "../../fleet/fleet-manager.js";
+import type { IBotInstanceRepository } from "../../fleet/bot-instance-repository.js";
 
 // ---------------------------------------------------------------------------
 // DI deps
 // ---------------------------------------------------------------------------
 
 export interface FleetResourceRouteDeps {
-  fleet: FleetManager;
+  botInstanceRepo: IBotInstanceRepository;
 }
 
 let _deps: FleetResourceRouteDeps | null = null;
@@ -37,28 +37,25 @@ export const fleetResourceRoutes = new Hono<AuditEnv>();
  *
  * Aggregated CPU/memory summary across all running bot instances.
  * This endpoint is under /api/* (session auth), not /fleet/* (bearer auth).
+ *
+ * After the null-target refactor, core no longer has local Docker access
+ * on its own droplet and cannot read per-container CPU/memory stats
+ * directly. Live stats would require an enqueued `bot.inspect` per bot —
+ * too expensive for an aggregated summary endpoint. For now the route
+ * reports zeros while still returning the bot count so the UI can show
+ * "N running bots". A follow-up can source stats from a periodic heartbeat
+ * the agents push into a metrics table.
  */
 fleetResourceRoutes.get("/", async (c) => {
   const user = c.get("user");
   if (!user) return c.json({ error: "Unauthorized" }, 401);
 
-  const bots = await getDeps().fleet.listByTenant(user.id);
-
-  let totalCpuPercent = 0;
-  let totalMemoryMb = 0;
-  let memoryCapacityMb = 0;
-
-  for (const bot of bots) {
-    if (bot.stats) {
-      totalCpuPercent += bot.stats.cpuPercent;
-      totalMemoryMb += bot.stats.memoryUsageMb;
-      memoryCapacityMb += bot.stats.memoryLimitMb;
-    }
-  }
+  const bots = await getDeps().botInstanceRepo.listByTenant(user.id);
 
   return c.json({
-    totalCpuPercent: Math.round(totalCpuPercent * 100) / 100,
-    totalMemoryMb,
-    memoryCapacityMb,
+    totalCpuPercent: 0,
+    totalMemoryMb: 0,
+    memoryCapacityMb: 0,
+    botCount: bots.length,
   });
 });

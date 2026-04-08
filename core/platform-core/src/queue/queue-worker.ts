@@ -46,6 +46,13 @@ export interface QueueWorkerOptions {
    */
   idlePollMs?: number;
   /**
+   * When set, the worker also claims rows whose `target IS NULL`. Agents
+   * use this to drain creation-class ops (`bot.start`, `pool.warm`) that
+   * any agent can fulfill — the winning agent stamps its own nodeId into
+   * the result. Core workers leave this unset (only drain `target = 'core'`).
+   */
+  includeNullTarget?: boolean;
+  /**
    * Optional sleep override for tests.
    */
   sleep?: (ms: number) => Promise<void>;
@@ -67,6 +74,7 @@ export class QueueWorker {
   private running = false;
   private loopPromise: Promise<void> | null = null;
   private readonly idlePollMs: number;
+  private readonly includeNullTarget: boolean;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly logger: WorkerLogger;
 
@@ -92,6 +100,7 @@ export class QueueWorker {
     options: QueueWorkerOptions = {},
   ) {
     this.idlePollMs = options.idlePollMs ?? DEFAULT_IDLE_POLL_MS;
+    this.includeNullTarget = options.includeNullTarget === true;
     this.sleep = options.sleep ?? defaultSleep;
     this.logger = options.logger ?? noopLogger;
   }
@@ -168,7 +177,9 @@ export class QueueWorker {
    * progress without running a background loop.
    */
   async tickOnce(): Promise<boolean> {
-    const row = await this.queue.claim(this.target, this.workerId);
+    const row = await this.queue.claim(this.target, this.workerId, {
+      includeNullTarget: this.includeNullTarget,
+    });
     if (row === null) return false;
     await this.runRow(row);
     return true;
@@ -180,7 +191,9 @@ export class QueueWorker {
     while (this.running) {
       let row: ClaimedOperation | null;
       try {
-        row = await this.queue.claim(this.target, this.workerId);
+        row = await this.queue.claim(this.target, this.workerId, {
+          includeNullTarget: this.includeNullTarget,
+        });
       } catch (err) {
         // Claim itself failed (likely a transient DB error). Log and back off.
         this.logger.error("QueueWorker: claim failed", {

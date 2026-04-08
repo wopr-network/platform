@@ -34,7 +34,7 @@ export interface IPoolRepository {
   markDead(id: string): Promise<void>;
   deleteDead(): Promise<void>;
   /** Atomically claim the oldest warm instance, optionally on a specific node. */
-  claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string } | null>;
+  claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string; nodeId: string } | null>;
   updateInstanceStatus(id: string, status: PoolInstanceStatus): Promise<void>;
 }
 
@@ -142,15 +142,17 @@ export class DrizzlePoolRepository implements IPoolRepository {
     await this.db.delete(poolInstances).where(eq(poolInstances.status, "dead"));
   }
 
-  async claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string } | null> {
+  async claim(partition: string, nodeId?: string): Promise<{ id: string; containerId: string; nodeId: string } | null> {
     // Atomic claim inside a transaction: select oldest warm + lock, then update.
+    // Returns the row's nodeId so the caller can enqueue a pinned rename
+    // operation at the agent that hosts the warm container.
     return this.db.transaction(async (tx) => {
       const conditions = [eq(poolInstances.status, "warm"), eq(poolInstances.productSlug, partition)];
       if (nodeId) {
         conditions.push(eq(poolInstances.nodeId, nodeId));
       }
       const [candidate] = await tx
-        .select({ id: poolInstances.id, containerId: poolInstances.containerId })
+        .select({ id: poolInstances.id, containerId: poolInstances.containerId, nodeId: poolInstances.nodeId })
         .from(poolInstances)
         .where(and(...conditions))
         .orderBy(asc(poolInstances.createdAt))
@@ -164,7 +166,7 @@ export class DrizzlePoolRepository implements IPoolRepository {
         .set({ status: "claimed", claimedAt: new Date() })
         .where(eq(poolInstances.id, candidate.id));
 
-      return { id: candidate.id, containerId: candidate.containerId };
+      return { id: candidate.id, containerId: candidate.containerId, nodeId: candidate.nodeId };
     });
   }
 
