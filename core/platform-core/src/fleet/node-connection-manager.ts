@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { WebSocket } from "ws";
 import { z } from "zod";
 import { logger } from "../config/logger.js";
@@ -57,13 +56,6 @@ const commandResultSchema = z.object({
   error: z.string().optional(),
 });
 
-/** Pending command awaiting result */
-interface PendingCommand {
-  resolve: (result: CommandResult) => void;
-  reject: (error: Error) => void;
-  timeout: ReturnType<typeof setTimeout>;
-}
-
 /**
  * Platform-side WebSocket manager for node agents.
  *
@@ -81,7 +73,11 @@ export class NodeConnectionManager {
   private readonly botInstanceRepo: IBotInstanceRepository;
   private readonly recoveryRepo: IRecoveryRepository;
   private readonly connections = new Map<string, WebSocket>();
-  private readonly pending = new Map<string, PendingCommand>();
+  /** The command bus owns the pending map. command_result messages are forwarded here. */
+  private commandBus: {
+    handleResult(result: CommandResult): void;
+    send(nodeId: string, command: { type: string; payload: Record<string, unknown> }): Promise<CommandResult>;
+  } | null = null;
   private orphanCleaner?: OrphanCleaner;
   private readonly cleanupInFlight = new Set<string>();
   private readonly onNodeRegistered?: () => void;
@@ -96,6 +92,11 @@ export class NodeConnectionManager {
     this.botInstanceRepo = botInstanceRepo;
     this.recoveryRepo = recoveryRepo;
     this.onNodeRegistered = options?.onNodeRegistered;
+  }
+
+  /** Inject the command bus — receives forwarded command_result messages. */
+  setCommandBus(bus: NodeConnectionManager["commandBus"]): void {
+    this.commandBus = bus;
   }
 
   /** Inject OrphanCleaner after construction to break the circular dependency. */
@@ -196,23 +197,17 @@ export class NodeConnectionManager {
       return;
     }
 
-    // Handle command result
+    // Handle command result — forward to the command bus (owns the pending map)
     if (msg.type === "command_result" && typeof msg.id === "string") {
       const parsed = commandResultSchema.safeParse(msg);
       if (!parsed.success) {
         logger.warn(`Malformed command_result from ${nodeId}`, { id: msg.id, issues: parsed.error.issues });
         return;
       }
-      const result: CommandResult = parsed.data;
-      const pending = this.pending.get(result.id);
-      if (pending) {
-        clearTimeout(pending.timeout);
-        this.pending.delete(result.id);
-        if (result.success) {
-          pending.resolve(result);
-        } else {
-          pending.reject(new Error(result.error ?? "Command failed"));
-        }
+      if (this.commandBus) {
+        this.commandBus.handleResult(parsed.data);
+      } else {
+        logger.warn(`Received command_result but no command bus wired`, { id: parsed.data.id, nodeId });
       }
       return;
     }
@@ -285,28 +280,15 @@ export class NodeConnectionManager {
   }
 
   /**
-   * Send a command to a node agent and return the result
+   * Send a command to a node agent. Delegates to the command bus which owns
+   * the pending map. RecoveryManager and other legacy callers use this entry
+   * point; new code should inject NodeCommandBus directly.
    */
-  async sendCommand(nodeId: string, command: Omit<Command, "id">, timeoutMs = 60_000): Promise<CommandResult> {
-    const ws = this.connections.get(nodeId);
-    if (!ws || ws.readyState !== 1 /* OPEN */) {
-      throw new Error(`Node ${nodeId} is not connected`);
+  async sendCommand(nodeId: string, command: Omit<Command, "id">): Promise<CommandResult> {
+    if (!this.commandBus) {
+      throw new Error(`NodeConnectionManager: command bus not wired — call setCommandBus() first`);
     }
-
-    const id = randomUUID();
-    const fullCommand: Command = { id, ...command };
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.pending.delete(id);
-        reject(new Error(`Command ${command.type} timed out on node ${nodeId}`));
-      }, timeoutMs);
-
-      this.pending.set(id, { resolve, reject, timeout });
-      ws.send(JSON.stringify(fullCommand));
-
-      logger.debug(`Sent command ${command.type} to ${nodeId}`, { commandId: id });
-    });
+    return this.commandBus.send(nodeId, command as { type: string; payload: Record<string, unknown> });
   }
 
   /**

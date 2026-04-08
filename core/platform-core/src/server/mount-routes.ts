@@ -724,9 +724,14 @@ export async function mountRoutes(
     const nodeConnectionManager = new NodeConnectionManager(nodeRepo, botInstanceRepo, recoveryRepo);
     container.nodeConnectionManager = nodeConnectionManager;
 
-    // Create the command bus and inject into all FleetManagers + HotPool
+    // NodeCommandBus owns the pending command map and sends via NodeConnectionManager
+    // (which satisfies the NodeConnectionRegistry interface via getSocket).
+    // NodeConnectionManager forwards command_result messages to the bus.
     const { NodeCommandBus } = await import("../fleet/node-command-bus.js");
     const commandBus = new NodeCommandBus(nodeConnectionManager);
+    nodeConnectionManager.setCommandBus(commandBus);
+
+    // Inject bus into FleetManagers + HotPool
     for (const node of container.fleet.nodeRegistry.list()) {
       node.fleet.setCommandBus(commandBus);
     }

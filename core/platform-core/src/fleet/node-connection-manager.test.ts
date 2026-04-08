@@ -638,8 +638,13 @@ describe("NodeConnectionManager.handleMessage — command_result validation", ()
     // No crash — message was silently discarded
   });
 
-  it("processes valid command_result correctly after validation", async () => {
+  it("forwards valid command_result to the command bus", async () => {
     await insertNode(db, { id: "node-1", status: "active" });
+
+    // Wire a command bus — NodeCommandBus uses NodeConnectionManager as its registry
+    const { NodeCommandBus } = await import("./node-command-bus.js");
+    const bus = new NodeCommandBus(ncm);
+    ncm.setCommandBus(bus);
 
     const mockWs = {
       readyState: 1,
@@ -654,14 +659,14 @@ describe("NodeConnectionManager.handleMessage — command_result validation", ()
       (call) => call[0] === "message",
     )?.[1];
 
-    // Start a command so there's a pending entry
-    const commandPromise = ncm.sendCommand("node-1", { type: "bot.start", payload: { name: "test" } });
+    // Send a command through the bus — creates a pending entry
+    const commandPromise = bus.send("node-1", { type: "bot.start", payload: { name: "test" } });
 
-    // Get the command ID from the sent message
+    // Get the command ID from the sent WS message
     const sentData = JSON.parse((mockWs.send as ReturnType<typeof vi.fn>).mock.calls[0][0]);
     const cmdId = sentData.id;
 
-    // Send a valid command_result back
+    // Agent sends a command_result — NCM forwards it to the bus
     const validResult = Buffer.from(
       JSON.stringify({
         type: "command_result",
