@@ -19,6 +19,7 @@
  * See `docs/2026-04-08-db-queue-architecture.md` §8.
  */
 
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { logger } from "../config/logger.js";
@@ -62,8 +63,38 @@ export interface RunningAgentQueueWorker {
  */
 export async function startAgentQueueWorker(opts: AgentQueueWorkerOptions): Promise<RunningAgentQueueWorker> {
   const pool = new Pool({ connectionString: opts.dbUrl });
+
+  // RLS requires every connection from this pool to identify itself via
+  // the `agent.node_id` GUC. Wire it up at checkout time so it survives
+  // pool churn — Postgres session-level SETs reset on connection close.
+  // Identifier is interpolated as a literal because PG doesn't accept
+  // parameter binding for SET. The nodeId is sanitized at registration
+  // time, so this can't be turned into injection.
+  const nodeIdEscaped = opts.nodeId.replace(/'/g, "''");
+  pool.on("connect", (client) => {
+    void client.query(`SET application_name = 'agent-${nodeIdEscaped}'`).catch(() => {});
+    void client.query(`SET agent.node_id = '${nodeIdEscaped}'`).catch((err) => {
+      logger.warn("agent: failed to set agent.node_id GUC", {
+        nodeId: opts.nodeId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+  });
+
   const db = drizzle(pool, { schema }) as unknown as DrizzleDb;
   const queue = new OperationQueue(db);
+
+  // Sanity check: issue a no-op query that exercises a checkout, so we
+  // fail boot fast if the credentials or GUC setup are broken instead of
+  // discovering it on the first claim.
+  try {
+    await db.execute(sql`SELECT 1`);
+  } catch (err) {
+    await pool.end();
+    throw new Error(
+      `Agent queue worker failed to connect to Postgres: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   const source = new PgNotificationSource(pool, {
     logger: {

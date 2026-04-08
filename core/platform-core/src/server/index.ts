@@ -78,7 +78,14 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
     },
     config.routes,
     config.standalone || config.auth || config.chat
-      ? { standalone: config.standalone, auth: config.auth, chat: config.chat, slug: config.slug }
+      ? {
+          standalone: config.standalone,
+          auth: config.auth,
+          chat: config.chat,
+          slug: config.slug,
+          secrets: config.secrets,
+          databaseUrl: config.databaseUrl,
+        }
       : undefined,
   );
 

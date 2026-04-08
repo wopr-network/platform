@@ -25,6 +25,18 @@ interface NodeAgentRouteDeps {
   nodeRepo: INodeRepository;
   /** Vault provider for reading Spaces credentials. Null in dev/test. */
   vault?: import("../../config/vault-provider.js").VaultConfigProvider | null;
+  /**
+   * Builder for the per-agent Postgres connection URL. When provided,
+   * registration responses include `db_url` so the agent can start its
+   * AgentWorker. Returns null if the queue worker is not enabled in this
+   * deployment (e.g., dev/test, or before secrets.agentDbPassword is set).
+   *
+   * The URL embeds the shared `wopr_agent` Postgres role + the password
+   * from secrets.agentDbPassword. The agent sets `agent.node_id` GUC on
+   * connection so the RLS policy on `pending_operations` constrains it
+   * to its own rows. See agent-role-bootstrap.ts.
+   */
+  agentDbUrlBuilder?: ((nodeId: string) => string | null) | null;
 }
 
 /** Spaces credentials included in registration responses. */
@@ -56,6 +68,7 @@ async function getSpacesConfig(vault: NodeAgentRouteDeps["vault"]): Promise<Spac
 export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
   const app = new Hono();
   const { nodeConnectionManager, nodeRepo } = deps;
+  const buildAgentDbUrl = deps.agentDbUrlBuilder ?? (() => null);
 
   /**
    * POST /register — returning node re-registration.
@@ -121,10 +134,12 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
       logger.info("Provisioned node registered via injected secret", { nodeId: matchedNode.id });
 
       const spaces = await getSpacesConfig(deps.vault);
+      const dbUrl = buildAgentDbUrl(matchedNode.id);
       return c.json({
         node_id: matchedNode.id,
         node_secret: body.registration_token,
         ...(spaces ? { spaces } : {}),
+        ...(dbUrl ? { db_url: dbUrl } : {}),
       });
     }
 
@@ -146,10 +161,12 @@ export function createNodeAgentRoutes(deps: NodeAgentRouteDeps): Hono {
     logger.info("Self-hosted node registered via token", { nodeId });
 
     const spaces = await getSpacesConfig(deps.vault);
+    const dbUrl = buildAgentDbUrl(nodeId);
     return c.json({
       node_id: nodeId,
       node_secret: nodeSecret,
       ...(spaces ? { spaces } : {}),
+      ...(dbUrl ? { db_url: dbUrl } : {}),
     });
   });
 

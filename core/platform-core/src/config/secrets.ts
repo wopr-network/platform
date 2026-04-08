@@ -57,6 +57,11 @@ export interface PlatformSecrets {
   registryUsername: string | null;
   registryPassword: string | null;
   registryUrl: string | null;
+
+  // DB-as-channel queue: shared password for the wopr_agent Postgres role.
+  // Set at boot by ensureAgentLoginRolePassword. Null in dev/local where
+  // the agent queue worker isn't enabled.
+  agentDbPassword: string | null;
 }
 
 /**
@@ -115,6 +120,9 @@ export function mapSecrets(raw: Record<string, string>): PlatformSecrets {
     registryUsername: raw.registry_username ?? null,
     registryPassword: raw.registry_password ?? null,
     registryUrl: raw.registry_url ?? null,
+
+    // Queue: shared password for the wopr_agent Postgres role
+    agentDbPassword: raw.agent_db_password ?? null,
   };
 }
 
@@ -161,6 +169,7 @@ export function mapSecretsFromPaths(paths: Record<string, Record<string, string>
     registryUsername: registry.username ?? null,
     registryPassword: registry.password ?? null,
     registryUrl: registry.url ?? null,
+    agentDbPassword: prod.agent_db_password ?? null,
   };
 }
 
@@ -210,6 +219,7 @@ export function secretsFromEnv(): PlatformSecrets {
     registryUsername: null,
     registryPassword: null,
     registryUrl: null,
+    agentDbPassword: null,
   };
 }
 // vault oauth rebuild

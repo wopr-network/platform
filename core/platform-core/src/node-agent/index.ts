@@ -213,6 +213,7 @@ export class NodeAgent {
     const result = (await response.json()) as {
       node_id: string;
       node_secret: string;
+      db_url?: string;
       spaces?: {
         access_key: string;
         secret_key: string;
@@ -224,10 +225,14 @@ export class NodeAgent {
 
     const nodeId = sanitizeCredentialField(result.node_id, "node_id");
     const nodeSecret = sanitizeCredentialField(result.node_secret, "node_secret");
+    // db_url is optional — only present when core has the agent_db_password
+    // Vault secret configured. When absent, the agent runs WS-bus-only.
+    const dbUrl = typeof result.db_url === "string" && result.db_url.length > 0 ? result.db_url : undefined;
 
     this.config.nodeId = nodeId;
     this.config.nodeSecret = nodeSecret;
-    await this.saveCredentials(nodeId, nodeSecret);
+    if (dbUrl) this.config.dbUrl = dbUrl;
+    await this.saveCredentials(nodeId, nodeSecret, dbUrl);
 
     if (result.spaces) {
       await this.writeS3Config(result.spaces);
@@ -238,13 +243,15 @@ export class NodeAgent {
   }
 
   /** Persist credentials to disk (mode 0o600). */
-  private async saveCredentials(nodeId: string, nodeSecret: string): Promise<void> {
+  private async saveCredentials(nodeId: string, nodeSecret: string, dbUrl?: string): Promise<void> {
     const { writeFile, mkdir } = await import("node:fs/promises");
     const { dirname } = await import("node:path");
 
     const credPath = this.config.credentialsPath ?? "/etc/wopr/credentials.json";
     await mkdir(dirname(credPath), { recursive: true });
-    await writeFile(credPath, JSON.stringify({ nodeId, nodeSecret }, null, 2), { mode: 0o600 });
+    const payload: { nodeId: string; nodeSecret: string; dbUrl?: string } = { nodeId, nodeSecret };
+    if (dbUrl) payload.dbUrl = dbUrl;
+    await writeFile(credPath, JSON.stringify(payload, null, 2), { mode: 0o600 });
     logger.info(`Credentials saved to ${credPath}`);
   }
 
@@ -461,11 +468,15 @@ const isMain = process.argv[1]?.endsWith("node-agent/index.js") || process.argv[
 
 if (isMain) {
   // Try to load saved credentials first (from previous token registration)
-  let savedCreds: { nodeId?: string; nodeSecret?: string } = {};
+  let savedCreds: { nodeId?: string; nodeSecret?: string; dbUrl?: string } = {};
   const credPath = process.env.CREDENTIALS_PATH ?? "/etc/wopr/credentials.json";
   try {
     const { readFileSync } = await import("node:fs");
-    savedCreds = JSON.parse(readFileSync(credPath, "utf-8")) as { nodeId?: string; nodeSecret?: string };
+    savedCreds = JSON.parse(readFileSync(credPath, "utf-8")) as {
+      nodeId?: string;
+      nodeSecret?: string;
+      dbUrl?: string;
+    };
   } catch {
     // No saved credentials — first run via token
   }
@@ -480,6 +491,9 @@ if (isMain) {
     s3Bucket: process.env.S3_BUCKET,
     credentialsPath: credPath,
     woprNodeSecret: process.env.WOPR_NODE_SECRET,
+    // dbUrl from credentials.json (set by registerWithToken when core has
+    // agent_db_password configured) or AGENT_DB_URL env var as escape hatch.
+    dbUrl: savedCreds.dbUrl ?? process.env.AGENT_DB_URL,
   });
 
   const agent = new NodeAgent(config);

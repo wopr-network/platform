@@ -415,6 +415,26 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
   const { QueueWorker } = await import("../queue/queue-worker.js");
   const { randomUUID: queueRandomUUID } = await import("node:crypto");
   const operationQueue = new OperationQueue(db);
+
+  // 13c. Bootstrap the wopr_agent Postgres role's password from the
+  // Vault secret. The role is created with NULL password by migration
+  // 0044; this sets the real value so agents can log in. Idempotent —
+  // safe to run on every boot. Skipped silently when the secret isn't
+  // configured (dev environments where the agent worker isn't enabled).
+  if (bootConfig.secrets?.agentDbPassword) {
+    try {
+      const { ensureAgentLoginRolePassword } = await import("../fleet/agent-role-bootstrap.js");
+      await ensureAgentLoginRolePassword(db, bootConfig.secrets.agentDbPassword);
+      logger.info("wopr_agent role password bootstrapped");
+    } catch (err) {
+      // Non-fatal: agents that can't authenticate will fail to start their
+      // queue workers and fall back to WS-only behaviour. Log so an operator
+      // can fix it.
+      logger.warn("wopr_agent role password bootstrap failed (non-fatal)", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
   const coreQueueWorkerId = `core-${queueRandomUUID()}`;
   const coreQueueWorker = new QueueWorker(operationQueue, "core", coreQueueWorkerId, new Map(), {
     logger: {

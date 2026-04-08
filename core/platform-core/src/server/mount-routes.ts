@@ -116,7 +116,7 @@ export async function mountRoutes(
   container: PlatformContainer,
   config: MountConfig,
   plugins: RoutePlugin[] = [],
-  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "chat" | "slug">,
+  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "chat" | "slug" | "secrets" | "databaseUrl">,
 ): Promise<void> {
   // 1. CORS middleware
   // In standalone mode, allow origins from ALL products. In single-product mode, use boot-time config.
@@ -742,7 +742,27 @@ export async function mountRoutes(
     const vaultConfig = resolveVaultConfig();
     const vault = vaultConfig ? new VaultConfigProvider(vaultConfig) : null;
 
-    app.route("/internal/nodes", createNodeAgentRoutes({ nodeConnectionManager, nodeRepo, vault }));
+    // Build the per-agent Postgres URL using the shared `wopr_agent` role.
+    // Returns null when the agent password isn't configured (dev/test, or
+    // before secrets.agentDbPassword is set in Vault). The URL embeds the
+    // password and `application_name=agent-<id>`; the agent sets the
+    // `agent.node_id` GUC on connect to satisfy RLS.
+    const agentPassword = bootConfig?.secrets?.agentDbPassword;
+    const agentDbUrlBuilder = agentPassword
+      ? (nodeId: string): string | null => {
+          try {
+            const url = new URL(bootConfig.databaseUrl);
+            url.username = "wopr_agent";
+            url.password = agentPassword;
+            url.searchParams.set("application_name", `agent-${nodeId}`);
+            return url.toString();
+          } catch {
+            return null;
+          }
+        }
+      : null;
+
+    app.route("/internal/nodes", createNodeAgentRoutes({ nodeConnectionManager, nodeRepo, vault, agentDbUrlBuilder }));
 
     const { logger: nodeLogger } = await import("../config/logger.js");
     nodeLogger.info("Mounted node agent routes at /internal/nodes");
