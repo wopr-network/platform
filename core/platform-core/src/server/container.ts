@@ -254,7 +254,9 @@ export async function buildContainer(bootConfig: BootConfig): Promise<PlatformCo
           slug: p.slug,
           domain: p.domain,
           uiUpstream: `${p.uiService}:${p.uiPort}`,
-          apiUpstream: `${p.apiService || "core"}:${p.apiPort || 3001}`,
+          // All products' API traffic routes to core. BetterAuth lives on core;
+          // per-product API routing is not a supported pattern.
+          apiUpstream: "core:3001",
         };
       });
 
