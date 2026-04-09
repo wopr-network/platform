@@ -69,13 +69,13 @@ export function InviteLandingPage() {
   const invite = inviteQuery.data;
   const companyName = invite?.companyName?.trim() || null;
   const allowedJoinTypes = invite?.allowedJoinTypes ?? "both";
-  const availableJoinTypes = useMemo(() => {
+  const availableJoinTypes = useMemo((): JoinType[] => {
     if (invite?.inviteType === "bootstrap_ceo") return ["human"] as JoinType[];
     let types: JoinType[] = allowedJoinTypes === "both" ? ["human", "agent"] : [allowedJoinTypes];
     if (isHosted) {
       types = types.filter((type) => type !== "agent");
     }
-    return types.length > 0 ? types : ["human"];
+    return types.length > 0 ? types : (["human"] as JoinType[]);
   }, [invite?.inviteType, allowedJoinTypes, isHosted]);
 
   useEffect(() => {

@@ -1105,6 +1105,7 @@ export function AgentDetail() {
           onCancelActionChange={setCancelConfigAction}
           onSavingChange={setConfigSaving}
           updatePermissions={updatePermissions}
+          isHosted={isHosted}
         />
       )}
 
@@ -1414,6 +1415,7 @@ function AgentConfigurePage({
   onCancelActionChange,
   onSavingChange,
   updatePermissions,
+  isHosted,
 }: {
   agent: AgentDetailRecord;
   agentId: string;
@@ -1423,6 +1425,7 @@ function AgentConfigurePage({
   onCancelActionChange: (cancel: (() => void) | null) => void;
   onSavingChange: (saving: boolean) => void;
   updatePermissions: { mutate: (permissions: AgentPermissionUpdate) => void; isPending: boolean };
+  isHosted: boolean;
 }) {
   const queryClient = useQueryClient();
   const [revisionsOpen, setRevisionsOpen] = useState(false);
@@ -1453,6 +1456,7 @@ function AgentConfigurePage({
         companyId={companyId}
         hidePromptTemplate
         hideInstructionsFile
+        isHosted={isHosted}
       />
       <div>
         <h3 className="text-sm font-medium mb-3">API Keys</h3>
@@ -1526,6 +1530,7 @@ function ConfigurationTab({
   updatePermissions,
   hidePromptTemplate,
   hideInstructionsFile,
+  isHosted,
 }: {
   agent: AgentDetailRecord;
   companyId?: string;
@@ -1536,6 +1541,7 @@ function ConfigurationTab({
   updatePermissions: { mutate: (permissions: AgentPermissionUpdate) => void; isPending: boolean };
   hidePromptTemplate?: boolean;
   hideInstructionsFile?: boolean;
+  isHosted: boolean;
 }) {
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
