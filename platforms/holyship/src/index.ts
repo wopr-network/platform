@@ -164,28 +164,11 @@ async function main() {
     logger.info(`← ${method} ${path} ${c.res.status} ${ms}ms`);
   });
 
-  // ─── 5. Auth proxy — forward to core so cookies work on our domain ──
-  app.on(["GET", "POST"], "/api/auth/*", async (c) => {
-    const url = new URL(c.req.url);
-    const coreUrl = `${config.CORE_URL}${url.pathname}${url.search}`;
-    logger.info("[proxy:auth]", { path: url.pathname, method: c.req.method });
-
-    const headers = new Headers(c.req.raw.headers);
-    headers.set("X-Product", "holyship");
-    headers.delete("host");
-
-    const res = await fetch(coreUrl, {
-      method: c.req.method,
-      headers,
-      body: c.req.method === "POST" ? await c.req.arrayBuffer() : undefined,
-    });
-    logger.info("[proxy:auth] response", { path: url.pathname, status: res.status });
-
-    return new Response(res.body, {
-      status: res.status,
-      headers: res.headers,
-    });
-  });
+  // ─── 5. (removed) Auth proxy ─────────────────────────────────────────
+  // BetterAuth is served directly by core at https://api.<domain>/api/auth/*.
+  // Any /api/auth/* traffic that reaches this engine is a misroute — the
+  // engine's fetch() default redirect:"follow" silently consumed 302s and
+  // stripped Set-Cookie headers, breaking OAuth login.
 
   // ─── 6. tRPC proxy — forward all tRPC to core ────────────────────────
   app.all("/trpc/*", async (c) => {

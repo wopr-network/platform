@@ -222,6 +222,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: https://api.holyship.wtf
       INTERNAL_API_URL: http://holyship:3005
+      INTERNAL_CORE_URL: http://core:3001
       CORE_SERVICE_TOKEN: ${HOLYSHIP_UI_SERVICE_TOKEN}
       PORT: "3004"
     healthcheck:
