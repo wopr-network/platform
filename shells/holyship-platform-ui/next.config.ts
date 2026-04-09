@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const ENGINE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-const CORE_URL = process.env.INTERNAL_CORE_URL || "http://core:3001";
+const CORE_URL = process.env.INTERNAL_CORE_URL || "http://localhost:3001";
 
 const nextConfig: NextConfig = {
   output: "standalone",
