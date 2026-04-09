@@ -157,8 +157,6 @@ export class DrizzleProductConfigRepository implements IProductConfigRepository 
       storagePrefix: row.storagePrefix,
       uiService: row.uiService,
       uiPort: row.uiPort,
-      apiService: row.apiService,
-      apiPort: row.apiPort,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

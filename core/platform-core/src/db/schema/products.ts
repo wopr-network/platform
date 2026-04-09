@@ -24,10 +24,6 @@ export const products = pgTable(
     uiService: text("ui_service").notNull().default(""),
     /** Internal port the UI container listens on. */
     uiPort: integer("ui_port").notNull().default(3000),
-    /** Docker service name for the API container (e.g., "holyship"). Defaults to "core". */
-    apiService: text("api_service").notNull().default("core"),
-    /** Internal port the API container listens on. */
-    apiPort: integer("api_port").notNull().default(3001),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

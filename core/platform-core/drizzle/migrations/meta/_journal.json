@@ -337,6 +337,13 @@
       "when": 1776405600000,
       "tag": "0047_drop_bot_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1776492000000,
+      "tag": "0048_drop_product_api_routing",
+      "breakpoints": true
     }
   ]
 }
