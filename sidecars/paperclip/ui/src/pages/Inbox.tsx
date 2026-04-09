@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { INBOX_MINE_ISSUE_STATUS_FILTER } from "@paperclipai/shared";
 import { approvalsApi } from "../api/approvals";
@@ -750,6 +751,7 @@ export function Inbox() {
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const { keyboardShortcutsEnabled } = useGeneralSettings();
+  const { isHosted } = useHostedMode();
   const { data: experimentalSettings } = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
     queryFn: () => instanceSettingsApi.getExperimental(),
@@ -966,8 +968,12 @@ export function Inbox() {
     if (tab === "mine") {
       filtered = filtered.filter((a) => !dismissed.has(`approval:${a.id}`));
     }
+    if (isHosted) {
+      const infrastructureApprovalTypes = new Set(["hire_agent", "approve_ceo_strategy", "budget_override_required", "request_board_approval"]);
+      filtered = filtered.filter((a) => !infrastructureApprovalTypes.has(a.type));
+    }
     return filtered;
-  }, [approvals, tab, allApprovalFilter, dismissed]);
+  }, [approvals, tab, allApprovalFilter, dismissed, isHosted]);
   const showJoinRequestsCategory = allCategoryFilter === "everything" || allCategoryFilter === "join_requests";
   const showTouchedCategory = allCategoryFilter === "everything" || allCategoryFilter === "issues_i_touched";
   const showApprovalsCategory = allCategoryFilter === "everything" || allCategoryFilter === "approvals";

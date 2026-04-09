@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
@@ -40,6 +41,7 @@ export function InviteLandingPage() {
   const queryClient = useQueryClient();
   const params = useParams();
   const token = (params.token ?? "").trim();
+  const { isHosted } = useHostedMode();
   const [joinType, setJoinType] = useState<JoinType>("human");
   const [agentName, setAgentName] = useState("");
   const [adapterType, setAdapterType] = useState<AgentAdapterType>("claude_local");
@@ -69,9 +71,12 @@ export function InviteLandingPage() {
   const allowedJoinTypes = invite?.allowedJoinTypes ?? "both";
   const availableJoinTypes = useMemo(() => {
     if (invite?.inviteType === "bootstrap_ceo") return ["human"] as JoinType[];
-    if (allowedJoinTypes === "both") return ["human", "agent"] as JoinType[];
-    return [allowedJoinTypes] as JoinType[];
-  }, [invite?.inviteType, allowedJoinTypes]);
+    let types: JoinType[] = allowedJoinTypes === "both" ? ["human", "agent"] : [allowedJoinTypes];
+    if (isHosted) {
+      types = types.filter((type) => type !== "agent");
+    }
+    return types.length > 0 ? types : ["human"];
+  }, [invite?.inviteType, allowedJoinTypes, isHosted]);
 
   useEffect(() => {
     if (!availableJoinTypes.includes(joinType)) {
@@ -254,7 +259,7 @@ export function InviteLandingPage() {
           </div>
         )}
 
-        {joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
+        {joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && !isHosted && (
           <div className="mt-4 space-y-3">
             <label className="block text-sm">
               <span className="mb-1 block text-muted-foreground">Agent name</span>

@@ -1,4 +1,5 @@
 import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { formatCents } from "../lib/utils";
 
 export const typeLabel: Record<string, string> = {
@@ -7,6 +8,13 @@ export const typeLabel: Record<string, string> = {
   budget_override_required: "Budget Override",
   request_board_approval: "Board Approval",
 };
+
+/** Infrastructure approval types that should be hidden in hosted mode */
+const INFRASTRUCTURE_APPROVAL_TYPES = new Set(["hire_agent", "approve_ceo_strategy", "budget_override_required", "request_board_approval"]);
+
+function isInfraApprovalType(type: string): boolean {
+  return INFRASTRUCTURE_APPROVAL_TYPES.has(type);
+}
 
 function firstNonEmptyString(...values: unknown[]): string | null {
   for (const value of values) {
@@ -223,6 +231,12 @@ export function ApprovalPayloadRenderer({
   payload: Record<string, unknown>;
   hidePrimaryTitle?: boolean;
 }) {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted && isInfraApprovalType(type)) {
+    return null;
+  }
+
   if (type === "hire_agent") return <HireAgentPayload payload={payload} />;
   if (type === "budget_override_required") return <BudgetOverridePayload payload={payload} />;
   if (type === "request_board_approval") {

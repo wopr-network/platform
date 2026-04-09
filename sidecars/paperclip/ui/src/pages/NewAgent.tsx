@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "@/lib/router";
+import { useNavigate, useSearchParams, Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { agentsApi } from "../api/agents";
@@ -48,6 +49,9 @@ export function NewAgent() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) return <Navigate to="/" replace />;
   const presetAdapterType = searchParams.get("adapterType");
 
   const [name, setName] = useState("");

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { agentsApi, type AgentKey, type ClaudeLoginResult, type AgentPermissionUpdate } from "../api/agents";
 import { companySkillsApi } from "../api/companySkills";
 import { budgetsApi } from "../api/budgets";
@@ -629,6 +630,7 @@ export function AgentDetail() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { isHosted } = useHostedMode();
   const [actionError, setActionError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const activeView = urlRunId ? ("runs" as AgentDetailView) : parseAgentDetailView(urlTab ?? null);
@@ -1594,20 +1596,22 @@ function ConfigurationTab({
 
   return (
     <div className="space-y-6">
-      <AgentConfigForm
-        mode="edit"
-        agent={agent}
-        onSave={(patch) => updateAgent.mutate(patch)}
-        isSaving={isConfigSaving}
-        adapterModels={adapterModels}
-        onDirtyChange={onDirtyChange}
-        onSaveActionChange={onSaveActionChange}
-        onCancelActionChange={onCancelActionChange}
-        hideInlineSave
-        hidePromptTemplate={hidePromptTemplate}
-        hideInstructionsFile={hideInstructionsFile}
-        sectionLayout="cards"
-      />
+      {!isHosted && (
+        <AgentConfigForm
+          mode="edit"
+          agent={agent}
+          onSave={(patch) => updateAgent.mutate(patch)}
+          isSaving={isConfigSaving}
+          adapterModels={adapterModels}
+          onDirtyChange={onDirtyChange}
+          onSaveActionChange={onSaveActionChange}
+          onCancelActionChange={onCancelActionChange}
+          hideInlineSave
+          hidePromptTemplate={hidePromptTemplate}
+          hideInstructionsFile={hideInstructionsFile}
+          sectionLayout="cards"
+        />
+      )}
 
       <div>
         <h3 className="text-sm font-medium mb-3">Permissions</h3>

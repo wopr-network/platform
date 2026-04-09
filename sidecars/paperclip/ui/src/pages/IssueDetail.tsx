@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { Link, useLocation, useNavigate, useParams } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { issuesApi } from "../api/issues";
 import { approvalsApi } from "../api/approvals";
@@ -288,6 +289,7 @@ export function IssueDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { pushToast } = useToast();
+  const { isHosted } = useHostedMode();
   const [moreOpen, setMoreOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
@@ -1737,22 +1739,28 @@ export function IssueDetail() {
         <TabsContent value="activity">
           {linkedApprovals && linkedApprovals.length > 0 && (
             <div className="mb-3 space-y-3">
-              {linkedApprovals.map((approval) => (
-                <ApprovalCard
-                  key={approval.id}
-                  approval={approval}
-                  requesterAgent={
-                    approval.requestedByAgentId ? (agentMap.get(approval.requestedByAgentId) ?? null) : null
-                  }
-                  onApprove={() => approvalDecision.mutate({ approvalId: approval.id, action: "approve" })}
-                  onReject={() => approvalDecision.mutate({ approvalId: approval.id, action: "reject" })}
-                  detailLink={`/approvals/${approval.id}`}
-                  isPending={pendingApprovalAction?.approvalId === approval.id}
-                  pendingAction={
-                    pendingApprovalAction?.approvalId === approval.id ? pendingApprovalAction.action : null
-                  }
-                />
-              ))}
+              {linkedApprovals
+                .filter((approval) => {
+                  if (!isHosted) return true;
+                  const infrastructureApprovalTypes = new Set(["hire_agent", "approve_ceo_strategy", "budget_override_required", "request_board_approval"]);
+                  return !infrastructureApprovalTypes.has(approval.type);
+                })
+                .map((approval) => (
+                  <ApprovalCard
+                    key={approval.id}
+                    approval={approval}
+                    requesterAgent={
+                      approval.requestedByAgentId ? (agentMap.get(approval.requestedByAgentId) ?? null) : null
+                    }
+                    onApprove={() => approvalDecision.mutate({ approvalId: approval.id, action: "approve" })}
+                    onReject={() => approvalDecision.mutate({ approvalId: approval.id, action: "reject" })}
+                    detailLink={`/approvals/${approval.id}`}
+                    isPending={pendingApprovalAction?.approvalId === approval.id}
+                    pendingAction={
+                      pendingApprovalAction?.approvalId === approval.id ? pendingApprovalAction.action : null
+                    }
+                  />
+                ))}
             </div>
           )}
           {linkedRuns && linkedRuns.length > 0 && (

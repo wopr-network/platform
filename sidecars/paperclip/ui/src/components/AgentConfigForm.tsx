@@ -5,6 +5,7 @@ import type { AdapterModel } from "../api/agents";
 import { agentsApi } from "../api/agents";
 import { secretsApi } from "../api/secrets";
 import { assetsApi } from "../api/assets";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
@@ -164,12 +165,17 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const { mode, adapterModels: externalModels } = props;
   const isCreate = mode === "create";
   const cards = props.sectionLayout === "cards";
-  const showAdapterTypeField = props.showAdapterTypeField ?? true;
+  const { isHosted } = useHostedMode();
+  const showAdapterTypeField = (props.showAdapterTypeField ?? true) && !isHosted;
   const showAdapterTestEnvironmentButton = props.showAdapterTestEnvironmentButton ?? true;
   const showCreateRunPolicySection = props.showCreateRunPolicySection ?? true;
-  const hideInstructionsFile = props.hideInstructionsFile ?? false;
+  const hideInstructionsFile = (props.hideInstructionsFile ?? false) || isHosted;
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
+
+  if (isHosted && !isCreate) {
+    return <div className="px-4 py-2 text-sm text-muted-foreground">Agent configuration is managed by the system</div>;
+  }
 
   // Sync disabled adapter types from server so dropdown filters them out
   const disabledTypes = useDisabledAdaptersSync();
