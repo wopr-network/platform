@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { agentsApi } from "../api/agents";
 import { adaptersApi } from "../api/adapters";
 import { queryKeys } from "@/lib/queryKeys";
@@ -25,6 +26,7 @@ function isAgentAdapterType(type: string): boolean {
 }
 
 export function NewAgentDialog() {
+  const { isHosted } = useHostedMode();
   const { newAgentOpen, closeNewAgent, openNewIssue } = useDialog();
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
@@ -138,15 +140,17 @@ export function NewAgentDialog() {
                 Ask the CEO to create a new agent
               </Button>
 
-              {/* Advanced link */}
-              <div className="text-center">
-                <button
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-                  onClick={handleAdvancedConfig}
-                >
-                  I want advanced configuration myself
-                </button>
-              </div>
+              {/* Advanced link - hidden in hosted mode */}
+              {!isHosted && (
+                <div className="text-center">
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                    onClick={handleAdvancedConfig}
+                  >
+                    I want advanced configuration myself
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <>

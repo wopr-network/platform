@@ -6,9 +6,11 @@
  */
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@/lib/router";
 import { AlertTriangle, Cpu, Plus, Power, Trash2, FolderOpen, Package, RefreshCw, Download } from "lucide-react";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { adaptersApi } from "@/api/adapters";
 import type { AdapterInfo } from "@/api/adapters";
 import { getAdapterLabel } from "@/adapters/adapter-display-registry";
@@ -251,6 +253,8 @@ function ReinstallDialog({
 }
 
 export function AdapterManager() {
+  const { isHosted } = useHostedMode();
+  const navigate = useNavigate();
   const { selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -262,6 +266,12 @@ export function AdapterManager() {
   const [installDialogOpen, setInstallDialogOpen] = useState(false);
   const [removeType, setRemoveType] = useState<string | null>(null);
   const [reinstallTarget, setReinstallTarget] = useState<AdapterInfo | null>(null);
+
+  useEffect(() => {
+    if (isHosted) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isHosted, navigate]);
 
   useEffect(() => {
     setBreadcrumbs([
