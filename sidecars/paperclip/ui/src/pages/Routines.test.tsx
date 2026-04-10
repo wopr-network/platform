@@ -1,4 +1,4 @@
-import { useHostedMode } from ../hooks/useHostedMode;
+import { useHostedMode } from "../hooks/useHostedMode";
 // @vitest-environment jsdom
 
 import { act } from "react";

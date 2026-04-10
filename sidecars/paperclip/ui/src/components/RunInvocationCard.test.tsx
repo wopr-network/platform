@@ -1,4 +1,4 @@
-import { useHostedMode } from ../hooks/useHostedMode;
+import { useHostedMode } from "../hooks/useHostedMode";
 // @vitest-environment node
 
 import { describe, expect, it } from "vitest";
