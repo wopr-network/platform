@@ -5,6 +5,7 @@ import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { Button } from "@/components/ui/button";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
 import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
@@ -37,6 +38,7 @@ function readNestedString(value: unknown, path: string[]): string | null {
 }
 
 export function InviteLandingPage() {
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const params = useParams();
   const token = (params.token ?? "").trim();
@@ -69,9 +71,10 @@ export function InviteLandingPage() {
   const allowedJoinTypes = invite?.allowedJoinTypes ?? "both";
   const availableJoinTypes = useMemo(() => {
     if (invite?.inviteType === "bootstrap_ceo") return ["human"] as JoinType[];
+    if (isHosted) return ["human"] as JoinType[];
     if (allowedJoinTypes === "both") return ["human", "agent"] as JoinType[];
     return [allowedJoinTypes] as JoinType[];
-  }, [invite?.inviteType, allowedJoinTypes]);
+  }, [invite?.inviteType, allowedJoinTypes, isHosted]);
 
   useEffect(() => {
     if (!availableJoinTypes.includes(joinType)) {
@@ -254,7 +257,7 @@ export function InviteLandingPage() {
           </div>
         )}
 
-        {joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
+        {!isHosted && joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-4 space-y-3">
             <label className="block text-sm">
               <span className="mb-1 block text-muted-foreground">Agent name</span>
