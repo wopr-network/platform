@@ -2,6 +2,7 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { Check, ChevronDown, ChevronRight, Layers, MoreHorizontal, Plus, Repeat } from "lucide-react";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { routinesApi } from "../api/routines";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { agentsApi } from "../api/agents";
@@ -259,6 +260,7 @@ function RoutineListRow({
 export function Routines() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -553,10 +555,12 @@ export function Routines() {
             Recurring work definitions that materialize into auditable execution issues.
           </p>
         </div>
-        <Button onClick={() => setComposerOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create routine
-        </Button>
+        {!isHosted && (
+          <Button onClick={() => setComposerOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create routine
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
@@ -623,14 +627,15 @@ export function Routines() {
         </TabsContent>
       </Tabs>
 
-      <Dialog
-        open={composerOpen}
-        onOpenChange={(open) => {
-          if (!createRoutine.isPending) {
-            setComposerOpen(open);
-          }
-        }}
-      >
+      {!isHosted && (
+        <Dialog
+          open={composerOpen}
+          onOpenChange={(open) => {
+            if (!createRoutine.isPending) {
+              setComposerOpen(open);
+            }
+          }}
+        >
         <DialogContent
           showCloseButton={false}
           className="flex max-h-[calc(100dvh-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
@@ -897,6 +902,7 @@ export function Routines() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
 
       {error ? (
         <Card>
@@ -912,7 +918,7 @@ export function Routines() {
             <div className="py-12">
               <EmptyState
                 icon={Repeat}
-                message="No routines yet. Use Create routine to define the first recurring workflow."
+                message={isHosted ? "No routines found." : "No routines yet. Use Create routine to define the first recurring workflow."}
               />
             </div>
           ) : (

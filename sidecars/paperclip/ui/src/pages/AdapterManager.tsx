@@ -7,8 +7,10 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Cpu, Plus, Power, Trash2, FolderOpen, Package, RefreshCw, Download } from "lucide-react";
+import { Navigate } from "@/lib/router";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { adaptersApi } from "@/api/adapters";
 import type { AdapterInfo } from "@/api/adapters";
 import { getAdapterLabel } from "@/adapters/adapter-display-registry";
@@ -253,8 +255,11 @@ function ReinstallDialog({
 export function AdapterManager() {
   const { selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
+
+  if (isHosted) return <Navigate to="/" replace />;
 
   const [installPackage, setInstallPackage] = useState("");
   const [installVersion, setInstallVersion] = useState("");

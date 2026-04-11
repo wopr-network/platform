@@ -5,6 +5,7 @@ import { DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION } from "@paperclipai/shared
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToast } from "../context/ToastContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { assetsApi } from "../api/assets";
@@ -26,6 +27,7 @@ export function CompanySettings() {
   const { companies, selectedCompany, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   // General settings local state
   const [companyName, setCompanyName] = useState("");
@@ -352,18 +354,20 @@ export function CompanySettings() {
       )}
 
       {/* Hiring */}
-      <div className="space-y-4" data-testid="company-settings-team-section">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hiring</div>
-        <div className="rounded-md border border-border px-4 py-3">
-          <ToggleField
-            label="Require board approval for new hires"
-            hint="New agent hires stay pending until approved by board."
-            checked={!!selectedCompany.requireBoardApprovalForNewAgents}
-            onChange={(v) => settingsMutation.mutate(v)}
-            toggleTestId="company-settings-team-approval-toggle"
-          />
+      {!isHosted && (
+        <div className="space-y-4" data-testid="company-settings-team-section">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hiring</div>
+          <div className="rounded-md border border-border px-4 py-3">
+            <ToggleField
+              label="Require board approval for new hires"
+              hint="New agent hires stay pending until approved by board."
+              checked={!!selectedCompany.requireBoardApprovalForNewAgents}
+              onChange={(v) => settingsMutation.mutate(v)}
+              toggleTestId="company-settings-team-approval-toggle"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feedback Sharing</div>
@@ -408,72 +412,74 @@ export function CompanySettings() {
       </div>
 
       {/* Invites */}
-      <div className="space-y-4" data-testid="company-settings-invites-section">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Invites</div>
-        <div className="space-y-3 rounded-md border border-border px-4 py-4">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Generate an OpenClaw agent invite snippet.</span>
-            <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              data-testid="company-settings-invites-generate-button"
-              size="sm"
-              onClick={() => inviteMutation.mutate()}
-              disabled={inviteMutation.isPending}
-            >
-              {inviteMutation.isPending ? "Generating..." : "Generate OpenClaw Invite Prompt"}
-            </Button>
-          </div>
-          {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
-          {inviteSnippet && (
-            <div
-              className="rounded-md border border-border bg-muted/30 p-2"
-              data-testid="company-settings-invites-snippet"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs text-muted-foreground">OpenClaw Invite Prompt</div>
-                {snippetCopied && (
-                  <span
-                    key={snippetCopyDelightId}
-                    className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
-                  >
-                    <Check className="h-3 w-3" />
-                    Copied
-                  </span>
-                )}
-              </div>
-              <div className="mt-1 space-y-1.5">
-                <textarea
-                  data-testid="company-settings-invites-snippet-textarea"
-                  className="h-[28rem] w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none"
-                  value={inviteSnippet}
-                  readOnly
-                />
-                <div className="flex justify-end">
-                  <Button
-                    data-testid="company-settings-invites-copy-button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(inviteSnippet);
-                        setSnippetCopied(true);
-                        setSnippetCopyDelightId((prev) => prev + 1);
-                        setTimeout(() => setSnippetCopied(false), 2000);
-                      } catch {
-                        /* clipboard may not be available */
-                      }
-                    }}
-                  >
-                    {snippetCopied ? "Copied snippet" : "Copy snippet"}
-                  </Button>
+      {!isHosted && (
+        <div className="space-y-4" data-testid="company-settings-invites-section">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Invites</div>
+          <div className="space-y-3 rounded-md border border-border px-4 py-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Generate an OpenClaw agent invite snippet.</span>
+              <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                data-testid="company-settings-invites-generate-button"
+                size="sm"
+                onClick={() => inviteMutation.mutate()}
+                disabled={inviteMutation.isPending}
+              >
+                {inviteMutation.isPending ? "Generating..." : "Generate OpenClaw Invite Prompt"}
+              </Button>
+            </div>
+            {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
+            {inviteSnippet && (
+              <div
+                className="rounded-md border border-border bg-muted/30 p-2"
+                data-testid="company-settings-invites-snippet"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs text-muted-foreground">OpenClaw Invite Prompt</div>
+                  {snippetCopied && (
+                    <span
+                      key={snippetCopyDelightId}
+                      className="flex items-center gap-1 text-xs text-green-600 animate-pulse"
+                    >
+                      <Check className="h-3 w-3" />
+                      Copied
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 space-y-1.5">
+                  <textarea
+                    data-testid="company-settings-invites-snippet-textarea"
+                    className="h-[28rem] w-full rounded-md border border-border bg-background px-2 py-1.5 font-mono text-xs outline-none"
+                    value={inviteSnippet}
+                    readOnly
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      data-testid="company-settings-invites-copy-button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(inviteSnippet);
+                          setSnippetCopied(true);
+                          setSnippetCopyDelightId((prev) => prev + 1);
+                          setTimeout(() => setSnippetCopied(false), 2000);
+                        } catch {
+                          /* clipboard may not be available */
+                        }
+                      }}
+                    >
+                      {snippetCopied ? "Copied snippet" : "Copy snippet"}
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Import / Export */}
       <div className="space-y-4">
