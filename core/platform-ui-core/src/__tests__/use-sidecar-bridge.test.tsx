@@ -33,14 +33,14 @@ function fireReady() {
 }
 
 describe("SidecarBridgeProvider — initial deep-link forwarding", () => {
-  const originalPath = window.location.pathname;
+  const originalUrl = window.location.pathname + window.location.search + window.location.hash;
 
   beforeEach(() => {
     window.history.replaceState(null, "", "/dashboard");
   });
 
   afterEach(() => {
-    window.history.replaceState(null, "", originalPath);
+    window.history.replaceState(null, "", originalUrl);
   });
 
   it("forwards the shell pathname to the sidecar when ready fires on an iframe route", () => {
@@ -71,6 +71,24 @@ describe("SidecarBridgeProvider — initial deep-link forwarding", () => {
     fireReady();
 
     expect(postMessage).toHaveBeenCalledWith({ type: "navigate", path: "/issues?filter=open" }, window.location.origin);
+  });
+
+  it("forwards /plugins/* deep links (prefix has no trailing slash)", () => {
+    window.history.replaceState(null, "", "/plugins/marketplace");
+    const { iframe, postMessage } = makeIframeWithSpy();
+
+    render(
+      <SidecarBridgeProvider>
+        <IframeRegistrar iframe={iframe} />
+      </SidecarBridgeProvider>,
+    );
+
+    fireReady();
+
+    expect(postMessage).toHaveBeenCalledWith(
+      { type: "navigate", path: "/plugins/marketplace" },
+      window.location.origin,
+    );
   });
 
   it("does not forward when the shell is on a native (non-iframe) route", () => {

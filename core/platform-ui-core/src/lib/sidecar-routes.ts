@@ -16,7 +16,7 @@ const IFRAME_PREFIXES = [
   "/approvals",
   "/activity",
   "/execution-workspaces",
-  "/plugins/",
+  "/plugins",
 ] as const;
 
 export function getRouteType(pathname: string): RouteType {
