@@ -317,6 +317,11 @@ export class DockerManager {
     const image = info.Config.Image;
     const env = info.Config.Env ?? [];
     const restartPolicy = info.HostConfig?.RestartPolicy?.Name ?? "unless-stopped";
+    // Capture every network the old container was connected to (including
+    // per-instance overlays) so we can reattach the replacement to the same
+    // set. Without this a replacement could come up unreachable even though
+    // the original was routable.
+    const networkNames = Object.keys(info.NetworkSettings?.Networks ?? {});
 
     // Pull the (potentially refreshed) image before recreating so the new
     // container actually uses the latest digest for this tag.
@@ -331,24 +336,56 @@ export class DockerManager {
     try {
       await container.stop();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes("container already stopped")) throw err;
+      // Docker returns 304 when the container is already stopped. Rely on
+      // the API status code instead of matching the error string — message
+      // wording varies across dockerode / daemon versions and locales.
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      if (statusCode !== 304) throw err;
     }
     await container.remove();
 
-    const newContainer = await this.docker.createContainer({
+    const createOpts = {
       Image: image,
       name,
       Env: env,
       Labels: { "wopr.managed": "true" },
-      HostConfig: {
-        RestartPolicy: { Name: restartPolicy },
-      },
-    });
+      HostConfig: { RestartPolicy: { Name: restartPolicy } },
+    } as const;
 
-    await newContainer.start();
-    await this.attachNetwork(newContainer.id);
-    return { containerId: newContainer.id, image };
+    try {
+      const newContainer = await this.docker.createContainer(createOpts);
+      await newContainer.start();
+      // Reattach every network the original container was on. If no networks
+      // were recorded (old container had been manually disconnected) fall
+      // back to the agent default.
+      if (networkNames.length === 0) {
+        await this.attachNetwork(newContainer.id);
+      } else {
+        for (const networkName of networkNames) {
+          try {
+            await this.docker.getNetwork(networkName).connect({ Container: newContainer.id });
+          } catch (err) {
+            // Default bridge / host networks are auto-connected by Docker
+            // at start — reconnect is a no-op 403 in that case.
+            const statusCode = (err as { statusCode?: number })?.statusCode;
+            if (statusCode !== 403) throw err;
+          }
+        }
+      }
+      return { containerId: newContainer.id, image };
+    } catch (err) {
+      // Recreate attempt failed AFTER we removed the old container — try to
+      // restore something running so the tenant isn't left bot-less, then
+      // rethrow the original error. Mirrors the rollback path in updateBot.
+      try {
+        const rollback = await this.docker.createContainer(createOpts);
+        await rollback.start();
+        await this.attachNetwork(rollback.id);
+      } catch {
+        // Nothing we can do — the caller's error is more useful than ours.
+      }
+      throw err;
+    }
   }
 
   /** Remove a tenant container by name. */

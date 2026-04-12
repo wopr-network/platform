@@ -108,8 +108,9 @@ export class Fleet implements IFleet {
   async roll(id: string): Promise<void> {
     const located = await this.locator.locate(id);
     if (!located) {
-      logger.warn("Fleet.roll: no owning node for instance", { id });
-      return;
+      // Fail loudly — reporting success for a no-op roll would let operators
+      // think a fleet-wide rollout succeeded when nothing actually ran.
+      throw new Error(`Fleet.roll: no owning node for instance ${id}`);
     }
     const name = containerNameFor({ id, productSlug: located.productSlug });
     await this.queue.execute({

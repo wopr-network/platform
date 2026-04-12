@@ -155,7 +155,18 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
               // current tag. Needed after a rebuild of e.g. paperclip:managed
               // so running user containers actually run the new code instead
               // of staying pinned to their original image id.
-              await fleet.roll(input.id);
+              try {
+                await fleet.roll(input.id);
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                if (msg.includes("no owning node")) {
+                  throw new TRPCError({
+                    code: "NOT_FOUND",
+                    message: `Instance ${input.id} has no owning node — cannot roll.`,
+                  });
+                }
+                throw err;
+              }
               break;
             }
             case "destroy": {
