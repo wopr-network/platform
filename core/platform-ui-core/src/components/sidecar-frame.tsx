@@ -22,10 +22,6 @@ export function SidecarFrame() {
     return () => setIframeRef(null);
   }, [setIframeRef]);
 
-  // Don't send initial navigate — the sidecar handles its own root redirect
-  // to /{companyPrefix}/dashboard. Navigation commands are only for subsequent
-  // sidebar clicks after the sidecar is already loaded.
-
   // Handle browser back/forward
   useEffect(() => {
     function onPopState() {

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import { fromSidecarPath } from "@/lib/sidecar-routes";
+import { fromSidecarPath, getRouteType } from "@/lib/sidecar-routes";
 
 // Types matching the sidecar's postMessage protocol
 
@@ -93,9 +93,17 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
       if (!data || typeof data.type !== "string") return;
 
       switch (data.type) {
-        case "ready":
+        case "ready": {
           setReady(true);
+          // Forward the shell's current deep path into the sidecar on first
+          // load. Without this, a refresh/bookmark of /issues/IRA-10 would
+          // show the sidecar's default /{company}/dashboard.
+          const initialPath = window.location.pathname + window.location.search;
+          if (getRouteType(window.location.pathname) === "iframe") {
+            postToSidecar({ type: "navigate", path: initialPath });
+          }
           break;
+        }
         case "routeChanged": {
           const platformPath = fromSidecarPath(data.path);
           setCurrentSidecarPath(platformPath);
@@ -120,7 +128,7 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [postToSidecar]);
 
   return (
     <SidecarBridgeContext.Provider
