@@ -59,6 +59,7 @@ export function useSidecarBridge() {
 
 export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const initialForwardSentRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [sidebarData, setSidebarData] = useState<SidecarSidebarData | null>(null);
   const [currentSidecarPath, setCurrentSidecarPath] = useState<string | null>(null);
@@ -97,10 +98,15 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
           setReady(true);
           // Forward the shell's current deep path into the sidecar on first
           // load. Without this, a refresh/bookmark of /issues/IRA-10 would
-          // show the sidecar's default /{company}/dashboard.
-          const initialPath = window.location.pathname + window.location.search;
-          if (getRouteType(window.location.pathname) === "iframe") {
-            postToSidecar({ type: "navigate", path: initialPath });
+          // show the sidecar's default /{company}/dashboard. Guarded so
+          // that an iframe reload (which re-fires `ready`) doesn't re-send
+          // whatever pathname happens to be current at reload time.
+          if (!initialForwardSentRef.current) {
+            initialForwardSentRef.current = true;
+            const initialPath = window.location.pathname + window.location.search;
+            if (getRouteType(window.location.pathname) === "iframe") {
+              postToSidecar({ type: "navigate", path: initialPath });
+            }
           }
           break;
         }
