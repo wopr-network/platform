@@ -15,6 +15,7 @@ const IFRAME_PREFIXES = [
   "/company",
   "/approvals",
   "/activity",
+  "/costs",
   "/execution-workspaces",
   "/plugins",
 ] as const;

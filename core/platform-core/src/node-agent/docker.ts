@@ -322,6 +322,22 @@ export class DockerManager {
     // set. Without this a replacement could come up unreachable even though
     // the original was routable.
     const networkNames = Object.keys(info.NetworkSettings?.Networks ?? {});
+    // Capture every mount so stateful containers don't lose their data on
+    // roll. Named + anonymous volumes translate to --mount source=<vol>,
+    // bind mounts translate to --mount type=bind,source=<host path>. For
+    // anonymous volumes created via VOLUME directive, reusing the volume
+    // name keeps the existing contents attached to the new container.
+    const mounts: Docker.MountSettings[] = (info.Mounts ?? [])
+      .map((m): Docker.MountSettings | null => {
+        if (m.Type === "bind" && m.Source) {
+          return { Type: "bind", Source: m.Source, Target: m.Destination, ReadOnly: m.RW === false };
+        }
+        if (m.Name) {
+          return { Type: "volume", Source: m.Name, Target: m.Destination, ReadOnly: m.RW === false };
+        }
+        return null;
+      })
+      .filter((m): m is Docker.MountSettings => m !== null);
 
     // Pull the (potentially refreshed) image before recreating so the new
     // container actually uses the latest digest for this tag.
@@ -344,13 +360,16 @@ export class DockerManager {
     }
     await container.remove();
 
-    const createOpts = {
+    const createOpts: Docker.ContainerCreateOptions = {
       Image: image,
       name,
       Env: env,
       Labels: { "wopr.managed": "true" },
-      HostConfig: { RestartPolicy: { Name: restartPolicy } },
-    } as const;
+      HostConfig: {
+        RestartPolicy: { Name: restartPolicy },
+        Mounts: mounts,
+      },
+    };
 
     try {
       const newContainer = await this.docker.createContainer(createOpts);
