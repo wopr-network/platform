@@ -180,11 +180,12 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
               // Mark the DB row as destroyed so listByTenant filters it out.
               // Without this, the shell's hasInstance check stays true and
               // the user never lands on the CEO onboarding after Reset.
-              try {
-                await d.botInstanceRepo.markDestroyed(input.id);
-              } catch (err) {
-                logger.warn(`markDestroyed failed for ${input.id}`, { err });
-              }
+              //
+              // Intentionally NOT swallowed — unlike fleet.remove (where the
+              // container may already be gone), markDestroyed *must* succeed
+              // for Reset to actually reset. Surfacing the error lets the UI
+              // show a real failure instead of a misleading success.
+              await d.botInstanceRepo.markDestroyed(input.id);
               break;
             }
           }
