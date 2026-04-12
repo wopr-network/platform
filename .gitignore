@@ -15,4 +15,5 @@ opencode.json
 services/*/src/**/*.js
 services/*/src/**/*.d.ts
 .claude/worktrees/
+.worktrees/
 out/
