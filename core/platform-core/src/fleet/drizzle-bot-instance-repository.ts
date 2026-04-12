@@ -19,7 +19,10 @@ export class DrizzleBotInstanceRepository implements IBotInstanceRepository {
   }
 
   async listByTenant(tenantId: string): Promise<BotInstance[]> {
-    const rows = await this.db.select().from(botInstances).where(eq(botInstances.tenantId, tenantId));
+    const rows = await this.db
+      .select()
+      .from(botInstances)
+      .where(and(eq(botInstances.tenantId, tenantId), sql`${botInstances.billingState} IS DISTINCT FROM 'destroyed'`));
     return rows.map(toInstance);
   }
 
@@ -37,7 +40,12 @@ export class DrizzleBotInstanceRepository implements IBotInstanceRepository {
     const rows = await this.db
       .select()
       .from(botInstances)
-      .where(or(eq(botInstances.tenantId, userId), inArray(botInstances.tenantId, userOrgs)));
+      .where(
+        and(
+          or(eq(botInstances.tenantId, userId), inArray(botInstances.tenantId, userOrgs)),
+          sql`${botInstances.billingState} IS DISTINCT FROM 'destroyed'`,
+        ),
+      );
     return rows.map(toInstance);
   }
 

@@ -101,6 +101,11 @@ export function buildAgentOperationHandlers(deps: AgentOperationDeps): Map<strin
     return await dockerManager.removeBot(String(p.name));
   });
 
+  handlers.set("bot.roll", async (payload) => {
+    const p = asRecord(payload);
+    return await dockerManager.rollBot(String(p.name));
+  });
+
   handlers.set("bot.logs", async (payload) => {
     const p = asRecord(payload);
     return await dockerManager.getLogs(String(p.name), p.tail ? Number.parseInt(String(p.tail), 10) : 100);

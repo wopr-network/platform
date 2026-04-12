@@ -123,6 +123,17 @@ export interface IFleet {
    */
   remove(id: string, opts?: { removeVolumes?: boolean; nodeId?: string }): Promise<void>;
 
+  /**
+   * Roll the instance's container to the latest image digest.
+   *
+   * Looks up the owning node, then enqueues `bot.roll` pinned to that agent.
+   * The agent inspects the running container, pulls the image (refreshes the
+   * tag), and recreates the container with the same name + env + restart
+   * policy. Same image tag — this is for picking up a rebuilt `:managed`
+   * image, not for switching to a different tag.
+   */
+  roll(id: string): Promise<void>;
+
   /** Get an Instance handle by ID. Backed by `bot_instances`. */
   getInstance(id: string): Promise<Instance>;
 

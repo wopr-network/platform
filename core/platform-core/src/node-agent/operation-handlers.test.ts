@@ -28,6 +28,7 @@ const EXPECTED_COMMANDS = [
   "bot.export",
   "bot.import",
   "bot.remove",
+  "bot.roll",
   "bot.logs",
   "bot.inspect",
   "backup.upload",

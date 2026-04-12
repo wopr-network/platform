@@ -103,8 +103,15 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
           // whatever pathname happens to be current at reload time.
           if (!initialForwardSentRef.current) {
             initialForwardSentRef.current = true;
-            const initialPath = window.location.pathname + window.location.search;
-            if (getRouteType(window.location.pathname) === "iframe") {
+            const pathname = window.location.pathname;
+            const initialPath = pathname + window.location.search;
+            // Skip /dashboard — the sidecar's own root redirect sends the
+            // user to /{company}/dashboard with the correct company. Posting
+            // navigate("/dashboard") would make the sidecar's react-router
+            // match :companyPrefix="dashboard" and fall back to
+            // "Company not found" on sidecar versions that lack an
+            // UnprefixedBoardRedirect for this path.
+            if (getRouteType(pathname) === "iframe" && pathname !== "/dashboard") {
               postToSidecar({ type: "navigate", path: initialPath });
             }
           }

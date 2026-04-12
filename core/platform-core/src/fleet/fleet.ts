@@ -105,6 +105,20 @@ export class Fleet implements IFleet {
     });
   }
 
+  async roll(id: string): Promise<void> {
+    const located = await this.locator.locate(id);
+    if (!located) {
+      logger.warn("Fleet.roll: no owning node for instance", { id });
+      return;
+    }
+    const name = containerNameFor({ id, productSlug: located.productSlug });
+    await this.queue.execute({
+      type: "bot.roll",
+      target: located.nodeId,
+      payload: { id, name },
+    });
+  }
+
   async remove(id: string, opts?: { removeVolumes?: boolean; nodeId?: string; productSlug?: string }): Promise<void> {
     // Lifecycle op — must run on the node that owns the container. If the
     // caller passed an explicit nodeId+productSlug (saga rollback path,

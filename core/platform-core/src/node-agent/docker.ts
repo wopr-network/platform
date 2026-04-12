@@ -298,6 +298,59 @@ export class DockerManager {
     return { containerId };
   }
 
+  /**
+   * Roll a running tenant container to the latest image.
+   *
+   * Inspects the existing container to capture its image tag, env, and
+   * restart policy, pulls the image (refreshes the tag to the newest digest
+   * in the registry), then stop+remove+recreate. Useful when a rebuilt
+   * :managed image has been pushed and running user containers need to pick
+   * it up without manual docker pokes.
+   *
+   * No image-tag change: this rolls the exact same tag the container was
+   * created with. Use startBot for a brand new container with a different
+   * image.
+   */
+  async rollBot(name: string): Promise<{ containerId: string; image: string }> {
+    const container = this.docker.getContainer(name);
+    const info = await container.inspect();
+    const image = info.Config.Image;
+    const env = info.Config.Env ?? [];
+    const restartPolicy = info.HostConfig?.RestartPolicy?.Name ?? "unless-stopped";
+
+    // Pull the (potentially refreshed) image before recreating so the new
+    // container actually uses the latest digest for this tag.
+    const stream = await this.docker.pull(image, this.pullOpts());
+    await new Promise<void>((resolve, reject) => {
+      this.docker.modem.followProgress(stream, (err: Error | null) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+
+    try {
+      await container.stop();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("container already stopped")) throw err;
+    }
+    await container.remove();
+
+    const newContainer = await this.docker.createContainer({
+      Image: image,
+      name,
+      Env: env,
+      Labels: { "wopr.managed": "true" },
+      HostConfig: {
+        RestartPolicy: { Name: restartPolicy },
+      },
+    });
+
+    await newContainer.start();
+    await this.attachNetwork(newContainer.id);
+    return { containerId: newContainer.id, image };
+  }
+
   /** Remove a tenant container by name. */
   async removeBot(name: string): Promise<void> {
     const container = this.docker.getContainer(name);

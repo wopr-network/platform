@@ -451,7 +451,10 @@ export async function listChannels(botId: string): Promise<ChannelInfo[]> {
   return fleetFetch<ChannelInfo[]>(`/bots/${botId}/channels`);
 }
 
-export async function controlInstance(id: string, action: "start" | "stop" | "restart" | "destroy"): Promise<void> {
+export async function controlInstance(
+  id: string,
+  action: "start" | "stop" | "restart" | "destroy" | "roll",
+): Promise<void> {
   await trpcVanilla.fleet.controlInstance.mutate({ id, action });
 }
 
