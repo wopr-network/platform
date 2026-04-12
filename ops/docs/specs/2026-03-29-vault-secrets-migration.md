@@ -2,7 +2,6 @@
 
 **Date:** 2026-03-29
 **Status:** COMPLETE (all 4 products live)
-**See also:** [`2026-04-12-vault-human-daily-driver.md`](./2026-04-12-vault-human-daily-driver.md) — human/operator AppRole + local vault-agent proxy (this spec covers service AppRoles only)
 **Trigger:** Postmark token leaked via committed .env.production in public wopr-ops repo. 10K phishing emails sent. Full credential compromise across all products.
 
 ## Architecture
