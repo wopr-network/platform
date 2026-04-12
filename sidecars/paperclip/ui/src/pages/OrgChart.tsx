@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { agentUrl } from "../lib/utils";
 import { Button } from "@/components/ui/button";
@@ -131,6 +132,7 @@ const defaultDotColor = "#a3a3a3";
 // ── Main component ──────────────────────────────────────────────────────
 
 export function OrgChart() {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const navigate = useNavigate();
@@ -270,6 +272,7 @@ export function OrgChart() {
 
   return (
     <div className="flex flex-col h-full">
+      {!isHosted && (
       <div className="mb-2 flex items-center justify-start gap-2 shrink-0">
         <Link to="/company/import">
           <Button variant="outline" size="sm">
@@ -284,6 +287,7 @@ export function OrgChart() {
           </Button>
         </Link>
       </div>
+      )}
       <div
         ref={containerRef}
         className="w-full flex-1 min-h-0 overflow-hidden relative bg-muted/20 border border-border rounded-lg"
