@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Agent, AdapterEnvironmentTestResult, CompanySecret, EnvBinding } from "@paperclipai/shared";
 import type { AdapterModel } from "../api/agents";
 import { agentsApi } from "../api/agents";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { secretsApi } from "../api/secrets";
 import { assetsApi } from "../api/assets";
 import {
@@ -170,6 +171,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const hideInstructionsFile = props.hideInstructionsFile ?? false;
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
+  const { isHosted } = useHostedMode();
 
   // Sync disabled adapter types from server so dropdown filters them out
   const disabledTypes = useDisabledAdaptersSync();
@@ -552,7 +554,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
           ) : (
             <span className="text-xs font-medium text-muted-foreground">Adapter</span>
           )}
-          {showAdapterTestEnvironmentButton && (
+          {showAdapterTestEnvironmentButton && !isHosted && (
             <Button
               type="button"
               variant="outline"
@@ -785,6 +787,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               />
             </Field>
 
+            {!isHosted && (
             <Field label="Environment variables" hint={help.envVars}>
               <EnvVarEditor
                 value={
@@ -802,9 +805,10 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 }
               />
             </Field>
+            )}
 
             {/* Edit-only: timeout + grace period */}
-            {!isCreate && (
+            {!isCreate && !isHosted && (
               <>
                 <Field label="Timeout (sec)" hint={help.timeoutSec}>
                   <DraftNumberInput

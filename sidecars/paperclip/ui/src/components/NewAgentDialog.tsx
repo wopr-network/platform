@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { agentsApi } from "../api/agents";
 import { adaptersApi } from "../api/adapters";
 import { queryKeys } from "@/lib/queryKeys";
@@ -25,11 +26,14 @@ function isAgentAdapterType(type: string): boolean {
 }
 
 export function NewAgentDialog() {
+  const { isHosted } = useHostedMode();
   const { newAgentOpen, closeNewAgent, openNewIssue } = useDialog();
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
   const [showAdvancedCards, setShowAdvancedCards] = useState(false);
   const disabledTypes = useDisabledAdaptersSync();
+
+  if (isHosted) return null;
 
   // Fetch registered adapters from server (syncs disabled store + provides data)
   const { data: serverAdapters } = useQuery({

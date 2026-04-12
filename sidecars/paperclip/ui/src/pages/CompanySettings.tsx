@@ -5,6 +5,7 @@ import { DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION } from "@paperclipai/shared
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToast } from "../context/ToastContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
 import { assetsApi } from "../api/assets";
@@ -23,6 +24,7 @@ type AgentSnippetInput = {
 const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
 
 export function CompanySettings() {
+  const { isHosted } = useHostedMode();
   const { companies, selectedCompany, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
@@ -408,6 +410,7 @@ export function CompanySettings() {
       </div>
 
       {/* Invites */}
+      {!isHosted && (
       <div className="space-y-4" data-testid="company-settings-invites-section">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Invites</div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
@@ -474,8 +477,10 @@ export function CompanySettings() {
           )}
         </div>
       </div>
+      )}
 
       {/* Import / Export */}
+      {!isHosted && (
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Company Packages</div>
         <div className="rounded-md border border-border px-4 py-4">
@@ -502,8 +507,10 @@ export function CompanySettings() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Danger Zone */}
+      {!isHosted && (
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">Danger Zone</div>
         <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
@@ -544,6 +551,7 @@ export function CompanySettings() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

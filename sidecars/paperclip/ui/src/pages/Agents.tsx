@@ -7,6 +7,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "../components/StatusBadge";
 import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
@@ -54,6 +55,7 @@ function filterOrgTree(nodes: OrgNode[], tab: FilterTab, showTerminated: boolean
 }
 
 export function Agents() {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const { openNewAgent } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -203,10 +205,12 @@ export function Agents() {
               </button>
             </div>
           )}
-          <Button size="sm" variant="outline" onClick={openNewAgent}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Agent
-          </Button>
+          {!isHosted && (
+            <Button size="sm" variant="outline" onClick={openNewAgent}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New Agent
+            </Button>
+          )}
         </div>
       </div>
 
@@ -222,8 +226,8 @@ export function Agents() {
         <EmptyState
           icon={Bot}
           message="Create your first agent to get started."
-          action="New Agent"
-          onAction={openNewAgent}
+          action={!isHosted ? "New Agent" : undefined}
+          onAction={!isHosted ? openNewAgent : undefined}
         />
       )}
 

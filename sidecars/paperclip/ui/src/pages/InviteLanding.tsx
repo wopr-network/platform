@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@/lib/router";
+import { Link, useParams, Navigate } from "@/lib/router";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
@@ -37,6 +38,9 @@ function readNestedString(value: unknown, path: string[]): string | null {
 }
 
 export function InviteLandingPage() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/" replace />;
+
   const queryClient = useQueryClient();
   const params = useParams();
   const token = (params.token ?? "").trim();
