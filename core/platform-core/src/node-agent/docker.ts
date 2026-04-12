@@ -36,6 +36,26 @@ export interface DockerManagerOptions {
 }
 
 /**
+ * Convert the raw `.Mounts` from docker inspect into the
+ * `HostConfig.Mounts` shape accepted by createContainer. Preserves both
+ * bind mounts (Source = host path) and named/anonymous volumes
+ * (Source = volume name). Skips entries that lack the info we need.
+ */
+function snapshotMounts(raw: Docker.ContainerInspectInfo["Mounts"] | undefined): Docker.MountSettings[] {
+  return (raw ?? [])
+    .map((m): Docker.MountSettings | null => {
+      if (m.Type === "bind" && m.Source) {
+        return { Type: "bind", Source: m.Source, Target: m.Destination, ReadOnly: m.RW === false };
+      }
+      if (m.Name) {
+        return { Type: "volume", Source: m.Name, Target: m.Destination, ReadOnly: m.RW === false };
+      }
+      return null;
+    })
+    .filter((m): m is Docker.MountSettings => m !== null);
+}
+
+/**
  * Thin wrapper around Dockerode that exposes only the operations the node
  * agent needs. Uses the Docker SDK exclusively -- no child_process.exec.
  */
@@ -164,19 +184,34 @@ export class DockerManager {
 
     const image = info.Config.Image;
     const restartPolicy = info.HostConfig?.RestartPolicy?.Name ?? "unless-stopped";
+    const networkNames = Object.keys(info.NetworkSettings?.Networks ?? {});
+    const mounts = snapshotMounts(info.Mounts);
 
     // Stop and remove old container
     try {
       await container.stop();
     } catch (err) {
-      // Docker 304: container already stopped — not an error
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes("container already stopped")) throw err;
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      if (statusCode !== 304) throw err;
     }
     await container.remove();
 
-    // Recreate with new env
-    return this.startBot({ name, image, env, restart: restartPolicy });
+    // Recreate preserving mounts + networks so stateful containers keep
+    // their data and overlay membership across env updates.
+    const envArr = Object.entries(env).map(([k, v]) => `${k}=${v}`);
+    const newContainer = await this.docker.createContainer({
+      Image: image,
+      name,
+      Env: envArr,
+      Labels: { "wopr.managed": "true" },
+      HostConfig: {
+        RestartPolicy: { Name: restartPolicy },
+        Mounts: mounts,
+      },
+    });
+    await newContainer.start();
+    await this.reattachNetworks(newContainer.id, networkNames);
+    return newContainer.id;
   }
 
   /**
@@ -194,21 +229,27 @@ export class DockerManager {
     const image = info.Config.Image;
     const oldEnv = info.Config.Env ?? [];
     const restartPolicy = info.HostConfig?.RestartPolicy?.Name ?? "unless-stopped";
+    const networkNames = Object.keys(info.NetworkSettings?.Networks ?? {});
+    const mounts = snapshotMounts(info.Mounts);
 
     // Stop the old container (ignore error if already stopped)
     try {
       await container.stop();
     } catch (err) {
-      // Docker 304: container already stopped — not an error
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes("container already stopped")) throw err;
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      if (statusCode !== 304) throw err;
     }
 
     // Remove the old container
     await container.remove();
 
-    // Create new container with updated env
+    // Create new container with updated env — preserve mounts + networks
+    // so stateful containers keep their data and overlay membership.
     const envArr = Object.entries(payload.env).map(([k, v]) => `${k}=${v}`);
+    const hostConfig: Docker.HostConfig = {
+      RestartPolicy: { Name: restartPolicy },
+      Mounts: mounts,
+    };
 
     try {
       const newContainer = await this.docker.createContainer({
@@ -216,26 +257,24 @@ export class DockerManager {
         name,
         Env: envArr,
         Labels: { "wopr.managed": "true" },
-        HostConfig: {
-          RestartPolicy: { Name: restartPolicy },
-        },
+        HostConfig: hostConfig,
       });
 
       await newContainer.start();
+      await this.reattachNetworks(newContainer.id, networkNames);
       return { containerId: newContainer.id };
     } catch (err) {
-      // Rollback: recreate old container with original env and start it
+      // Rollback: recreate old container with original env + mounts + nets
       try {
         const rollback = await this.docker.createContainer({
           Image: image,
           name,
           Env: oldEnv,
           Labels: { "wopr.managed": "true" },
-          HostConfig: {
-            RestartPolicy: { Name: restartPolicy },
-          },
+          HostConfig: hostConfig,
         });
         await rollback.start();
+        await this.reattachNetworks(rollback.id, networkNames);
       } catch {
         // Rollback failed — container is gone. Caller handles.
       }
@@ -327,17 +366,7 @@ export class DockerManager {
     // bind mounts translate to --mount type=bind,source=<host path>. For
     // anonymous volumes created via VOLUME directive, reusing the volume
     // name keeps the existing contents attached to the new container.
-    const mounts: Docker.MountSettings[] = (info.Mounts ?? [])
-      .map((m): Docker.MountSettings | null => {
-        if (m.Type === "bind" && m.Source) {
-          return { Type: "bind", Source: m.Source, Target: m.Destination, ReadOnly: m.RW === false };
-        }
-        if (m.Name) {
-          return { Type: "volume", Source: m.Name, Target: m.Destination, ReadOnly: m.RW === false };
-        }
-        return null;
-      })
-      .filter((m): m is Docker.MountSettings => m !== null);
+    const mounts = snapshotMounts(info.Mounts);
 
     // Pull the (potentially refreshed) image before recreating so the new
     // container actually uses the latest digest for this tag.
@@ -377,20 +406,7 @@ export class DockerManager {
       // Reattach every network the original container was on. If no networks
       // were recorded (old container had been manually disconnected) fall
       // back to the agent default.
-      if (networkNames.length === 0) {
-        await this.attachNetwork(newContainer.id);
-      } else {
-        for (const networkName of networkNames) {
-          try {
-            await this.docker.getNetwork(networkName).connect({ Container: newContainer.id });
-          } catch (err) {
-            // Default bridge / host networks are auto-connected by Docker
-            // at start — reconnect is a no-op 403 in that case.
-            const statusCode = (err as { statusCode?: number })?.statusCode;
-            if (statusCode !== 403) throw err;
-          }
-        }
-      }
+      await this.reattachNetworks(newContainer.id, networkNames);
       return { containerId: newContainer.id, image };
     } catch (err) {
       // Recreate attempt failed AFTER we removed the old container — try to
@@ -399,11 +415,35 @@ export class DockerManager {
       try {
         const rollback = await this.docker.createContainer(createOpts);
         await rollback.start();
-        await this.attachNetwork(rollback.id);
+        // Reapply the full network set — not just defaultNetwork — otherwise
+        // the recovered container is alive but unreachable from core.
+        await this.reattachNetworks(rollback.id, networkNames);
       } catch {
         // Nothing we can do — the caller's error is more useful than ours.
       }
       throw err;
+    }
+  }
+
+  /**
+   * Reconnect a freshly-created container to the same set of networks an
+   * earlier container was attached to. If the captured list is empty, fall
+   * back to the agent's default network.
+   */
+  private async reattachNetworks(containerId: string, networkNames: string[]): Promise<void> {
+    if (networkNames.length === 0) {
+      await this.attachNetwork(containerId);
+      return;
+    }
+    for (const networkName of networkNames) {
+      try {
+        await this.docker.getNetwork(networkName).connect({ Container: containerId });
+      } catch (err) {
+        // Default bridge / host networks are auto-connected by Docker
+        // at start — reconnect is a no-op 403 in that case.
+        const statusCode = (err as { statusCode?: number })?.statusCode;
+        if (statusCode !== 403) throw err;
+      }
     }
   }
 
