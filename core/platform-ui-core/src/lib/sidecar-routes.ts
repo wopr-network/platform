@@ -2,7 +2,7 @@
 
 export type RouteType = "iframe" | "native";
 
-const IFRAME_PREFIXES = [
+export const IFRAME_PREFIXES = [
   "/dashboard",
   "/inbox",
   "/issues",
@@ -15,6 +15,7 @@ const IFRAME_PREFIXES = [
   "/company",
   "/approvals",
   "/activity",
+  "/costs",
   "/execution-workspaces",
   "/plugins",
 ] as const;
