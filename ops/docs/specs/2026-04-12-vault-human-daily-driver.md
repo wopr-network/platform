@@ -87,18 +87,26 @@ NEW=$(vault write -force -field=secret_id auth/approle/role/tsavo-admin/secret-i
 security add-generic-password -a tsavo -s vault-approle-secret-id -w "$NEW" -U
 vault-reauth   # helper in ~/.zshrc — re-syncs files from Keychain + kickstarts launchd
 
-# 2b. battleaxe — write file, restart systemd user unit
-ssh battleaxe "echo -n '$NEW' > ~/.config/vault-agent/secret-id && chmod 600 ~/.config/vault-agent/secret-id && systemctl --user restart vault-agent.service"
+# 2b. battleaxe — write file via stdin (safer than arg interpolation if $NEW
+#     ever contains an unexpected character), restart systemd user unit
+printf '%s' "$NEW" | ssh battleaxe 'cat > ~/.config/vault-agent/secret-id && chmod 600 ~/.config/vault-agent/secret-id && systemctl --user restart vault-agent.service'
 
-# 3. Find the old accessor
+# 3. VERIFY the new secret_id is live on each host before destroying anything.
+#    If the agent failed to re-auth (keychain sync lag, bad write, policy drift),
+#    destroying the old accessor now = lockout + break-glass recovery.
+vault token lookup                                     # Mac: should succeed via proxy
+tail -n 20 ~/Library/Logs/vault-agent/agent.log        # expect "Successfully authenticated" near the end
+ssh battleaxe 'journalctl --user -u vault-agent.service -n 20 --no-pager'   # battleaxe equivalent
+
+# 4. Find the old accessor
 vault list auth/approle/role/tsavo-admin/secret-id
 # Use `vault write auth/approle/role/tsavo-admin/secret-id-accessor/lookup secret_id_accessor=<acc>`
 # to inspect creation_time and identify which is old
 
-# 4. DESTROY the old one (this is the step you'll want to forget)
+# 5. DESTROY the old one (this is the step you'll want to forget)
 vault write auth/approle/role/tsavo-admin/secret-id-accessor/destroy secret_id_accessor=<old-accessor>
 
-# 5. Re-encrypt the gpg backup in Drive with current secret_ids
+# 6. Re-encrypt the gpg backup in Drive with current secret_ids
 # local-secrets/2026-04-12-tsavo-admin-approle.txt.gpg
 ```
 
