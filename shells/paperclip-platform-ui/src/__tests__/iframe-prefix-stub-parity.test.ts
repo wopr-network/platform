@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -12,7 +13,14 @@ import { describe, expect, it } from "vitest";
  * this prefix is also valid. We verify by checking that *some* page.tsx
  * exists under the prefix directory.
  */
-const DASHBOARD_DIR = resolve(__dirname, "../app/(dashboard)");
+// import.meta.url in vitest can be "/abs/path/file.ts" (no file:// scheme),
+// which fileURLToPath rejects. Handle both shapes.
+function currentDir(): string {
+  const u = import.meta.url;
+  const path = u.startsWith("file://") ? fileURLToPath(u) : u;
+  return resolve(path, "..");
+}
+const DASHBOARD_DIR = resolve(currentDir(), "../app/(dashboard)");
 
 async function loadIframePrefixes(): Promise<readonly string[]> {
   const mod = await import("@core/lib/sidecar-routes");
