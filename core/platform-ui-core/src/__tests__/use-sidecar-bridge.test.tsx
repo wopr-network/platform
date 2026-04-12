@@ -91,7 +91,7 @@ describe("SidecarBridgeProvider — initial deep-link forwarding", () => {
     );
   });
 
-  it("forwards /dashboard on ready (pins post-PR behavior)", () => {
+  it("does NOT forward /dashboard — sidecar's own root redirect handles it", () => {
     window.history.replaceState(null, "", "/dashboard");
     const { iframe, postMessage } = makeIframeWithSpy();
 
@@ -103,7 +103,7 @@ describe("SidecarBridgeProvider — initial deep-link forwarding", () => {
 
     fireReady();
 
-    expect(postMessage).toHaveBeenCalledWith({ type: "navigate", path: "/dashboard" }, window.location.origin);
+    expect(postMessage).not.toHaveBeenCalled();
   });
 
   it("ignores subsequent ready re-fires (iframe reload) to avoid clobbering the sidecar path", () => {

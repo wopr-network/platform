@@ -117,7 +117,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
       .input(
         z.object({
           id: z.string().min(1),
-          action: z.enum(["start", "stop", "restart", "destroy"]),
+          action: z.enum(["start", "stop", "restart", "destroy", "roll"]),
           orgId: z.string().min(1).optional(),
         }),
       )
@@ -126,7 +126,7 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
           input,
           ctx,
         }: {
-          input: { id: string; action: "start" | "stop" | "restart" | "destroy"; orgId?: string };
+          input: { id: string; action: "start" | "stop" | "restart" | "destroy" | "roll"; orgId?: string };
           ctx: ProtectedCtx;
         }) => {
           const tenant = input.orgId ?? tenantFromCtx(ctx);
@@ -150,6 +150,25 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
               await instance.start();
               break;
             }
+            case "roll": {
+              // Roll the container to pick up the latest image digest for its
+              // current tag. Needed after a rebuild of e.g. paperclip:managed
+              // so running user containers actually run the new code instead
+              // of staying pinned to their original image id.
+              try {
+                await fleet.roll(input.id);
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                if (msg.includes("no owning node")) {
+                  throw new TRPCError({
+                    code: "NOT_FOUND",
+                    message: `Instance ${input.id} has no owning node — cannot roll.`,
+                  });
+                }
+                throw err;
+              }
+              break;
+            }
             case "destroy": {
               if (d.serviceKeyRepo) await d.serviceKeyRepo.revokeByInstance(input.id);
               try {
@@ -158,6 +177,15 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
                 logger.warn(`Fleet remove failed for ${input.id}`, { err });
               }
               await d.removeRoute?.(input.id);
+              // Mark the DB row as destroyed so listByTenant filters it out.
+              // Without this, the shell's hasInstance check stays true and
+              // the user never lands on the CEO onboarding after Reset.
+              //
+              // Intentionally NOT swallowed — unlike fleet.remove (where the
+              // container may already be gone), markDestroyed *must* succeed
+              // for Reset to actually reset. Surfacing the error lets the UI
+              // show a real failure instead of a misleading success.
+              await d.botInstanceRepo.markDestroyed(input.id);
               break;
             }
           }
