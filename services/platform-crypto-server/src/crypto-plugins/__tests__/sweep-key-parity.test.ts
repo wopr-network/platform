@@ -339,6 +339,18 @@ describe("sweep key parity -- mnemonic private key controls derived address", ()
       expect(tonEncoder.encode(publicKey, {})).toBe("UQAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-RKY");
     });
 
+    it("testnet variant: same pubkey encodes to a distinct testnet-marked address", () => {
+      // Testnet addresses set the high bit in the tag byte, flipping the
+      // first char (UQ → 0Q for non-bounceable) and changing the CRC.
+      // Same hash, same workchain, only the user-facing format differs.
+      // Lock the value so a drift in testnet encoding fails loudly.
+      const derived = slip0010DerivePath(TEST_SEED, [44, 607, 0]);
+      const publicKey = ed25519.getPublicKey(derived.privateKey);
+      expect(tonEncoder.encode(publicKey, { testnet: true })).toBe(
+        "0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS",
+      );
+    });
+
     it("same seed always produces same address (deterministic)", () => {
       const d1 = slip0010DerivePath(TEST_SEED, [44, 607, 0]);
       const addr1 = tonEncoder.encode(ed25519.getPublicKey(d1.privateKey), {});

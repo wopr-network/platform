@@ -434,19 +434,24 @@ function base64urlEncode(bytes: Uint8Array): string {
  * User-friendly format (36 bytes):
  *   [tag:1][workchain:1][hash:32][crc16:2]
  *
- * Tag: 0x11 = bounceable, 0x51 = non-bounceable
+ * Tag base: 0x11 = bounceable, 0x51 = non-bounceable
+ * Testnet flag: OR 0x80 into the tag → 0x91 bounceable testnet, 0xD1 non-bounceable testnet
  * Workchain: 0x00 = basechain, 0xff = masterchain
  *
+ * Testnet addresses start with 0Q/kQ (non-bounceable / bounceable) instead of UQ/EQ.
+ *
  * @param hash - 32-byte address hash (sha256 of StateInit cell)
- * @param bounceable - true for bounceable (0x11), false for non-bounceable (0x51)
+ * @param bounceable - true for bounceable (0x11/0x91), false for non-bounceable (0x51/0xD1)
  * @param workchain - 0 for basechain (default)
+ * @param testnet - true for testnet variant (sets high bit in tag)
  */
-export function encodeTonAddress(hash: Uint8Array, bounceable = false, workchain = 0): string {
+export function encodeTonAddress(hash: Uint8Array, bounceable = false, workchain = 0, testnet = false): string {
   if (hash.length !== 32) {
     throw new Error(`TON address requires 32-byte hash, got ${hash.length} bytes`);
   }
 
-  const tag = bounceable ? 0x11 : 0x51;
+  let tag = bounceable ? 0x11 : 0x51;
+  if (testnet) tag |= 0x80;
   const wc = workchain === -1 ? 0xff : workchain & 0xff;
 
   // Build 34-byte payload: tag + workchain + hash
@@ -476,12 +481,15 @@ export function encodeTonAddress(hash: Uint8Array, bounceable = false, workchain
  * against the canonical implementation in ton-org/ton.
  */
 export class TonAddressEncoder implements IAddressEncoder {
-  encode(publicKey: Uint8Array, _params: EncodingParams): string {
+  encode(publicKey: Uint8Array, params: EncodingParams): string {
     if (publicKey.length !== 32) {
       throw new Error(`TON encoder requires 32-byte Ed25519 public key, got ${publicKey.length} bytes`);
     }
     const hash = deriveWalletV4R2Hash(publicKey, 0);
-    return encodeTonAddress(hash, false, 0);
+    // params.testnet is opt-in; mainnet remains the default to avoid any risk
+    // of accidentally generating testnet addresses for the production pool.
+    const testnet = (params as { testnet?: boolean }).testnet === true;
+    return encodeTonAddress(hash, false, 0, testnet);
   }
 
   encodingType(): string {

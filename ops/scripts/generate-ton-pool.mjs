@@ -33,6 +33,10 @@ if (!MNEMONIC) {
 
 const COUNT = Number(process.argv.find((a) => a.startsWith("--count="))?.split("=")[1] ?? 1000);
 const DRY_RUN = process.argv.includes("--dry-run");
+const TESTNET = process.argv.includes("--testnet");
+const KEY_RING_ID =
+  process.argv.find((a) => a.startsWith("--key-ring-id="))?.split("=")[1] ??
+  (TESTNET ? "ton-testnet-main" : "ton-main");
 const SERVER = process.argv.find((a) => a.startsWith("--server="))?.split("=")[1] ?? "http://167.71.118.221:3100";
 const ADMIN_TOKEN =
   process.argv.find((a) => a.startsWith("--admin-token="))?.split("=")[1] ?? process.env.ADMIN_TOKEN ?? "ks-admin-2026";
@@ -91,7 +95,8 @@ async function main() {
     // m/44'/607'/{i}' — each account is a separate hardened derivation
     const privateKey = deriveEd25519Path(seed, [44, 607, i]);
     const publicKey = ed25519.getPublicKey(privateKey);
-    const address = tonEncoder.encode(publicKey, {});
+    // Pass `testnet: true` for testnet variant; mainnet remains the default.
+    const address = tonEncoder.encode(publicKey, TESTNET ? { testnet: true } : {});
 
     addresses.push({
       index: i,
@@ -124,7 +129,7 @@ async function main() {
       Authorization: `Bearer ${ADMIN_TOKEN}`,
     },
     body: JSON.stringify({
-      key_ring_id: "ton-main",
+      key_ring_id: KEY_RING_ID,
       plugin_id: "ton",
       encoding: "ton-base64url",
       addresses,
