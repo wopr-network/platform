@@ -117,6 +117,9 @@ describe("SolanaWatcher", () => {
     expect(events[0].chain).toBe("solana");
     expect(events[0].token).toBe("SOL");
     expect(events[0].blockNumber).toBe(100);
+    // 1 SOL @ priceMicros=150_000_000 ($150) → 15000 cents. Regression: this
+    // previously hardcoded priceMicros=1 which would credit pennies for SOL.
+    expect(events[0].amountUsdCents).toBe(15000);
   });
 
   it("advances cursor for finalized transactions", async () => {
@@ -298,8 +301,8 @@ describe("SolanaWatcher", () => {
     rpcResponses.set("getTransaction", mockTx);
 
     const opts = createMockOpts(rpcResponses);
-    // Configure as SPL token watcher
-    const splOpts = { ...opts, token: "USDC", contractAddress: usdcMint };
+    // Configure as SPL token watcher (USDC has 6 decimals, not SOL's 9)
+    const splOpts = { ...opts, token: "USDC", contractAddress: usdcMint, decimals: 6 };
 
     const watcher = new SolanaWatcher(splOpts);
     await watcher.init();
@@ -312,5 +315,90 @@ describe("SolanaWatcher", () => {
     expect(events[0].from).toBe(senderAddr);
     expect(events[0].rawAmount).toBe("5000000"); // 5 USDC
     expect(events[0].token).toBe("USDC");
+    // 5 USDC @ priceMicros=150_000_000 → this oracle is SOL-priced, but the
+    // math is the same: (5_000_000 * 150_000_000) / (10_000 * 10^6) = 75000
+    // cents. Regression: this previously hardcoded amountUsdCents=0 so SPL
+    // stablecoin credits silently underreported.
+    expect(events[0].amountUsdCents).toBe(75000);
+  });
+
+  it("computes amountUsdCents for SPL stablecoin with 1:1 oracle price", async () => {
+    const watchedAddr = "ReceiverAddr1111111111111111111111111111111";
+    const senderAddr = "SenderAddr11111111111111111111111111111111";
+    const usdcMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+    const mockTx: SolanaTransaction = {
+      slot: 600,
+      blockTime: 1700000000,
+      meta: {
+        err: null,
+        fee: 5000,
+        preBalances: [2_000_000_000, 1_000_000],
+        postBalances: [1_995_000_000, 1_000_000],
+        preTokenBalances: [
+          {
+            accountIndex: 0,
+            mint: usdcMint,
+            uiTokenAmount: { amount: "10000000", decimals: 6, uiAmountString: "10.0" },
+            owner: senderAddr,
+          },
+          {
+            accountIndex: 1,
+            mint: usdcMint,
+            uiTokenAmount: { amount: "0", decimals: 6, uiAmountString: "0.0" },
+            owner: watchedAddr,
+          },
+        ],
+        postTokenBalances: [
+          {
+            accountIndex: 0,
+            mint: usdcMint,
+            uiTokenAmount: { amount: "0", decimals: 6, uiAmountString: "0.0" },
+            owner: senderAddr,
+          },
+          {
+            accountIndex: 1,
+            mint: usdcMint,
+            uiTokenAmount: { amount: "10000000", decimals: 6, uiAmountString: "10.0" },
+            owner: watchedAddr,
+          },
+        ],
+      },
+      transaction: {
+        message: { accountKeys: [senderAddr, watchedAddr], instructions: [] },
+        signatures: ["spl-usdc-sig"],
+      },
+    };
+
+    const rpcResponses = new Map<string, unknown>();
+    rpcResponses.set("getSignaturesForAddress", [
+      {
+        signature: "spl-usdc-sig",
+        slot: 600,
+        err: null,
+        memo: null,
+        blockTime: 1700000000,
+        confirmationStatus: "finalized",
+      },
+    ]);
+    rpcResponses.set("getTransaction", mockTx);
+
+    const opts = createMockOpts(rpcResponses);
+    const splOpts = {
+      ...opts,
+      token: "USDC",
+      contractAddress: usdcMint,
+      decimals: 6,
+      oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) },
+    };
+
+    const watcher = new SolanaWatcher(splOpts);
+    await watcher.init();
+    watcher.setWatchedAddresses([watchedAddr]);
+
+    const events = await watcher.poll();
+    // 10 USDC @ $1.00 → 1000 cents.
+    expect(events).toHaveLength(1);
+    expect(events[0].amountUsdCents).toBe(1000);
   });
 });

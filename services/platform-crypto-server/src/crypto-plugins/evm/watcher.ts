@@ -1,9 +1,11 @@
 import type {
   IChainWatcher,
+  IPriceOracle,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
+import { nativeToCents } from "../../oracle/convert.js";
 import type { RpcCall, RpcLog } from "./types.js";
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
@@ -29,13 +31,12 @@ export function createRpcCaller(rpcUrl: string, extraHeaders?: Record<string, st
   };
 }
 
-/**
- * Convert token raw amount (BigInt) to USD cents (integer).
- * Stablecoins are 1:1 USD. Truncates fractional cents.
- */
-function centsFromTokenAmount(rawAmount: bigint, decimals: number): number {
-  return Number((rawAmount * 100n) / 10n ** BigInt(decimals));
-}
+// Use the shared nativeToCents from oracle/convert.ts. The old
+// centsFromTokenAmount helper assumed every ERC-20 is a 1:1-pegged
+// stablecoin — correct for USDC/USDT/DAI, wildly wrong for LINK/UNI/WETH.
+// nativeToCents takes an oracle price in microdollars (10^-6 USD per
+// whole token) and returns proper USD cents. Stablecoins still work:
+// their oracle returns priceMicros ≈ 1_000_000 (=$1.000000).
 
 /**
  * ERC-20 Transfer log scanner.
@@ -54,6 +55,7 @@ export class EvmWatcher implements IChainWatcher {
   private readonly contractAddress: string;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
+  private readonly oracle: IPriceOracle;
   private readonly watcherId: string;
   private _watchedAddresses: string[];
 
@@ -66,6 +68,7 @@ export class EvmWatcher implements IChainWatcher {
     this.contractAddress = (opts.contractAddress ?? "").toLowerCase();
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
+    this.oracle = opts.oracle;
     this.watcherId = `evm:${opts.chain}:${opts.token}`;
     this._watchedAddresses = [];
   }
@@ -106,6 +109,12 @@ export class EvmWatcher implements IChainWatcher {
     const confirmed = latest - this.confirmations;
 
     if (latest < this._cursor) return [];
+
+    // Fetch the current USD price for this token once per poll. Used to
+    // convert the raw ERC-20 amount into USD cents for webhook/display.
+    // The raw-native amount comparison in handlePayment (watcher-service.ts)
+    // is unaffected — credits fire based on native units, not cents.
+    const { priceMicros } = await this.oracle.getPrice(this.token);
 
     // Filter by topic[2] (to address) when watched addresses are set.
     const toFilter =
@@ -149,7 +158,7 @@ export class EvmWatcher implements IChainWatcher {
         const to = `0x${log.topics[2].slice(26)}`.toLowerCase();
         const from = `0x${log.topics[1].slice(26)}`.toLowerCase();
         const rawAmount = BigInt(log.data);
-        const amountUsdCents = centsFromTokenAmount(rawAmount, this.decimals);
+        const amountUsdCents = nativeToCents(rawAmount, priceMicros, this.decimals);
 
         events.push({
           chain: this.chain,
