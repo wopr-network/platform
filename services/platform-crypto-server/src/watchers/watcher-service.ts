@@ -193,6 +193,14 @@ export async function handlePayment(
   const isFull = expected > 0n && BigInt(totalReceived) >= expected;
   const isConfirmed = isFull && confirmations >= confirmationsRequired;
 
+  // Accumulate cents using the same isNewTx dedup as native amount. On re-emits
+  // of the same tx (higher confirmation counts) we keep the prior cents, which
+  // preserves the price captured at first sighting. Cumulative USD display for
+  // partials — two 0.5 LINK partials report ~885¢ after the second, not ~442¢.
+  // Credit gating still fires on native totalReceived; cents is display-only.
+  const prevReceivedCents = charge.amountReceivedCents ?? 0;
+  const totalReceivedCents = prevReceivedCents + (isNewTx ? amountReceivedCents : 0);
+
   // Persist new payment amount + mark tx as seen
   if (isNewTx && txHash) {
     seen.add(txHash);
@@ -212,7 +220,7 @@ export async function handlePayment(
   // Update progress via new API
   await chargeStore.updateProgress(charge.referenceId, {
     status,
-    amountReceivedCents,
+    amountReceivedCents: totalReceivedCents,
     confirmations,
     confirmationsRequired,
     txHash,
@@ -242,7 +250,7 @@ export async function handlePayment(
       token: charge.token,
       address: charge.depositAddress,
       amountExpectedCents: charge.amountUsdCents,
-      amountReceivedCents,
+      amountReceivedCents: totalReceivedCents,
       expectedAmount: charge.expectedAmount,
       receivedAmount: totalReceived,
       confirmations,

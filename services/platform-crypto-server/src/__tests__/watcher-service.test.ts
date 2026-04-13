@@ -177,6 +177,69 @@ describe("handlePayment", () => {
     }
   });
 
+  it("accumulates amountReceivedCents across partial payments", async () => {
+    // Charge already saw a 25 LINK = $250 partial (tx1). Now tx2 lands with
+    // another ~0.5 LINK worth $4.42 (442 cents). Cumulative display should
+    // be $254.42, not drop back to $4.42.
+    const chargeStore = mockChargeStore({
+      amountReceivedCents: 25000, // prior partial: $250.00
+      receivedAmount: "25000000000000000000", // 25 tokens (18 dec) prior
+      seenTxHashes: ["tx1"],
+    });
+    const db = mockDb();
+
+    await handlePayment(
+      db as never,
+      chargeStore as never,
+      "bc1qtest",
+      "500000000000000000", // 0.5 new tokens
+      {
+        txHash: "tx2",
+        confirmations: 1,
+        confirmationsRequired: 6,
+        amountReceivedCents: 442, // this event only: $4.42
+      },
+      noop,
+    );
+
+    expect(chargeStore.updateProgress).toHaveBeenCalledWith(
+      "btc:test",
+      expect.objectContaining({ amountReceivedCents: 25442 }), // cumulative
+    );
+  });
+
+  it("does not double-count cents on re-emit of the same tx (more confirmations)", async () => {
+    // tx1 already counted in a prior poll — charge shows it in seenTxHashes
+    // and amountReceivedCents already reflects it. Watcher re-emits tx1 with
+    // confirmations=5 (was 1). We must NOT add its cents again.
+    const chargeStore = mockChargeStore({
+      amountReceivedCents: 1000, // prior emit of tx1 accumulated here
+      receivedAmount: "1130000000000000000",
+      seenTxHashes: ["tx1"],
+    });
+    const db = mockDb();
+
+    await handlePayment(
+      db as never,
+      chargeStore as never,
+      "bc1qtest",
+      "1130000000000000000", // same native amount
+      {
+        txHash: "tx1", // already seen
+        confirmations: 5,
+        confirmationsRequired: 6,
+        amountReceivedCents: 1000, // this event's cents, already counted
+      },
+      noop,
+    );
+
+    // Must stay at 1000 (prior total), not 2000 (prev + this).
+    expect(chargeStore.updateProgress).toHaveBeenCalledWith(
+      "btc:test",
+      expect.objectContaining({ amountReceivedCents: 1000, confirmations: 5 }),
+    );
+  });
+
   it("updates charge progress via updateProgress()", async () => {
     const chargeStore = mockChargeStore();
     const db = mockDb();
