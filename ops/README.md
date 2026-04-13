@@ -16,3 +16,6 @@ No secrets, credentials, or key values are ever stored here.
 - `DECISIONS.md` — operational decisions and rationale
 - `GPU.md` — GPU node status and history
 - `nodes/` — per-node fact sheets
+- `docs/` — standalone runbooks and guides
+  - `docs/crypto-pool-refill.md` — Solana/TON address pool refill procedure
+  - `docs/oauth-setup-guide.md` — OAuth provider setup
