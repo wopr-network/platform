@@ -324,7 +324,7 @@ export function App() {
             <Route path="adapters" element={<AdapterManager />} />
           </Route>
           <Route path="companies" element={<UnprefixedBoardRedirect />} />
-          <Route path="company" element={<UnprefixedBoardRedirect />} />
+          <Route path="company" element={<Navigate to="/company/settings" replace />} />
           <Route path="company/*" element={<UnprefixedBoardRedirect />} />
           <Route path="dashboard" element={<UnprefixedBoardRedirect />} />
           <Route path="inbox" element={<UnprefixedBoardRedirect />} />
