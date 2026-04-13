@@ -101,13 +101,40 @@ async function authorizeUpgrade(
   const authToken = parseBearerToken(req.headers.authorization);
   const token = authToken ?? (queryToken.length > 0 ? queryToken : null);
 
-  // Browser board context has no bearer token in local_trusted and authenticated modes.
+  // Browser board context has no bearer token in local_trusted, authenticated,
+  // and hosted_proxy modes.
   if (!token) {
     if (opts.deploymentMode === "local_trusted") {
       return {
         companyId,
         actorType: "board",
         actorId: "board",
+      };
+    }
+
+    // In hosted_proxy mode the platform shell has already authenticated the
+    // request and injected `x-paperclip-user-id` (mirrors the HTTP auth
+    // middleware at middleware/auth.ts). Trust that header, then verify
+    // the user has access to the target company.
+    if (opts.deploymentMode === "hosted_proxy") {
+      const headerRaw = req.headers["x-paperclip-user-id"] ?? req.headers["x-platform-user-id"];
+      const proxyUserId = Array.isArray(headerRaw) ? headerRaw[0] : headerRaw;
+      if (!proxyUserId) return null;
+      const memberships = await db
+        .select({ companyId: companyMemberships.companyId })
+        .from(companyMemberships)
+        .where(
+          and(
+            eq(companyMemberships.principalType, "user"),
+            eq(companyMemberships.principalId, proxyUserId),
+            eq(companyMemberships.status, "active"),
+          ),
+        );
+      if (!memberships.some((row) => row.companyId === companyId)) return null;
+      return {
+        companyId,
+        actorType: "board",
+        actorId: proxyUserId,
       };
     }
 
