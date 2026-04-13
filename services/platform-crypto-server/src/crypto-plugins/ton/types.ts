@@ -1,11 +1,19 @@
 /** TON HTTP API call function signature (TON Center v2 style). */
 export type TonApiCall = (method: string, params: Record<string, string>) => Promise<unknown>;
 
-/** TON transaction from getTransactions API. */
+/**
+ * TON transaction from getTransactions API.
+ *
+ * The API nests lt and hash under `transaction_id`, not at the top level.
+ * `@type` / `storage_fee` / `other_fee` / `account` / `data` are also
+ * present on live responses but we don't use them.
+ */
 export interface TonTransaction {
   utime: number;
-  hash: string;
-  lt: string;
+  transaction_id: {
+    lt: string;
+    hash: string;
+  };
   fee: string;
   in_msg?: TonMessage;
   out_msgs?: TonMessage[];

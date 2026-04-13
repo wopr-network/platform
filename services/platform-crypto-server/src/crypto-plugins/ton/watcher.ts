@@ -5,8 +5,27 @@ import type {
   PaymentEvent,
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
+import { Address } from "@ton/core";
 import { nativeToCents } from "../../oracle/convert.js";
 import type { JettonTransferV3, TonApiCall, TonTransaction } from "./types.js";
+
+/**
+ * Normalize a TON address into raw `workchain:hash` hex form for string
+ * comparison. TON Center returns addresses in whichever user-friendly
+ * variant it feels like — mainnet/testnet, bounceable/non-bounceable.
+ * Different strings, same underlying account. We normalize so the watcher
+ * matches regardless of format.
+ *
+ * Returns the input unchanged if it's not a valid TON address (defensive).
+ */
+function normalizeTonAddress(addr: string): string {
+  if (!addr) return addr;
+  try {
+    return Address.parse(addr).toRawString();
+  } catch {
+    return addr;
+  }
+}
 
 /** TON has 9 decimals (nanoton). */
 const TON_DECIMALS = 9;
@@ -141,15 +160,23 @@ export class TonWatcher implements IChainWatcher {
     const events: PaymentEvent[] = [];
 
     for (const address of this._watchedAddresses) {
+      // Compute raw form of the watched address once per poll so we can
+      // match regardless of what user-friendly variant TON Center returns.
+      const addressRaw = normalizeTonAddress(address);
+
       try {
         const txs = await this.getRecentTransactions(address);
         if (!txs.length) continue;
 
         for (const tx of txs) {
-          const lt = parseLt(tx.lt);
+          const lt = parseLt(tx.transaction_id.lt);
           if (lt <= this._cursor) continue;
 
-          if (tx.in_msg && tx.in_msg.destination === address && BigInt(tx.in_msg.value) > 0n) {
+          if (
+            tx.in_msg &&
+            normalizeTonAddress(tx.in_msg.destination) === addressRaw &&
+            BigInt(tx.in_msg.value) > 0n
+          ) {
             const rawAmount = BigInt(tx.in_msg.value);
             const amountUsdCents = await this.toUsdCents(rawAmount);
 
@@ -160,7 +187,7 @@ export class TonWatcher implements IChainWatcher {
               from: tx.in_msg.source || "unknown",
               rawAmount: rawAmount.toString(),
               amountUsdCents,
-              txHash: tx.hash,
+              txHash: tx.transaction_id.hash,
               blockNumber: lt,
               confirmations: this.confirmationsRequired,
               confirmationsRequired: this.confirmationsRequired,
@@ -168,7 +195,7 @@ export class TonWatcher implements IChainWatcher {
           }
         }
 
-        const maxLt = txs.reduce((max, tx) => Math.max(max, parseLt(tx.lt)), this._cursor);
+        const maxLt = txs.reduce((max, tx) => Math.max(max, parseLt(tx.transaction_id.lt)), this._cursor);
         if (maxLt > this._cursor) {
           this._cursor = maxLt;
           await this.cursorStore.save(this.watcherId, this._cursor);
