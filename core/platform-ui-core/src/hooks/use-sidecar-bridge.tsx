@@ -104,17 +104,9 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
       switch (data.type) {
         case "ready": {
           setReady(true);
-          // Forward the shell's current deep path into the sidecar on first
-          // load. Without this, a refresh/bookmark of /issues/IRA-10 would
-          // show the sidecar's default /{company}/dashboard. Guarded so
-          // that an iframe reload (which re-fires `ready`) doesn't re-send
-          // whatever pathname happens to be current at reload time.
           if (!initialForwardSentRef.current) {
             initialForwardSentRef.current = true;
             const initialPath = initialPathRef.current;
-            // Use the pathname *without* the search when checking route type —
-            // that's what the prefix list matches against. See the ref's
-            // declaration for why we can't re-read window.location here.
             const pathname = initialPath.split("?")[0] ?? initialPath;
             // Skip /dashboard — the sidecar's own root redirect sends the
             // user to /{company}/dashboard with the correct company. Posting
