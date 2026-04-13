@@ -315,38 +315,39 @@ export function UnifiedSidebarContent({ onNavigate }: { onNavigate?: () => void 
           />
         </div>
 
-        {/* Projects — collapsible, dynamic from sidecar */}
-        <CollapsibleSection title="Projects" onAdd={() => handleCommand("openNewProject")}>
-          <div className="space-y-0.5 pl-1">
-            {projects.map((project) => {
-              const href = `/projects/${project.urlKey}/issues`;
-              return (
-                <button
-                  key={project.id}
-                  type="button"
-                  onClick={() => handleNav(href)}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-foreground",
-                    checkActive(href)
-                      ? "bg-terminal/5 border-l-2 border-terminal text-terminal"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  <span
-                    className="size-2.5 rounded-full shrink-0"
-                    style={{
-                      backgroundColor: project.color ?? "var(--muted-foreground)",
-                    }}
-                  />
-                  <span className="truncate">{project.name}</span>
-                </button>
-              );
-            })}
-            {projects.length === 0 && (
-              <span className="block px-3 py-1.5 text-xs text-muted-foreground/50">No projects yet</span>
-            )}
-          </div>
-        </CollapsibleSection>
+        {/* Projects — hidden entirely when there are none. The sidecar
+            strips projects in hosted mode (see EmbeddedBridge), so an
+            empty list is a deliberate signal to suppress the section. */}
+        {projects.length > 0 && (
+          <CollapsibleSection title="Projects" onAdd={() => handleCommand("openNewProject")}>
+            <div className="space-y-0.5 pl-1">
+              {projects.map((project) => {
+                const href = `/projects/${project.urlKey}/issues`;
+                return (
+                  <button
+                    key={project.id}
+                    type="button"
+                    onClick={() => handleNav(href)}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-foreground",
+                      checkActive(href)
+                        ? "bg-terminal/5 border-l-2 border-terminal text-terminal"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    <span
+                      className="size-2.5 rounded-full shrink-0"
+                      style={{
+                        backgroundColor: project.color ?? "var(--muted-foreground)",
+                      }}
+                    />
+                    <span className="truncate">{project.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* Agents — collapsible, dynamic from sidecar */}
         <CollapsibleSection title="Agents" onAdd={() => handleCommand("openNewAgent")}>
