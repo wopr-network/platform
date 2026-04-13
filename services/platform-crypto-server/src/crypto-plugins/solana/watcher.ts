@@ -1,13 +1,12 @@
 import type {
   IChainWatcher,
+  IPriceOracle,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
+import { nativeToCents } from "../../oracle/convert.js";
 import type { SignatureInfo, SolanaRpcCall, SolanaTransaction } from "./types.js";
-
-/** Microdollars per cent. Used for oracle price conversion. */
-const MICROS_PER_CENT = 10_000n;
 
 /** SOL has 9 decimals (lamports). */
 const SOL_DECIMALS = 9;
@@ -32,16 +31,9 @@ export function createSolanaRpcCaller(rpcUrl: string, extraHeaders?: Record<stri
   };
 }
 
-/**
- * Convert native SOL amount (lamports) to USD cents using oracle price in microdollars.
- */
-function nativeToCents(lamports: bigint, priceMicros: number, decimals: number): number {
-  if (lamports < 0n) throw new Error("lamports must be non-negative");
-  if (!Number.isInteger(priceMicros) || priceMicros <= 0) {
-    throw new Error(`priceMicros must be a positive integer, got ${priceMicros}`);
-  }
-  return Number((lamports * BigInt(priceMicros)) / (MICROS_PER_CENT * 10n ** BigInt(decimals)));
-}
+// Uses the shared nativeToCents from oracle/convert.ts — imported above.
+// The previous local copy was identical; centralizing it avoids drift and
+// ensures the same rounding behavior across BTC, ETH, EVM, Tron, and Solana.
 
 /**
  * Solana chain watcher.
@@ -61,6 +53,7 @@ export class SolanaWatcher implements IChainWatcher {
   private readonly confirmations: number;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
+  private readonly oracle: IPriceOracle;
   private readonly watcherId: string;
   private readonly contractAddress?: string;
   private _watchedAddresses: Set<string>;
@@ -73,6 +66,7 @@ export class SolanaWatcher implements IChainWatcher {
     this.confirmations = opts.confirmations;
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
+    this.oracle = opts.oracle;
     this.watcherId = `solana:${opts.chain}:${opts.token}`;
     this.contractAddress = opts.contractAddress;
     this._watchedAddresses = new Set<string>();
@@ -108,6 +102,13 @@ export class SolanaWatcher implements IChainWatcher {
   async poll(): Promise<PaymentEvent[]> {
     if (this._stopped || this._watchedAddresses.size === 0) return [];
 
+    // Fetch the USD price for this token once per poll. Used for the
+    // amountUsdCents display field on both native SOL and SPL token
+    // events. Stablecoin SPL mints (USDC, USDT) have priceMicros ≈
+    // 1_000_000 so behavior matches the old hardcoded path; volatile
+    // tokens now get correct cents.
+    const { priceMicros } = await this.oracle.getPrice(this.token);
+
     const events: PaymentEvent[] = [];
 
     for (const address of this._watchedAddresses) {
@@ -129,8 +130,8 @@ export class SolanaWatcher implements IChainWatcher {
         if (!tx?.meta || tx.meta.err) continue;
 
         const txEvents = this.contractAddress
-          ? this.extractSplTransferEvents(tx, address, sig.signature)
-          : this.extractNativeTransferEvents(tx, address, sig.signature);
+          ? this.extractSplTransferEvents(tx, address, sig.signature, priceMicros)
+          : this.extractNativeTransferEvents(tx, address, sig.signature, priceMicros);
 
         for (const evt of txEvents) {
           // Skip if already emitted at this confirmation count
@@ -171,6 +172,7 @@ export class SolanaWatcher implements IChainWatcher {
     tx: SolanaTransaction,
     watchedAddress: string,
     signature: string,
+    priceMicros: number,
   ): PaymentEvent[] {
     const events: PaymentEvent[] = [];
     const { accountKeys } = tx.transaction.message;
@@ -207,7 +209,7 @@ export class SolanaWatcher implements IChainWatcher {
       from,
       to: watchedAddress,
       rawAmount: diff.toString(),
-      amountUsdCents: nativeToCents(diff, 1, SOL_DECIMALS), // price conversion done by caller via oracle
+      amountUsdCents: nativeToCents(diff, priceMicros, SOL_DECIMALS),
       txHash: signature,
       blockNumber: tx.slot,
       confirmations: confs,
@@ -223,7 +225,12 @@ export class SolanaWatcher implements IChainWatcher {
    * Compares preTokenBalances and postTokenBalances for the watched address
    * filtered by the configured token mint (contractAddress).
    */
-  private extractSplTransferEvents(tx: SolanaTransaction, watchedAddress: string, signature: string): PaymentEvent[] {
+  private extractSplTransferEvents(
+    tx: SolanaTransaction,
+    watchedAddress: string,
+    signature: string,
+    priceMicros: number,
+  ): PaymentEvent[] {
     const events: PaymentEvent[] = [];
     const { accountKeys } = tx.transaction.message;
     const mint = this.contractAddress;
@@ -269,7 +276,7 @@ export class SolanaWatcher implements IChainWatcher {
         from,
         to: watchedAddress,
         rawAmount: diff.toString(),
-        amountUsdCents: 0, // SPL stablecoins: conversion done by caller
+        amountUsdCents: nativeToCents(diff, priceMicros, this.decimals),
         txHash: signature,
         blockNumber: tx.slot,
         confirmations: this.confirmations,

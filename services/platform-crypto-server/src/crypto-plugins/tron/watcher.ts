@@ -1,10 +1,11 @@
 import type {
   IChainWatcher,
+  IPriceOracle,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
-
+import { nativeToCents } from "../../oracle/convert.js";
 import { hexToTron, tronToHex } from "./address-convert.js";
 
 /** Raw JSON-RPC log entry (same shape as EVM). */
@@ -42,13 +43,9 @@ function createRpcCaller(rpcUrl: string, extraHeaders?: Record<string, string>):
   };
 }
 
-/**
- * Convert token raw amount (BigInt) to USD cents (integer).
- * Stablecoins are 1:1 USD. Truncates fractional cents.
- */
-function centsFromTokenAmount(rawAmount: bigint, decimals: number): number {
-  return Number((rawAmount * 100n) / 10n ** BigInt(decimals));
-}
+// Previously assumed a 1:1 USD peg (correct for USDT-TRC20, wrong for any
+// volatile Tron token). Now uses the shared nativeToCents helper + oracle
+// priceMicros — see the matching change in crypto-plugins/evm/watcher.ts.
 
 /**
  * Tron EVM-compatible watcher.
@@ -70,6 +67,7 @@ export class TronEvmWatcher implements IChainWatcher {
   private readonly contractAddress: string;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
+  private readonly oracle: IPriceOracle;
   private readonly watcherId: string;
   /** Hex addresses used for RPC filtering. */
   private _watchedHexAddresses: string[] = [];
@@ -85,6 +83,7 @@ export class TronEvmWatcher implements IChainWatcher {
     this.contractAddress = (opts.contractAddress ?? "").toLowerCase();
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
+    this.oracle = opts.oracle;
     this.watcherId = `tron:${opts.chain}:${opts.token}`;
   }
 
@@ -127,6 +126,11 @@ export class TronEvmWatcher implements IChainWatcher {
 
     if (latest < this._cursor) return [];
 
+    // Fetch USD price per whole token once per poll. Mirrors EVM watcher —
+    // stablecoins (USDT-TRC20) have priceMicros ≈ 1_000_000 so behavior is
+    // identical to the old 1:1 path; volatile tokens get correct cents.
+    const { priceMicros } = await this.oracle.getPrice(this.token);
+
     // Filter by topic[2] (to address) using hex addresses
     const toFilter =
       this._watchedHexAddresses.length > 0
@@ -166,7 +170,7 @@ export class TronEvmWatcher implements IChainWatcher {
         const toHex = `0x${log.topics[2].slice(26)}`.toLowerCase();
         const fromHex = `0x${log.topics[1].slice(26)}`.toLowerCase();
         const rawAmount = BigInt(log.data);
-        const amountUsdCents = centsFromTokenAmount(rawAmount, this.decimals);
+        const amountUsdCents = nativeToCents(rawAmount, priceMicros, this.decimals);
 
         // Convert hex addresses back to Tron T... format
         const toTron = this._hexToTronMap.get(toHex) ?? hexToTron(toHex);

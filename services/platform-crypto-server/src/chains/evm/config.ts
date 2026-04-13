@@ -127,8 +127,16 @@ export function tokenAmountFromCents(cents: number, decimals: number): bigint {
 }
 
 /**
- * Convert token raw amount (BigInt) to USD cents (integer).
- * Truncates fractional cents.
+ * Convert token raw amount (BigInt) to USD cents (integer). Truncates
+ * fractional cents.
+ *
+ * @deprecated Assumes a 1:1 USD peg — correct only for stablecoins
+ * (USDC/USDT/DAI). For volatile tokens (LINK, UNI, WETH, etc.) use
+ * `nativeToCents(rawAmount, priceMicros, decimals)` from
+ * `oracle/convert.ts` with an oracle-supplied priceMicros instead. This
+ * helper only survives in the legacy watcher path gated by
+ * `USE_LEGACY_WATCHERS=1`; the plugin watchers (default) no longer
+ * reference it.
  */
 export function centsFromTokenAmount(rawAmount: bigint, decimals: number): number {
   return Number((rawAmount * 100n) / 10n ** BigInt(decimals));
