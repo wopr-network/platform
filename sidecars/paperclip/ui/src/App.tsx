@@ -255,7 +255,18 @@ function CompanyRootRedirect() {
     return <NoCompaniesStartPage />;
   }
 
-  return <Navigate to={`/${targetCompany.issuePrefix}/dashboard`} replace />;
+  // The shell can pass `?initial-path=...` on the iframe src so that a
+  // hard-refresh of a deep link (e.g. /company/settings, /issues/LED-10)
+  // lands on the right board page directly instead of bouncing through
+  // /dashboard. Without this, the shell's postMessage forwarding races
+  // with this component's own redirect — the shell's navigate can arrive
+  // before or after our Navigate effect fires, and when the ordering
+  // goes the wrong way the shell URL flips to /dashboard.
+  const params = new URLSearchParams(location.search);
+  const raw = params.get("initial-path");
+  const isSafe = raw != null && raw.startsWith("/") && !raw.startsWith("//");
+  const target = isSafe ? raw : "/dashboard";
+  return <Navigate to={`/${targetCompany.issuePrefix}${target}`} replace />;
 }
 
 function UnprefixedBoardRedirect() {
