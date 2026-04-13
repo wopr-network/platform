@@ -125,6 +125,38 @@ describe("SidecarBridgeProvider — initial deep-link forwarding", () => {
     expect(postMessage).toHaveBeenCalledWith({ type: "navigate", path: "/issues/IRA-10" }, window.location.origin);
   });
 
+  it("forwards the path captured at mount even if routeChanged fired first", () => {
+    // Regression: the sidecar posts routeChanged for its initial root redirect
+    // (e.g. to /dashboard) almost immediately on mount, which history-replaceStates
+    // the shell URL before `ready` arrives. If the forwarder reads
+    // window.location.pathname inside the ready handler, it sees /dashboard and
+    // skips the real deep-link. The ref-captured path should survive that race.
+    window.history.replaceState(null, "", "/company/settings");
+    const { iframe, postMessage } = makeIframeWithSpy();
+
+    render(
+      <SidecarBridgeProvider>
+        <IframeRegistrar iframe={iframe} />
+      </SidecarBridgeProvider>,
+    );
+
+    // Simulate the sidecar's immediate root-redirect routeChanged landing
+    // before ready.
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: { type: "routeChanged", path: "/IRA/dashboard" },
+          origin: window.location.origin,
+        }),
+      );
+    });
+    expect(window.location.pathname).toBe("/dashboard");
+
+    fireReady();
+
+    expect(postMessage).toHaveBeenCalledWith({ type: "navigate", path: "/company/settings" }, window.location.origin);
+  });
+
   it("does not forward when the shell is on a native (non-iframe) route", () => {
     window.history.replaceState(null, "", "/settings");
     const { iframe, postMessage } = makeIframeWithSpy();
