@@ -11,7 +11,7 @@ import { serve } from "@hono/node-server";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
-import { createRpcCaller } from "./chains/evm/watcher.js";
+import { createRpcCaller } from "./crypto-plugins/evm/watcher.js";
 import {
   bitcoinPlugin,
   dogecoinPlugin,
@@ -32,14 +32,12 @@ import { DrizzleCryptoChargeRepository } from "./stores/charge-store.js";
 import { DrizzleWatcherCursorStore } from "./stores/cursor-store.js";
 import { DrizzlePaymentMethodStore } from "./stores/payment-method-store.js";
 import { startPluginWatchers } from "./watchers/plugin-watcher-service.js";
-import { processDeliveries, startWatchers } from "./watchers/watcher-service.js";
+import { processDeliveries } from "./watchers/watcher-service.js";
 
 const PORT = Number(process.env.PORT ?? "3100");
 const DATABASE_URL = process.env.DATABASE_URL;
 const SERVICE_KEY = process.env.SERVICE_KEY;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
-const BITCOIND_USER = process.env.BITCOIND_USER ?? "btcpay";
-const BITCOIND_PASSWORD = process.env.BITCOIND_PASSWORD ?? "";
 const BASE_RPC_URL = process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
 
 if (!DATABASE_URL) {
@@ -100,45 +98,28 @@ async function main(): Promise<void> {
   });
 
   // Boot plugin-driven watchers — polls for payments, sends webhooks.
-  // Falls back to legacy startWatchers() if USE_LEGACY_WATCHERS=1 is set.
   const cursorStore = new DrizzleWatcherCursorStore(db);
-  const useLegacy = process.env.USE_LEGACY_WATCHERS === "1";
-  const stopWatchers = useLegacy
-    ? await startWatchers({
-        db,
-        chargeStore,
-        methodStore,
-        cursorStore,
-        oracle,
-        bitcoindUser: BITCOIND_USER,
-        bitcoindPassword: BITCOIND_PASSWORD,
-        serviceKey: SERVICE_KEY,
-        log: (msg, meta) => console.log(`[watcher] ${msg}`, meta ?? ""),
-      })
-    : await startPluginWatchers({
-        db,
-        chargeStore,
-        methodStore,
-        cursorStore,
-        oracle,
-        registry,
-        log: (msg, meta) => console.log(`[watcher] ${msg}`, meta ?? ""),
-      });
+  const stopWatchers = await startPluginWatchers({
+    db,
+    chargeStore,
+    methodStore,
+    cursorStore,
+    oracle,
+    registry,
+    log: (msg, meta) => console.log(`[watcher] ${msg}`, meta ?? ""),
+  });
 
   // Plugin watchers enqueue webhooks but don't run the delivery loop.
   // Start the outbox processor so enqueued webhooks actually get POSTed.
-  let deliveryTimer: ReturnType<typeof setInterval> | null = null;
-  if (!useLegacy) {
-    const log = (msg: string, meta?: unknown) => console.log(`[webhook] ${msg}`, meta ?? "");
-    deliveryTimer = setInterval(async () => {
-      try {
-        const count = await processDeliveries(db as never, ["https://"], log, SERVICE_KEY);
-        if (count > 0) log("Webhooks delivered", { count });
-      } catch (err) {
-        log("Delivery error", { error: err instanceof Error ? err.message : String(err) });
-      }
-    }, 10_000);
-  }
+  const log = (msg: string, meta?: unknown) => console.log(`[webhook] ${msg}`, meta ?? "");
+  const deliveryTimer: ReturnType<typeof setInterval> = setInterval(async () => {
+    try {
+      const count = await processDeliveries(db as never, ["https://"], log, SERVICE_KEY);
+      if (count > 0) log("Webhooks delivered", { count });
+    } catch (err) {
+      log("Delivery error", { error: err instanceof Error ? err.message : String(err) });
+    }
+  }, 10_000);
 
   const server = serve({ fetch: app.fetch, port: PORT });
   console.log(`[crypto-key-server] Listening on :${PORT}`);
@@ -146,7 +127,7 @@ async function main(): Promise<void> {
   // Graceful shutdown — stop accepting requests, drain watchers, close pool
   const shutdown = async () => {
     console.log("[crypto-key-server] Shutting down...");
-    if (deliveryTimer) clearInterval(deliveryTimer);
+    clearInterval(deliveryTimer);
     stopWatchers();
     server.close();
     await pool.end();
