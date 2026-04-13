@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
-import { fromSidecarPath, getRouteType } from "@/lib/sidecar-routes";
+import { fromSidecarPath } from "@/lib/sidecar-routes";
 
 // Types matching the sidecar's postMessage protocol
 
@@ -59,15 +59,6 @@ export function useSidecarBridge() {
 
 export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const initialForwardSentRef = useRef(false);
-  // Capture the shell's initial path at mount time, before the iframe's
-  // first `routeChanged` can flip window.location (which happens when the
-  // sidecar's own root redirect fires — typically well before `ready`).
-  // Reading window.location.pathname inside the `ready` handler is racy;
-  // this ref is the source of truth for forwarding.
-  const initialPathRef = useRef<string>(
-    typeof window === "undefined" ? "/" : window.location.pathname + window.location.search,
-  );
   const [ready, setReady] = useState(false);
   const [sidebarData, setSidebarData] = useState<SidecarSidebarData | null>(null);
   const [currentSidecarPath, setCurrentSidecarPath] = useState<string | null>(null);
@@ -103,21 +94,11 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
 
       switch (data.type) {
         case "ready": {
+          // Initial deep-link is now passed through the iframe src
+          // (`?initial-path=…` → SidecarFrame). Forwarding on ready would
+          // race with the sidecar's CompanyRootRedirect Navigate and
+          // sometimes lose the deep link.
           setReady(true);
-          if (!initialForwardSentRef.current) {
-            initialForwardSentRef.current = true;
-            const initialPath = initialPathRef.current;
-            const pathname = initialPath.split("?")[0] ?? initialPath;
-            // Skip /dashboard — the sidecar's own root redirect sends the
-            // user to /{company}/dashboard with the correct company. Posting
-            // navigate("/dashboard") would make the sidecar's react-router
-            // match :companyPrefix="dashboard" and fall back to
-            // "Company not found" on sidecar versions that lack an
-            // UnprefixedBoardRedirect for this path.
-            if (getRouteType(pathname) === "iframe" && pathname !== "/dashboard") {
-              postToSidecar({ type: "navigate", path: initialPath });
-            }
-          }
           break;
         }
         case "routeChanged": {
@@ -144,7 +125,7 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [postToSidecar]);
+  }, []);
 
   return (
     <SidecarBridgeContext.Provider
