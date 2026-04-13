@@ -16,7 +16,7 @@ function buildIframeSrc(): string {
   if (typeof window === "undefined") return "/_sidecar/";
   const pathname = window.location.pathname;
   if (getRouteType(pathname) !== "iframe" || pathname === "/dashboard") return "/_sidecar/";
-  const initialPath = pathname + window.location.search;
+  const initialPath = pathname + window.location.search + window.location.hash;
   return `/_sidecar/?initial-path=${encodeURIComponent(initialPath)}`;
 }
 
