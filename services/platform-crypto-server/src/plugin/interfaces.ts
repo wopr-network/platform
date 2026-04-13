@@ -21,7 +21,9 @@ export interface ICurveDeriver {
 export interface EncodingParams {
   hrp?: string;
   version?: string;
-  [key: string]: string | undefined;
+  /** Network-variant flag (e.g., TON testnet). Chains that don't need it ignore this. */
+  testnet?: boolean;
+  [key: string]: string | boolean | undefined;
 }
 
 export interface IAddressEncoder {

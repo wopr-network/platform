@@ -61,11 +61,43 @@ describe("TonWatcher", () => {
     expect(events).toHaveLength(0);
   });
 
+  it("matches destination regardless of address format variant (regression)", async () => {
+    // TON Center can return addresses in different user-friendly variants
+    // (mainnet bounceable EQ..., testnet non-bounceable 0Q..., etc.) for
+    // the SAME underlying account. Watcher must normalize before comparing
+    // or it silently misses payments on testnet.
+    const testnetAddr = "0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS";
+    const mainnetBounceableSameAccount = "EQAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-U9d";
+
+    const tx: TonTransaction = {
+      utime: 1700000000,
+      transaction_id: { lt: "100", hash: "cross-format" },
+      fee: "1000000",
+      in_msg: {
+        source: senderAddr,
+        // API returns the mainnet-bounceable form of the same account
+        destination: mainnetBounceableSameAccount,
+        value: "1000000000",
+      },
+    };
+
+    const opts = createMockOpts({ [testnetAddr]: [tx] });
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    // We watch the testnet form
+    watcher.setWatchedAddresses([testnetAddr]);
+
+    const events = await watcher.poll();
+    expect(events).toHaveLength(1);
+    expect(events[0].txHash).toBe("cross-format");
+    // Event reports the watched form (what the charge was issued with)
+    expect(events[0].to).toBe(testnetAddr);
+  });
+
   it("detects incoming TON transfer", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "abc123def456",
-      lt: "100",
+      transaction_id: { lt: "100", hash: "abc123def456" },
       fee: "1000000",
       in_msg: {
         source: senderAddr,
@@ -93,8 +125,7 @@ describe("TonWatcher", () => {
   it("skips outgoing transactions (no in_msg)", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "outgoing123",
-      lt: "200",
+      transaction_id: { lt: "200", hash: "outgoing123" },
       fee: "1000000",
       out_msgs: [{ source: watchedAddr, destination: senderAddr, value: "500000000" }],
     };
@@ -111,8 +142,7 @@ describe("TonWatcher", () => {
   it("skips zero-value incoming messages", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "zero123",
-      lt: "300",
+      transaction_id: { lt: "300", hash: "zero123" },
       fee: "1000000",
       in_msg: {
         source: senderAddr,
@@ -133,15 +163,13 @@ describe("TonWatcher", () => {
   it("advances cursor and skips already-processed transactions", async () => {
     const tx1: TonTransaction = {
       utime: 1700000000,
-      hash: "first123",
-      lt: "100",
+      transaction_id: { lt: "100", hash: "first123" },
       fee: "1000000",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
     };
     const tx2: TonTransaction = {
       utime: 1700000010,
-      hash: "second456",
-      lt: "200",
+      transaction_id: { lt: "200", hash: "second456" },
       fee: "1000000",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "3000000000" },
     };
@@ -167,8 +195,7 @@ describe("TonWatcher", () => {
   it("restores cursor from store on init", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "old-tx",
-      lt: "50",
+      transaction_id: { lt: "50", hash: "old-tx" },
       fee: "1000000",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
     };
@@ -186,8 +213,7 @@ describe("TonWatcher", () => {
   it("stops polling when stop() is called", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "stop-test",
-      lt: "100",
+      transaction_id: { lt: "100", hash: "stop-test" },
       fee: "1000000",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
     };
@@ -205,8 +231,7 @@ describe("TonWatcher", () => {
   it("calculates USD amount via oracle", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "price-test",
-      lt: "100",
+      transaction_id: { lt: "100", hash: "price-test" },
       fee: "1000000",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" }, // 1 TON
     };
@@ -228,8 +253,7 @@ describe("TonWatcher", () => {
   it("survives oracle failure gracefully", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "oracle-fail",
-      lt: "100",
+      transaction_id: { lt: "100", hash: "oracle-fail" },
       fee: "1000000",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
     };
@@ -254,8 +278,7 @@ describe("TonWatcher", () => {
   it("skips txs misdirected to another address", async () => {
     const tx: TonTransaction = {
       utime: 1700000000,
-      hash: "misdirected",
-      lt: "400",
+      transaction_id: { lt: "400", hash: "misdirected" },
       fee: "1000000",
       in_msg: { source: senderAddr, destination: "UQSOMEONE_ELSE_ELSEWHEREXX", value: "1000000000" },
     };
@@ -273,8 +296,7 @@ describe("TonWatcher", () => {
       [addrA]: [
         {
           utime: 1,
-          hash: "to-a",
-          lt: "100",
+          transaction_id: { lt: "100", hash: "to-a" },
           fee: "0",
           in_msg: { source: "S1", destination: addrA, value: "1000000000" },
         },
@@ -282,8 +304,7 @@ describe("TonWatcher", () => {
       [addrB]: [
         {
           utime: 1,
-          hash: "to-b",
-          lt: "200",
+          transaction_id: { lt: "200", hash: "to-b" },
           fee: "0",
           in_msg: { source: "S2", destination: addrB, value: "2000000000" },
         },
@@ -319,8 +340,7 @@ describe("TonWatcher", () => {
           result: [
             {
               utime: 1,
-              hash: "survived",
-              lt: "300",
+              transaction_id: { lt: "300", hash: "survived" },
               fee: "0",
               in_msg: { source: "S", destination: workingAddr, value: "1000000000" },
             },
@@ -352,8 +372,7 @@ describe("TonWatcher", () => {
     const unsafeLt = "18014398509481985";
     const tx: TonTransaction = {
       utime: 1,
-      hash: "precision-loss",
-      lt: unsafeLt,
+      transaction_id: { lt: unsafeLt, hash: "precision-loss" },
       fee: "0",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
     };
@@ -376,8 +395,7 @@ describe("TonWatcher", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const tx: TonTransaction = {
       utime: 1,
-      hash: "bogus-lt",
-      lt: "not-a-number",
+      transaction_id: { lt: "not-a-number", hash: "bogus-lt" },
       fee: "0",
       in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
     };
