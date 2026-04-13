@@ -60,6 +60,14 @@ export function useSidecarBridge() {
 export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const initialForwardSentRef = useRef(false);
+  // Capture the shell's initial path at mount time, before the iframe's
+  // first `routeChanged` can flip window.location (which happens when the
+  // sidecar's own root redirect fires — typically well before `ready`).
+  // Reading window.location.pathname inside the `ready` handler is racy;
+  // this ref is the source of truth for forwarding.
+  const initialPathRef = useRef<string>(
+    typeof window === "undefined" ? "/" : window.location.pathname + window.location.search,
+  );
   const [ready, setReady] = useState(false);
   const [sidebarData, setSidebarData] = useState<SidecarSidebarData | null>(null);
   const [currentSidecarPath, setCurrentSidecarPath] = useState<string | null>(null);
@@ -103,8 +111,11 @@ export function SidecarBridgeProvider({ children }: { children: ReactNode }) {
           // whatever pathname happens to be current at reload time.
           if (!initialForwardSentRef.current) {
             initialForwardSentRef.current = true;
-            const pathname = window.location.pathname;
-            const initialPath = pathname + window.location.search;
+            const initialPath = initialPathRef.current;
+            // Use the pathname *without* the search when checking route type —
+            // that's what the prefix list matches against. See the ref's
+            // declaration for why we can't re-read window.location here.
+            const pathname = initialPath.split("?")[0] ?? initialPath;
             // Skip /dashboard — the sidecar's own root redirect sends the
             // user to /{company}/dashboard with the correct company. Posting
             // navigate("/dashboard") would make the sidecar's react-router
