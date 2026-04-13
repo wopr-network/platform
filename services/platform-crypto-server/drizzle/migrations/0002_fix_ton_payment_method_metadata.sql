@@ -1,14 +1,28 @@
--- Fix TON payment_methods rows that were seeded with wrong curve / coin_type.
+-- Link TON payment_methods to the ton-main key_ring and ensure the key_ring
+-- itself has the right curve/coin_type/derivation_mode.
 --
--- The pool-based derivation path doesn't read these columns at runtime, so
--- this has been benign. But future code (e.g. the unified crypto-sweep CLI's
--- COIN_TYPE_FAMILIES dispatch) routes by coin_type, so getting these right
--- now prevents the next person from chasing a ghost.
+-- Why this matters: admin/chains and the deriveNextAddress pool-routing
+-- check read from key_rings (not from payment_methods). When key_ring_id is
+-- NULL on a payment_method row, pool mode is never triggered — the server
+-- falls through to the secp256k1 xpub derivation path, which has no xpub
+-- for TON. Net effect: TON charge creation silently fails before this fix.
 --
--- TON uses Ed25519 (SLIP-0010) with coin_type 607 per the Tonkeeper standard.
---   m/44'/607'/{i}'  matches ops/scripts/generate-ton-pool.mjs.
-UPDATE payment_methods
+-- The ton-main key_ring already exists (1000 pool addresses FK'd to it via
+-- address_pool.key_ring_id). We update it to the canonical Ed25519 config
+-- and link the two TON payment_methods rows (TON:ton and USDT:ton) to it.
+
+-- 1. Canonicalize the ton-main key_ring metadata. Pool entries already
+-- reference it, so we just normalize its attributes.
+UPDATE key_rings
    SET curve = 'ed25519',
-       coin_type = 607
+       coin_type = 607,
+       derivation_scheme = 'slip10',
+       derivation_mode = 'pre-derived'
+ WHERE id = 'ton-main';
+
+-- 2. Link all TON payment_methods to ton-main. Only fills nulls — never
+-- overrides an intentionally-set keyRingId.
+UPDATE payment_methods
+   SET key_ring_id = 'ton-main'
  WHERE chain = 'ton'
-   AND (curve <> 'ed25519' OR coin_type IS DISTINCT FROM 607);
+   AND key_ring_id IS NULL;
