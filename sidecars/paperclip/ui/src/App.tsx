@@ -311,6 +311,7 @@ function NoCompaniesStartPage() {
   );
 }
 
+// bump: trigger paperclip:managed rebuild to smoke-test the update banner
 export function App() {
   const { isHosted } = useHostedMode();
   return (
