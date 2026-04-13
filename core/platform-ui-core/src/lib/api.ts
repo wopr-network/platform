@@ -458,6 +458,24 @@ export async function controlInstance(
   await trpcVanilla.fleet.controlInstance.mutate({ id, action });
 }
 
+/**
+ * Result of checking whether an instance is running the latest image.
+ * `latestImageId` is null if the tag isn't resolvable locally; in that
+ * case we treat the instance as up to date (no newer version known).
+ */
+export interface InstanceVersionCheck {
+  upToDate: boolean;
+  currentImageId: string;
+  latestImageId: string | null;
+  tag: string;
+}
+
+/** Whether a newer image has been pulled since this instance started. */
+export async function instanceVersionCheck(id: string): Promise<InstanceVersionCheck | null> {
+  const result = (await trpcVanilla.fleet.instanceVersionCheck.query({ id })) as InstanceVersionCheck | null;
+  return result;
+}
+
 /** PATCH /fleet/bots/:id — Update bot env config. */
 export async function updateInstanceConfig(id: string, env: Record<string, string>): Promise<void> {
   await fleetFetch(`/bots/${id}`, {

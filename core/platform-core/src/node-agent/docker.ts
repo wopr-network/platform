@@ -533,6 +533,41 @@ export class DockerManager {
   }
 
   /**
+   * Compare the image ID the container is currently running against the
+   * image ID currently associated with that tag on this node.
+   *
+   * Used by the "update available" banner: if a newer version of the
+   * :managed image has been pulled (e.g. by a recent deploy) but the
+   * user's container is still on the old image ID, we offer them an
+   * opt-in roll.
+   *
+   * Returns null for `latestImageId` if the tag isn't resolvable locally
+   * (which means there's no newer image to compare against).
+   */
+  async checkBotVersion(
+    name: string,
+  ): Promise<{ upToDate: boolean; currentImageId: string; latestImageId: string | null; tag: string }> {
+    const container = this.docker.getContainer(name);
+    const info = await container.inspect();
+    const tag = info.Config.Image;
+    const currentImageId = info.Image;
+    let latestImageId: string | null = null;
+    try {
+      const img = await this.docker.getImage(tag).inspect();
+      latestImageId = img.Id;
+    } catch {
+      // Tag not present locally; treat as "no newer version known"
+      latestImageId = null;
+    }
+    return {
+      upToDate: latestImageId === null || latestImageId === currentImageId,
+      currentImageId,
+      latestImageId,
+      tag,
+    };
+  }
+
+  /**
    * Create a warm pool container — pre-provisioned and ready to claim.
    * Mirrors HotPool.createWarm() logic: init volume, wrap entrypoint, connect network.
    */

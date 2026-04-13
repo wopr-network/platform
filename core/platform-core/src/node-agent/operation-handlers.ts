@@ -106,6 +106,11 @@ export function buildAgentOperationHandlers(deps: AgentOperationDeps): Map<strin
     return await dockerManager.rollBot(String(p.name));
   });
 
+  handlers.set("bot.versionCheck", async (payload) => {
+    const p = asRecord(payload);
+    return await dockerManager.checkBotVersion(String(p.name));
+  });
+
   handlers.set("bot.logs", async (payload) => {
     const p = asRecord(payload);
     return await dockerManager.getLogs(String(p.name), p.tail ? Number.parseInt(String(p.tail), 10) : 100);
