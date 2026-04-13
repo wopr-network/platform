@@ -124,6 +124,16 @@ export interface IFleet {
   remove(id: string, opts?: { removeVolumes?: boolean; nodeId?: string }): Promise<void>;
 
   /**
+   * Check whether the instance's running container image matches the
+   * latest image pulled for its tag on the owning node. Returns null if
+   * the instance has no owning node (the container is gone). The UI uses
+   * this to show an "update available" banner + opt-in roll button.
+   */
+  versionCheck(
+    id: string,
+  ): Promise<{ upToDate: boolean; currentImageId: string; latestImageId: string | null; tag: string } | null>;
+
+  /**
    * Roll the instance's container to the latest image digest.
    *
    * Looks up the owning node, then enqueues `bot.roll` pinned to that agent.

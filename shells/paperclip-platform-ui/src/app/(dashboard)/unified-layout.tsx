@@ -1,5 +1,6 @@
 "use client";
 
+import { InstanceUpdateBanner } from "@core/components/instance-update-banner";
 import { SidecarFrame } from "@core/components/sidecar-frame";
 import { UnifiedSidebarContent } from "@core/components/unified-sidebar";
 import { SidecarBridgeProvider } from "@core/hooks/use-sidecar-bridge";
@@ -59,6 +60,10 @@ export function UnifiedLayout({ children }: { children: React.ReactNode }) {
 
         {/* Content area: iframe OR native page */}
         <div className="flex flex-1 flex-col min-w-0">
+          {/* Shows when the user's container is behind the latest pushed
+              image. Opt-in roll via the "Update now" button. */}
+          <InstanceUpdateBanner />
+
           {/* Sidecar iframe — always mounted via /_sidecar/ proxy (hidden when native route) */}
           <SidecarFrame />
 

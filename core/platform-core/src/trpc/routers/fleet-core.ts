@@ -112,6 +112,18 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
         return await d.fleet.status(input.id);
       }),
 
+    /**
+     * Whether a newer image has been pulled for this instance's tag.
+     * Powers the "update available" banner in the shell — returning
+     * `upToDate: false` tells the UI to offer an opt-in roll.
+     */
+    instanceVersionCheck: protectedProcedure
+      .input(z.object({ id: z.string().min(1) }))
+      .query(async ({ input, ctx }: { input: { id: string }; ctx: ProtectedCtx }) => {
+        await loadOwnedInstance(input.id, tenantFromCtx(ctx));
+        return await d.fleet.versionCheck(input.id);
+      }),
+
     /** Control an instance: start, stop, restart, destroy. */
     controlInstance: protectedProcedure
       .input(

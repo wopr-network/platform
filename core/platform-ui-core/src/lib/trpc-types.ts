@@ -129,6 +129,7 @@ type AppRouterRecord = {
   fleet: {
     listInstances: AnyTRPCQueryProcedure;
     getInstance: AnyTRPCQueryProcedure;
+    instanceVersionCheck: AnyTRPCQueryProcedure;
     createInstance: AnyTRPCMutationProcedure;
     controlInstance: AnyTRPCMutationProcedure;
     getInstanceHealth: AnyTRPCQueryProcedure;

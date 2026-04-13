@@ -105,6 +105,32 @@ export class Fleet implements IFleet {
     });
   }
 
+  async versionCheck(
+    id: string,
+  ): Promise<{ upToDate: boolean; currentImageId: string; latestImageId: string | null; tag: string } | null> {
+    const located = await this.locator.locate(id);
+    if (!located) return null;
+    const name = containerNameFor({ id, productSlug: located.productSlug });
+    try {
+      return await this.queue.execute<{
+        upToDate: boolean;
+        currentImageId: string;
+        latestImageId: string | null;
+        tag: string;
+      }>({
+        type: "bot.versionCheck",
+        target: located.nodeId,
+        payload: { id, name },
+      });
+    } catch (err) {
+      logger.warn("Fleet.versionCheck failed", {
+        id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }
+
   async roll(id: string): Promise<void> {
     const located = await this.locator.locate(id);
     if (!located) {

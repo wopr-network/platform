@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import Docker from "dockerode";
+import { logger } from "../config/logger.js";
 
 /**
  * Auth payload for a private registry — passed to dockerode's pull as
@@ -530,6 +531,53 @@ export class DockerManager {
   async inspectBot(name: string): Promise<Docker.ContainerInspectInfo> {
     const container = this.docker.getContainer(name);
     return container.inspect();
+  }
+
+  /**
+   * Compare the image ID the container is currently running against the
+   * image ID currently associated with that tag on this node.
+   *
+   * Used by the "update available" banner: if a newer version of the
+   * :managed image has been pulled (e.g. by a recent deploy) but the
+   * user's container is still on the old image ID, we offer them an
+   * opt-in roll.
+   *
+   * Returns null for `latestImageId` if the tag isn't resolvable locally
+   * (which means there's no newer image to compare against).
+   */
+  async checkBotVersion(
+    name: string,
+  ): Promise<{ upToDate: boolean; currentImageId: string; latestImageId: string | null; tag: string }> {
+    const container = this.docker.getContainer(name);
+    const info = await container.inspect();
+    const tag = info.Config.Image;
+    const currentImageId = info.Image;
+    let latestImageId: string | null = null;
+    try {
+      const img = await this.docker.getImage(tag).inspect();
+      latestImageId = img.Id;
+    } catch (err) {
+      // Dockerode throws `statusCode: 404` when the tag isn't resolvable
+      // locally — that's the expected "no newer version known" path.
+      // Anything else (daemon outage, permission denied) is real; log it
+      // so we don't silently report stale containers as up to date.
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      if (statusCode !== 404) {
+        logger.warn("checkBotVersion: unexpected image inspect error", {
+          name,
+          tag,
+          statusCode,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      latestImageId = null;
+    }
+    return {
+      upToDate: latestImageId === null || latestImageId === currentImageId,
+      currentImageId,
+      latestImageId,
+      tag,
+    };
   }
 
   /**
