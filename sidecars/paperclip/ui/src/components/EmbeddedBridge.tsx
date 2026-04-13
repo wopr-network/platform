@@ -8,6 +8,7 @@ import { projectsApi } from "../api/projects";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
+import { useHostedMode } from "../hooks/useHostedMode";
 import type { Agent, Project } from "@paperclipai/shared";
 
 // --- Types for the postMessage protocol ---
@@ -71,6 +72,7 @@ export function EmbeddedBridge() {
   const navigate = useNavigate();
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { openNewIssue, openNewProject, openNewGoal, openNewAgent } = useDialog();
+  const { isHosted, modeKnown } = useHostedMode();
   const readySent = useRef(false);
   const inboxBadge = useInboxBadge(selectedCompanyId);
 
@@ -120,7 +122,14 @@ export function EmbeddedBridge() {
     }
 
     const visibleAgents = (agents ?? []).filter((a: Agent) => a.status !== "terminated");
-    const visibleProjects = (projects ?? []).filter((p: Project) => !p.archivedAt);
+    // In hosted mode the ProjectDetail page redirects to "/" — surfacing
+    // projects in the shell sidebar would just send users on a dead-end
+    // click. Hide them at the source so the shell mirror also stays clean.
+    // Fail closed while the health query is pending (!modeKnown) to avoid
+    // a flash of projects on first paint.
+    const visibleProjects = !modeKnown || isHosted
+      ? []
+      : (projects ?? []).filter((p: Project) => !p.archivedAt);
 
     postToParent({
       type: "sidebarData",
@@ -148,7 +157,7 @@ export function EmbeddedBridge() {
         liveRunCount: liveRuns?.length ?? 0,
       },
     });
-  }, [selectedCompany, agents, projects, liveRuns, inboxBadge]);
+  }, [selectedCompany, agents, projects, liveRuns, inboxBadge, isHosted, modeKnown]);
 
   // Listen for commands from platform
   useEffect(() => {
