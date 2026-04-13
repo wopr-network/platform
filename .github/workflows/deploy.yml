@@ -68,7 +68,8 @@ jobs:
           for img in "${BUILT[@]}"; do echo "  ✓ $img"; done
 
           if [ $FAILED -gt 0 ]; then
-            echo "::warning::$FAILED image(s) failed to build"
+            echo "::error::$FAILED image(s) failed to build — refusing to deploy stale images"
+            exit 1
           fi
 
       - name: Clean up build cache
@@ -77,7 +78,11 @@ jobs:
 
   deploy:
     needs: build-and-push
-    if: always() && needs.build-and-push.result != 'cancelled'
+    # Block deploy if any image failed to build. Previous behavior was
+    # `always() && != 'cancelled'`, which allowed stale images to ship
+    # silently — chain-server:latest sat at 11 days old in prod without
+    # anyone noticing. Now deploy only runs when every image pushed clean.
+    if: needs.build-and-push.result == 'success'
     runs-on: self-hosted
     timeout-minutes: 10
     steps:

@@ -10,38 +10,44 @@ importers:
     dependencies:
       '@hono/node-server':
         specifier: ^1.14.0
-        version: 1.19.12(hono@4.12.9)
+        version: 1.19.14(hono@4.12.12)
       '@noble/curves':
         specifier: ^2.0.1
-        version: 2.0.1
+        version: 2.2.0
       '@noble/hashes':
         specifier: ^2.0.1
-        version: 2.0.1
+        version: 2.2.0
       '@scure/base':
         specifier: ^1.2.4
         version: 1.2.6
       '@scure/bip32':
         specifier: ^2.0.1
         version: 2.0.1
+      '@scure/bip39':
+        specifier: ^2.0.0
+        version: 2.0.1
+      '@ton/core':
+        specifier: ^0.63.1
+        version: 0.63.1(@ton/crypto@3.3.0)
       '@wopr-network/crypto-plugins':
         specifier: ^1.4.1
-        version: 1.4.1(@wopr-network/platform-crypto-server@1.1.1(@types/pg@8.20.0)(typescript@6.0.2))(typescript@6.0.2)
+        version: 1.4.1(@wopr-network/platform-crypto-server@0.1.0(@types/pg@8.20.0)(typescript@6.0.2))(typescript@6.0.2)
       drizzle-orm:
         specifier: ^0.44.2
         version: 0.44.7(@types/pg@8.20.0)(pg@8.20.0)
       hono:
         specifier: ^4.7.10
-        version: 4.12.9
+        version: 4.12.12
       pg:
         specifier: ^8.16.0
         version: 8.20.0
       viem:
         specifier: ^2.30.0
-        version: 2.47.6(typescript@6.0.2)
+        version: 2.47.16(typescript@6.0.2)
     devDependencies:
       '@types/node':
         specifier: ^25.5.0
-        version: 25.5.0
+        version: 25.6.0
       '@types/pg':
         specifier: ^8.15.4
         version: 8.20.0
@@ -54,8 +60,8 @@ packages:
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
 
-  '@hono/node-server@1.19.12':
-    resolution: {integrity: sha512-txsUW4SQ1iilgE0l9/e9VQWmELXifEFvmdA1j6WFh/aFPj99hIntrSsq/if0UWyGVkmrRPKA1wCeP+UCr1B9Uw==}
+  '@hono/node-server@1.19.14':
+    resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
@@ -72,12 +78,20 @@ packages:
     resolution: {integrity: sha512-vs1Az2OOTBiP4q0pwjW5aF0xp9n4MxVrmkFBxc6EKZc6ddYx5gaZiAsZoq0uRRXWbi3AT/sBqn05eRPtn1JCPw==}
     engines: {node: '>= 20.19.0'}
 
+  '@noble/curves@2.2.0':
+    resolution: {integrity: sha512-T/BoHgFXirb0ENSPBquzX0rcjXeM6Lo892a2jlYJkqk83LqZx0l1Of7DzlKJ6jkpvMrkHSnAcgb5JegL8SeIkQ==}
+    engines: {node: '>= 20.19.0'}
+
   '@noble/hashes@1.8.0':
     resolution: {integrity: sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==}
     engines: {node: ^14.21.3 || >=16}
 
   '@noble/hashes@2.0.1':
     resolution: {integrity: sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==}
+    engines: {node: '>= 20.19.0'}
+
+  '@noble/hashes@2.2.0':
+    resolution: {integrity: sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==}
     engines: {node: '>= 20.19.0'}
 
   '@scure/base@1.2.6':
@@ -98,8 +112,19 @@ packages:
   '@scure/bip39@2.0.1':
     resolution: {integrity: sha512-PsxdFj/d2AcJcZDX1FXN3dDgitDDTmwf78rKZq1a6c1P1Nan1X/Sxc7667zU3U+AN60g7SxxP0YCVw2H/hBycg==}
 
-  '@types/node@25.5.0':
-    resolution: {integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==}
+  '@ton/core@0.63.1':
+    resolution: {integrity: sha512-hDWMjlKzc18W2E4OeV3hUP8ohRJNHPD4Wd1+AQJj8zshZyCRT0usrvnExgbNUTo/vntDqCGMzgYWbXxyaA+L4g==}
+    peerDependencies:
+      '@ton/crypto': '>=3.2.0'
+
+  '@ton/crypto-primitives@2.1.0':
+    resolution: {integrity: sha512-PQesoyPgqyI6vzYtCXw4/ZzevePc4VGcJtFwf08v10OevVJHVfW238KBdpj1kEDQkxWLeuNHEpTECNFKnP6tow==}
+
+  '@ton/crypto@3.3.0':
+    resolution: {integrity: sha512-/A6CYGgA/H36OZ9BbTaGerKtzWp50rg67ZCH2oIjV1NcrBaCK9Z343M+CxedvM7Haf3f/Ee9EhxyeTp0GKMUpA==}
+
+  '@types/node@25.6.0':
+    resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
 
   '@types/pg@8.20.0':
     resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
@@ -110,8 +135,8 @@ packages:
     peerDependencies:
       '@wopr-network/platform-crypto-server': '*'
 
-  '@wopr-network/platform-crypto-server@1.1.1':
-    resolution: {integrity: sha512-+OrOxygBWsxIXg9iZeUx/AoXh0Gd6tny6QRNHwXWMFvCx7Ea0hspN/lt1sPvSLgzpM9/wvDmXFrqmhmY7bjAmA==}
+  '@wopr-network/platform-crypto-server@0.1.0':
+    resolution: {integrity: sha512-bkqNawL+pnRszMpQk/u9K4AFzWpkmLfJ1pqDdtzVQdV1sqwBe8FIppbHunIsXrfzWhCyCHELUPebcLGVdccOIQ==}
     hasBin: true
 
   abitype@1.2.3:
@@ -220,8 +245,8 @@ packages:
   eventemitter3@5.0.1:
     resolution: {integrity: sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==}
 
-  hono@4.12.9:
-    resolution: {integrity: sha512-wy3T8Zm2bsEvxKZM5w21VdHDDcwVS1yUFFY6i8UobSsKfFceT7TOwhbhfKsDyx7tYQlmRM5FLpIuYvNFyjctiA==}
+  hono@4.12.12:
+    resolution: {integrity: sha512-p1JfQMKaceuCbpJKAPKVqyqviZdS0eUxH9v82oWo1kb9xjQ5wA6iP3FNVAPDFlz5/p7d45lO+BpSk1tuSZMF4Q==}
     engines: {node: '>=16.9.0'}
 
   isows@1.0.7:
@@ -229,8 +254,11 @@ packages:
     peerDependencies:
       ws: '*'
 
-  ox@0.14.7:
-    resolution: {integrity: sha512-zSQ/cfBdolj7U4++NAvH7sI+VG0T3pEohITCgcQj8KlawvTDY4vGVhDT64Atsm0d6adWfIYHDpu88iUBMMp+AQ==}
+  jssha@3.2.0:
+    resolution: {integrity: sha512-QuruyBENDWdN4tZwJbQq7/eAK85FqrI4oDbXjy5IBhYD+2pTJyBUWZe8ctWaCkrV0gy6AaelgOZZBMeswEa/6Q==}
+
+  ox@0.14.15:
+    resolution: {integrity: sha512-3TubCmbKen/cuZQzX0qDbOS5lojjdSZ90lqKxWIDWd5siuJ0IJBaTXMYs8eMPLcraqnOwGZazz3apHPGiRCkGQ==}
     peerDependencies:
       typescript: '>=5.4.0'
     peerDependenciesMeta:
@@ -291,16 +319,19 @@ packages:
     resolution: {integrity: sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==}
     engines: {node: '>= 10.x'}
 
+  tweetnacl@1.0.3:
+    resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
+
   typescript@6.0.2:
     resolution: {integrity: sha512-bGdAIrZ0wiGDo5l8c++HWtbaNCWTS4UTv7RaTH/ThVIgjkveJt83m74bBHMJkuCbslY8ixgLBVZJIOiQlQTjfQ==}
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@7.18.2:
-    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
+  undici-types@7.19.2:
+    resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
 
-  viem@2.47.6:
-    resolution: {integrity: sha512-zExmbI99NGvMdYa7fmqSTLgkwh48dmhgEqFrUgkpL4kfG4XkVefZ8dZqIKVUhZo6Uhf0FrrEXOsHm9LUyIvI2Q==}
+  viem@2.47.16:
+    resolution: {integrity: sha512-IHkMi65tXLFSz81V2wtOXfRmznSvU0ANOPMRMgBcTwTPWMC+TcUSFFLvcl0UKpj+omFe+54lIcyAwK0I5jcvSw==}
     peerDependencies:
       typescript: '>=5.0.4'
     peerDependenciesMeta:
@@ -327,9 +358,9 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.1': {}
 
-  '@hono/node-server@1.19.12(hono@4.12.9)':
+  '@hono/node-server@1.19.14(hono@4.12.12)':
     dependencies:
-      hono: 4.12.9
+      hono: 4.12.12
 
   '@noble/ciphers@1.3.0': {}
 
@@ -341,9 +372,15 @@ snapshots:
     dependencies:
       '@noble/hashes': 2.0.1
 
+  '@noble/curves@2.2.0':
+    dependencies:
+      '@noble/hashes': 2.2.0
+
   '@noble/hashes@1.8.0': {}
 
   '@noble/hashes@2.0.1': {}
+
+  '@noble/hashes@2.2.0': {}
 
   '@scure/base@1.2.6': {}
 
@@ -371,42 +408,56 @@ snapshots:
       '@noble/hashes': 2.0.1
       '@scure/base': 2.0.0
 
-  '@types/node@25.5.0':
+  '@ton/core@0.63.1(@ton/crypto@3.3.0)':
     dependencies:
-      undici-types: 7.18.2
+      '@ton/crypto': 3.3.0
+
+  '@ton/crypto-primitives@2.1.0':
+    dependencies:
+      jssha: 3.2.0
+
+  '@ton/crypto@3.3.0':
+    dependencies:
+      '@ton/crypto-primitives': 2.1.0
+      jssha: 3.2.0
+      tweetnacl: 1.0.3
+
+  '@types/node@25.6.0':
+    dependencies:
+      undici-types: 7.19.2
 
   '@types/pg@8.20.0':
     dependencies:
-      '@types/node': 25.5.0
+      '@types/node': 25.6.0
       pg-protocol: 1.13.0
       pg-types: 2.2.0
 
-  '@wopr-network/crypto-plugins@1.4.1(@wopr-network/platform-crypto-server@1.1.1(@types/pg@8.20.0)(typescript@6.0.2))(typescript@6.0.2)':
+  '@wopr-network/crypto-plugins@1.4.1(@wopr-network/platform-crypto-server@0.1.0(@types/pg@8.20.0)(typescript@6.0.2))(typescript@6.0.2)':
     dependencies:
-      '@noble/curves': 2.0.1
-      '@noble/hashes': 2.0.1
+      '@noble/curves': 2.2.0
+      '@noble/hashes': 2.2.0
       '@scure/bip32': 2.0.1
       '@scure/bip39': 2.0.1
-      '@wopr-network/platform-crypto-server': 1.1.1(@types/pg@8.20.0)(typescript@6.0.2)
-      viem: 2.47.6(typescript@6.0.2)
+      '@wopr-network/platform-crypto-server': 0.1.0(@types/pg@8.20.0)(typescript@6.0.2)
+      viem: 2.47.16(typescript@6.0.2)
     transitivePeerDependencies:
       - bufferutil
       - typescript
       - utf-8-validate
       - zod
 
-  '@wopr-network/platform-crypto-server@1.1.1(@types/pg@8.20.0)(typescript@6.0.2)':
+  '@wopr-network/platform-crypto-server@0.1.0(@types/pg@8.20.0)(typescript@6.0.2)':
     dependencies:
-      '@hono/node-server': 1.19.12(hono@4.12.9)
-      '@noble/curves': 2.0.1
-      '@noble/hashes': 2.0.1
-      '@scure/base': 1.2.6
+      '@hono/node-server': 1.19.14(hono@4.12.12)
+      '@noble/curves': 2.2.0
+      '@noble/hashes': 2.2.0
+      '@scure/base': 2.0.0
       '@scure/bip32': 2.0.1
-      '@wopr-network/crypto-plugins': 1.4.1(@wopr-network/platform-crypto-server@1.1.1(@types/pg@8.20.0)(typescript@6.0.2))(typescript@6.0.2)
+      '@wopr-network/crypto-plugins': 1.4.1(@wopr-network/platform-crypto-server@0.1.0(@types/pg@8.20.0)(typescript@6.0.2))(typescript@6.0.2)
       drizzle-orm: 0.44.7(@types/pg@8.20.0)(pg@8.20.0)
-      hono: 4.12.9
+      hono: 4.12.12
       pg: 8.20.0
-      viem: 2.47.6(typescript@6.0.2)
+      viem: 2.47.16(typescript@6.0.2)
     transitivePeerDependencies:
       - '@aws-sdk/client-rds-data'
       - '@cloudflare/workers-types'
@@ -453,13 +504,15 @@ snapshots:
 
   eventemitter3@5.0.1: {}
 
-  hono@4.12.9: {}
+  hono@4.12.12: {}
 
   isows@1.0.7(ws@8.18.3):
     dependencies:
       ws: 8.18.3
 
-  ox@0.14.7(typescript@6.0.2):
+  jssha@3.2.0: {}
+
+  ox@0.14.15(typescript@6.0.2):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/ciphers': 1.3.0
@@ -521,11 +574,13 @@ snapshots:
 
   split2@4.2.0: {}
 
+  tweetnacl@1.0.3: {}
+
   typescript@6.0.2: {}
 
-  undici-types@7.18.2: {}
+  undici-types@7.19.2: {}
 
-  viem@2.47.6(typescript@6.0.2):
+  viem@2.47.16(typescript@6.0.2):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0
@@ -533,7 +588,7 @@ snapshots:
       '@scure/bip39': 1.6.0
       abitype: 1.2.3(typescript@6.0.2)
       isows: 1.0.7(ws@8.18.3)
-      ox: 0.14.7(typescript@6.0.2)
+      ox: 0.14.15(typescript@6.0.2)
       ws: 8.18.3
     optionalDependencies:
       typescript: 6.0.2
