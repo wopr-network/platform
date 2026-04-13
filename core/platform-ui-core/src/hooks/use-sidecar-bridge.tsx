@@ -33,6 +33,10 @@ export interface SidecarSidebarData {
   inboxBadge: number;
   failedRuns: number;
   liveRunCount: number;
+  /** Whether the Projects feature is exposed in this deployment. Older
+   * sidecar versions don't send this — undefined means "fall back to
+   * showing the section so we don't break standalone installs". */
+  showProjects?: boolean;
 }
 
 interface SidecarBridgeState {

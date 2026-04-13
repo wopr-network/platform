@@ -315,10 +315,12 @@ export function UnifiedSidebarContent({ onNavigate }: { onNavigate?: () => void 
           />
         </div>
 
-        {/* Projects — hidden entirely when there are none. The sidecar
-            strips projects in hosted mode (see EmbeddedBridge), so an
-            empty list is a deliberate signal to suppress the section. */}
-        {projects.length > 0 && (
+        {/* Projects — hide the whole section when the sidecar tells us the
+            feature is off (hosted mode). When showProjects is undefined
+            (older sidecar) or true, render normally including the
+            empty-state CTA so standalone users with zero projects still
+            have an entry point. */}
+        {sidebarData?.showProjects !== false && (
           <CollapsibleSection title="Projects" onAdd={() => handleCommand("openNewProject")}>
             <div className="space-y-0.5 pl-1">
               {projects.map((project) => {
@@ -345,6 +347,9 @@ export function UnifiedSidebarContent({ onNavigate }: { onNavigate?: () => void 
                   </button>
                 );
               })}
+              {projects.length === 0 && (
+                <span className="block px-3 py-1.5 text-xs text-muted-foreground/50">No projects yet</span>
+              )}
             </div>
           </CollapsibleSection>
         )}

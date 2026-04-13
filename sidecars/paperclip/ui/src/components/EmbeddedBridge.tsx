@@ -40,6 +40,11 @@ export type SidecarMessage =
         inboxBadge: number;
         failedRuns: number;
         liveRunCount: number;
+        // Whether the Projects feature is exposed in this deployment.
+        // False in hosted mode (ProjectDetail is gated), true in standalone.
+        // Lets the shell distinguish "feature off" from "no projects yet"
+        // so it can show an empty-state CTA only when projects ARE available.
+        showProjects: boolean;
       };
     }
   | { type: "toast"; level: "success" | "error" | "info"; message: string };
@@ -155,6 +160,7 @@ export function EmbeddedBridge() {
         inboxBadge: inboxBadge.inbox,
         failedRuns: inboxBadge.failedRuns,
         liveRunCount: liveRuns?.length ?? 0,
+        showProjects: modeKnown && !isHosted,
       },
     });
   }, [selectedCompany, agents, projects, liveRuns, inboxBadge, isHosted, modeKnown]);
