@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { controlInstance, type InstanceVersionCheck, instanceVersionCheck, listInstances } from "@/lib/api";
 
@@ -20,11 +20,16 @@ export function InstanceUpdateBanner() {
   const [check, setCheck] = useState<InstanceVersionCheck | null>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [dismissed, setDismissed] = useState(false);
+  const reloadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     listInstances()
       .then((instances) => {
+        // The hosted shell currently provisions exactly one sidecar per
+        // user, so instances[0] is the workspace the shell is backing.
+        // If multi-instance support lands, this needs a way to pick the
+        // active instance (e.g. product slug or a dedicated endpoint).
         if (!cancelled) setInstanceId(instances[0]?.id ?? null);
       })
       .catch(() => {
@@ -32,6 +37,18 @@ export function InstanceUpdateBanner() {
       });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // Clear any in-flight reload timer if the component unmounts, to avoid
+  // a setState on an unmounted component and a surprise reload firing
+  // after navigation.
+  useEffect(() => {
+    return () => {
+      if (reloadTimeoutRef.current) {
+        clearTimeout(reloadTimeoutRef.current);
+        reloadTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -63,7 +80,7 @@ export function InstanceUpdateBanner() {
       // Give the container ~25s to come back up before reloading. A tighter
       // loop that polls health would be nicer, but reload is simpler and
       // matches how the shell already recovers from routeChanged.
-      setTimeout(() => {
+      reloadTimeoutRef.current = setTimeout(() => {
         setStatus("done");
         window.location.reload();
       }, 25_000);

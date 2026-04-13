@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import Docker from "dockerode";
+import { logger } from "../config/logger.js";
 
 /**
  * Auth payload for a private registry — passed to dockerode's pull as
@@ -555,8 +556,20 @@ export class DockerManager {
     try {
       const img = await this.docker.getImage(tag).inspect();
       latestImageId = img.Id;
-    } catch {
-      // Tag not present locally; treat as "no newer version known"
+    } catch (err) {
+      // Dockerode throws `statusCode: 404` when the tag isn't resolvable
+      // locally — that's the expected "no newer version known" path.
+      // Anything else (daemon outage, permission denied) is real; log it
+      // so we don't silently report stale containers as up to date.
+      const statusCode = (err as { statusCode?: number })?.statusCode;
+      if (statusCode !== 404) {
+        logger.warn("checkBotVersion: unexpected image inspect error", {
+          name,
+          tag,
+          statusCode,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
       latestImageId = null;
     }
     return {
