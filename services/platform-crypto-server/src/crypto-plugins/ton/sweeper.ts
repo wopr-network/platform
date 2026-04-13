@@ -92,14 +92,22 @@ function buildWalletV4R2StateInit(publicKey: Uint8Array, subwalletId: number): {
 }
 
 /**
- * Compute the mainnet WalletV4R2 address for a pubkey.
- * Must match what TonAddressEncoder.encode produces and what the pool
- * generator uploaded. Exported so tests and reconciliation scripts can
- * assert parity.
+ * Compute the WalletV4R2 address for a pubkey. Mainnet by default.
+ *
+ * MUST match what TonAddressEncoder.encode produces for the same pubkey
+ * and the same network. The sweeper derives back to the addresses the
+ * pool generator uploaded — if they diverge, sweep can't find funds.
  */
-export function computeWalletV4R2Address(publicKey: Uint8Array, subwalletId = DEFAULT_SUBWALLET_ID): string {
-  const { code, data } = buildWalletV4R2StateInit(publicKey, subwalletId);
-  return contractAddress(0, { code, data }).toString({ bounceable: false, urlSafe: true });
+export function computeWalletV4R2Address(
+  publicKey: Uint8Array,
+  opts: { subwalletId?: number; testnet?: boolean } = {},
+): string {
+  const { code, data } = buildWalletV4R2StateInit(publicKey, opts.subwalletId ?? DEFAULT_SUBWALLET_ID);
+  return contractAddress(0, { code, data }).toString({
+    bounceable: false,
+    urlSafe: true,
+    testOnly: opts.testnet === true,
+  });
 }
 
 /**

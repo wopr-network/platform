@@ -74,6 +74,29 @@ describe("TON sweeper — parity with encoder + pool generator", () => {
       expect(b).toBe(a);
     }
   });
+
+  it("testnet: encoder and sweeper produce the same testnet address for each index", () => {
+    // Same invariant as the mainnet parity test but for testnet. If they
+    // diverge, testnet pool addresses become unreachable by the sweeper.
+    for (let i = 0; i < 10; i++) {
+      const priv = derivePrivkey(TEST_SEED, [44, 607, i]);
+      const pub = ed25519.getPublicKey(priv);
+      const fromEncoder = new TonAddressEncoder().encode(pub, { testnet: true });
+      const fromSweeper = computeWalletV4R2Address(pub, { testnet: true });
+      expect(fromSweeper).toBe(fromEncoder);
+      // Testnet addresses start with 0Q (non-bounceable) or kQ (bounceable).
+      // Ours are non-bounceable.
+      expect(fromEncoder.startsWith("0Q")).toBe(true);
+    }
+  });
+
+  it("testnet: pinned index-0 address (known-good fixture)", () => {
+    const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
+    const pub = ed25519.getPublicKey(priv);
+    expect(computeWalletV4R2Address(pub, { testnet: true })).toBe(
+      "0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS",
+    );
+  });
 });
 
 describe("TON sweeper — message construction", () => {
