@@ -239,7 +239,10 @@ export class DrizzleCryptoChargeRepository implements ICryptoChargeRepository {
       status: "New",
       chain: input.chain,
       token: input.token,
-      depositAddress: input.depositAddress.toLowerCase(),
+      // Store address exactly as provided. Case matters for TON (base64url),
+      // Solana (base58), and preserves EIP-55 fidelity. Callers on EVM paths
+      // already lowercase before handing it in, so this stays consistent.
+      depositAddress: input.depositAddress,
       derivationIndex: input.derivationIndex,
       callbackUrl: input.callbackUrl,
       expectedAmount: input.expectedAmount,
@@ -249,9 +252,13 @@ export class DrizzleCryptoChargeRepository implements ICryptoChargeRepository {
 
   /** Look up a charge by its deposit address. */
   async getByDepositAddress(address: string): Promise<CryptoChargeRecord | null> {
-    const row = (
-      await this.db.select().from(cryptoCharges).where(eq(cryptoCharges.depositAddress, address.toLowerCase()))
-    )[0];
+    // Exact-match only. Lowercasing here silently broke case-sensitive
+    // chains (TON base64url, Solana base58). EIP-55 checksummed EVM
+    // addresses would also mismatch if the caller happened to pass
+    // checksummed form. Callers must provide the address in the canonical
+    // form it was stored under (EVM watchers emit lowercase; TON/SOL
+    // preserve case).
+    const row = (await this.db.select().from(cryptoCharges).where(eq(cryptoCharges.depositAddress, address)))[0];
     if (!row) return null;
     return this.toRecord(row);
   }

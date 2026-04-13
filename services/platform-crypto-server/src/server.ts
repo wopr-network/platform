@@ -158,9 +158,12 @@ async function deriveNextAddress(
     // with the next index (which is already incremented above).
     try {
       await dbWithTx.transaction(async (tx: CryptoDb) => {
-        // bech32/evm addresses are case-insensitive (lowercase by spec).
-        // p2pkh (Base58Check) addresses are case-sensitive — do NOT lowercase.
-        const normalizedAddress = method.addressType === "p2pkh" ? address : address.toLowerCase();
+        // Only lowercase known case-insensitive types (bech32 + evm hex).
+        // Everything else — p2pkh, keccak-b58check (Tron), ton-base64url,
+        // base58-solana, ed25519-base58 — is case-sensitive and MUST
+        // preserve exact case or watcher lookups will silently miss.
+        const caseInsensitive = method.addressType === "bech32" || method.addressType === "evm";
+        const normalizedAddress = caseInsensitive ? address.toLowerCase() : address;
         await tx.insert(derivedAddresses).values({
           chainId,
           derivationIndex: index,
@@ -276,7 +279,11 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
       }
     }
 
-    const referenceId = `${token.toLowerCase()}:${address.toLowerCase()}`;
+    // Don't lowercase the address — it's case-significant for TON/SOL/DOGE/TRX
+    // (different chains, different address encodings, some case-sensitive).
+    // Lowercasing to form a referenceId risks collisions between distinct
+    // addresses that happen to lowercase the same.
+    const referenceId = `${token.toLowerCase()}:${address}`;
 
     await deps.chargeStore.createStablecoinCharge({
       referenceId,
