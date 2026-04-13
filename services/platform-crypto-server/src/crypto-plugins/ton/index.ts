@@ -5,9 +5,11 @@ import type {
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
 import { TonAddressEncoder } from "./encoder.js";
+import { TonSweeper } from "./sweeper.js";
 import { TonWatcher } from "./watcher.js";
 
 export { encodeTonAddress, TonAddressEncoder } from "./encoder.js";
+export { computeWalletV4R2Address, TonSweeper } from "./sweeper.js";
 export type { JettonTransferV3, TonAccountState, TonApiCall, TonTransaction } from "./types.js";
 export { createTonApiCaller, TonWatcher } from "./watcher.js";
 
@@ -34,8 +36,8 @@ export const tonPlugin: IChainPlugin = {
   createWatcher(opts: WatcherOpts) {
     return new TonWatcher(opts);
   },
-  createSweeper(_opts: SweeperOpts): ISweepStrategy {
-    throw new Error("TON sweep not yet implemented — requires wallet contract deployment");
+  createSweeper(opts: SweeperOpts): ISweepStrategy {
+    return new TonSweeper(opts);
   },
   version: 1,
 };
