@@ -81,10 +81,17 @@ export function createFleetCoreRouter(d: FleetCoreRouterDeps) {
       const bots = await Promise.all(
         rows.map(async (row) => {
           try {
-            return await d.fleet.status(row.id);
+            const status = await d.fleet.status(row.id);
+            // fleet.status returns raw docker inspect (capitalized .Id is
+            // the container hash). Expose the bot_instances UUID as a
+            // dedicated platformInstanceId field — callers who need to
+            // reference the instance via other fleet APIs (controlInstance,
+            // instanceVersionCheck) require the UUID, not the container id.
+            return { ...status, platformInstanceId: row.id, name: row.name };
           } catch {
             return {
               id: row.id,
+              platformInstanceId: row.id,
               name: row.name,
               description: "",
               image: "",

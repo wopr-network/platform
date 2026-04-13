@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { controlInstance, type InstanceVersionCheck, instanceVersionCheck, listInstances } from "@/lib/api";
+import { controlInstance, type InstanceVersionCheck, instanceVersionCheck } from "@/lib/api";
+import { trpcVanilla } from "@/lib/trpc";
 
 type Status = "idle" | "rolling" | "done";
 
@@ -24,17 +25,23 @@ export function InstanceUpdateBanner() {
 
   useEffect(() => {
     let cancelled = false;
-    listInstances()
-      .then((instances) => {
+    // Go direct to the raw tRPC response so we can read platformInstanceId
+    // (the bot_instances UUID). `listInstances()` in api.ts maps to a
+    // client-friendly shape but reads `bot.id` which is the docker
+    // container hash in the success path — not what the fleet APIs want.
+    (async () => {
+      try {
+        const data = (await trpcVanilla.fleet.listInstances.query(undefined)) as {
+          bots?: Array<{ platformInstanceId?: string }>;
+        };
         // The hosted shell currently provisions exactly one sidecar per
-        // user, so instances[0] is the workspace the shell is backing.
-        // If multi-instance support lands, this needs a way to pick the
-        // active instance (e.g. product slug or a dedicated endpoint).
-        if (!cancelled) setInstanceId(instances[0]?.id ?? null);
-      })
-      .catch(() => {
+        // user, so bots[0] is the workspace the shell is backing. If
+        // multi-instance support lands, pick the active instance here.
+        if (!cancelled) setInstanceId(data.bots?.[0]?.platformInstanceId ?? null);
+      } catch {
         if (!cancelled) setInstanceId(null);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
