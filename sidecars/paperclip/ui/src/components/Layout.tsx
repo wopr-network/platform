@@ -48,7 +48,7 @@ function readRememberedInstanceSettingsPath(): string {
 
 export function Layout() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const { openNewIssue, openOnboarding } = useDialog();
   const { togglePanelVisible } = usePanel();
   const {
@@ -322,18 +322,20 @@ export function Layout() {
                       <TooltipContent>v{health.version}</TooltipContent>
                     </Tooltip>
                   )}
-                  <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
-                    <Link
-                      to={instanceSettingsTarget}
-                      aria-label="Instance settings"
-                      title="Instance settings"
-                      onClick={() => {
-                        if (isMobile) setSidebarOpen(false);
-                      }}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  {modeKnown && !isHosted && (
+                    <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
+                      <Link
+                        to={instanceSettingsTarget}
+                        aria-label="Instance settings"
+                        title="Instance settings"
+                        onClick={() => {
+                          if (isMobile) setSidebarOpen(false);
+                        }}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -380,18 +382,20 @@ export function Layout() {
                       <TooltipContent>v{health.version}</TooltipContent>
                     </Tooltip>
                   )}
-                  <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
-                    <Link
-                      to={instanceSettingsTarget}
-                      aria-label="Instance settings"
-                      title="Instance settings"
-                      onClick={() => {
-                        if (isMobile) setSidebarOpen(false);
-                      }}
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Link>
-                  </Button>
+                  {modeKnown && !isHosted && (
+                    <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
+                      <Link
+                        to={instanceSettingsTarget}
+                        aria-label="Instance settings"
+                        title="Instance settings"
+                        onClick={() => {
+                          if (isMobile) setSidebarOpen(false);
+                        }}
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"

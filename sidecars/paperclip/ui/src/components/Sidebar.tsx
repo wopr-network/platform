@@ -22,12 +22,14 @@ import { useCompany } from "../context/CompanyContext";
 import { heartbeatsApi } from "../api/heartbeats";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
 
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
+  const { isHosted, modeKnown } = useHostedMode();
   const inboxBadge = useInboxBadge(selectedCompanyId);
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
@@ -95,7 +97,13 @@ export function Sidebar() {
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />
         </SidebarSection>
 
-        <SidebarProjects />
+        {/* Projects sidebar hidden in hosted mode — ProjectDetail is gated
+            (see ProjectDetail.tsx and related hosted-mode redirects), so
+            linking users there just bounces them back to dashboard.
+            Project work still surfaces in the Issues list. Gated on
+            modeKnown so we fail closed during the initial health fetch
+            instead of flashing the section on cold loads. */}
+        {modeKnown && !isHosted && <SidebarProjects />}
 
         <SidebarAgents />
 
