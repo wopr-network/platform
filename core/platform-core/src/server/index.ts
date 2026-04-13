@@ -10,7 +10,8 @@ import { Hono } from "hono";
 import type { BootConfig, BootResult } from "./boot-config.js";
 import { buildContainer } from "./container.js";
 import { type BackgroundHandles, gracefulShutdown, startBackgroundServices } from "./lifecycle.js";
-import { mountRoutes } from "./mount-routes.js";
+import { createTenantProxyUpgradeHandler } from "./middleware/tenant-proxy.js";
+import { buildTenantProxyResolveUser, mountRoutes } from "./mount-routes.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports
@@ -102,9 +103,22 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
 
       const httpServer = serve({ fetch: app.fetch, hostname, port: listenPort }, async () => {
         handles = await startBackgroundServices(container);
-        // Node agents no longer use WebSocket — they connect directly to
-        // Postgres via their AgentWorker. Nothing to attach here.
       });
+      // Proxy WebSocket upgrades on /_sidecar/* through to the user's
+      // container. Hono's fetch-based middleware can't handle upgrades, so
+      // we hook the underlying Node http.Server's upgrade event directly.
+      // Live-run transcripts + sidebar live counts depend on this working.
+      if (container.fleet) {
+        const resolveUser = buildTenantProxyResolveUser(container);
+        const upgradeHandler = createTenantProxyUpgradeHandler(container, { resolveUser });
+        // `serve()` from @hono/node-server returns a Node http.Server (or
+        // http2 server). In http.Server mode it emits 'upgrade'; ignore if
+        // the event isn't supported (tests, custom runtimes).
+        const ee = httpServer as unknown as { on?: (event: string, handler: (...args: unknown[]) => void) => void };
+        if (typeof ee.on === "function") {
+          ee.on("upgrade", upgradeHandler as (...args: unknown[]) => void);
+        }
+      }
       server = httpServer;
     },
     stop: async () => {

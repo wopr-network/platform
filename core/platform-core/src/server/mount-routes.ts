@@ -802,31 +802,38 @@ export async function mountRoutes(
 
   // 7. Tenant proxy middleware (catch-all — MUST be last)
   if (container.fleet) {
-    app.use(
-      "*",
-      createTenantProxyMiddleware(container, {
-        resolveUser: async (req: Request) => {
-          try {
-            const { getAuthForProduct } = await import("../auth/better-auth.js");
-            const host = req.headers.get("host")?.split(":")[0] ?? "";
-            const parts = host.split(".");
-            const parentDomain = parts.length > 2 ? parts.slice(1).join(".") : host;
-            const allProds = await container.productConfigService.listAll();
-            const matched = allProds.find((pc) => pc.product?.domain === parentDomain);
-            const slug = matched?.product?.slug ?? "wopr";
-            const auth = await getAuthForProduct(slug);
-            const session = await auth.api.getSession({ headers: req.headers });
-            if (!session?.user) return undefined;
-            return {
-              id: session.user.id,
-              email: session.user.email ?? undefined,
-              name: session.user.name ?? undefined,
-            };
-          } catch {
-            return undefined;
-          }
-        },
-      }),
-    );
+    app.use("*", createTenantProxyMiddleware(container, { resolveUser: buildTenantProxyResolveUser(container) }));
   }
+}
+
+/**
+ * Shared resolveUser factory for the tenant proxy — matches a request's
+ * host against the product config to pick which BetterAuth instance to
+ * consult, then returns the authenticated session's user info.
+ *
+ * Exported so the WS upgrade handler (attached at the HTTP server level
+ * in bootPlatformServer) can reuse the exact same auth resolution.
+ */
+export function buildTenantProxyResolveUser(container: PlatformContainer) {
+  return async (req: Request) => {
+    try {
+      const { getAuthForProduct } = await import("../auth/better-auth.js");
+      const host = req.headers.get("host")?.split(":")[0] ?? "";
+      const parts = host.split(".");
+      const parentDomain = parts.length > 2 ? parts.slice(1).join(".") : host;
+      const allProds = await container.productConfigService.listAll();
+      const matched = allProds.find((pc) => pc.product?.domain === parentDomain);
+      const slug = matched?.product?.slug ?? "wopr";
+      const auth = await getAuthForProduct(slug);
+      const session = await auth.api.getSession({ headers: req.headers });
+      if (!session?.user) return undefined;
+      return {
+        id: session.user.id,
+        email: session.user.email ?? undefined,
+        name: session.user.name ?? undefined,
+      };
+    } catch {
+      return undefined;
+    }
+  };
 }
