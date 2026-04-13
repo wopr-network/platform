@@ -48,7 +48,7 @@ function readRememberedInstanceSettingsPath(): string {
 
 export function Layout() {
   const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const { openNewIssue, openOnboarding } = useDialog();
   const { togglePanelVisible } = usePanel();
   const {
@@ -322,7 +322,7 @@ export function Layout() {
                       <TooltipContent>v{health.version}</TooltipContent>
                     </Tooltip>
                   )}
-                  {!isHosted && (
+                  {modeKnown && !isHosted && (
                     <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                       <Link
                         to={instanceSettingsTarget}
@@ -382,7 +382,7 @@ export function Layout() {
                       <TooltipContent>v{health.version}</TooltipContent>
                     </Tooltip>
                   )}
-                  {!isHosted && (
+                  {modeKnown && !isHosted && (
                     <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" asChild>
                       <Link
                         to={instanceSettingsTarget}

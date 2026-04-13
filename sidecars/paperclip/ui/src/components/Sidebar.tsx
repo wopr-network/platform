@@ -29,7 +29,7 @@ import { PluginSlotOutlet } from "@/plugins/slots";
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const inboxBadge = useInboxBadge(selectedCompanyId);
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
@@ -100,8 +100,10 @@ export function Sidebar() {
         {/* Projects sidebar hidden in hosted mode — ProjectDetail is gated
             (see ProjectDetail.tsx and related hosted-mode redirects), so
             linking users there just bounces them back to dashboard.
-            Project work still surfaces in the Issues list. */}
-        {!isHosted && <SidebarProjects />}
+            Project work still surfaces in the Issues list. Gated on
+            modeKnown so we fail closed during the initial health fetch
+            instead of flashing the section on cold loads. */}
+        {modeKnown && !isHosted && <SidebarProjects />}
 
         <SidebarAgents />
 
