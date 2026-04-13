@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { TonTransaction } from "../ton/types.js";
+import type { JettonTransferV3, TonTransaction } from "../ton/types.js";
 import { TonWatcher } from "../ton/watcher.js";
 
 /** Create mock WatcherOpts with a fake TON Center API. */
@@ -245,5 +245,309 @@ describe("TonWatcher", () => {
     expect(events).toHaveLength(1);
     expect(events[0].amountUsdCents).toBe(0); // fallback
     expect(events[0].rawAmount).toBe("1000000000"); // raw still correct
+  });
+
+  // ---------------------------------------------------------------------
+  // Error handling + lt precision guard (regression gates for #80)
+  // ---------------------------------------------------------------------
+
+  it("skips txs misdirected to another address", async () => {
+    const tx: TonTransaction = {
+      utime: 1700000000,
+      hash: "misdirected",
+      lt: "400",
+      fee: "1000000",
+      in_msg: { source: senderAddr, destination: "UQSOMEONE_ELSE_ELSEWHEREXX", value: "1000000000" },
+    };
+    const opts = createMockOpts({ [watchedAddr]: [tx] });
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    watcher.setWatchedAddresses([watchedAddr]);
+    expect(await watcher.poll()).toHaveLength(0);
+  });
+
+  it("polls multiple watched addresses independently", async () => {
+    const addrA = "UQAddrAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1";
+    const addrB = "UQAddrBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx2";
+    const txs: Record<string, TonTransaction[]> = {
+      [addrA]: [
+        {
+          utime: 1,
+          hash: "to-a",
+          lt: "100",
+          fee: "0",
+          in_msg: { source: "S1", destination: addrA, value: "1000000000" },
+        },
+      ],
+      [addrB]: [
+        {
+          utime: 1,
+          hash: "to-b",
+          lt: "200",
+          fee: "0",
+          in_msg: { source: "S2", destination: addrB, value: "2000000000" },
+        },
+      ],
+    };
+    const opts = createMockOpts(txs);
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    watcher.setWatchedAddresses([addrA, addrB]);
+
+    const events = await watcher.poll();
+    expect(events.map((e) => e.txHash).sort()).toEqual(["to-a", "to-b"]);
+    expect(watcher.getCursor()).toBe(200);
+  });
+
+  it("RPC failure warns and continues — doesn't crash poll for other addresses", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failingAddr = "UQFailingAddr_____________________________________";
+    const workingAddr = "UQWorkingAddr_____________________________________";
+
+    // Bootstrap default opts first (it also installs a mock), then override.
+    const opts = createMockOpts({});
+
+    const mockFetch = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      const addr = new URL(u).searchParams.get("address") ?? "";
+      if (addr === failingAddr) {
+        return new Response(JSON.stringify({ ok: false, error: "upstream dead" }), { status: 500 });
+      }
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          result: [
+            {
+              utime: 1,
+              hash: "survived",
+              lt: "300",
+              fee: "0",
+              in_msg: { source: "S", destination: workingAddr, value: "1000000000" },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    // biome-ignore lint/suspicious/noExplicitAny: test mock override
+    (globalThis as any).fetch = mockFetch;
+
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    watcher.setWatchedAddresses([failingAddr, workingAddr]);
+
+    const events = await watcher.poll();
+    // Failing address skipped, working one still emitted
+    expect(events).toHaveLength(1);
+    expect(events[0].txHash).toBe("survived");
+    expect(warnSpy).toHaveBeenCalled();
+    const warned = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(warned).toMatch(/upstream dead|ton-watcher/);
+    warnSpy.mockRestore();
+  });
+
+  it("refuses lt values that lose precision as Number — warns, does not corrupt cursor", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // 2^54 + 1 cannot be represented exactly in Number.
+    const unsafeLt = "18014398509481985";
+    const tx: TonTransaction = {
+      utime: 1,
+      hash: "precision-loss",
+      lt: unsafeLt,
+      fee: "0",
+      in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
+    };
+    const opts = createMockOpts({ [watchedAddr]: [tx] });
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    watcher.setWatchedAddresses([watchedAddr]);
+
+    const events = await watcher.poll();
+    // parseLt throws → error branch → warn + return []
+    expect(events).toEqual([]);
+    expect(watcher.getCursor()).toBe(0); // cursor NOT corrupted
+    expect(warnSpy).toHaveBeenCalled();
+    const warned = warnSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(warned).toMatch(/bigint|safe|precision/i);
+    warnSpy.mockRestore();
+  });
+
+  it("rejects negative or non-finite lt values", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const tx: TonTransaction = {
+      utime: 1,
+      hash: "bogus-lt",
+      lt: "not-a-number",
+      fee: "0",
+      in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
+    };
+    const opts = createMockOpts({ [watchedAddr]: [tx] });
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    watcher.setWatchedAddresses([watchedAddr]);
+
+    const events = await watcher.poll();
+    expect(events).toEqual([]);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+});
+
+// ===========================================================================
+// Jetton (USDT-on-TON) path
+// ===========================================================================
+
+describe("TonWatcher — Jetton path (USDT on TON)", () => {
+  const WATCHED = "UQJettonReceiver___________________________________";
+  const USDT_MASTER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+
+  function jettonTx(
+    lt: string,
+    hash: string,
+    destination: string,
+    amount: string,
+    opts: Partial<JettonTransferV3> = {},
+  ): JettonTransferV3 {
+    return {
+      query_id: "0",
+      source: "SourceAddr",
+      destination,
+      amount,
+      source_wallet: "SrcWallet",
+      jetton_master: USDT_MASTER,
+      transaction_hash: hash,
+      transaction_lt: lt,
+      transaction_now: 1700000000,
+      transaction_aborted: false,
+      response_destination: "",
+      forward_payload: null,
+      ...opts,
+    };
+  }
+
+  function installJettonMock(transfersByOwner: Record<string, JettonTransferV3[]>) {
+    const mockFetch = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      if (u.includes("/api/v3/jetton/transfers")) {
+        const owner = new URL(u).searchParams.get("owner_address") ?? "";
+        return new Response(JSON.stringify({ jetton_transfers: transfersByOwner[owner] ?? [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    // biome-ignore lint/suspicious/noExplicitAny: test mock override
+    (globalThis as any).fetch = mockFetch;
+    return mockFetch;
+  }
+
+  function jettonOpts(overrides: Record<string, unknown> = {}) {
+    return {
+      rpcUrl: "https://toncenter.com/api/v2",
+      rpcHeaders: {},
+      oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) }, // $1.00
+      cursorStore: {
+        get: vi.fn().mockResolvedValue(null),
+        save: vi.fn().mockResolvedValue(undefined),
+        getConfirmationCount: vi.fn().mockResolvedValue(null),
+        saveConfirmationCount: vi.fn().mockResolvedValue(undefined),
+      },
+      token: "USDT",
+      chain: "ton",
+      decimals: 6,
+      confirmations: 1,
+      contractAddress: USDT_MASTER,
+      ...overrides,
+    };
+  }
+
+  it("routes to Jetton path when contractAddress is set (not v2 getTransactions)", async () => {
+    const fetchMock = installJettonMock({ [WATCHED]: [] });
+    const w = new TonWatcher(jettonOpts());
+    await w.init();
+    w.setWatchedAddresses([WATCHED]);
+    await w.poll();
+
+    const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.includes("/api/v3/jetton/transfers"))).toBe(true);
+    expect(urls.some((u) => u.includes("/api/v2/getTransactions"))).toBe(false);
+  });
+
+  it("emits Jetton payment event with correct cents (25 USDT @ $1 → 2500¢)", async () => {
+    installJettonMock({
+      [WATCHED]: [jettonTx("200", "jt-1", WATCHED, "25000000")],
+    });
+
+    const w = new TonWatcher(jettonOpts());
+    await w.init();
+    w.setWatchedAddresses([WATCHED]);
+
+    const events = await w.poll();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      chain: "ton",
+      token: "USDT",
+      to: WATCHED,
+      rawAmount: "25000000",
+      amountUsdCents: 2500,
+      txHash: "jt-1",
+      blockNumber: 200,
+    });
+  });
+
+  it("advances cursor to max transaction_lt across Jetton transfers", async () => {
+    installJettonMock({
+      [WATCHED]: [
+        jettonTx("100", "a", WATCHED, "1000000"),
+        jettonTx("500", "b", WATCHED, "1000000"),
+        jettonTx("300", "c", WATCHED, "1000000"),
+      ],
+    });
+
+    const opts = jettonOpts();
+    const w = new TonWatcher(opts);
+    await w.init();
+    w.setWatchedAddresses([WATCHED]);
+
+    await w.poll();
+    expect(w.getCursor()).toBe(500);
+    expect(opts.cursorStore.save).toHaveBeenCalledWith("ton:ton:USDT", 500);
+  });
+
+  it("skips aborted Jetton transactions", async () => {
+    installJettonMock({
+      [WATCHED]: [jettonTx("100", "aborted", WATCHED, "1000000", { transaction_aborted: true })],
+    });
+    const w = new TonWatcher(jettonOpts());
+    await w.init();
+    w.setWatchedAddresses([WATCHED]);
+    expect(await w.poll()).toEqual([]);
+  });
+
+  it("skips zero-amount Jetton transfers", async () => {
+    installJettonMock({
+      [WATCHED]: [jettonTx("100", "zero", WATCHED, "0")],
+    });
+    const w = new TonWatcher(jettonOpts());
+    await w.init();
+    w.setWatchedAddresses([WATCHED]);
+    expect(await w.poll()).toEqual([]);
+  });
+
+  it("Jetton RPC failure is caught, logged, does not crash", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const mockFetch = vi.fn(async () => new Response("v3 down", { status: 500 }));
+    // biome-ignore lint/suspicious/noExplicitAny: test mock override
+    (globalThis as any).fetch = mockFetch;
+
+    const w = new TonWatcher(jettonOpts());
+    await w.init();
+    w.setWatchedAddresses([WATCHED]);
+
+    const events = await w.poll();
+    expect(events).toEqual([]);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

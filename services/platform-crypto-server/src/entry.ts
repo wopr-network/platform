@@ -18,7 +18,7 @@ import {
   evmPlugin,
   litecoinPlugin,
   solanaPlugin,
-  // tonPlugin, // TODO: publish crypto-plugins with ton export, then re-enable
+  tonPlugin,
   tronPlugin,
 } from "./crypto-plugins/index.js";
 import { createDb } from "./db/index.js";
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
   registry.register(evmPlugin);
   registry.register(tronPlugin);
   registry.register(solanaPlugin);
-  // registry.register(tonPlugin); // TODO: publish crypto-plugins with ton export
+  registry.register(tonPlugin);
   console.log(
     `[crypto-key-server] Registered ${registry.list().length} chain plugins:`,
     registry.list().map((p) => p.pluginId),

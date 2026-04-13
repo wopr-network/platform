@@ -11,6 +11,7 @@ import { p2pkhEncoder } from "../dogecoin/encoder.js";
 import { EvmAddressEncoder } from "../evm/encoder.js";
 import { bech32Encoder as ltcBech32Encoder } from "../litecoin/encoder.js";
 import { SolanaAddressEncoder } from "../solana/encoder.js";
+import { TonAddressEncoder } from "../ton/encoder.js";
 import { keccakB58Encoder } from "../tron/encoder.js";
 
 // ---------------------------------------------------------------------------
@@ -297,6 +298,98 @@ describe("sweep key parity -- mnemonic private key controls derived address", ()
       const signature = ed25519.sign(message, derived.privateKey);
       const valid = ed25519.verify(signature, message, publicKey);
       expect(valid).toBe(true);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // TON Ed25519 (SLIP-0010 derivation, WalletV4R2 encoder)
+  //
+  // Path: m/44'/607'/{i}' -- THREE hardened levels, per Tonkeeper standard.
+  // This MUST match the path used by ops/scripts/generate-ton-pool.mjs.
+  // If they diverge, the pool addresses uploaded to prod become unrecoverable.
+  // -----------------------------------------------------------------------
+
+  describe("TON Ed25519 (WalletV4R2)", () => {
+    const tonEncoder = new TonAddressEncoder();
+
+    it("SLIP-0010 derivation produces valid TON WalletV4R2 address", () => {
+      // Same path as generate-ton-pool.mjs line 91: [44, 607, i]
+      const derived = slip0010DerivePath(TEST_SEED, [44, 607, 0]);
+      const publicKey = ed25519.getPublicKey(derived.privateKey);
+
+      expect(publicKey.length).toBe(32);
+
+      const address = tonEncoder.encode(publicKey, {});
+
+      // TON user-friendly addresses: base64url-encoded 36 bytes → 48 chars.
+      expect(address).toMatch(/^[A-Za-z0-9_-]{48}$/);
+    });
+
+    it("known-vector fixture: pinned address at index 0 with test mnemonic", () => {
+      // Regenerate only if you have proven that the encoder OR the path
+      // needed to change AND you have reconciled every live pool entry.
+      // If this fails unexpectedly, STOP. It means addresses already in
+      // the prod pool can no longer be derived from the seed.
+      const derived = slip0010DerivePath(TEST_SEED, [44, 607, 0]);
+      const publicKey = ed25519.getPublicKey(derived.privateKey);
+
+      expect(Array.from(publicKey)).toEqual(
+        Array.from(Buffer.from("7952e94118f34607c75e23258dd9220d66ccac5a3ee074125c25068e8107bfbf", "hex")),
+      );
+      expect(tonEncoder.encode(publicKey, {})).toBe("UQAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-RKY");
+    });
+
+    it("same seed always produces same address (deterministic)", () => {
+      const d1 = slip0010DerivePath(TEST_SEED, [44, 607, 0]);
+      const addr1 = tonEncoder.encode(ed25519.getPublicKey(d1.privateKey), {});
+
+      const d2 = slip0010DerivePath(TEST_SEED, [44, 607, 0]);
+      const addr2 = tonEncoder.encode(ed25519.getPublicKey(d2.privateKey), {});
+
+      expect(addr1).toBe(addr2);
+    });
+
+    it("different indices produce different addresses (no collisions)", () => {
+      const addresses = new Set<string>();
+      for (let i = 0; i < 10; i++) {
+        const derived = slip0010DerivePath(TEST_SEED, [44, 607, i]);
+        const publicKey = ed25519.getPublicKey(derived.privateKey);
+        addresses.add(tonEncoder.encode(publicKey, {}));
+      }
+      expect(addresses.size).toBe(10);
+    });
+
+    it("privkey ↔ pubkey relationship: signing proves we control the address", () => {
+      // The load-bearing invariant: for every address we put in the pool,
+      // the private key derived at the matching path can sign as the
+      // public key that built the address. If this breaks, funds sent
+      // to a pool address cannot be spent.
+      for (let i = 0; i < 5; i++) {
+        const derived = slip0010DerivePath(TEST_SEED, [44, 607, i]);
+        const publicKey = ed25519.getPublicKey(derived.privateKey);
+
+        // 1. The public key from the privkey must match what encoder sees.
+        const address = tonEncoder.encode(publicKey, {});
+        expect(address.length).toBe(48);
+
+        // 2. Signature with privkey verifies under the same pubkey.
+        const message = new TextEncoder().encode(`sweep-parity-${i}`);
+        const sig = ed25519.sign(message, derived.privateKey);
+        expect(ed25519.verify(sig, message, publicKey)).toBe(true);
+
+        // 3. Signature from the WRONG index must NOT verify (sanity).
+        const wrongDerived = slip0010DerivePath(TEST_SEED, [44, 607, i + 100]);
+        const wrongSig = ed25519.sign(message, wrongDerived.privateKey);
+        expect(ed25519.verify(wrongSig, message, publicKey)).toBe(false);
+      }
+    });
+
+    it("encoder accepts only 32-byte Ed25519 pubkeys", () => {
+      // Guard: a future change that accidentally feeds secp256k1 compressed
+      // pubkeys (33 bytes) would produce garbage addresses silently.
+      expect(() => tonEncoder.encode(new Uint8Array(31), {})).toThrow();
+      expect(() => tonEncoder.encode(new Uint8Array(33), {})).toThrow();
+      expect(() => tonEncoder.encode(new Uint8Array(64), {})).toThrow();
     });
   });
 });

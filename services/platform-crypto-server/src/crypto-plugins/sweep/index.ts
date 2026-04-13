@@ -65,7 +65,8 @@ const COIN_TYPE_FAMILIES: Record<number, string> = {
   3: "utxo", // DOGE
   60: "evm", // ETH / EVM chains
   195: "tron", // TRX
-  501: "solana", // SOL
+  501: "solana", // SOL — pool-based (Ed25519), sweep via ops script
+  607: "ton", // TON — pool-based (Ed25519), sweep via ops/scripts/sweep-ton-pool.mjs
 };
 
 // --- Address derivation ---
@@ -328,6 +329,9 @@ async function main() {
           }
         } catch (_err) {}
       }
+    }
+
+    if (family === "ton") {
     }
   }
 

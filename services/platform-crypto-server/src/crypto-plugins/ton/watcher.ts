@@ -5,21 +5,39 @@ import type {
   PaymentEvent,
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
+import { nativeToCents } from "../../oracle/convert.js";
 import type { JettonTransferV3, TonApiCall, TonTransaction } from "./types.js";
 
 /** TON has 9 decimals (nanoton). */
 const TON_DECIMALS = 9;
-const MICROS_PER_CENT = 10_000n;
 
 /**
- * Convert native TON amount (nanoton) to USD cents using oracle price in microdollars.
+ * Guard threshold for `lt` (logical time) overflow.
+ *
+ * TON's lt is a monotonically-increasing uint64 per account. We store the
+ * cursor as a Number. Number.MAX_SAFE_INTEGER is ~9e15; current mainnet lt
+ * is ~7e13 (2026-04), so we have ~130x headroom. This guard fires well
+ * before we're actually at risk, so the problem surfaces during a normal
+ * poll instead of silently corrupting the cursor.
  */
-function nativeToCents(nanoton: bigint, priceMicros: number, decimals: number): number {
-  if (nanoton < 0n) throw new Error("nanoton must be non-negative");
-  if (!Number.isInteger(priceMicros) || priceMicros <= 0) {
-    throw new Error(`priceMicros must be a positive integer, got ${priceMicros}`);
+const LT_SAFE_CEILING = Number.MAX_SAFE_INTEGER / 2;
+
+/**
+ * Parse a TON lt string into a number, asserting it stays inside the safe
+ * range. We refuse to silently lose precision on the cursor — if lt ever
+ * approaches Number.MAX_SAFE_INTEGER, the poll throws and ops can see it
+ * long before cursor corruption happens.
+ */
+function parseLt(lt: string): number {
+  const n = Number(lt);
+  if (!Number.isFinite(n) || n < 0) throw new Error(`invalid lt: ${lt}`);
+  if (n > LT_SAFE_CEILING) {
+    throw new Error(`TON lt=${lt} exceeds safe Number range (${LT_SAFE_CEILING}). Migrate cursor type to bigint.`);
   }
-  return Number((nanoton * BigInt(priceMicros)) / (MICROS_PER_CENT * 10n ** BigInt(decimals)));
+  if (BigInt(lt) !== BigInt(n)) {
+    throw new Error(`TON lt=${lt} lost precision as Number (got ${n}). Migrate cursor type to bigint.`);
+  }
+  return n;
 }
 
 /**
@@ -128,7 +146,7 @@ export class TonWatcher implements IChainWatcher {
         if (!txs.length) continue;
 
         for (const tx of txs) {
-          const lt = Number(tx.lt);
+          const lt = parseLt(tx.lt);
           if (lt <= this._cursor) continue;
 
           if (tx.in_msg && tx.in_msg.destination === address && BigInt(tx.in_msg.value) > 0n) {
@@ -150,13 +168,16 @@ export class TonWatcher implements IChainWatcher {
           }
         }
 
-        const maxLt = txs.reduce((max, tx) => Math.max(max, Number(tx.lt)), this._cursor);
+        const maxLt = txs.reduce((max, tx) => Math.max(max, parseLt(tx.lt)), this._cursor);
         if (maxLt > this._cursor) {
           this._cursor = maxLt;
           await this.cursorStore.save(this.watcherId, this._cursor);
         }
       } catch (err) {
-        const _msg = err instanceof Error ? err.message : String(err);
+        // Surface RPC failures so ops can see them. Swallowing silently
+        // meant a dead TON Center endpoint would look like zero activity.
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[ton-watcher] pollNative ${this.chain}:${this.token} ${address}: ${msg}`);
       }
     }
 
@@ -178,14 +199,13 @@ export class TonWatcher implements IChainWatcher {
         if (!transfers.length) continue;
 
         for (const jt of transfers) {
-          const lt = Number(jt.transaction_lt);
+          const lt = parseLt(jt.transaction_lt);
           if (lt <= this._cursor) continue;
           if (jt.transaction_aborted) continue;
 
           const rawAmount = BigInt(jt.amount);
           if (rawAmount <= 0n) continue;
 
-          // For stablecoins (USDT), 1:1 USD — amount / 10^decimals * 100 cents
           const amountUsdCents = await this.toUsdCents(rawAmount);
 
           events.push({
@@ -202,13 +222,14 @@ export class TonWatcher implements IChainWatcher {
           });
         }
 
-        const maxLt = transfers.reduce((max, jt) => Math.max(max, Number(jt.transaction_lt)), this._cursor);
+        const maxLt = transfers.reduce((max, jt) => Math.max(max, parseLt(jt.transaction_lt)), this._cursor);
         if (maxLt > this._cursor) {
           this._cursor = maxLt;
           await this.cursorStore.save(this.watcherId, this._cursor);
         }
       } catch (err) {
-        const _msg = err instanceof Error ? err.message : String(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[ton-watcher] pollJetton ${this.chain}:${this.token} ${address}: ${msg}`);
       }
     }
 
