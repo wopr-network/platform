@@ -14,6 +14,7 @@
 
 import type { IncomingMessage } from "node:http";
 import http from "node:http";
+import https from "node:https";
 import type { Duplex } from "node:stream";
 import type { MiddlewareHandler } from "hono";
 import { logger } from "../../config/logger.js";
@@ -299,7 +300,8 @@ export function createTenantProxyUpgradeHandler(
         headersObj[key] = Array.isArray(raw) ? raw.join(", ") : String(raw);
       }
 
-      const upstreamReq = http.request({
+      const client = upstreamUrl.protocol === "https:" ? https : http;
+      const upstreamReq = client.request({
         host: upstreamUrl.hostname,
         port: upstreamUrl.port || (upstreamUrl.protocol === "https:" ? 443 : 80),
         path,
