@@ -11,6 +11,7 @@ import { serve } from "@hono/node-server";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
+import { createRpcCaller } from "./crypto-plugins/evm/watcher.js";
 import {
   bitcoinPlugin,
   dogecoinPlugin,
@@ -20,7 +21,6 @@ import {
   // tonPlugin, // TODO: publish crypto-plugins with ton export, then re-enable
   tronPlugin,
 } from "./crypto-plugins/index.js";
-import { createRpcCaller } from "./crypto-plugins/evm/watcher.js";
 import { createDb } from "./db/index.js";
 import { ChainlinkOracle } from "./oracle/chainlink.js";
 import { CoinGeckoOracle } from "./oracle/coingecko.js";
