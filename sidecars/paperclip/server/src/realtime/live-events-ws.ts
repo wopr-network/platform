@@ -97,11 +97,39 @@ async function authorizeUpgrade(
     resolveSessionFromHeaders?: (headers: Headers) => Promise<BetterAuthSessionResult | null>;
   },
 ): Promise<UpgradeContext | null> {
+  // In hosted_proxy mode the platform shell has already authenticated the
+  // request and injected `x-paperclip-user-id`. Check this FIRST — matches
+  // the ordering in middleware/auth.ts where hosted_proxy header detection
+  // runs before bearer-token extraction, so a request carrying both is
+  // handled consistently across HTTP and WS.
+  if (opts.deploymentMode === "hosted_proxy") {
+    const headerRaw = req.headers["x-paperclip-user-id"] ?? req.headers["x-platform-user-id"];
+    const proxyUserId = Array.isArray(headerRaw) ? headerRaw[0] : headerRaw;
+    if (!proxyUserId) return null;
+    const memberships = await db
+      .select({ companyId: companyMemberships.companyId })
+      .from(companyMemberships)
+      .where(
+        and(
+          eq(companyMemberships.principalType, "user"),
+          eq(companyMemberships.principalId, proxyUserId),
+          eq(companyMemberships.status, "active"),
+          eq(companyMemberships.companyId, companyId),
+        ),
+      );
+    if (memberships.length === 0) return null;
+    return {
+      companyId,
+      actorType: "board",
+      actorId: proxyUserId,
+    };
+  }
+
   const queryToken = url.searchParams.get("token")?.trim() ?? "";
   const authToken = parseBearerToken(req.headers.authorization);
   const token = authToken ?? (queryToken.length > 0 ? queryToken : null);
 
-  // Browser board context has no bearer token in local_trusted and authenticated modes.
+  // Browser board context has no bearer token in local_trusted or authenticated modes.
   if (!token) {
     if (opts.deploymentMode === "local_trusted") {
       return {
