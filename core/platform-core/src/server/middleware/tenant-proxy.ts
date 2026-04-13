@@ -307,6 +307,10 @@ export function createTenantProxyUpgradeHandler(
         path,
         method: req.method ?? "GET",
         headers: headersObj,
+        // agent: false — the default global agent pools keep-alive
+        // connections and rewrites Connection: Upgrade to keep-alive,
+        // causing the upstream to see a plain GET instead of a handshake.
+        agent: false,
       });
 
       logger.info("Tenant proxy WS: forwarding upgrade", {
