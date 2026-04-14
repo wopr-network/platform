@@ -41,7 +41,7 @@ describe("PriceRefresher", () => {
         { name: "primary", source: workingSource(65_000_000_000) },
         { name: "fallback", source: { getPrice: secondSpy } },
       ],
-      tokens: [{ token: "BTC" }],
+      tokens: async () => [{ token: "BTC" }],
       spacingMs: 0,
     });
     const report = await refresher.refreshAll();
@@ -60,7 +60,7 @@ describe("PriceRefresher", () => {
         { name: "coingecko", source: failingSource("429 rate limit") },
         { name: "stablecoin", source: workingSource(1_000_000) },
       ],
-      tokens: [{ token: "USDC" }],
+      tokens: async () => [{ token: "USDC" }],
       spacingMs: 0,
     });
     const report = await refresher.refreshAll();
@@ -77,7 +77,7 @@ describe("PriceRefresher", () => {
         { name: "a", source: failingSource("down") },
         { name: "b", source: failingSource("also down") },
       ],
-      tokens: [{ token: "TON" }],
+      tokens: async () => [{ token: "TON" }],
       spacingMs: 0,
     });
     const report = await refresher.refreshAll();
@@ -100,7 +100,7 @@ describe("PriceRefresher", () => {
         { name: "zero", source: zeroSource },
         { name: "real", source: workingSource(3_500_000) },
       ],
-      tokens: [{ token: "TON" }],
+      tokens: async () => [{ token: "TON" }],
       spacingMs: 0,
     });
     const report = await refresher.refreshAll();
@@ -113,7 +113,7 @@ describe("PriceRefresher", () => {
     const refresher = new PriceRefresher({
       store,
       sources: [{ name: "src", source: workingSource(1_234_567) }],
-      tokens: [{ token: "BTC" }, { token: "ETH" }, { token: "TON" }],
+      tokens: async () => [{ token: "BTC" }, { token: "ETH" }, { token: "TON" }],
       spacingMs: 0,
     });
     await refresher.refreshAll();
@@ -126,10 +126,71 @@ describe("PriceRefresher", () => {
     const refresher = new PriceRefresher({
       store,
       sources: [{ name: "chainlink", source: { getPrice: spy } }],
-      tokens: [{ token: "BTC", feedAddress: "0xCAFE" as `0x${string}` }],
+      tokens: async () => [{ token: "BTC", feedAddress: "0xCAFE" as `0x${string}` }],
       spacingMs: 0,
     });
     await refresher.refreshAll();
     expect(spy).toHaveBeenCalledWith("BTC", "0xCAFE");
+  });
+
+  it("resolves tokens per tick so admin-added payment methods are picked up without restart", async () => {
+    // The refresher config is NOT snapshotted at boot. A new token inserted
+    // via the admin API after the service is already running must be seen on
+    // the very next tick, otherwise /charges would keep 503ing for that
+    // token until a restart. Here we mutate the underlying list between
+    // ticks and assert the new token is refreshed.
+    const store = mockStore();
+    const tokens = [{ token: "BTC" }];
+    const refresher = new PriceRefresher({
+      store,
+      sources: [{ name: "src", source: workingSource(100_000) }],
+      tokens: async () => [...tokens],
+      spacingMs: 0,
+    });
+
+    await refresher.refreshAll();
+    expect(store._upserts.map(([t]) => t)).toEqual(["BTC"]);
+
+    tokens.push({ token: "TON" });
+    await refresher.refreshAll();
+    expect(store._upserts.map(([t]) => t)).toEqual(["BTC", "BTC", "TON"]);
+  });
+
+  it("stop() awaits in-flight tick so shutdown drains pending upserts", async () => {
+    // If the pg pool is closed while a tick is mid-upsert, those writes fail
+    // partway and the DB ends up in an inconsistent state for that tick.
+    // stop() must return only after any in-flight tick has finished.
+    const store = mockStore();
+    let resolveSlow: (() => void) | null = null;
+    const slowSource: IPriceSource = {
+      getPrice: () =>
+        new Promise((resolve) => {
+          resolveSlow = () => resolve({ priceMicros: 1_000_000, updatedAt: new Date() });
+        }),
+    };
+    const refresher = new PriceRefresher({
+      store,
+      sources: [{ name: "slow", source: slowSource }],
+      tokens: async () => [{ token: "TON" }],
+      spacingMs: 0,
+      intervalMs: 1_000_000, // don't let the interval fire during the test
+    });
+
+    const starting = refresher.start();
+    await new Promise((r) => setTimeout(r, 10));
+
+    const stopping = refresher.stop();
+    let stopped = false;
+    void stopping.then(() => {
+      stopped = true;
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(stopped).toBe(false);
+
+    (resolveSlow as unknown as () => void)();
+    await starting;
+    await stopping;
+    expect(stopped).toBe(true);
+    expect(store._upserts).toEqual([["TON", 1_000_000, "slow"]]);
   });
 });

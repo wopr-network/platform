@@ -29,7 +29,6 @@ function createMockOpts(rpcResponses: Map<string, unknown>, priceMicros: number)
       headers: { "Content-Type": "application/json" },
     });
   });
-  // biome-ignore lint/suspicious/noExplicitAny: test mock override
   (globalThis as any).fetch = mockFetch;
 
   return {

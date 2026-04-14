@@ -14,7 +14,6 @@ function createMockOpts(rpcResponses: Map<string, unknown>) {
     });
   });
 
-  // biome-ignore lint/suspicious/noExplicitAny: test mock override
   (globalThis as any).fetch = mockFetch;
 
   return {

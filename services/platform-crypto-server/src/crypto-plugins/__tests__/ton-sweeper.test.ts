@@ -213,7 +213,6 @@ describe("TON sweeper — scan + sweep with mocked API", () => {
       }
       return new Response("{}", { status: 200 });
     });
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = fetchMock;
     return fetchMock;
   }
@@ -298,7 +297,7 @@ describe("TON sweeper — scan + sweep with mocked API", () => {
     // Verify we actually POSTed a BOC.
     const sendBocCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("sendBoc"));
     expect(sendBocCall).toBeTruthy();
-    const boc = new URL(String(sendBocCall![0])).searchParams.get("boc") ?? "";
+    const boc = new URL(String((sendBocCall as unknown as [string])[0])).searchParams.get("boc") ?? "";
     // The BOC is base64, should be non-empty and decode without error.
     expect(boc.length).toBeGreaterThan(10);
     const bocBuf = Buffer.from(boc, "base64");

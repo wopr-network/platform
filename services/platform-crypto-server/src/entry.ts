@@ -25,7 +25,7 @@ import { createDb } from "./db/index.js";
 import { ChainlinkOracle } from "./oracle/chainlink.js";
 import { CoinGeckoOracle } from "./oracle/coingecko.js";
 import { DbPriceReader } from "./oracle/reader.js";
-import { PriceRefresher } from "./oracle/refresher.js";
+import { PriceRefresher, type PriceTokenConfig } from "./oracle/refresher.js";
 import { FixedRateStablecoinSource } from "./oracle/stablecoin.js";
 import { PluginRegistry } from "./plugin/registry.js";
 import { createKeyServerApp } from "./server.js";
@@ -78,33 +78,40 @@ async function main(): Promise<void> {
   const priceStore = new DrizzlePriceStore(db);
   const priceReader = new DbPriceReader(priceStore);
 
-  // Build token→CoinGecko ID map from DB (zero-deploy chain additions)
-  const allMethods = await methodStore.listAll();
-  const dbTokenIds: Record<string, string> = {};
-  for (const m of allMethods) {
-    if (m.oracleAssetId) dbTokenIds[m.token] = m.oracleAssetId;
-  }
-
   // Source priority: on-chain Chainlink → CoinGecko → stablecoin fixed-$1.
   // Chainlink is only consulted for tokens whose payment_method has an oracle
   // address; CoinGecko handles the rest; stablecoin catches USDC/USDT/DAI.
+  //
+  // CoinGecko's token→id mapping and the refresher's token list are BOTH
+  // resolved per-tick, not snapshotted at boot. Adding a new payment method
+  // via the admin API is picked up on the next refresh tick without a
+  // service restart. "First non-null feed wins" so a token served by two
+  // payment methods (e.g., ETH on mainnet + ETH on Base) still picks up the
+  // Chainlink feed even if a null-feed method is enumerated first.
+  const coingeckoTokenIds = async (): Promise<Record<string, string>> => {
+    const methods = await methodStore.listAll();
+    const ids: Record<string, string> = {};
+    for (const m of methods) if (m.oracleAssetId) ids[m.token] = m.oracleAssetId;
+    return ids;
+  };
+  const refresherTokens = async (): Promise<PriceTokenConfig[]> => {
+    const methods = await methodStore.listAll();
+    const map = new Map<string, `0x${string}` | undefined>();
+    for (const m of methods) {
+      if (!m.enabled) continue;
+      const feed = m.oracleAddress ? (m.oracleAddress as `0x${string}`) : undefined;
+      const existing = map.get(m.token);
+      if (!map.has(m.token) || (existing === undefined && feed !== undefined)) {
+        map.set(m.token, feed);
+      }
+    }
+    return [...map.entries()].map(([token, feedAddress]) => ({ token, feedAddress }));
+  };
+
   const chainlink = new ChainlinkOracle({ rpcCall: createRpcCaller(BASE_RPC_URL) });
-  const coingecko = new CoinGeckoOracle({ tokenIds: dbTokenIds });
+  const coingecko = new CoinGeckoOracle({ tokenIds: coingeckoTokenIds });
   const stablecoin = new FixedRateStablecoinSource();
 
-  // Tokens to refresh = every enabled payment method token. One row per token.
-  // "First non-null feed wins" so a token served by two payment methods (e.g.,
-  // ETH on mainnet + ETH on Base) still picks up the Chainlink feed even if
-  // the null-feed method happens to be enumerated first.
-  const tokenSet = new Map<string, `0x${string}` | undefined>();
-  for (const m of allMethods) {
-    if (!m.enabled) continue;
-    const feed = m.oracleAddress ? (m.oracleAddress as `0x${string}`) : undefined;
-    const existing = tokenSet.get(m.token);
-    if (!tokenSet.has(m.token) || (existing === undefined && feed !== undefined)) {
-      tokenSet.set(m.token, feed);
-    }
-  }
   const refresher = new PriceRefresher({
     store: priceStore,
     sources: [
@@ -112,9 +119,13 @@ async function main(): Promise<void> {
       { name: "coingecko", source: coingecko },
       { name: "stablecoin", source: stablecoin },
     ],
-    tokens: [...tokenSet.entries()].map(([token, feedAddress]) => ({ token, feedAddress })),
+    tokens: refresherTokens,
+    log: {
+      info: (m, meta) => console.log(m, meta ?? ""),
+      warn: (m, meta) => console.warn(m, meta ?? ""),
+      error: (m, meta) => console.error(m, meta ?? ""),
+    },
   });
-  console.log(`[crypto-key-server] PriceRefresher tracking ${tokenSet.size} tokens:`, [...tokenSet.keys()].join(", "));
   await refresher.start();
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -169,11 +180,13 @@ async function main(): Promise<void> {
   const server = serve({ fetch: app.fetch, port: PORT });
   console.log(`[crypto-key-server] Listening on :${PORT}`);
 
-  // Graceful shutdown — stop accepting requests, drain watchers, close pool
+  // Graceful shutdown — stop accepting requests, drain watchers + refresher,
+  // then close the pool. `refresher.stop()` is awaited so the final tick's
+  // upserts complete before pool.end() pulls the DB out from under them.
   const shutdown = async () => {
     console.log("[crypto-key-server] Shutting down...");
     clearInterval(deliveryTimer);
-    refresher.stop();
+    await refresher.stop();
     stopWatchers();
     server.close();
     await pool.end();

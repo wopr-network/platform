@@ -19,7 +19,6 @@ function createMockOpts(transactions: Record<string, TonTransaction[]>) {
     return new Response(JSON.stringify({ ok: false, error: "unknown method" }), { status: 404 });
   });
 
-  // biome-ignore lint/suspicious/noExplicitAny: test mock override
   (globalThis as any).fetch = mockFetch;
 
   return {
@@ -368,7 +367,6 @@ describe("TonWatcher", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     });
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = mockFetch;
 
     const watcher = new TonWatcher(opts);
@@ -474,7 +472,6 @@ describe("TonWatcher — Jetton path (USDT on TON)", () => {
       }
       return new Response("{}", { status: 200 });
     });
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = mockFetch;
     return mockFetch;
   }
@@ -575,7 +572,6 @@ describe("TonWatcher — Jetton path (USDT on TON)", () => {
   it("Jetton RPC failure is caught, logged, does not crash", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const mockFetch = vi.fn(async () => new Response("v3 down", { status: 500 }));
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = mockFetch;
 
     const w = new TonWatcher(jettonOpts());

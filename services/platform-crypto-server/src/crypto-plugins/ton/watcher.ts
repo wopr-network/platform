@@ -1,3 +1,8 @@
+/* biome-ignore-all lint/suspicious/noConsole: per-address RPC-failure telemetry
+ * surfaces through console.warn until the plugin watcher interface is extended
+ * with an injected logger (follow-up work — cascades across every watcher). The
+ * calls here are scoped to a single per-address try/catch and never emit in the
+ * happy path; price/invariant failures propagate above this layer. */
 import { Address } from "@ton/core";
 import type {
   IChainWatcher,
@@ -276,7 +281,6 @@ export class TonWatcher implements IChainWatcher {
     return events;
   }
 
-
   /**
    * Fetch recent native TON transactions for an address via v2 API.
    */
@@ -295,7 +299,7 @@ export class TonWatcher implements IChainWatcher {
   private async getJettonTransfers(v3Base: string, address: string): Promise<JettonTransferV3[]> {
     const params = new URLSearchParams({
       owner_address: address,
-      jetton_id: this.contractAddress!,
+      jetton_id: this.contractAddress as string,
       direction: "in",
       sort: "asc",
       limit: "50",
