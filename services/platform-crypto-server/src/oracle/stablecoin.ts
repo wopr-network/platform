@@ -16,7 +16,7 @@ import { AssetNotSupportedError } from "./types.js";
 export class FixedRateStablecoinSource implements IPriceSource {
   private readonly stablecoins: Set<string>;
 
-  constructor(stablecoins: string[] = ["USDC", "USDT", "DAI", "PYUSD", "USDP"]) {
+  constructor(stablecoins: string[] = ["USDC", "USDT", "DAI", "PYUSD", "USDP", "USDe", "FDUSD", "TUSD", "GUSD"]) {
     this.stablecoins = new Set(stablecoins.map((s) => s.toUpperCase()));
   }
 
