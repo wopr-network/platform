@@ -450,7 +450,6 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
       id: string;
       coin_type: number;
       account_index: number;
-      network: string;
       type: string;
       token: string;
       chain: string;
@@ -495,10 +494,10 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
       id: body.id,
       type: body.type ?? "native",
       token: body.token,
-      chain: body.chain ?? body.network,
+      chain: body.chain,
       contractAddress: body.contract ?? null,
       decimals: body.decimals,
-      displayName: body.display_name ?? `${body.token} on ${body.network}`,
+      displayName: body.display_name ?? `${body.token} on ${body.chain}`,
       enabled: true,
       displayOrder: body.display_order ?? 0,
       iconUrl: body.icon_url ?? null,

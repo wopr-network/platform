@@ -72,7 +72,6 @@ export const paymentMethods = pgTable("payment_methods", {
   type: text("type").notNull(), // "erc20", "native", "btc"
   token: text("token").notNull(), // "USDC", "ETH", "BTC", "DOGE"
   chain: text("chain").notNull(), // "base", "ethereum", "bitcoin", "arbitrum"
-  network: text("network").notNull().default("mainnet"), // "mainnet", "base", "arbitrum"
   contractAddress: text("contract_address"), // null for native (ETH, BTC)
   decimals: integer("decimals").notNull(),
   displayName: text("display_name").notNull(),
