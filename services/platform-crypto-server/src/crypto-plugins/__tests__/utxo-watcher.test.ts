@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
-import { createMockCursorStore, createMockOracle } from "../shared/test-helpers/index.js";
+import { createMockCursorStore, createMockPriceReader } from "../shared/test-helpers/index.js";
 import type { RpcCall } from "../shared/utxo/types.js";
 import { UtxoWatcher } from "../shared/utxo/watcher.js";
 
 function createTestWatcher(rpc: RpcCall, opts?: { confirmations?: number; token?: string; chain?: string }) {
   const cursorStore = createMockCursorStore();
-  const oracle = createMockOracle();
+  const oracle = createMockPriceReader();
   const watcher = new UtxoWatcher({
     rpc,
     token: opts?.token ?? "BTC",
     chain: opts?.chain ?? "bitcoin",
     decimals: 8,
     confirmations: opts?.confirmations ?? 3,
-    oracle,
+    priceReader: oracle,
     cursorStore,
   });
   return { watcher, cursorStore, oracle };

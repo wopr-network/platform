@@ -48,7 +48,7 @@ describe("CoinGeckoOracle", () => {
 
   it("throws for unknown asset when not in DB mapping", async () => {
     const oracle = new CoinGeckoOracle({ tokenIds: TOKEN_IDS, fetchFn: mockFetch(100) as unknown as typeof fetch });
-    await expect(oracle.getPrice("UNKNOWN")).rejects.toThrow("No price oracle supports asset: UNKNOWN");
+    await expect(oracle.getPrice("UNKNOWN")).rejects.toThrow("No price source supports asset: UNKNOWN");
   });
 
   it("throws on API error", async () => {

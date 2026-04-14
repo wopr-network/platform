@@ -58,7 +58,19 @@ export interface ISweepStrategy {
   sweep(keys: KeyPair[], treasury: string, dryRun: boolean): Promise<SweepResult[]>;
 }
 
-export interface IPriceOracle {
+/**
+ * The hot path's single way to look up a price.
+ *
+ * One path. Always returns a price. Callers do not try/catch this.
+ * Implementations read from the `prices` DB table (populated by the refresher).
+ * They MUST NOT call an external API. If no row exists for the token, that is
+ * a system-invariant violation (gate at `/charges` should make it unreachable)
+ * and the process should fail loudly.
+ *
+ * Note: `feedAddress` is ignored by DB-backed readers and retained only for
+ * signature compatibility with legacy call sites.
+ */
+export interface IPriceReader {
   getPrice(token: string, feedAddress?: string): Promise<{ priceMicros: number }>;
 }
 
@@ -72,7 +84,7 @@ export interface IWatcherCursorStore {
 export interface WatcherOpts {
   rpcUrl: string;
   rpcHeaders: Record<string, string>;
-  oracle: IPriceOracle;
+  priceReader: IPriceReader;
   cursorStore: IWatcherCursorStore;
   token: string;
   chain: string;

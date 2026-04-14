@@ -93,9 +93,7 @@ describe("TON sweeper — parity with encoder + pool generator", () => {
   it("testnet: pinned index-0 address (known-good fixture)", () => {
     const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
     const pub = ed25519.getPublicKey(priv);
-    expect(computeWalletV4R2Address(pub, { testnet: true })).toBe(
-      "0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS",
-    );
+    expect(computeWalletV4R2Address(pub, { testnet: true })).toBe("0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS");
   });
 });
 

@@ -25,7 +25,7 @@ function createMockOpts(transactions: Record<string, TonTransaction[]>) {
   return {
     rpcUrl: "https://toncenter.com/api/v2",
     rpcHeaders: {},
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 3_500_000 }) },
+    priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 3_500_000 }) },
     cursorStore: {
       get: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),
@@ -238,7 +238,7 @@ describe("TonWatcher", () => {
 
     const opts = createMockOpts({ [watchedAddr]: [tx] });
     // Oracle returns $3.50 = 3,500,000 microdollars
-    opts.oracle.getPrice = vi.fn().mockResolvedValue({ priceMicros: 3_500_000 });
+    opts.priceReader.getPrice = vi.fn().mockResolvedValue({ priceMicros: 3_500_000 });
 
     const watcher = new TonWatcher(opts);
     await watcher.init();
@@ -259,7 +259,7 @@ describe("TonWatcher", () => {
     };
 
     const opts = createMockOpts({ [watchedAddr]: [tx] });
-    opts.oracle.getPrice = vi.fn().mockRejectedValue(new Error("oracle down"));
+    opts.priceReader.getPrice = vi.fn().mockRejectedValue(new Error("oracle down"));
 
     const watcher = new TonWatcher(opts);
     await watcher.init();
@@ -464,7 +464,7 @@ describe("TonWatcher — Jetton path (USDT on TON)", () => {
     return {
       rpcUrl: "https://toncenter.com/api/v2",
       rpcHeaders: {},
-      oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) }, // $1.00
+      priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) }, // $1.00
       cursorStore: {
         get: vi.fn().mockResolvedValue(null),
         save: vi.fn().mockResolvedValue(undefined),

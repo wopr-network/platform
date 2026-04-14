@@ -1,6 +1,6 @@
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
@@ -60,7 +60,7 @@ export abstract class BaseEvmLikeWatcher implements IChainWatcher {
   protected readonly contractAddress: string;
   protected readonly decimals: number;
   protected readonly cursorStore: IWatcherCursorStore;
-  protected readonly oracle: IPriceOracle;
+  protected readonly priceReader: IPriceReader;
   protected readonly watcherId: string;
   /** Hex-encoded addresses used for the topic[2] filter. */
   protected _watchedFilterAddresses: string[] = [];
@@ -76,7 +76,7 @@ export abstract class BaseEvmLikeWatcher implements IChainWatcher {
     this.contractAddress = (opts.contractAddress ?? "").toLowerCase();
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
-    this.oracle = opts.oracle;
+    this.priceReader = opts.priceReader;
     // watcherId has to be built from a method return rather than the
     // abstract field, because in JS the abstract-marked field is only
     // initialized after super() — at constructor-time it's still undefined.
@@ -150,7 +150,7 @@ export abstract class BaseEvmLikeWatcher implements IChainWatcher {
 
     // Oracle called exactly once per poll — used to convert every log's
     // rawAmount into cents. Per-log conversion would blow through rate limits.
-    const { priceMicros } = await this.oracle.getPrice(this.token);
+    const { priceMicros } = await this.priceReader.getPrice(this.token);
 
     const toFilter =
       this._watchedFilterAddresses.length > 0

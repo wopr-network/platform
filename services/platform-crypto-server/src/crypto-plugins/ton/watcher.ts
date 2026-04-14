@@ -1,11 +1,11 @@
+import { Address } from "@ton/core";
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
-import { Address } from "@ton/core";
 import { nativeToCents } from "../../oracle/convert.js";
 import type { JettonTransferV3, TonApiCall, TonTransaction } from "./types.js";
 
@@ -102,7 +102,7 @@ export class TonWatcher implements IChainWatcher {
   private readonly confirmationsRequired: number;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
-  private readonly oracle: IPriceOracle;
+  private readonly priceReader: IPriceReader;
   private readonly watcherId: string;
   private readonly contractAddress?: string;
   private readonly baseUrl: string;
@@ -115,7 +115,7 @@ export class TonWatcher implements IChainWatcher {
     this.decimals = opts.decimals ?? TON_DECIMALS;
     this.confirmationsRequired = opts.confirmations ?? 1;
     this.cursorStore = opts.cursorStore;
-    this.oracle = opts.oracle;
+    this.priceReader = opts.priceReader;
     this.watcherId = `ton:${this.chain}:${this.token}`;
     this.contractAddress = opts.contractAddress;
 
@@ -172,11 +172,7 @@ export class TonWatcher implements IChainWatcher {
           const lt = parseLt(tx.transaction_id.lt);
           if (lt <= this._cursor) continue;
 
-          if (
-            tx.in_msg &&
-            normalizeTonAddress(tx.in_msg.destination) === addressRaw &&
-            BigInt(tx.in_msg.value) > 0n
-          ) {
+          if (tx.in_msg && normalizeTonAddress(tx.in_msg.destination) === addressRaw && BigInt(tx.in_msg.value) > 0n) {
             const rawAmount = BigInt(tx.in_msg.value);
             const amountUsdCents = await this.toUsdCents(rawAmount);
 
@@ -266,7 +262,7 @@ export class TonWatcher implements IChainWatcher {
   /** Convert raw amount to USD cents via oracle. */
   private async toUsdCents(rawAmount: bigint): Promise<number> {
     try {
-      const { priceMicros } = await this.oracle.getPrice(this.token);
+      const { priceMicros } = await this.priceReader.getPrice(this.token);
       if (priceMicros > 0) return nativeToCents(rawAmount, priceMicros, this.decimals);
     } catch {
       /* oracle failure is non-fatal */

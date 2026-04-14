@@ -10,8 +10,7 @@
  */
 
 import type { CryptoDb } from "../db/index.js";
-import type { IPriceOracle } from "../oracle/types.js";
-import type { IChainPlugin, IChainWatcher } from "../plugin/interfaces.js";
+import type { IChainPlugin, IChainWatcher, IPriceReader } from "../plugin/interfaces.js";
 import type { PluginRegistry } from "../plugin/registry.js";
 import type { ICryptoChargeRepository } from "../stores/charge-store.js";
 import type { IWatcherCursorStore } from "../stores/cursor-store.js";
@@ -23,7 +22,7 @@ export interface PluginWatcherServiceOpts {
   chargeStore: ICryptoChargeRepository;
   methodStore: IPaymentMethodStore;
   cursorStore: IWatcherCursorStore;
-  oracle: IPriceOracle;
+  priceReader: IPriceReader;
   registry: PluginRegistry;
   pollIntervalMs?: number;
   log?: (msg: string, meta?: Record<string, unknown>) => void;
@@ -47,7 +46,7 @@ function resolvePlugin(registry: PluginRegistry, method: PaymentMethodRecord): I
  * Returns a cleanup function that stops all poll timers and watchers.
  */
 export async function startPluginWatchers(opts: PluginWatcherServiceOpts): Promise<() => void> {
-  const { db, chargeStore, methodStore, cursorStore, oracle, registry } = opts;
+  const { db, chargeStore, methodStore, cursorStore, priceReader, registry } = opts;
   const pollMs = opts.pollIntervalMs ?? 15_000;
   const log = opts.log ?? (() => {});
 
@@ -67,7 +66,7 @@ export async function startPluginWatchers(opts: PluginWatcherServiceOpts): Promi
     const watcher = plugin.createWatcher({
       rpcUrl: method.rpcUrl,
       rpcHeaders: JSON.parse(method.rpcHeaders ?? "{}"),
-      oracle,
+      priceReader,
       cursorStore,
       token: method.token,
       chain: method.chain,

@@ -68,13 +68,13 @@ function mkCursorStore(
   } as MockedCursorStore;
 }
 
-function mkOracle(priceMicros = 1_000_000) {
+function mkPriceReader(priceMicros = 1_000_000) {
   return { getPrice: vi.fn().mockResolvedValue({ priceMicros }) };
 }
 
 function mkWatcher(opts: {
   rpc: RpcCall;
-  oracle?: ReturnType<typeof mkOracle>;
+  priceReader?: ReturnType<typeof mkPriceReader>;
   cursorStore?: MockedCursorStore;
   confirmations?: number;
   token?: string;
@@ -84,7 +84,7 @@ function mkWatcher(opts: {
     rpcUrl: "http://unused",
     rpcHeaders: {},
     rpc: opts.rpc,
-    oracle: opts.oracle ?? mkOracle(),
+    priceReader: opts.priceReader ?? mkPriceReader(),
     cursorStore: opts.cursorStore ?? mkCursorStore(),
     chain: "ethereum",
     token: opts.token ?? "USDC",
@@ -138,13 +138,13 @@ describe("BaseEvmLikeWatcher via EvmLikeEvmWatcher", () => {
       buildLog({ block: 13, txHash: `0x${"44".repeat(32)}`, logIndex: "0x0" }),
     ];
     const rpc = mkRpc({ eth_blockNumber: "0x20", eth_getLogs: logs });
-    const oracle = mkOracle(1_000_000);
-    const w = mkWatcher({ rpc, oracle });
+    const priceReader = mkPriceReader(1_000_000);
+    const w = mkWatcher({ rpc, priceReader });
     w.setWatchedAddresses([TO]);
 
     const events = await w.poll();
     expect(events).toHaveLength(6);
-    expect(oracle.getPrice).toHaveBeenCalledTimes(1);
+    expect(priceReader.getPrice).toHaveBeenCalledTimes(1);
   });
 
   it("getConfirmationCount dedup: same conf skipped, higher conf emitted", async () => {
@@ -236,7 +236,7 @@ describe("BaseEvmLikeWatcher via EvmLikeEvmWatcher", () => {
     const w = new EvmLikeEvmWatcher({
       rpcUrl: "http://localhost:8545",
       rpcHeaders: {},
-      oracle: mkOracle(),
+      priceReader: mkPriceReader(),
       cursorStore: mkCursorStore(),
       chain: "ethereum",
       token: "USDC",

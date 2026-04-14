@@ -1,6 +1,6 @@
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
@@ -45,7 +45,7 @@ export interface UtxoWatcherConfig {
   /** Required confirmations before marking fully processed. */
   confirmations: number;
   /** Price oracle for USD conversion. */
-  oracle: IPriceOracle;
+  priceReader: IPriceReader;
   /** Cursor store for dedup and confirmation tracking. */
   cursorStore: IWatcherCursorStore;
 }
@@ -63,7 +63,7 @@ export class UtxoWatcher implements IChainWatcher {
   private readonly chain: string;
   private readonly decimals: number;
   private readonly minConfirmations: number;
-  private readonly oracle: IPriceOracle;
+  private readonly priceReader: IPriceReader;
   private readonly cursorStore: IWatcherCursorStore;
   private readonly watcherId: string;
   private cursor = 0;
@@ -75,7 +75,7 @@ export class UtxoWatcher implements IChainWatcher {
     this.chain = config.chain;
     this.decimals = config.decimals;
     this.minConfirmations = config.confirmations;
-    this.oracle = config.oracle;
+    this.priceReader = config.priceReader;
     this.cursorStore = config.cursorStore;
     this.watcherId = `${config.chain}:${config.token}`;
   }
@@ -135,7 +135,7 @@ export class UtxoWatcher implements IChainWatcher {
       true, // include_watchonly
     ])) as ReceivedByAddress[];
 
-    const { priceMicros } = await this.oracle.getPrice(this.token);
+    const { priceMicros } = await this.priceReader.getPrice(this.token);
 
     for (const entry of received) {
       if (!this.addresses.has(entry.address)) continue;
@@ -189,7 +189,7 @@ export function createUtxoWatcher(opts: WatcherOpts, rpc: RpcCall): IChainWatche
     chain: opts.chain,
     decimals: opts.decimals,
     confirmations: opts.confirmations,
-    oracle: opts.oracle,
+    priceReader: opts.priceReader,
     cursorStore: opts.cursorStore,
   });
 }

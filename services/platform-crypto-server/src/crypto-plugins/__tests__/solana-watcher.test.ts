@@ -20,7 +20,7 @@ function createMockOpts(rpcResponses: Map<string, unknown>) {
   return {
     rpcUrl: "http://localhost:8899",
     rpcHeaders: {},
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 150_000_000 }) },
+    priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 150_000_000 }) },
     cursorStore: {
       get: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),
@@ -389,7 +389,7 @@ describe("SolanaWatcher", () => {
       token: "USDC",
       contractAddress: usdcMint,
       decimals: 6,
-      oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) },
+      priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) },
     };
 
     const watcher = new SolanaWatcher(splOpts);

@@ -1,4 +1,4 @@
-import type { IPriceOracle, PriceAsset, PriceResult } from "./types.js";
+import type { IPriceSource, PriceAsset, PriceResult } from "./types.js";
 
 /**
  * Chainlink price feed addresses on Base mainnet.
@@ -34,7 +34,7 @@ export interface ChainlinkOracleOpts {
  * Chainlink USD feeds use 8 decimals. We convert to integer USD cents:
  *   priceMicros = answer / 100  (i.e. answer / 10^8 * 10^6)
  */
-export class ChainlinkOracle implements IPriceOracle {
+export class ChainlinkOracle implements IPriceSource {
   private readonly rpc: RpcCall;
   private readonly feeds: Map<string, `0x${string}`>;
   private readonly maxStalenessMs: number;

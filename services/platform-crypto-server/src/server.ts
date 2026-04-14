@@ -16,17 +16,16 @@ import { deriveAddress } from "./address-gen.js";
 import type { CryptoDb } from "./db/index.js";
 import { addressPool, derivedAddresses, keyRings, pathAllocations, paymentMethods } from "./db/schema.js";
 import { centsToNative } from "./oracle/convert.js";
-import type { IPriceOracle } from "./oracle/types.js";
-import { AssetNotSupportedError } from "./oracle/types.js";
 import type { PluginRegistry } from "./plugin/registry.js";
 import type { ICryptoChargeRepository } from "./stores/charge-store.js";
 import type { IPaymentMethodStore } from "./stores/payment-method-store.js";
+import type { IPriceStore } from "./stores/price-store.js";
 
 export interface KeyServerDeps {
   db: CryptoDb;
   chargeStore: ICryptoChargeRepository;
   methodStore: IPaymentMethodStore;
-  oracle: IPriceOracle;
+  priceStore: IPriceStore;
   /** Bearer token for product API routes. If unset, auth is disabled. */
   serviceKey?: string;
   /** Bearer token for admin routes. If unset, admin routes are disabled. */
@@ -259,25 +258,16 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
     const amountUsdCents = Math.round(body.amountUsd * 100);
 
     // Compute expected crypto amount in native base units.
-    // Price is locked NOW — this is what the user must send.
-    let expectedAmount: bigint;
-    const feedAddress = method.oracleAddress ? (method.oracleAddress as `0x${string}`) : undefined;
-    try {
-      // Try oracle pricing (Chainlink for BTC/ETH, CoinGecko for DOGE/LTC).
-      // feedAddress is a hint for Chainlink — undefined is fine, CompositeOracle
-      // falls through to CoinGecko or built-in feed maps.
-      const { priceMicros } = await deps.oracle.getPrice(token, feedAddress);
-      expectedAmount = centsToNative(amountUsdCents, priceMicros, method.decimals);
-    } catch (err) {
-      if (err instanceof AssetNotSupportedError) {
-        // No oracle knows this token (e.g. USDC, DAI) — stablecoin 1:1 USD.
-        expectedAmount = (BigInt(amountUsdCents) * 10n ** BigInt(method.decimals)) / 100n;
-      } else {
-        // Transient oracle failure (network, rate limit, stale feed).
-        // Reject the charge — silently pricing BTC at $1 would be catastrophic.
-        return c.json({ error: `Price oracle unavailable for ${token}: ${(err as Error).message}` }, 503);
-      }
+    // Price comes from the prices table (populated by PriceRefresher on boot + hourly).
+    // If no row exists for this token, the refresher has not yet seeded it (or every
+    // source was down on every tick since boot). Refuse the charge — the watcher must
+    // never see a deposit for a token whose price isn't known. Stablecoins are seeded
+    // by a FixedRateStablecoinSource in the refresher pipeline.
+    const priceRow = await deps.priceStore.get(token);
+    if (priceRow === null) {
+      return c.json({ error: `No price recorded for ${token}. Refresher has not seeded this asset yet.` }, 503);
     }
+    const expectedAmount = centsToNative(amountUsdCents, priceRow.priceMicros, method.decimals);
 
     // Don't lowercase the address — it's case-significant for TON/SOL/DOGE/TRX
     // (different chains, different address encodings, some case-sensitive).

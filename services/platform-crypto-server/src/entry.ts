@@ -24,13 +24,15 @@ import {
 import { createDb } from "./db/index.js";
 import { ChainlinkOracle } from "./oracle/chainlink.js";
 import { CoinGeckoOracle } from "./oracle/coingecko.js";
-import { CompositeOracle } from "./oracle/composite.js";
-import { FixedPriceOracle } from "./oracle/fixed.js";
+import { DbPriceReader } from "./oracle/reader.js";
+import { PriceRefresher } from "./oracle/refresher.js";
+import { FixedRateStablecoinSource } from "./oracle/stablecoin.js";
 import { PluginRegistry } from "./plugin/registry.js";
 import { createKeyServerApp } from "./server.js";
 import { DrizzleCryptoChargeRepository } from "./stores/charge-store.js";
 import { DrizzleWatcherCursorStore } from "./stores/cursor-store.js";
 import { DrizzlePaymentMethodStore } from "./stores/payment-method-store.js";
+import { DrizzlePriceStore } from "./stores/price-store.js";
 import { startPluginWatchers } from "./watchers/plugin-watcher-service.js";
 import { processDeliveries } from "./watchers/watcher-service.js";
 
@@ -59,19 +61,48 @@ async function main(): Promise<void> {
   const chargeStore = new DrizzleCryptoChargeRepository(db);
   const methodStore = new DrizzlePaymentMethodStore(db);
 
-  // Composite oracle: Chainlink on-chain (BTC, ETH on Base) + CoinGecko fallback (DOGE, LTC, etc.)
-  // Every volatile asset needs reliable USD pricing — the ledger credits nanodollars.
-  const chainlink = BASE_RPC_URL
-    ? new ChainlinkOracle({ rpcCall: createRpcCaller(BASE_RPC_URL) })
-    : new FixedPriceOracle();
+  // ─── Pricing pipeline ──────────────────────────────────────────────────────
+  // Hot path (watchers, /charges) reads prices ONLY from the `prices` DB table.
+  // A separate PriceRefresher populates that table on boot + hourly, trying
+  // multiple external sources in priority order. Any recorded price is valid;
+  // refresher failures leave the previous value in place. This decoupling is
+  // how we stop CoinGecko 429s from silently zeroing payment cents fields.
+  const priceStore = new DrizzlePriceStore(db);
+  const priceReader = new DbPriceReader(priceStore);
+
   // Build token→CoinGecko ID map from DB (zero-deploy chain additions)
   const allMethods = await methodStore.listAll();
   const dbTokenIds: Record<string, string> = {};
   for (const m of allMethods) {
     if (m.oracleAssetId) dbTokenIds[m.token] = m.oracleAssetId;
   }
+
+  // Source priority: on-chain Chainlink → CoinGecko → stablecoin fixed-$1.
+  // Chainlink is only consulted for tokens whose payment_method has an oracle
+  // address; CoinGecko handles the rest; stablecoin catches USDC/USDT/DAI.
+  const chainlink = new ChainlinkOracle({ rpcCall: createRpcCaller(BASE_RPC_URL) });
   const coingecko = new CoinGeckoOracle({ tokenIds: dbTokenIds });
-  const oracle = new CompositeOracle(chainlink, coingecko);
+  const stablecoin = new FixedRateStablecoinSource();
+
+  // Tokens to refresh = every enabled payment method token. One row per token.
+  const tokenSet = new Map<string, `0x${string}` | undefined>();
+  for (const m of allMethods) {
+    if (!m.enabled) continue;
+    const feed = m.oracleAddress ? (m.oracleAddress as `0x${string}`) : undefined;
+    if (!tokenSet.has(m.token)) tokenSet.set(m.token, feed);
+  }
+  const refresher = new PriceRefresher({
+    store: priceStore,
+    sources: [
+      { name: "chainlink", source: chainlink },
+      { name: "coingecko", source: coingecko },
+      { name: "stablecoin", source: stablecoin },
+    ],
+    tokens: [...tokenSet.entries()].map(([token, feedAddress]) => ({ token, feedAddress })),
+  });
+  console.log(`[crypto-key-server] PriceRefresher tracking ${tokenSet.size} tokens:`, [...tokenSet.keys()].join(", "));
+  await refresher.start();
+  // ───────────────────────────────────────────────────────────────────────────
 
   // Build plugin registry — one plugin per chain family
   const registry = new PluginRegistry();
@@ -91,7 +122,7 @@ async function main(): Promise<void> {
     db,
     chargeStore,
     methodStore,
-    oracle,
+    priceStore,
     serviceKey: SERVICE_KEY,
     adminToken: ADMIN_TOKEN,
     registry,
@@ -104,7 +135,7 @@ async function main(): Promise<void> {
     chargeStore,
     methodStore,
     cursorStore,
-    oracle,
+    priceReader,
     registry,
     log: (msg, meta) => console.log(`[watcher] ${msg}`, meta ?? ""),
   });
@@ -128,6 +159,7 @@ async function main(): Promise<void> {
   const shutdown = async () => {
     console.log("[crypto-key-server] Shutting down...");
     clearInterval(deliveryTimer);
+    refresher.stop();
     stopWatchers();
     server.close();
     await pool.end();

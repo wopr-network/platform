@@ -1,4 +1,4 @@
-import type { IPriceOracle, PriceAsset, PriceResult } from "./types.js";
+import type { IPriceSource, PriceAsset, PriceResult } from "./types.js";
 import { AssetNotSupportedError } from "./types.js";
 
 /** Default cache TTL: 60 seconds. CoinGecko free tier allows 10-30 req/min. */
@@ -25,7 +25,7 @@ export interface CoinGeckoOracleOpts {
  * Token→CoinGecko ID mapping is DB-driven (payment_methods.oracle_asset_id).
  * Adding a new chain = adding a DB row with the CoinGecko slug. No code deploy.
  */
-export class CoinGeckoOracle implements IPriceOracle {
+export class CoinGeckoOracle implements IPriceSource {
   private readonly ids: Record<string, string>;
   private readonly cacheTtlMs: number;
   private readonly fetchFn: typeof fetch;

@@ -33,7 +33,7 @@ function mkOpts(rpc: RpcCall, priceMicros: number) {
     rpcUrl: "http://unused",
     rpcHeaders: {},
     rpc,
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
+    priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
     cursorStore: {
       get: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),

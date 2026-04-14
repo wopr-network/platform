@@ -34,7 +34,7 @@ function createMockOpts(rpcResponses: Map<string, unknown>, priceMicros: number)
   return {
     rpcUrl: "http://localhost:8545",
     rpcHeaders: {},
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
+    priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
     cursorStore: {
       get: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),

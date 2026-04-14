@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, pgTable, primaryKey, serial, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgTable, primaryKey, serial, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
  * Crypto payment charges — tracks the lifecycle of each payment.
@@ -203,3 +203,22 @@ export const addressPool = pgTable(
   },
   (table) => [uniqueIndex("address_pool_ring_index").on(table.keyRingId, table.derivationIndex)],
 );
+
+/**
+ * Price cache — the single source of pricing truth for the hot path.
+ *
+ * Watchers and /charges read from this table. They NEVER call an oracle directly.
+ * A separate PriceRefresher (see src/oracle/refresher.ts) populates this table
+ * on boot and hourly, trying IPriceOracle sources in priority order.
+ *
+ * Invariant: if a token has no row here, /charges creation for that token fails
+ * fast. By the time a watcher sees a payment, a price is guaranteed to exist.
+ * Any recorded price is authoritative until overwritten; refresher failures are
+ * best-effort and leave the previous value in place.
+ */
+export const prices = pgTable("prices", {
+  token: text("token").primaryKey(),
+  priceMicros: bigint("price_micros", { mode: "number" }).notNull(),
+  source: text("source").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`(now())`),
+});

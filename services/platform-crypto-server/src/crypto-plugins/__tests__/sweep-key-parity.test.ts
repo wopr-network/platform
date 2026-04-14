@@ -346,9 +346,7 @@ describe("sweep key parity -- mnemonic private key controls derived address", ()
       // Lock the value so a drift in testnet encoding fails loudly.
       const derived = slip0010DerivePath(TEST_SEED, [44, 607, 0]);
       const publicKey = ed25519.getPublicKey(derived.privateKey);
-      expect(tonEncoder.encode(publicKey, { testnet: true })).toBe(
-        "0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS",
-      );
+      expect(tonEncoder.encode(publicKey, { testnet: true })).toBe("0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS");
     });
 
     it("same seed always produces same address (deterministic)", () => {
