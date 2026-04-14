@@ -92,6 +92,11 @@ export const paymentMethods = pgTable("payment_methods", {
   keyRingId: text("key_ring_id"), // FK to key_rings.id (nullable during migration)
   encoding: text("encoding"), // address encoding override (e.g. "bech32", "p2pkh", "evm")
   pluginId: text("plugin_id"), // plugin identifier (e.g. "evm", "utxo", "solana")
+  // First-class testnet predicate. `network` is overloaded (chain identity
+  // vs logical network), so this is the reliable filter core uses when
+  // deciding whether to advertise a chain to a product whose billing
+  // config doesn't allow testnet.
+  isTestnet: boolean("is_testnet").notNull().default(false),
   createdAt: text("created_at").notNull().default(sql`(now())`),
 });
 

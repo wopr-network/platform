@@ -56,6 +56,12 @@ export interface ChainInfo {
   contractAddress: string | null;
   confirmations: number;
   iconUrl: string | null;
+  /**
+   * True for testnet-network chains (e.g. TON testnet). Consumers filter
+   * this based on per-product `allowTestnet` config so customer-facing
+   * checkouts only see mainnet unless explicitly opted in.
+   */
+  isTestnet: boolean;
 }
 
 /**
@@ -126,7 +132,12 @@ export class CryptoServiceClient {
       const text = await res.text().catch(() => "");
       throw new Error(`CryptoService listChains failed (${res.status}): ${text}`);
     }
-    return (await res.json()) as ChainInfo[];
+    const rows = (await res.json()) as Array<Omit<ChainInfo, "isTestnet"> & { isTestnet?: boolean }>;
+    // Fail closed: older crypto-server versions (pre-payment_methods.is_testnet
+    // migration 0005) won't include the field at all. Treat unknown as
+    // testnet so a staggered deploy can never silently expose a testnet
+    // chain to a customer-facing checkout.
+    return rows.map((row) => ({ ...row, isTestnet: row.isTestnet ?? true }));
   }
 }
 

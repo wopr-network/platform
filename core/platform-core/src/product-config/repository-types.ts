@@ -115,6 +115,8 @@ export interface ProductBillingConfig {
   affiliateMaxCap: number;
   dividendRate: number;
   marginConfig: unknown;
+  /** Whether this product's checkout advertises testnet payment methods. Default false. */
+  allowTestnet: boolean;
 }
 
 // ---------------------------------------------------------------------------

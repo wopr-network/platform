@@ -68,5 +68,12 @@ export const productBillingConfig = pgTable("product_billing_config", {
   affiliateMaxCap: integer("affiliate_max_cap").notNull().default(20000),
   dividendRate: numeric("dividend_rate").notNull().default("1.0"),
   marginConfig: jsonb("margin_config"),
+  /**
+   * When true, the product's checkout advertises testnet-network payment
+   * methods (e.g., TON testnet) alongside mainnet. Default false so only
+   * products explicitly set up for dev/QA testing see them — runpaperclip
+   * and other customer-facing products stay mainnet-only by default.
+   */
+  allowTestnet: boolean("allow_testnet").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
