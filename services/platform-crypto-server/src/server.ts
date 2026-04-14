@@ -485,6 +485,11 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
       return c.json({ error: "p2pkh address_type requires encoding_params.version" }, 400);
     }
 
+    // Preserve the stored is_testnet flag when the caller doesn't specify
+    // one. Older admin tooling that predates this field would otherwise
+    // silently flip a testnet chain back to mainnet on every re-upsert.
+    const existing = await deps.methodStore.getById(body.id);
+
     // Upsert payment method FIRST (path_allocations has FK to payment_methods.id)
     await deps.methodStore.upsert({
       id: body.id,
@@ -509,7 +514,7 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
       keyRingId: null,
       encoding: null,
       pluginId: null,
-      isTestnet: body.is_testnet ?? false,
+      isTestnet: body.is_testnet ?? existing?.isTestnet ?? false,
     });
 
     // Record the path allocation (idempotent — ignore if already exists)

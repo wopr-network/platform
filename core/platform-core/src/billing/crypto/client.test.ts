@@ -60,7 +60,7 @@ describe("CryptoServiceClient", () => {
   });
 
   it("listChains sends GET /chains", async () => {
-    const mockResponse = [{ id: "btc", token: "BTC", chain: "bitcoin", decimals: 8 }];
+    const mockResponse = [{ id: "btc", token: "BTC", chain: "bitcoin", decimals: 8, isTestnet: false }];
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(mockResponse), { status: 200 }));
 
     const client = new CryptoServiceClient({ baseUrl: "http://localhost:3100" });
@@ -68,6 +68,24 @@ describe("CryptoServiceClient", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].token).toBe("BTC");
+    expect(result[0].isTestnet).toBe(false);
+  });
+
+  it("listChains fails closed on missing isTestnet — coerces undefined to true so staggered deploys don't leak testnet chains", async () => {
+    // Pre-migration 0005 crypto-server responses omit isTestnet entirely.
+    // The client must treat that as "unknown, assume testnet" so downstream
+    // policy filters never accidentally allow a testnet chain through.
+    const mockResponse = [
+      { id: "ton:ton-testnet", token: "TON", chain: "ton-testnet", decimals: 9 },
+      { id: "ton:ton", token: "TON", chain: "ton", decimals: 9, isTestnet: false },
+    ];
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(mockResponse), { status: 200 }));
+
+    const client = new CryptoServiceClient({ baseUrl: "http://localhost:3100" });
+    const result = await client.listChains();
+
+    expect(result[0].isTestnet).toBe(true); // undefined → true (fail closed)
+    expect(result[1].isTestnet).toBe(false); // explicitly false → false
   });
 
   it("throws on non-ok response", async () => {

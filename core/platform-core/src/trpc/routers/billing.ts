@@ -162,6 +162,43 @@ export interface BillingRouterDeps {
 }
 
 // ---------------------------------------------------------------------------
+// Chain filtering — shared between picker and checkout
+// ---------------------------------------------------------------------------
+
+/**
+ * Filter a chain list down to what a given product is allowed to advertise
+ * AND transact. Testnet entries are excluded unless the product's billing
+ * config explicitly sets `allowTestnet=true`.
+ *
+ * Used in two places:
+ *   1. `supportedPaymentMethods` — filters the picker
+ *   2. `checkout` — re-validates that the submitted methodId is in the
+ *      allowed set, so a direct API caller can't bypass the picker and
+ *      use a known testnet chain id with a mainnet-only product
+ *
+ * Product config lookup failures (DB blip, service missing) fail closed:
+ * we keep `allowTestnet=false` and log. The safer posture is to over-
+ * filter than to under-filter.
+ */
+async function filterChainsForProduct<T extends { isTestnet: boolean }>(
+  chains: T[],
+  productSlug: string | undefined,
+  productConfigService: ProductConfigService | undefined,
+): Promise<T[]> {
+  let allowTestnet = false;
+  if (productConfigService && productSlug) {
+    try {
+      const pc = await productConfigService.getBySlug(productSlug);
+      allowTestnet = pc?.billing?.allowTestnet === true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn(`[billing] product config lookup failed for ${productSlug}: ${msg} — defaulting to mainnet-only`);
+    }
+  }
+  return allowTestnet ? chains : chains.filter((c) => !c.isTestnet);
+}
+
+// ---------------------------------------------------------------------------
 // Factory — DI-based
 // ---------------------------------------------------------------------------
 
@@ -387,17 +424,7 @@ export function createBillingRouter(d: BillingRouterDeps) {
       } catch {
         return [];
       }
-      // Testnet chains (TON testnet, etc.) are hidden unless the calling
-      // product's billing config explicitly opts in via allow_testnet=true.
-      // Default posture: mainnet-only. Customer-facing checkouts never see
-      // a testnet coin by accident. Dev/QA products flip the flag to true
-      // deliberately when they want testnet in the picker.
-      let allowTestnet = false;
-      if (d.productConfigService && ctx.productSlug) {
-        const pc = await d.productConfigService.getBySlug(ctx.productSlug);
-        allowTestnet = pc?.billing?.allowTestnet === true;
-      }
-      return allowTestnet ? chains : chains.filter((c) => !c.isTestnet);
+      return filterChainsForProduct(chains, ctx.productSlug, d.productConfigService);
     }),
 
     checkout: tenantProcedure
@@ -413,6 +440,29 @@ export function createBillingRouter(d: BillingRouterDeps) {
         if (!d.cryptoClient) {
           throw new TRPCError({ code: "NOT_IMPLEMENTED", message: "Crypto payments not configured" });
         }
+
+        // Re-enforce the allow_testnet policy here. supportedPaymentMethods
+        // filters the picker, but nothing stops a caller from POSTing a
+        // methodId that was never offered to them (known testnet chain id,
+        // direct API client bypassing the UI). The checkout mutation is the
+        // point where the policy must actually hold.
+        let chains: Awaited<ReturnType<typeof d.cryptoClient.listChains>>;
+        try {
+          chains = await d.cryptoClient.listChains();
+        } catch (err) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: err instanceof Error ? err.message : "Unable to load payment methods",
+          });
+        }
+        const allowed = await filterChainsForProduct(chains, ctx.productSlug, d.productConfigService);
+        if (!allowed.some((c) => c.id === input.methodId)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Payment method ${input.methodId} is not available for this product`,
+          });
+        }
+
         const domain = d.productConfig?.product?.domain ?? "localhost";
         const callbackUrl = `https://api.${domain}/api/webhooks/crypto`;
         try {
