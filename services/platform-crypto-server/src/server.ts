@@ -333,7 +333,11 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
     });
   });
 
-  /** GET /chains — list enabled payment methods (for checkout UI) */
+  /** GET /chains — list enabled payment methods (for checkout UI).
+   *  `isTestnet` is surfaced unfiltered here; per-product filtering
+   *  (runpaperclip et al hiding testnet chains) lives in core, where
+   *  product config is a first-class concept. This endpoint is a neutral
+   *  utility. */
   app.get("/chains", async (c) => {
     const methods = await deps.methodStore.listEnabled();
     return c.json(
@@ -346,6 +350,7 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
         contractAddress: m.contractAddress,
         confirmations: m.confirmations,
         iconUrl: m.iconUrl,
+        isTestnet: m.isTestnet,
       })),
     );
   });
@@ -463,6 +468,7 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
       oracle_asset_id?: string;
       icon_url?: string;
       display_order?: number;
+      is_testnet?: boolean;
     }>();
 
     if (!body.id || !body.xpub || !body.token) {
@@ -503,6 +509,7 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
       keyRingId: null,
       encoding: null,
       pluginId: null,
+      isTestnet: body.is_testnet ?? false,
     });
 
     // Record the path allocation (idempotent — ignore if already exists)

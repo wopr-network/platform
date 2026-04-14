@@ -379,13 +379,25 @@ export function createBillingRouter(d: BillingRouterDeps) {
         },
       ),
 
-    supportedPaymentMethods: publicProcedure.query(async () => {
+    supportedPaymentMethods: publicProcedure.query(async ({ ctx }) => {
       if (!d.cryptoClient) return [];
+      let chains: Awaited<ReturnType<typeof d.cryptoClient.listChains>>;
       try {
-        return await d.cryptoClient.listChains();
+        chains = await d.cryptoClient.listChains();
       } catch {
         return [];
       }
+      // Testnet chains (TON testnet, etc.) are hidden unless the calling
+      // product's billing config explicitly opts in via allow_testnet=true.
+      // Default posture: mainnet-only. Customer-facing checkouts never see
+      // a testnet coin by accident. Dev/QA products flip the flag to true
+      // deliberately when they want testnet in the picker.
+      let allowTestnet = false;
+      if (d.productConfigService && ctx.productSlug) {
+        const pc = await d.productConfigService.getBySlug(ctx.productSlug);
+        allowTestnet = pc?.billing?.allowTestnet === true;
+      }
+      return allowTestnet ? chains : chains.filter((c) => !c.isTestnet);
     }),
 
     checkout: tenantProcedure

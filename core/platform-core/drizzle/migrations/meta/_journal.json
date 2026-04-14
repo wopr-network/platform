@@ -344,6 +344,13 @@
       "when": 1776492000000,
       "tag": "0048_drop_product_api_routing",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1776578400000,
+      "tag": "0049_product_billing_allow_testnet",
+      "breakpoints": true
     }
   ]
 }

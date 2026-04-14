@@ -25,6 +25,7 @@ export interface PaymentMethodRecord {
   keyRingId: string | null;
   encoding: string | null;
   pluginId: string | null;
+  isTestnet: boolean;
 }
 
 export interface IPaymentMethodStore {
@@ -104,6 +105,7 @@ export class DrizzlePaymentMethodStore implements IPaymentMethodStore {
         keyRingId: method.keyRingId,
         encoding: method.encoding,
         pluginId: method.pluginId,
+        isTestnet: method.isTestnet,
       })
       .onConflictDoUpdate({
         target: paymentMethods.id,
@@ -128,6 +130,7 @@ export class DrizzlePaymentMethodStore implements IPaymentMethodStore {
           keyRingId: method.keyRingId,
           encoding: method.encoding,
           pluginId: method.pluginId,
+          isTestnet: method.isTestnet,
         },
       });
   }
@@ -176,5 +179,6 @@ function toRecord(row: typeof paymentMethods.$inferSelect): PaymentMethodRecord 
     keyRingId: row.keyRingId,
     encoding: row.encoding,
     pluginId: row.pluginId,
+    isTestnet: row.isTestnet,
   };
 }

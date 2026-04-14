@@ -56,6 +56,12 @@ export interface ChainInfo {
   contractAddress: string | null;
   confirmations: number;
   iconUrl: string | null;
+  /**
+   * True for testnet-network chains (e.g. TON testnet). Consumers filter
+   * this based on per-product `allowTestnet` config so customer-facing
+   * checkouts only see mainnet unless explicitly opted in.
+   */
+  isTestnet: boolean;
 }
 
 /**
