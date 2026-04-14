@@ -1,6 +1,6 @@
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
@@ -53,7 +53,7 @@ export class SolanaWatcher implements IChainWatcher {
   private readonly confirmations: number;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
-  private readonly oracle: IPriceOracle;
+  private readonly priceReader: IPriceReader;
   private readonly watcherId: string;
   private readonly contractAddress?: string;
   private _watchedAddresses: Set<string>;
@@ -66,7 +66,7 @@ export class SolanaWatcher implements IChainWatcher {
     this.confirmations = opts.confirmations;
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
-    this.oracle = opts.oracle;
+    this.priceReader = opts.priceReader;
     this.watcherId = `solana:${opts.chain}:${opts.token}`;
     this.contractAddress = opts.contractAddress;
     this._watchedAddresses = new Set<string>();
@@ -107,7 +107,7 @@ export class SolanaWatcher implements IChainWatcher {
     // events. Stablecoin SPL mints (USDC, USDT) have priceMicros ≈
     // 1_000_000 so behavior matches the old hardcoded path; volatile
     // tokens now get correct cents.
-    const { priceMicros } = await this.oracle.getPrice(this.token);
+    const { priceMicros } = await this.priceReader.getPrice(this.token);
 
     const events: PaymentEvent[] = [];
 

@@ -93,9 +93,7 @@ describe("TON sweeper — parity with encoder + pool generator", () => {
   it("testnet: pinned index-0 address (known-good fixture)", () => {
     const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
     const pub = ed25519.getPublicKey(priv);
-    expect(computeWalletV4R2Address(pub, { testnet: true })).toBe(
-      "0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS",
-    );
+    expect(computeWalletV4R2Address(pub, { testnet: true })).toBe("0QAzWZa6nM5mJev91wGc7VCSfBoIsYRqKJpV78N8Add9-akS");
   });
 });
 
@@ -215,7 +213,6 @@ describe("TON sweeper — scan + sweep with mocked API", () => {
       }
       return new Response("{}", { status: 200 });
     });
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = fetchMock;
     return fetchMock;
   }
@@ -300,7 +297,7 @@ describe("TON sweeper — scan + sweep with mocked API", () => {
     // Verify we actually POSTed a BOC.
     const sendBocCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("sendBoc"));
     expect(sendBocCall).toBeTruthy();
-    const boc = new URL(String(sendBocCall![0])).searchParams.get("boc") ?? "";
+    const boc = new URL(String((sendBocCall as unknown as [string])[0])).searchParams.get("boc") ?? "";
     // The BOC is base64, should be non-empty and decode without error.
     expect(boc.length).toBeGreaterThan(10);
     const bocBuf = Buffer.from(boc, "base64");

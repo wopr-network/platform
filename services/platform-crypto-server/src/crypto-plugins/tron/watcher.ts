@@ -1,6 +1,6 @@
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
@@ -67,7 +67,7 @@ export class TronEvmWatcher implements IChainWatcher {
   private readonly contractAddress: string;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
-  private readonly oracle: IPriceOracle;
+  private readonly priceReader: IPriceReader;
   private readonly watcherId: string;
   /** Hex addresses used for RPC filtering. */
   private _watchedHexAddresses: string[] = [];
@@ -83,7 +83,7 @@ export class TronEvmWatcher implements IChainWatcher {
     this.contractAddress = (opts.contractAddress ?? "").toLowerCase();
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
-    this.oracle = opts.oracle;
+    this.priceReader = opts.priceReader;
     this.watcherId = `tron:${opts.chain}:${opts.token}`;
   }
 
@@ -129,7 +129,7 @@ export class TronEvmWatcher implements IChainWatcher {
     // Fetch USD price per whole token once per poll. Mirrors EVM watcher —
     // stablecoins (USDT-TRC20) have priceMicros ≈ 1_000_000 so behavior is
     // identical to the old 1:1 path; volatile tokens get correct cents.
-    const { priceMicros } = await this.oracle.getPrice(this.token);
+    const { priceMicros } = await this.priceReader.getPrice(this.token);
 
     // Filter by topic[2] (to address) using hex addresses
     const toFilter =

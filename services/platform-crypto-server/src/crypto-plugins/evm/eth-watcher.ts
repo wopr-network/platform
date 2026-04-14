@@ -1,6 +1,6 @@
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
@@ -43,7 +43,7 @@ export class EthWatcher implements IChainWatcher {
   private readonly chain: string;
   private readonly token: string;
   private readonly rpc: RpcCall;
-  private readonly oracle: IPriceOracle;
+  private readonly priceReader: IPriceReader;
   private readonly confirmations: number;
   private readonly cursorStore: IWatcherCursorStore;
   private readonly watcherId: string;
@@ -53,7 +53,7 @@ export class EthWatcher implements IChainWatcher {
     this.chain = opts.chain;
     this.token = opts.token;
     this.rpc = createRpcCaller(opts.rpcUrl, opts.rpcHeaders);
-    this.oracle = opts.oracle;
+    this.priceReader = opts.priceReader;
     this._cursor = 0;
     this.confirmations = opts.confirmations;
     this.cursorStore = opts.cursorStore;
@@ -94,7 +94,7 @@ export class EthWatcher implements IChainWatcher {
 
     if (latest < this._cursor) return [];
 
-    const { priceMicros } = await this.oracle.getPrice("ETH");
+    const { priceMicros } = await this.priceReader.getPrice("ETH");
 
     const events: PaymentEvent[] = [];
 

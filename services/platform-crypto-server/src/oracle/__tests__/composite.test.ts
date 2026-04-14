@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { CompositeOracle } from "../composite.js";
-import type { IPriceOracle } from "../types.js";
+import type { IPriceSource } from "../types.js";
 
-function mockOracle(priceMicros: number): IPriceOracle {
+function mockOracle(priceMicros: number): IPriceSource {
   return { getPrice: vi.fn().mockResolvedValue({ priceMicros, updatedAt: new Date() }) };
 }
 
-function failingOracle(msg = "no feed"): IPriceOracle {
+function failingOracle(msg = "no feed"): IPriceSource {
   return { getPrice: vi.fn().mockRejectedValue(new Error(msg)) };
 }
 

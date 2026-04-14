@@ -30,7 +30,7 @@ function mkOpts(rpc: RpcCall, priceMicros: number) {
     rpcUrl: "http://unused",
     rpcHeaders: {},
     rpc,
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
+    priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
     cursorStore: {
       get: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),
@@ -155,7 +155,7 @@ describe("EvmLikeTronWatcher", () => {
     const legacyW = new TronEvmWatcher({
       rpcUrl: "http://unused",
       rpcHeaders: {},
-      oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) },
+      priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) },
       cursorStore: {
         get: vi.fn().mockResolvedValue(null),
         save: vi.fn().mockResolvedValue(undefined),

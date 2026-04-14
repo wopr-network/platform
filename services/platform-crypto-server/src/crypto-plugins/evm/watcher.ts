@@ -1,6 +1,6 @@
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
@@ -55,7 +55,7 @@ export class EvmWatcher implements IChainWatcher {
   private readonly contractAddress: string;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
-  private readonly oracle: IPriceOracle;
+  private readonly priceReader: IPriceReader;
   private readonly watcherId: string;
   private _watchedAddresses: string[];
 
@@ -68,7 +68,7 @@ export class EvmWatcher implements IChainWatcher {
     this.contractAddress = (opts.contractAddress ?? "").toLowerCase();
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
-    this.oracle = opts.oracle;
+    this.priceReader = opts.priceReader;
     this.watcherId = `evm:${opts.chain}:${opts.token}`;
     this._watchedAddresses = [];
   }
@@ -114,7 +114,7 @@ export class EvmWatcher implements IChainWatcher {
     // convert the raw ERC-20 amount into USD cents for webhook/display.
     // The raw-native amount comparison in handlePayment (watcher-service.ts)
     // is unaffected — credits fire based on native units, not cents.
-    const { priceMicros } = await this.oracle.getPrice(this.token);
+    const { priceMicros } = await this.priceReader.getPrice(this.token);
 
     // Filter by topic[2] (to address) when watched addresses are set.
     const toFilter =

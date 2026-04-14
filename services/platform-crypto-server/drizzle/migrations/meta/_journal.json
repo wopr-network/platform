@@ -29,6 +29,13 @@
       "when": 1776120000000,
       "tag": "0003_link_ton_payment_methods_to_keyring",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776200000000,
+      "tag": "0004_prices_cache",
+      "breakpoints": true
     }
   ]
 }

@@ -19,13 +19,12 @@ function createMockOpts(transactions: Record<string, TonTransaction[]>) {
     return new Response(JSON.stringify({ ok: false, error: "unknown method" }), { status: 404 });
   });
 
-  // biome-ignore lint/suspicious/noExplicitAny: test mock override
   (globalThis as any).fetch = mockFetch;
 
   return {
     rpcUrl: "https://toncenter.com/api/v2",
     rpcHeaders: {},
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 3_500_000 }) },
+    priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 3_500_000 }) },
     cursorStore: {
       get: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),
@@ -238,7 +237,7 @@ describe("TonWatcher", () => {
 
     const opts = createMockOpts({ [watchedAddr]: [tx] });
     // Oracle returns $3.50 = 3,500,000 microdollars
-    opts.oracle.getPrice = vi.fn().mockResolvedValue({ priceMicros: 3_500_000 });
+    opts.priceReader.getPrice = vi.fn().mockResolvedValue({ priceMicros: 3_500_000 });
 
     const watcher = new TonWatcher(opts);
     await watcher.init();
@@ -250,7 +249,12 @@ describe("TonWatcher", () => {
     expect(events[0].amountUsdCents).toBe(350);
   });
 
-  it("survives oracle failure gracefully", async () => {
+  it("fails loudly when the price reader has no row (invariant: /charges should have gated)", async () => {
+    // Before the DB-backed pricing refactor (PR #87), this test asserted a
+    // zero-cent fallback was "graceful." That was the exact failure mode of
+    // the 2026-04-13 incident. New contract: priceReader.getPrice() throwing
+    // is an invariant violation — the whole poll fails so logs surface it,
+    // and no zero-cent event ever reaches the ledger.
     const tx: TonTransaction = {
       utime: 1700000000,
       transaction_id: { lt: "100", hash: "oracle-fail" },
@@ -259,16 +263,30 @@ describe("TonWatcher", () => {
     };
 
     const opts = createMockOpts({ [watchedAddr]: [tx] });
-    opts.oracle.getPrice = vi.fn().mockRejectedValue(new Error("oracle down"));
+    opts.priceReader.getPrice = vi.fn().mockRejectedValue(new Error("no price row"));
 
     const watcher = new TonWatcher(opts);
     await watcher.init();
     watcher.setWatchedAddresses([watchedAddr]);
 
-    const events = await watcher.poll();
-    expect(events).toHaveLength(1);
-    expect(events[0].amountUsdCents).toBe(0); // fallback
-    expect(events[0].rawAmount).toBe("1000000000"); // raw still correct
+    await expect(watcher.poll()).rejects.toThrow(/no price row/);
+  });
+
+  it("fails loudly on non-positive priceMicros (catches bad oracle data at the seam)", async () => {
+    const tx: TonTransaction = {
+      utime: 1700000000,
+      transaction_id: { lt: "100", hash: "zero-price" },
+      fee: "1000000",
+      in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
+    };
+    const opts = createMockOpts({ [watchedAddr]: [tx] });
+    opts.priceReader.getPrice = vi.fn().mockResolvedValue({ priceMicros: 0 });
+
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    watcher.setWatchedAddresses([watchedAddr]);
+
+    await expect(watcher.poll()).rejects.toThrow(/non-positive priceMicros/);
   });
 
   // ---------------------------------------------------------------------
@@ -349,7 +367,6 @@ describe("TonWatcher", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     });
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = mockFetch;
 
     const watcher = new TonWatcher(opts);
@@ -455,7 +472,6 @@ describe("TonWatcher — Jetton path (USDT on TON)", () => {
       }
       return new Response("{}", { status: 200 });
     });
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = mockFetch;
     return mockFetch;
   }
@@ -464,7 +480,7 @@ describe("TonWatcher — Jetton path (USDT on TON)", () => {
     return {
       rpcUrl: "https://toncenter.com/api/v2",
       rpcHeaders: {},
-      oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) }, // $1.00
+      priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 1_000_000 }) }, // $1.00
       cursorStore: {
         get: vi.fn().mockResolvedValue(null),
         save: vi.fn().mockResolvedValue(undefined),
@@ -556,7 +572,6 @@ describe("TonWatcher — Jetton path (USDT on TON)", () => {
   it("Jetton RPC failure is caught, logged, does not crash", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const mockFetch = vi.fn(async () => new Response("v3 down", { status: 500 }));
-    // biome-ignore lint/suspicious/noExplicitAny: test mock override
     (globalThis as any).fetch = mockFetch;
 
     const w = new TonWatcher(jettonOpts());

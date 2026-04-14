@@ -28,13 +28,12 @@ function createMockOpts(rpcResponses: Map<string, unknown>, priceMicros: number)
       headers: { "Content-Type": "application/json" },
     });
   });
-  // biome-ignore lint/suspicious/noExplicitAny: test mock override
   (globalThis as any).fetch = mockFetch;
 
   return {
     rpcUrl: "http://localhost:8545",
     rpcHeaders: {},
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
+    priceReader: { getPrice: vi.fn().mockResolvedValue({ priceMicros }) },
     cursorStore: {
       get: vi.fn().mockResolvedValue(null),
       save: vi.fn().mockResolvedValue(undefined),

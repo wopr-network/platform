@@ -16,17 +16,16 @@ import { deriveAddress } from "./address-gen.js";
 import type { CryptoDb } from "./db/index.js";
 import { addressPool, derivedAddresses, keyRings, pathAllocations, paymentMethods } from "./db/schema.js";
 import { centsToNative } from "./oracle/convert.js";
-import type { IPriceOracle } from "./oracle/types.js";
-import { AssetNotSupportedError } from "./oracle/types.js";
 import type { PluginRegistry } from "./plugin/registry.js";
 import type { ICryptoChargeRepository } from "./stores/charge-store.js";
 import type { IPaymentMethodStore } from "./stores/payment-method-store.js";
+import type { IPriceStore } from "./stores/price-store.js";
 
 export interface KeyServerDeps {
   db: CryptoDb;
   chargeStore: ICryptoChargeRepository;
   methodStore: IPaymentMethodStore;
-  oracle: IPriceOracle;
+  priceStore: IPriceStore;
   /** Bearer token for product API routes. If unset, auth is disabled. */
   serviceKey?: string;
   /** Bearer token for admin routes. If unset, admin routes are disabled. */
@@ -250,34 +249,29 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
     }
 
     const tenantId = c.req.header("X-Tenant-Id") ?? "unknown";
-    const { address, index, chain, token } = await deriveNextAddress(deps.db, body.chain, tenantId, deps.registry);
 
-    // Look up payment method for decimals + oracle config
+    // Look up payment method for decimals + token identity BEFORE deriving an
+    // address. If we derived first and then discovered no price is seeded,
+    // the 503 response would still have burned an index on
+    // paymentMethods.nextIndex (and potentially claimed a pool slot for
+    // Ed25519 chains). Repeated 503s would drain the pool without creating
+    // a single charge. Gate all fail-fast checks ahead of derivation.
     const method = await deps.methodStore.getById(body.chain);
     if (!method) return c.json({ error: `Unknown chain: ${body.chain}` }, 400);
 
-    const amountUsdCents = Math.round(body.amountUsd * 100);
-
-    // Compute expected crypto amount in native base units.
-    // Price is locked NOW — this is what the user must send.
-    let expectedAmount: bigint;
-    const feedAddress = method.oracleAddress ? (method.oracleAddress as `0x${string}`) : undefined;
-    try {
-      // Try oracle pricing (Chainlink for BTC/ETH, CoinGecko for DOGE/LTC).
-      // feedAddress is a hint for Chainlink — undefined is fine, CompositeOracle
-      // falls through to CoinGecko or built-in feed maps.
-      const { priceMicros } = await deps.oracle.getPrice(token, feedAddress);
-      expectedAmount = centsToNative(amountUsdCents, priceMicros, method.decimals);
-    } catch (err) {
-      if (err instanceof AssetNotSupportedError) {
-        // No oracle knows this token (e.g. USDC, DAI) — stablecoin 1:1 USD.
-        expectedAmount = (BigInt(amountUsdCents) * 10n ** BigInt(method.decimals)) / 100n;
-      } else {
-        // Transient oracle failure (network, rate limit, stale feed).
-        // Reject the charge — silently pricing BTC at $1 would be catastrophic.
-        return c.json({ error: `Price oracle unavailable for ${token}: ${(err as Error).message}` }, 503);
-      }
+    // Price gate — refuses charge creation if the refresher has not yet
+    // seeded this token. Stablecoins are seeded by FixedRateStablecoinSource;
+    // volatile assets by Chainlink or CoinGecko. By the time a watcher sees
+    // a deposit for any address we hand out below, a row exists here.
+    const priceRow = await deps.priceStore.get(method.token);
+    if (priceRow === null) {
+      return c.json({ error: `No price recorded for ${method.token}. Refresher has not seeded this asset yet.` }, 503);
     }
+
+    const amountUsdCents = Math.round(body.amountUsd * 100);
+    const expectedAmount = centsToNative(amountUsdCents, priceRow.priceMicros, method.decimals);
+
+    const { address, index, chain, token } = await deriveNextAddress(deps.db, body.chain, tenantId, deps.registry);
 
     // Don't lowercase the address — it's case-significant for TON/SOL/DOGE/TRX
     // (different chains, different address encodings, some case-sensitive).

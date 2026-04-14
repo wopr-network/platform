@@ -119,7 +119,16 @@ function mockDeps(): KeyServerDeps & {
     db: createMockDb() as never,
     chargeStore: chargeStore as never,
     methodStore: methodStore as never,
-    oracle: { getPrice: vi.fn().mockResolvedValue({ priceMicros: 65_000_000_000, updatedAt: new Date() }) } as never,
+    priceStore: {
+      get: vi.fn().mockResolvedValue({
+        token: "BTC",
+        priceMicros: 65_000_000_000,
+        source: "test",
+        updatedAt: new Date().toISOString(),
+      }),
+      list: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue(undefined),
+    } as never,
   };
 }
 
@@ -323,6 +332,23 @@ describe("key-server routes", () => {
     expect(body.address).toMatch(/^bc1q/);
     expect(body.amountUsd).toBe(50);
     expect(body.expiresAt).toBeTruthy();
+  });
+
+  it("POST /charges refuses to create a charge when price is not seeded (gates watcher invariant)", async () => {
+    const deps = mockDeps();
+    // priceStore.get returns null → refresher has not seeded this token yet.
+    // Charge must fail BEFORE a deposit address is issued, so that no watcher
+    // will ever see a payment for a token with no price in the DB.
+    (deps.priceStore.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    const app = createKeyServerApp(deps);
+    const res = await app.request("/charges", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chain: "btc", amountUsd: 50 }),
+    });
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.error).toMatch(/No price recorded/);
   });
 
   it("GET /admin/next-path returns available path", async () => {

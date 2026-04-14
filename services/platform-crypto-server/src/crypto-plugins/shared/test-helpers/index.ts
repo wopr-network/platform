@@ -1,4 +1,4 @@
-import type { IPriceOracle, IWatcherCursorStore } from "@wopr-network/platform-crypto-server/plugin";
+import type { IPriceReader, IWatcherCursorStore } from "@wopr-network/platform-crypto-server/plugin";
 
 /** In-memory mock cursor store for testing UTXO watchers. */
 export function createMockCursorStore(): IWatcherCursorStore & {
@@ -26,8 +26,8 @@ export function createMockCursorStore(): IWatcherCursorStore & {
   };
 }
 
-/** Mock price oracle that returns a fixed price. */
-export function createMockOracle(priceMicros = 100_000_000_000): IPriceOracle {
+/** Mock price reader that returns a fixed price. */
+export function createMockPriceReader(priceMicros = 100_000_000_000): IPriceReader {
   return {
     async getPrice(_token: string) {
       return { priceMicros };

@@ -1,4 +1,4 @@
-import type { IPriceOracle, PriceAsset, PriceResult } from "./types.js";
+import type { IPriceSource, PriceAsset, PriceResult } from "./types.js";
 import { AssetNotSupportedError } from "./types.js";
 
 /** Default cache TTL: 60 seconds. CoinGecko free tier allows 10-30 req/min. */
@@ -11,8 +11,12 @@ interface CachedPrice {
 }
 
 export interface CoinGeckoOracleOpts {
-  /** Token→CoinGecko ID mapping. Populated from payment_methods.oracle_asset_id at boot. */
-  tokenIds: Record<string, string>;
+  /**
+   * Token→CoinGecko ID mapping, resolved per call. Populated from
+   * payment_methods.oracle_asset_id. Supplied as a function so new payment
+   * methods added via the admin API are picked up without a service restart.
+   */
+  tokenIds: () => Promise<Record<string, string>> | Record<string, string>;
   /** Cache TTL in ms. Default: 60s. */
   cacheTtlMs?: number;
   /** Custom fetch function (for testing). */
@@ -25,14 +29,14 @@ export interface CoinGeckoOracleOpts {
  * Token→CoinGecko ID mapping is DB-driven (payment_methods.oracle_asset_id).
  * Adding a new chain = adding a DB row with the CoinGecko slug. No code deploy.
  */
-export class CoinGeckoOracle implements IPriceOracle {
-  private readonly ids: Record<string, string>;
+export class CoinGeckoOracle implements IPriceSource {
+  private readonly getIds: () => Promise<Record<string, string>> | Record<string, string>;
   private readonly cacheTtlMs: number;
   private readonly fetchFn: typeof fetch;
   private readonly cache = new Map<string, CachedPrice>();
 
   constructor(opts: CoinGeckoOracleOpts) {
-    this.ids = { ...opts.tokenIds };
+    this.getIds = opts.tokenIds;
     this.cacheTtlMs = opts.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
     this.fetchFn = opts.fetchFn ?? fetch;
   }
@@ -43,7 +47,8 @@ export class CoinGeckoOracle implements IPriceOracle {
       return { priceMicros: cached.priceMicros, updatedAt: cached.updatedAt };
     }
 
-    const coinId = this.ids[asset];
+    const ids = await this.getIds();
+    const coinId = ids[asset];
     if (!coinId) throw new AssetNotSupportedError(asset);
 
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${coinId}&vs_currencies=usd`;

@@ -1,4 +1,4 @@
-import type { IPriceOracle, PriceAsset, PriceResult } from "./types.js";
+import type { IPriceSource, PriceAsset, PriceResult } from "./types.js";
 
 /**
  * Composite oracle — tries primary (Chainlink on-chain), falls back to secondary (CoinGecko).
@@ -7,10 +7,10 @@ import type { IPriceOracle, PriceAsset, PriceResult } from "./types.js";
  * oracle is used with that address. When no feed exists or the primary fails,
  * the fallback oracle is consulted.
  */
-export class CompositeOracle implements IPriceOracle {
+export class CompositeOracle implements IPriceSource {
   constructor(
-    private readonly primary: IPriceOracle,
-    private readonly fallback: IPriceOracle,
+    private readonly primary: IPriceSource,
+    private readonly fallback: IPriceSource,
   ) {}
 
   async getPrice(asset: PriceAsset, feedAddress?: `0x${string}`): Promise<PriceResult> {

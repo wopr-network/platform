@@ -39,7 +39,7 @@ describe("plugin integration — registry → watcher → events", () => {
     const watcher = resolved.createWatcher({
       rpcUrl: "http://localhost:8545",
       rpcHeaders: {},
-      oracle: {
+      priceReader: {
         getPrice: async () => ({ priceMicros: 3500_000000 }),
       },
       cursorStore: {

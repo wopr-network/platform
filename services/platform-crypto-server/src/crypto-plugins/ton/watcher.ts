@@ -1,11 +1,16 @@
+/* biome-ignore-all lint/suspicious/noConsole: per-address RPC-failure telemetry
+ * surfaces through console.warn until the plugin watcher interface is extended
+ * with an injected logger (follow-up work — cascades across every watcher). The
+ * calls here are scoped to a single per-address try/catch and never emit in the
+ * happy path; price/invariant failures propagate above this layer. */
+import { Address } from "@ton/core";
 import type {
   IChainWatcher,
-  IPriceOracle,
+  IPriceReader,
   IWatcherCursorStore,
   PaymentEvent,
   WatcherOpts,
 } from "@wopr-network/platform-crypto-server/plugin";
-import { Address } from "@ton/core";
 import { nativeToCents } from "../../oracle/convert.js";
 import type { JettonTransferV3, TonApiCall, TonTransaction } from "./types.js";
 
@@ -102,7 +107,7 @@ export class TonWatcher implements IChainWatcher {
   private readonly confirmationsRequired: number;
   private readonly decimals: number;
   private readonly cursorStore: IWatcherCursorStore;
-  private readonly oracle: IPriceOracle;
+  private readonly priceReader: IPriceReader;
   private readonly watcherId: string;
   private readonly contractAddress?: string;
   private readonly baseUrl: string;
@@ -115,7 +120,7 @@ export class TonWatcher implements IChainWatcher {
     this.decimals = opts.decimals ?? TON_DECIMALS;
     this.confirmationsRequired = opts.confirmations ?? 1;
     this.cursorStore = opts.cursorStore;
-    this.oracle = opts.oracle;
+    this.priceReader = opts.priceReader;
     this.watcherId = `ton:${this.chain}:${this.token}`;
     this.contractAddress = opts.contractAddress;
 
@@ -159,6 +164,15 @@ export class TonWatcher implements IChainWatcher {
   private async pollNative(): Promise<PaymentEvent[]> {
     const events: PaymentEvent[] = [];
 
+    // Fetch the price ONCE per poll, outside the per-address try/catch. A
+    // missing price row is an invariant violation (see PriceNotSeededError)
+    // and must propagate to the poll caller — not get logged per-address
+    // and silently produce zero-cent events.
+    const { priceMicros } = await this.priceReader.getPrice(this.token);
+    if (priceMicros <= 0) {
+      throw new Error(`[ton-watcher] non-positive priceMicros for ${this.token}: ${priceMicros}`);
+    }
+
     for (const address of this._watchedAddresses) {
       // Compute raw form of the watched address once per poll so we can
       // match regardless of what user-friendly variant TON Center returns.
@@ -172,13 +186,9 @@ export class TonWatcher implements IChainWatcher {
           const lt = parseLt(tx.transaction_id.lt);
           if (lt <= this._cursor) continue;
 
-          if (
-            tx.in_msg &&
-            normalizeTonAddress(tx.in_msg.destination) === addressRaw &&
-            BigInt(tx.in_msg.value) > 0n
-          ) {
+          if (tx.in_msg && normalizeTonAddress(tx.in_msg.destination) === addressRaw && BigInt(tx.in_msg.value) > 0n) {
             const rawAmount = BigInt(tx.in_msg.value);
-            const amountUsdCents = await this.toUsdCents(rawAmount);
+            const amountUsdCents = nativeToCents(rawAmount, priceMicros, this.decimals);
 
             events.push({
               chain: this.chain,
@@ -201,8 +211,9 @@ export class TonWatcher implements IChainWatcher {
           await this.cursorStore.save(this.watcherId, this._cursor);
         }
       } catch (err) {
-        // Surface RPC failures so ops can see them. Swallowing silently
-        // meant a dead TON Center endpoint would look like zero activity.
+        // Per-address TON Center RPC failures are isolated so a dead
+        // endpoint for one address doesn't blind the watcher to the others.
+        // Price failures and other system-wide issues bubble above this.
         const msg = err instanceof Error ? err.message : String(err);
         console.warn(`[ton-watcher] pollNative ${this.chain}:${this.token} ${address}: ${msg}`);
       }
@@ -220,6 +231,13 @@ export class TonWatcher implements IChainWatcher {
     // v3 base URL: replace /v2 with /v3 if present, otherwise append /v3
     const v3Base = this.baseUrl.replace(/\/api\/v2$/, "/api/v3").replace(/\/$/, "");
 
+    // Fetch price ONCE per poll, outside the per-address try/catch — see
+    // pollNative for the rationale.
+    const { priceMicros } = await this.priceReader.getPrice(this.token);
+    if (priceMicros <= 0) {
+      throw new Error(`[ton-watcher] non-positive priceMicros for ${this.token}: ${priceMicros}`);
+    }
+
     for (const address of this._watchedAddresses) {
       try {
         const transfers = await this.getJettonTransfers(v3Base, address);
@@ -233,7 +251,7 @@ export class TonWatcher implements IChainWatcher {
           const rawAmount = BigInt(jt.amount);
           if (rawAmount <= 0n) continue;
 
-          const amountUsdCents = await this.toUsdCents(rawAmount);
+          const amountUsdCents = nativeToCents(rawAmount, priceMicros, this.decimals);
 
           events.push({
             chain: this.chain,
@@ -263,17 +281,6 @@ export class TonWatcher implements IChainWatcher {
     return events;
   }
 
-  /** Convert raw amount to USD cents via oracle. */
-  private async toUsdCents(rawAmount: bigint): Promise<number> {
-    try {
-      const { priceMicros } = await this.oracle.getPrice(this.token);
-      if (priceMicros > 0) return nativeToCents(rawAmount, priceMicros, this.decimals);
-    } catch {
-      /* oracle failure is non-fatal */
-    }
-    return 0;
-  }
-
   /**
    * Fetch recent native TON transactions for an address via v2 API.
    */
@@ -292,7 +299,7 @@ export class TonWatcher implements IChainWatcher {
   private async getJettonTransfers(v3Base: string, address: string): Promise<JettonTransferV3[]> {
     const params = new URLSearchParams({
       owner_address: address,
-      jetton_id: this.contractAddress!,
+      jetton_id: this.contractAddress as string,
       direction: "in",
       sort: "asc",
       limit: "50",

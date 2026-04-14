@@ -5,7 +5,7 @@ export type {
   IChainPlugin,
   IChainWatcher,
   ICurveDeriver,
-  IPriceOracle,
+  IPriceReader,
   ISweepStrategy,
   IWatcherCursorStore,
   KeyPair,
