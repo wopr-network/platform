@@ -54,6 +54,7 @@ export class PriceRefresher {
   private readonly intervalMs: number;
   private readonly spacingMs: number;
   private timer: NodeJS.Timeout | null = null;
+  private refreshing = false;
 
   constructor(private readonly opts: PriceRefresherOpts) {
     this.intervalMs = opts.intervalMs ?? 60 * 60 * 1000;
@@ -61,11 +62,12 @@ export class PriceRefresher {
   }
 
   async start(): Promise<void> {
-    await this.refreshAll();
+    await this.tick();
+    // In-flight guard: if a tick is still running when the next interval
+    // fires (slow RPC, hung HTTP, DB contention), skip. Two concurrent
+    // refreshers would race on `prices` upserts and waste source quotas.
     this.timer = setInterval(() => {
-      this.refreshAll().catch((err) => {
-        console.error("[price-refresher] tick failed:", err);
-      });
+      void this.tick();
     }, this.intervalMs);
   }
 
@@ -73,6 +75,21 @@ export class PriceRefresher {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+  }
+
+  private async tick(): Promise<void> {
+    if (this.refreshing) {
+      console.warn("[price-refresher] previous tick still running; skipping this interval");
+      return;
+    }
+    this.refreshing = true;
+    try {
+      await this.refreshAll();
+    } catch (err) {
+      console.error("[price-refresher] tick failed:", err);
+    } finally {
+      this.refreshing = false;
     }
   }
 

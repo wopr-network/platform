@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { IPriceStore } from "../../stores/price-store.js";
-import { DbPriceReader } from "../reader.js";
+import { DbPriceReader, PriceNotSeededError } from "../reader.js";
 
 describe("DbPriceReader", () => {
   it("returns priceMicros from the DB row", async () => {
@@ -14,14 +14,15 @@ describe("DbPriceReader", () => {
     expect(result).toEqual({ priceMicros: 3_500_000 });
   });
 
-  it("throws loudly when the row is missing — /charges gating should prevent this", async () => {
+  it("throws PriceNotSeededError with token context when the row is missing", async () => {
     const store: IPriceStore = {
       get: vi.fn().mockResolvedValue(null),
       list: vi.fn(),
       upsert: vi.fn(),
     };
     const reader = new DbPriceReader(store);
-    await expect(reader.getPrice("TON")).rejects.toThrow(/no price for TON in DB/);
+    await expect(reader.getPrice("TON")).rejects.toBeInstanceOf(PriceNotSeededError);
+    await expect(reader.getPrice("TON")).rejects.toMatchObject({ token: "TON" });
   });
 
   it("ignores the legacy feedAddress parameter", async () => {

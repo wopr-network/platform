@@ -249,25 +249,29 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
     }
 
     const tenantId = c.req.header("X-Tenant-Id") ?? "unknown";
-    const { address, index, chain, token } = await deriveNextAddress(deps.db, body.chain, tenantId, deps.registry);
 
-    // Look up payment method for decimals + oracle config
+    // Look up payment method for decimals + token identity BEFORE deriving an
+    // address. If we derived first and then discovered no price is seeded,
+    // the 503 response would still have burned an index on
+    // paymentMethods.nextIndex (and potentially claimed a pool slot for
+    // Ed25519 chains). Repeated 503s would drain the pool without creating
+    // a single charge. Gate all fail-fast checks ahead of derivation.
     const method = await deps.methodStore.getById(body.chain);
     if (!method) return c.json({ error: `Unknown chain: ${body.chain}` }, 400);
 
-    const amountUsdCents = Math.round(body.amountUsd * 100);
-
-    // Compute expected crypto amount in native base units.
-    // Price comes from the prices table (populated by PriceRefresher on boot + hourly).
-    // If no row exists for this token, the refresher has not yet seeded it (or every
-    // source was down on every tick since boot). Refuse the charge — the watcher must
-    // never see a deposit for a token whose price isn't known. Stablecoins are seeded
-    // by a FixedRateStablecoinSource in the refresher pipeline.
-    const priceRow = await deps.priceStore.get(token);
+    // Price gate — refuses charge creation if the refresher has not yet
+    // seeded this token. Stablecoins are seeded by FixedRateStablecoinSource;
+    // volatile assets by Chainlink or CoinGecko. By the time a watcher sees
+    // a deposit for any address we hand out below, a row exists here.
+    const priceRow = await deps.priceStore.get(method.token);
     if (priceRow === null) {
-      return c.json({ error: `No price recorded for ${token}. Refresher has not seeded this asset yet.` }, 503);
+      return c.json({ error: `No price recorded for ${method.token}. Refresher has not seeded this asset yet.` }, 503);
     }
+
+    const amountUsdCents = Math.round(body.amountUsd * 100);
     const expectedAmount = centsToNative(amountUsdCents, priceRow.priceMicros, method.decimals);
+
+    const { address, index, chain, token } = await deriveNextAddress(deps.db, body.chain, tenantId, deps.registry);
 
     // Don't lowercase the address — it's case-significant for TON/SOL/DOGE/TRX
     // (different chains, different address encodings, some case-sensitive).

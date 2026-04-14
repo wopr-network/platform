@@ -40,6 +40,9 @@ export class DrizzlePriceStore implements IPriceStore {
       .values({ token, priceMicros, source })
       .onConflictDoUpdate({
         target: prices.token,
+        // raw SQL: Drizzle's set clause needs a server-side `now()` to
+        // stamp updatedAt at commit time; a JS Date here would pin the
+        // timestamp to when the query was built, not when it landed.
         set: { priceMicros, source, updatedAt: sql`(now())` },
       });
   }

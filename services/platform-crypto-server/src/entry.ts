@@ -36,16 +36,24 @@ import { DrizzlePriceStore } from "./stores/price-store.js";
 import { startPluginWatchers } from "./watchers/plugin-watcher-service.js";
 import { processDeliveries } from "./watchers/watcher-service.js";
 
+/**
+ * Required env assertion. An unset required variable is not a state to
+ * handle — it is a precondition that did not hold. Throwing at the point
+ * of use (rather than an if/log/exit branch per variable) keeps the code
+ * predicated on the data existing. The main().catch() at the bottom is the
+ * single place that knows how to terminate the process.
+ */
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing required env: ${name}`);
+  return v;
+}
+
 const PORT = Number(process.env.PORT ?? "3100");
-const DATABASE_URL = process.env.DATABASE_URL;
+const DATABASE_URL = requireEnv("DATABASE_URL");
+const BASE_RPC_URL = requireEnv("BASE_RPC_URL");
 const SERVICE_KEY = process.env.SERVICE_KEY;
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
-const BASE_RPC_URL = process.env.BASE_RPC_URL ?? "https://mainnet.base.org";
-
-if (!DATABASE_URL) {
-  console.error("DATABASE_URL is required");
-  process.exit(1);
-}
 
 async function main(): Promise<void> {
   const pool = new pg.Pool({ connectionString: DATABASE_URL });
@@ -85,11 +93,17 @@ async function main(): Promise<void> {
   const stablecoin = new FixedRateStablecoinSource();
 
   // Tokens to refresh = every enabled payment method token. One row per token.
+  // "First non-null feed wins" so a token served by two payment methods (e.g.,
+  // ETH on mainnet + ETH on Base) still picks up the Chainlink feed even if
+  // the null-feed method happens to be enumerated first.
   const tokenSet = new Map<string, `0x${string}` | undefined>();
   for (const m of allMethods) {
     if (!m.enabled) continue;
     const feed = m.oracleAddress ? (m.oracleAddress as `0x${string}`) : undefined;
-    if (!tokenSet.has(m.token)) tokenSet.set(m.token, feed);
+    const existing = tokenSet.get(m.token);
+    if (!tokenSet.has(m.token) || (existing === undefined && feed !== undefined)) {
+      tokenSet.set(m.token, feed);
+    }
   }
   const refresher = new PriceRefresher({
     store: priceStore,

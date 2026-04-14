@@ -207,9 +207,10 @@ export const addressPool = pgTable(
 /**
  * Price cache — the single source of pricing truth for the hot path.
  *
- * Watchers and /charges read from this table. They NEVER call an oracle directly.
- * A separate PriceRefresher (see src/oracle/refresher.ts) populates this table
- * on boot and hourly, trying IPriceOracle sources in priority order.
+ * Watchers and /charges read from this table via IPriceReader. They NEVER
+ * call a price source directly. A separate PriceRefresher (see
+ * src/oracle/refresher.ts) populates this table on boot and hourly, trying
+ * IPriceSource implementations in priority order.
  *
  * Invariant: if a token has no row here, /charges creation for that token fails
  * fast. By the time a watcher sees a payment, a price is guaranteed to exist.

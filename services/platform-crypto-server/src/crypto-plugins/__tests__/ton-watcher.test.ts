@@ -250,7 +250,12 @@ describe("TonWatcher", () => {
     expect(events[0].amountUsdCents).toBe(350);
   });
 
-  it("survives oracle failure gracefully", async () => {
+  it("fails loudly when the price reader has no row (invariant: /charges should have gated)", async () => {
+    // Before the DB-backed pricing refactor (PR #87), this test asserted a
+    // zero-cent fallback was "graceful." That was the exact failure mode of
+    // the 2026-04-13 incident. New contract: priceReader.getPrice() throwing
+    // is an invariant violation — the whole poll fails so logs surface it,
+    // and no zero-cent event ever reaches the ledger.
     const tx: TonTransaction = {
       utime: 1700000000,
       transaction_id: { lt: "100", hash: "oracle-fail" },
@@ -259,16 +264,30 @@ describe("TonWatcher", () => {
     };
 
     const opts = createMockOpts({ [watchedAddr]: [tx] });
-    opts.priceReader.getPrice = vi.fn().mockRejectedValue(new Error("oracle down"));
+    opts.priceReader.getPrice = vi.fn().mockRejectedValue(new Error("no price row"));
 
     const watcher = new TonWatcher(opts);
     await watcher.init();
     watcher.setWatchedAddresses([watchedAddr]);
 
-    const events = await watcher.poll();
-    expect(events).toHaveLength(1);
-    expect(events[0].amountUsdCents).toBe(0); // fallback
-    expect(events[0].rawAmount).toBe("1000000000"); // raw still correct
+    await expect(watcher.poll()).rejects.toThrow(/no price row/);
+  });
+
+  it("fails loudly on non-positive priceMicros (catches bad oracle data at the seam)", async () => {
+    const tx: TonTransaction = {
+      utime: 1700000000,
+      transaction_id: { lt: "100", hash: "zero-price" },
+      fee: "1000000",
+      in_msg: { source: senderAddr, destination: watchedAddr, value: "1000000000" },
+    };
+    const opts = createMockOpts({ [watchedAddr]: [tx] });
+    opts.priceReader.getPrice = vi.fn().mockResolvedValue({ priceMicros: 0 });
+
+    const watcher = new TonWatcher(opts);
+    await watcher.init();
+    watcher.setWatchedAddresses([watchedAddr]);
+
+    await expect(watcher.poll()).rejects.toThrow(/non-positive priceMicros/);
   });
 
   // ---------------------------------------------------------------------
