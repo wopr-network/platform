@@ -12,17 +12,17 @@
 -- enforces no gaps/duplicates within an instance.
 CREATE TABLE IF NOT EXISTS "chat_messages" (
   "id" text PRIMARY KEY,
-  "instance_id" uuid NOT NULL REFERENCES "bot_instances"("id") ON DELETE CASCADE,
+  "instance_id" text NOT NULL REFERENCES "bot_instances"("id") ON DELETE CASCADE,
   "user_id" text,
   "role" text NOT NULL CHECK ("role" IN ('user', 'assistant', 'system')),
   "content" text NOT NULL,
   "sequence" bigint NOT NULL,
   "created_at" timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
+--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS "chat_messages_instance_sequence_idx"
   ON "chat_messages" ("instance_id", "sequence");
-
+--> statement-breakpoint
 -- For history replay: oldest-first scan by instance.
 CREATE INDEX IF NOT EXISTS "chat_messages_instance_created_idx"
   ON "chat_messages" ("instance_id", "created_at");

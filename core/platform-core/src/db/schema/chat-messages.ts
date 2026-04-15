@@ -1,4 +1,4 @@
-import { bigint, index, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { bigint, index, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { botInstances } from "./bot-instances.js";
 
 /**
@@ -14,7 +14,7 @@ export const chatMessages = pgTable(
   "chat_messages",
   {
     id: text("id").primaryKey(),
-    instanceId: uuid("instance_id")
+    instanceId: text("instance_id")
       .notNull()
       .references(() => botInstances.id, { onDelete: "cascade" }),
     userId: text("user_id"),

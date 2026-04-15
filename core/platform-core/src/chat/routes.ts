@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { logger } from "../config/logger.js";
+import type { IBotInstanceRepository } from "../fleet/bot-instance-repository.js";
 import type { IChatBackend } from "./backend.js";
 import type { IChatMessageRepository } from "./repository.js";
 import { ChatStreamRegistry, type SSEWriter } from "./stream-registry.js";
@@ -26,6 +27,30 @@ export interface ChatRouteDeps {
    * deployments (e.g. onboarding chat where there's no instance to key on).
    */
   messageRepo?: IChatMessageRepository;
+  /**
+   * Required alongside messageRepo for ownership enforcement. Used to
+   * verify the caller's tenant owns the requested instanceId before
+   * serving history or persisting turns. Multi-tenant data safety — any
+   * authenticated user could otherwise read any instance's transcript
+   * by guessing its UUID.
+   */
+  botInstanceRepo?: IBotInstanceRepository;
+}
+
+/** Context accessor for the authenticated tenant. Used for ownership checks on /history + persistence. */
+function getTenantId(c: {
+  get(key: string): unknown;
+  req?: { header?(name: string): string | undefined };
+}): string | null {
+  try {
+    const tenantId = c.get("tenantId") as string | undefined;
+    if (tenantId) return tenantId;
+    const forwarded = c.req?.header?.("x-tenant-id");
+    if (forwarded) return forwarded;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /** Extract authenticated user from Hono context or internal forwarding header. */
@@ -146,6 +171,21 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
       return c.json({ error: "Session access denied" }, 403);
     }
 
+    // Ownership check for instance-scoped turns: verify the caller's
+    // tenant owns the referenced instance before reading/writing its
+    // transcript. Without this any authenticated user could read or
+    // corrupt any instance's history by guessing the UUID.
+    if (instanceId && deps.messageRepo && deps.botInstanceRepo) {
+      const instance = await deps.botInstanceRepo.getById(instanceId);
+      if (!instance) {
+        return c.json({ error: "Instance not found" }, 404);
+      }
+      const tenantId = getTenantId(c) ?? user.id;
+      if (instance.tenantId !== tenantId) {
+        return c.json({ error: "Access denied" }, 403);
+      }
+    }
+
     // Persist the user turn immediately (before backend hop) so a crash
     // between here and the assistant response still leaves a recoverable
     // transcript. Only when instanceId is provided — session-only mode
@@ -169,6 +209,11 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
     // in real time via `emit`, AND also into this buffer. When the backend
     // signals done, we write the full reply to chat_messages.
     let assistantBuffer = "";
+    // One-shot flag to guard against duplicate `done` events: the outer
+    // `backend.process().catch(...)` also emits a `done` after an error
+    // event, so a backend that rejects AFTER emitting its own `done` would
+    // otherwise persist the assistant reply twice. Persist only on first.
+    let assistantPersisted = false;
 
     // Fire-and-forget: process in background so POST returns immediately
     const emit = (event: ChatEvent) => {
@@ -187,7 +232,8 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
           }
         }
       }
-      if (event.type === "done" && deps.messageRepo && instanceId && assistantBuffer) {
+      if (event.type === "done" && !assistantPersisted && deps.messageRepo && instanceId && assistantBuffer) {
+        assistantPersisted = true;
         deps.messageRepo
           .append({
             instanceId,
@@ -231,10 +277,12 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
   });
 
   // History replay. Returns full transcript for an instance, oldest first.
-  // Only mounted when a messageRepo is provided. UI hits this on mount
-  // before opening the SSE stream so the panel renders context immediately.
-  if (deps.messageRepo) {
+  // Mounted only when BOTH messageRepo AND botInstanceRepo are present —
+  // ownership enforcement is not optional. Routes that can't verify
+  // ownership MUST NOT expose the transcript.
+  if (deps.messageRepo && deps.botInstanceRepo) {
     const repo = deps.messageRepo;
+    const botRepo = deps.botInstanceRepo;
     routes.get("/history", async (c) => {
       const user = getUser(c);
       if (!user) {
@@ -244,11 +292,17 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
       if (!instanceId) {
         return c.json({ error: "instanceId query parameter is required" }, 400);
       }
-      // TODO(nemoclaw): ownership check — confirm the requesting user's
-      // tenant owns this instanceId. bot_instances.tenant_id is the
-      // predicate; need to thread an IBotInstanceRepository through deps.
-      // For now any authenticated user with a valid instanceId gets the
-      // transcript. Filed as followup — don't ship to prod without it.
+      // Ownership check: the requesting user's tenant must own this
+      // instance. Otherwise any authenticated user could read any
+      // instance's transcript by guessing its UUID.
+      const instance = await botRepo.getById(instanceId);
+      if (!instance) {
+        return c.json({ error: "Instance not found" }, 404);
+      }
+      const tenantId = getTenantId(c) ?? user.id;
+      if (instance.tenantId !== tenantId) {
+        return c.json({ error: "Access denied" }, 403);
+      }
       try {
         const messages = await repo.listByInstance(instanceId);
         return c.json({

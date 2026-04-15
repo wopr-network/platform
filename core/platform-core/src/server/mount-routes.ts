@@ -680,7 +680,13 @@ export async function mountRoutes(
   if (bootConfig?.chat || bootConfig?.features?.chat) {
     const { createChatRoutes } = await import("../chat/routes.js");
     const { DrizzleChatMessageRepository } = await import("../chat/repository.js");
+    const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
     const messageRepo = new DrizzleChatMessageRepository(container.db);
+    // Required for ownership enforcement on /history and per-instance
+    // persistence — without this any authenticated user can read/write
+    // any instance's chat. createChatRoutes will only mount /history
+    // when botInstanceRepo is provided.
+    const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
 
     let backend = bootConfig.chat?.backend;
     if (!backend) {
@@ -705,7 +711,7 @@ export async function mountRoutes(
       });
     }
 
-    app.route("/api/chat", createChatRoutes({ backend, messageRepo }));
+    app.route("/api/chat", createChatRoutes({ backend, messageRepo, botInstanceRepo }));
   }
 
   // 3. Crypto webhook (when crypto payments are enabled)

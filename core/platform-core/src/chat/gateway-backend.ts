@@ -84,15 +84,26 @@ export class GatewayChatBackend implements IChatBackend {
 
     try {
       for (;;) {
+        // Per-chunk stall timer. Previously this leaked: each iteration
+        // created a setTimeout that was never cleared on the success
+        // path, so long streams accumulated dead timers. Capture the
+        // timer id and clearTimeout on either outcome.
+        let timerId: ReturnType<typeof setTimeout> | null = null;
         const readPromise = reader.read();
-        const timeout = new Promise<{ done: true; value: undefined }>((resolve) =>
-          setTimeout(() => resolve({ done: true, value: undefined }), this.stallTimeoutMs),
-        );
+        const timeout = new Promise<{ done: true; value: undefined }>((resolve) => {
+          timerId = setTimeout(() => resolve({ done: true, value: undefined }), this.stallTimeoutMs);
+        });
         const result = await Promise.race([
           readPromise.then((r) => ({ ...r, timedOut: false })),
           timeout.then((r) => ({ ...r, timedOut: true })),
         ]);
+        if (timerId) clearTimeout(timerId);
         if ((result as { timedOut?: boolean }).timedOut) {
+          // Cancel the underlying reader so the upstream fetch tears
+          // down rather than hanging. Failure to cancel here was the
+          // second half of the leak — even with the timer cleared, a
+          // stalled upstream would keep the fetch connection open.
+          reader.cancel().catch(() => {});
           emit({ type: "error", message: "Model stopped responding" });
           break;
         }
