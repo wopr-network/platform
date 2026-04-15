@@ -60,9 +60,12 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
       return c.json({ error: "Authentication required" }, 401);
     }
 
-    const sessionId = c.req.query("sessionId");
+    // Accept sessionId from either ?sessionId query param OR X-Session-ID
+    // header. Different clients have landed on different conventions; both
+    // are equally unambiguous for a single-value identifier.
+    const sessionId = c.req.query("sessionId") ?? c.req.header("X-Session-ID");
     if (!sessionId) {
-      return c.json({ error: "sessionId query parameter is required" }, 400);
+      return c.json({ error: "sessionId is required (query param or X-Session-ID header)" }, 400);
     }
 
     if (!registry.claimOrVerifyOwner(sessionId, user.id)) {
