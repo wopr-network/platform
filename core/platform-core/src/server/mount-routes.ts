@@ -712,12 +712,44 @@ export async function mountRoutes(
     }
 
     // Chat routes need the authenticated user's id + tenant from the
-    // better-auth session cookie. resolveSessionUser() reads the cookie,
-    // validates the session, and sets c.get("user") / c.get("authMethod").
-    // The onboarding-chat route is a public exception; everything under
-    // /api/chat is gated behind auth.
-    const { resolveSessionUser } = await import("../auth/index.js");
-    app.use("/api/chat/*", resolveSessionUser());
+    // better-auth session cookie. We resolve the session using the
+    // product-scoped BetterAuth instance (per-product cookieDomain/baseURL),
+    // matching how /trpc/* session auth works. Using the global getAuth()
+    // fails silently for requests to api.<product>.com because its
+    // cookieDomain is wired for a different product.
+    const { getAuthForProduct } = await import("../auth/better-auth.js");
+    const { logger: chatAuthLogger } = await import("../config/logger.js");
+    app.use("/api/chat/*", async (c, next) => {
+      const ctx = c as unknown as {
+        get: (k: string) => unknown;
+        set: (k: string, v: unknown) => void;
+      };
+      try {
+        if (ctx.get("user")) return next();
+      } catch {
+        // not set — continue
+      }
+      try {
+        const chatSlug = await resolveProductSlug(c.req, container.productConfigService);
+        const auth = await getAuthForProduct(chatSlug);
+        const session = await auth.api.getSession({ headers: c.req.raw.headers });
+        if (session?.user) {
+          const u = session.user as { id: string; role?: string };
+          const roles: string[] = [];
+          if (u.role) roles.push(u.role);
+          ctx.set("user", { id: u.id, roles });
+          ctx.set("authMethod", "session");
+          const tenantId = c.req.header("x-tenant-id") ?? u.id;
+          ctx.set("tenantId", tenantId);
+          chatAuthLogger.info("chat auth: session valid", { path: c.req.path, userId: u.id, slug: chatSlug });
+        } else {
+          chatAuthLogger.warn("chat auth: no valid session", { path: c.req.path, slug: chatSlug, hasCookies: !!c.req.header("cookie") });
+        }
+      } catch (err) {
+        chatAuthLogger.warn("chat auth: resolve failed", { err: String(err) });
+      }
+      return next();
+    });
     app.route("/api/chat", createChatRoutes({ backend, messageRepo, botInstanceRepo }));
   }
 
