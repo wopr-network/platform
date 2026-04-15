@@ -711,6 +711,13 @@ export async function mountRoutes(
       });
     }
 
+    // Chat routes need the authenticated user's id + tenant from the
+    // better-auth session cookie. resolveSessionUser() reads the cookie,
+    // validates the session, and sets c.get("user") / c.get("authMethod").
+    // The onboarding-chat route is a public exception; everything under
+    // /api/chat is gated behind auth.
+    const { resolveSessionUser } = await import("../auth/index.js");
+    app.use("/api/chat/*", resolveSessionUser());
     app.route("/api/chat", createChatRoutes({ backend, messageRepo, botInstanceRepo }));
   }
 
