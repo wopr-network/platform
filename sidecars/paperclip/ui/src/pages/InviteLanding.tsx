@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@/lib/router";
+import { Link, useParams, Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
@@ -37,9 +38,12 @@ function readNestedString(value: unknown, path: string[]): string | null {
 }
 
 export function InviteLandingPage() {
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const params = useParams();
   const token = (params.token ?? "").trim();
+
+  if (isHosted) return <Navigate to="/" replace />;
   const [joinType, setJoinType] = useState<JoinType>("human");
   const [agentName, setAgentName] = useState("");
   const [adapterType, setAdapterType] = useState<AgentAdapterType>("claude_local");

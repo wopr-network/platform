@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "@/lib/router";
+import { Link, useLocation, useNavigate, useParams, Navigate } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   Activity as ActivityIcon,
   ChevronDown,
@@ -249,6 +250,7 @@ function TriggerEditor({
 }
 
 export function RoutineDetail() {
+  const { isHosted } = useHostedMode();
   const { routineId } = useParams<{ routineId: string }>();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
