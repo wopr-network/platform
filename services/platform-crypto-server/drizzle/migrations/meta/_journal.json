@@ -43,6 +43,13 @@
       "when": 1776280000000,
       "tag": "0005_payment_methods_is_testnet",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776380000000,
+      "tag": "0006_drop_payment_methods_network",
+      "breakpoints": true
     }
   ]
 }
