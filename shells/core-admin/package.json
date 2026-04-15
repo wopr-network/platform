@@ -1,6 +1,6 @@
 {
   "name": "@wopr-network/core-admin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "packageManager": "pnpm@10.31.0",
   "description": "Internal cross-product admin dashboard — thin Next.js app on @wopr-network/platform-ui-core",
