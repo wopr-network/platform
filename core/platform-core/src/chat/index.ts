@@ -1,4 +1,5 @@
 export type { IChatBackend } from "./backend.js";
+export { GatewayChatBackend, type GatewayChatBackendDeps } from "./gateway-backend.js";
 export {
   type AppendInput,
   type ChatMessage,

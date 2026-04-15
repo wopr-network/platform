@@ -198,7 +198,27 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
       }
     };
 
-    deps.backend.process(sessionId, message, emit).catch((err) => {
+    // Assemble the messages array for the backend. When we have history
+    // (instanceId + repo), replay prior turns as context so the model is
+    // coherent across reconnects. The user turn was just persisted above,
+    // so it's already the last entry in `history`. In session-only mode
+    // (onboarding), just send the current message.
+    const messages = await (async () => {
+      if (deps.messageRepo && instanceId) {
+        try {
+          const rows = await deps.messageRepo.listByInstance(instanceId);
+          return rows.map((m) => ({ role: m.role, content: m.content }));
+        } catch (err) {
+          logger.error("Failed to load chat history for context", { instanceId, err });
+          // Fall back to just the current message — better a one-shot reply
+          // than a total failure.
+          return [{ role: "user" as const, content: message }];
+        }
+      }
+      return [{ role: "user" as const, content: message }];
+    })();
+
+    deps.backend.process(sessionId, messages, emit).catch((err) => {
       logger.error("Chat backend processing failed", { sessionId, err });
       emit({ type: "error", message: "Internal error" });
       emit({ type: "done" });
