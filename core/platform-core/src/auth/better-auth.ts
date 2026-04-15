@@ -401,10 +401,6 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
   }
 
   const providers = await _productAuthManager.getSocialProviders(slug);
-  if (Object.keys(providers).length === 0) {
-    logger.warn(`BetterAuth [${slug}]: no providers configured — falling back to global`);
-    return getAuth(); // No per-product config
-  }
 
   // Resolve product domain for baseURL + cookieDomain
   const socialProviders: BetterAuthConfig["socialProviders"] = {};
@@ -416,16 +412,26 @@ export async function getAuthForProduct(slug: string): Promise<Auth> {
   let cookieDomain = _config.cookieDomain;
   let brandName = _config.brandName;
   let fromEmail: string | undefined;
+  let productFound = false;
   try {
     const pc = await _productAuthManager.productConfigService.getBySlug(slug);
     if (pc?.product?.domain) {
       baseURL = `https://api.${pc.product.domain}`;
       cookieDomain = `.${pc.product.domain}`;
+      productFound = true;
     }
     if (pc?.product?.brandName) brandName = pc.product.brandName;
     if (pc?.product?.fromEmail) fromEmail = pc.product.fromEmail;
   } catch {
     // Use defaults
+  }
+
+  // Fall back to global only if we can't find a product domain to build the
+  // correct baseURL/cookieDomain. Having zero OAuth providers is fine — the
+  // product may use email/password auth only.
+  if (!productFound) {
+    logger.warn(`BetterAuth [${slug}]: no product domain found — falling back to global`);
+    return getAuth();
   }
 
   // Log the config for this product instance (hash secret for safety)
