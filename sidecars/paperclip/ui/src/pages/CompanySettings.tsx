@@ -2,6 +2,7 @@ import { ChangeEvent, useEffect, useState } from "react";
 import { Link } from "@/lib/router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToast } from "../context/ToastContext";
@@ -23,6 +24,7 @@ type AgentSnippetInput = {
 const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
 
 export function CompanySettings() {
+  const { isHosted } = useHostedMode();
   const { companies, selectedCompany, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
@@ -352,18 +354,20 @@ export function CompanySettings() {
       )}
 
       {/* Hiring */}
-      <div className="space-y-4" data-testid="company-settings-team-section">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hiring</div>
-        <div className="rounded-md border border-border px-4 py-3">
-          <ToggleField
-            label="Require board approval for new hires"
-            hint="New agent hires stay pending until approved by board."
-            checked={!!selectedCompany.requireBoardApprovalForNewAgents}
-            onChange={(v) => settingsMutation.mutate(v)}
-            toggleTestId="company-settings-team-approval-toggle"
-          />
+      {!isHosted && (
+        <div className="space-y-4" data-testid="company-settings-team-section">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Hiring</div>
+          <div className="rounded-md border border-border px-4 py-3">
+            <ToggleField
+              label="Require board approval for new hires"
+              hint="New agent hires stay pending until approved by board."
+              checked={!!selectedCompany.requireBoardApprovalForNewAgents}
+              onChange={(v) => settingsMutation.mutate(v)}
+              toggleTestId="company-settings-team-approval-toggle"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Feedback Sharing</div>
@@ -408,23 +412,24 @@ export function CompanySettings() {
       </div>
 
       {/* Invites */}
-      <div className="space-y-4" data-testid="company-settings-invites-section">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Invites</div>
-        <div className="space-y-3 rounded-md border border-border px-4 py-4">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Generate an OpenClaw agent invite snippet.</span>
-            <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              data-testid="company-settings-invites-generate-button"
-              size="sm"
-              onClick={() => inviteMutation.mutate()}
-              disabled={inviteMutation.isPending}
-            >
-              {inviteMutation.isPending ? "Generating..." : "Generate OpenClaw Invite Prompt"}
-            </Button>
-          </div>
+      {!isHosted && (
+        <div className="space-y-4" data-testid="company-settings-invites-section">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Invites</div>
+          <div className="space-y-3 rounded-md border border-border px-4 py-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground">Generate an OpenClaw agent invite snippet.</span>
+              <HintIcon text="Creates a short-lived OpenClaw agent invite and renders a copy-ready prompt." />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                data-testid="company-settings-invites-generate-button"
+                size="sm"
+                onClick={() => inviteMutation.mutate()}
+                disabled={inviteMutation.isPending}
+              >
+                {inviteMutation.isPending ? "Generating..." : "Generate OpenClaw Invite Prompt"}
+              </Button>
+            </div>
           {inviteError && <p className="text-sm text-destructive">{inviteError}</p>}
           {inviteSnippet && (
             <div
@@ -471,79 +476,84 @@ export function CompanySettings() {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Import / Export */}
-      <div className="space-y-4">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Company Packages</div>
-        <div className="rounded-md border border-border px-4 py-4">
-          <p className="text-sm text-muted-foreground">
-            Import and export have moved to dedicated pages accessible from the{" "}
-            <a href="/org" className="underline hover:text-foreground">
-              Org Chart
-            </a>{" "}
-            header.
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <Button size="sm" variant="outline" asChild>
-              <Link to="/company/export">
-                <Download className="mr-1.5 h-3.5 w-3.5" />
-                Export
-              </Link>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <Link to="/company/import">
-                <Upload className="mr-1.5 h-3.5 w-3.5" />
-                Import
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="space-y-4">
-        <div className="text-xs font-medium text-destructive uppercase tracking-wide">Danger Zone</div>
-        <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
-          <p className="text-sm text-muted-foreground">
-            Archive this company to hide it from the sidebar. This persists in the database.
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={archiveMutation.isPending || selectedCompany.status === "archived"}
-              onClick={() => {
-                if (!selectedCompanyId) return;
-                const confirmed = window.confirm(
-                  `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`,
-                );
-                if (!confirmed) return;
-                const nextCompanyId =
-                  companies.find((company) => company.id !== selectedCompanyId && company.status !== "archived")?.id ??
-                  null;
-                archiveMutation.mutate({
-                  companyId: selectedCompanyId,
-                  nextCompanyId,
-                });
-              }}
-            >
-              {archiveMutation.isPending
-                ? "Archiving..."
-                : selectedCompany.status === "archived"
-                  ? "Already archived"
-                  : "Archive company"}
-            </Button>
-            {archiveMutation.isError && (
-              <span className="text-xs text-destructive">
-                {archiveMutation.error instanceof Error ? archiveMutation.error.message : "Failed to archive company"}
-              </span>
             )}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Import / Export */}
+      {!isHosted && (
+        <div className="space-y-4">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Company Packages</div>
+          <div className="rounded-md border border-border px-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Import and export have moved to dedicated pages accessible from the{" "}
+              <a href="/org" className="underline hover:text-foreground">
+                Org Chart
+              </a>{" "}
+              header.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/company/export">
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  Export
+                </Link>
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/company/import">
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  Import
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Danger Zone */}
+      {!isHosted && (
+        <div className="space-y-4">
+          <div className="text-xs font-medium text-destructive uppercase tracking-wide">Danger Zone</div>
+          <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Archive this company to hide it from the sidebar. This persists in the database.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={archiveMutation.isPending || selectedCompany.status === "archived"}
+                onClick={() => {
+                  if (!selectedCompanyId) return;
+                  const confirmed = window.confirm(
+                    `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`,
+                  );
+                  if (!confirmed) return;
+                  const nextCompanyId =
+                    companies.find((company) => company.id !== selectedCompanyId && company.status !== "archived")?.id ??
+                    null;
+                  archiveMutation.mutate({
+                    companyId: selectedCompanyId,
+                    nextCompanyId,
+                  });
+                }}
+              >
+                {archiveMutation.isPending
+                  ? "Archiving..."
+                  : selectedCompany.status === "archived"
+                    ? "Already archived"
+                    : "Archive company"}
+              </Button>
+              {archiveMutation.isError && (
+                <span className="text-xs text-destructive">
+                  {archiveMutation.error instanceof Error ? archiveMutation.error.message : "Failed to archive company"}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -72,7 +72,13 @@ function SkillList({ values }: { values: unknown }) {
   );
 }
 
-export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
+export function HireAgentPayload({
+  payload,
+  hideInfrastructure = false,
+}: {
+  payload: Record<string, unknown>;
+  hideInfrastructure?: boolean;
+}) {
   return (
     <div className="mt-3 space-y-1.5 text-sm">
       <div className="flex items-center gap-2">
@@ -88,7 +94,7 @@ export function HireAgentPayload({ payload }: { payload: Record<string, unknown>
           <span className="text-muted-foreground">{String(payload.capabilities)}</span>
         </div>
       )}
-      {!!payload.adapterType && (
+      {!hideInfrastructure && !!payload.adapterType && (
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs">Adapter</span>
           <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{String(payload.adapterType)}</span>

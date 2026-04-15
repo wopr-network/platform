@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useCompany } from "../context/CompanyContext";
 import { agentsApi } from "../api/agents";
 import { adaptersApi } from "../api/adapters";
@@ -25,6 +26,7 @@ function isAgentAdapterType(type: string): boolean {
 }
 
 export function NewAgentDialog() {
+  const { isHosted } = useHostedMode();
   const { newAgentOpen, closeNewAgent, openNewIssue } = useDialog();
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
@@ -139,14 +141,16 @@ export function NewAgentDialog() {
               </Button>
 
               {/* Advanced link */}
-              <div className="text-center">
-                <button
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
-                  onClick={handleAdvancedConfig}
-                >
-                  I want advanced configuration myself
-                </button>
-              </div>
+              {!isHosted && (
+                <div className="text-center">
+                  <button
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                    onClick={handleAdvancedConfig}
+                  >
+                    I want advanced configuration myself
+                  </button>
+                </div>
+              )}
             </>
           ) : (
             <>

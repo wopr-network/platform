@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock3, ExternalLink, Settings } from "lucide-react";
 import type { InstanceSchedulerHeartbeatAgent } from "@paperclipai/shared";
-import { Link } from "@/lib/router";
+import { Link, Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -27,9 +28,12 @@ function buildAgentHref(agent: InstanceSchedulerHeartbeatAgent) {
 }
 
 export function InstanceSettings() {
+  const { isHosted } = useHostedMode();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+
+  if (isHosted) return <Navigate to="/" replace />;
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Instance Settings" }, { label: "Heartbeats" }]);
