@@ -43,7 +43,16 @@ async function resolveProductSlug(
   productConfigService: PlatformContainer["productConfigService"],
 ): Promise<string> {
   const explicit = req.header("x-product");
-  if (explicit) return explicit;
+  if (explicit) {
+    // Validate against known product slugs — an x-product value like "platform"
+    // (the static client-side default) is not a real product and must fall through
+    // to hostname-based resolution rather than silently returning a bad slug.
+    const allProducts = await productConfigService.listAll();
+    if (allProducts.some((pc) => pc.product?.slug === explicit)) {
+      return explicit;
+    }
+    // Unknown slug — fall through to hostname/origin-based resolution.
+  }
 
   const candidates: string[] = [];
   const origin = req.header("origin") ?? "";
