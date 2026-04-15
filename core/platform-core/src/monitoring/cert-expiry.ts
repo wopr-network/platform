@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { connect, type TLSSocket } from "node:tls";
 import { logger } from "../config/logger.js";
 
@@ -17,8 +18,15 @@ export interface CertExpiryResult {
  */
 export function checkCertExpiry(hostname: string, port: number, timeoutMs = 5000): Promise<CertExpiryResult> {
   return new Promise((resolve) => {
+    // RFC 6066: TLS Server Name Indication (SNI) must be a DNS name, not an
+    // IP literal. Newer Node versions enforce this at connect() time and
+    // throw synchronously before our timeout handler can fire. Omit
+    // servername when the host is an IP — the cert presented will match
+    // the SAN:IP entry instead of the SNI, which is the correct behavior
+    // for TLS-to-IP connections.
+    const servername = isIP(hostname) ? undefined : hostname;
     const socket: TLSSocket = connect(
-      { host: hostname, port, servername: hostname, rejectUnauthorized: true, timeout: timeoutMs },
+      { host: hostname, port, servername, rejectUnauthorized: true, timeout: timeoutMs },
       () => {
         const cert = socket.getPeerCertificate();
         socket.destroy();
