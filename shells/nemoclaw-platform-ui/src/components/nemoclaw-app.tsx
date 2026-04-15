@@ -1,8 +1,8 @@
 "use client";
 
 import { ChatPanel } from "@core/components/chat/chat-panel";
-import type { BotStatusResponse } from "@core/lib/api";
-import { mapBotState } from "@core/lib/api";
+import type { Instance } from "@core/lib/api";
+import { createInstance, listInstances } from "@core/lib/api";
 import { toUserMessage } from "@core/lib/errors";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,34 +12,21 @@ import type { TabInstance } from "./chat-tabs";
 import { ChatTabBar } from "./chat-tabs";
 import { FirstRun } from "./first-run";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
-
-/**
- * Direct fetch for fleet instances — bypasses tRPC batch stream link
- * which hangs when other queries in the batch fail.
- */
-async function fetchInstances(): Promise<BotStatusResponse[]> {
-  const res = await fetch(`${API_BASE}/trpc/fleet.listInstances`, {
-    credentials: "include",
-  });
-  if (!res.ok) return [];
-  const json = (await res.json()) as {
-    result?: { data?: { bots?: BotStatusResponse[] } };
-  };
-  return json.result?.data?.bots ?? [];
-}
-
 export function NemoClawApp() {
   const [activeId, setActiveId] = useState("");
   const [showAddInput, setShowAddInput] = useState(false);
-  const [rawBots, setRawBots] = useState<BotStatusResponse[] | null>(null);
+  const [bots, setBots] = useState<Instance[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadInstances = useCallback(async () => {
     setIsLoading(true);
-    const bots = await fetchInstances();
-    setRawBots(bots);
-    setIsLoading(false);
+    try {
+      setBots(await listInstances());
+    } catch {
+      setBots([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -53,16 +40,18 @@ export function NemoClawApp() {
   async function doClaim(name: string) {
     setClaiming(true);
     try {
-      const res = await fetch(`${API_BASE}/trpc/pool.claim`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+      // Use the shared tRPC helper (paperclip uses the same) rather than
+      // raw-fetching an endpoint name. `pool.claim` was the old wire and
+      // no longer exists on core — `fleet.createInstance` is the current
+      // shared procedure. Provider "nemoclaw" routes to the Nemoclaw
+      // product's fleet config (container_image, port, etc.) on the
+      // server side via productSlug context.
+      await createInstance({
+        name,
+        provider: "nemoclaw",
+        channels: [],
+        plugins: [],
       });
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error(err);
-      }
       setShowAddInput(false);
       toast.success(`${name} created!`);
       await loadInstances();
@@ -74,13 +63,12 @@ export function NemoClawApp() {
   }
 
   const instances: TabInstance[] = useMemo(() => {
-    if (!rawBots) return [];
-    return rawBots.map((bot) => {
-      const rawStatus = mapBotState(bot.state);
-      const status: TabInstance["status"] = rawStatus === "running" || rawStatus === "stopped" ? rawStatus : "error";
+    if (!bots) return [];
+    return bots.map((bot) => {
+      const status: TabInstance["status"] = bot.status === "running" || bot.status === "stopped" ? bot.status : "error";
       return { id: bot.id, name: bot.name, status };
     });
-  }, [rawBots]);
+  }, [bots]);
 
   // Auto-select first instance when none is selected
   const resolvedActiveId = activeId && instances.some((i) => i.id === activeId) ? activeId : (instances[0]?.id ?? "");
