@@ -351,6 +351,13 @@
       "when": 1776578400000,
       "tag": "0049_product_billing_allow_testnet",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1776664800000,
+      "tag": "0050_chat_messages",
+      "breakpoints": true
     }
   ]
 }

@@ -167,7 +167,10 @@ export function createChatRoutes(deps: ChatRouteDeps): Hono {
     };
 
     // Start processing (don't await — return streamId immediately)
-    deps.backend.process(sessionId, message, emit).catch((err) => {
+    // This legacy route is session-only (no instanceId / history) — wrap
+    // the single message in the BackendMessage[] shape the interface now
+    // expects.
+    deps.backend.process(sessionId, [{ role: "user", content: message }], emit).catch((err) => {
       logger.error("Chat backend processing failed", { sessionId, err });
       emit({ type: "error", message: "Internal error" });
       emit({ type: "done" });

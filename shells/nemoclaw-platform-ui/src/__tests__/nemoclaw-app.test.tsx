@@ -8,9 +8,17 @@ vi.mock("@core/lib/brand-config", () => ({
   productName: () => "NemoPod",
 }));
 
+// createInstance / listInstances are the shared tRPC helpers the component
+// uses. Tests control their behavior per-case via vi.mocked(listInstances).
+// apiFetch is unused by the new implementation but kept to match other
+// modules that pull from @core/lib/api.
+const listInstancesMock = vi.fn();
+const createInstanceMock = vi.fn();
+
 vi.mock("@core/lib/api", () => ({
-  mapBotState: (s: string) => s,
   apiFetch: vi.fn(),
+  createInstance: (...args: unknown[]) => createInstanceMock(...args),
+  listInstances: () => listInstancesMock(),
 }));
 vi.mock("@core/lib/errors", () => ({
   toUserMessage: (_: unknown, f: string) => f,
@@ -44,20 +52,28 @@ function renderWith(ui: React.ReactElement) {
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 }
 
-function mockFetchInstances(bots: Array<{ id: string; name: string; state: string }>) {
-  vi.spyOn(global, "fetch").mockResolvedValue({
-    ok: true,
-    json: async () => ({ result: { data: { bots } } }),
-  } as Response);
+// Shape returned by listInstances() — matches @core/lib/api's Instance type.
+function instance(partial: { id: string; name: string; status: "running" | "stopped" | "error" | "degraded" }) {
+  return {
+    id: partial.id,
+    name: partial.name,
+    status: partial.status,
+    provider: "nemoclaw",
+    channels: [],
+    plugins: [],
+    uptime: null,
+    createdAt: new Date().toISOString(),
+  };
 }
 
 describe("NemoClawApp", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    listInstancesMock.mockReset();
+    createInstanceMock.mockReset();
   });
 
   it("shows first-run when no instances", async () => {
-    mockFetchInstances([]);
+    listInstancesMock.mockResolvedValue([]);
     renderWith(<NemoClawApp />);
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/name your first agent/i)).toBeInTheDocument();
@@ -65,7 +81,7 @@ describe("NemoClawApp", () => {
   });
 
   it("shows tabs when instances exist", async () => {
-    mockFetchInstances([{ id: "1", name: "my-bot", state: "running" }]);
+    listInstancesMock.mockResolvedValue([instance({ id: "1", name: "my-bot", status: "running" })]);
     renderWith(<NemoClawApp />);
     await waitFor(() => {
       expect(screen.getByText("my-bot")).toBeInTheDocument();
@@ -73,15 +89,16 @@ describe("NemoClawApp", () => {
   });
 
   it("shows loading state initially", () => {
-    vi.spyOn(global, "fetch").mockReturnValue(new Promise(() => {}));
+    // listInstances never resolves → component stays in isLoading
+    listInstancesMock.mockReturnValue(new Promise(() => {}));
     renderWith(<NemoClawApp />);
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
 
   it("shows ChatPanel for active instance", async () => {
-    mockFetchInstances([
-      { id: "a", name: "alpha", state: "running" },
-      { id: "b", name: "beta", state: "stopped" },
+    listInstancesMock.mockResolvedValue([
+      instance({ id: "a", name: "alpha", status: "running" }),
+      instance({ id: "b", name: "beta", status: "stopped" }),
     ]);
     renderWith(<NemoClawApp />);
     await waitFor(() => {

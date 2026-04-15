@@ -117,7 +117,7 @@ export async function mountRoutes(
   container: PlatformContainer,
   config: MountConfig,
   plugins: RoutePlugin[] = [],
-  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "chat" | "slug" | "secrets" | "databaseUrl">,
+  bootConfig?: Pick<BootConfig, "standalone" | "auth" | "chat" | "slug" | "secrets" | "databaseUrl" | "features">,
 ): Promise<void> {
   // 1. CORS middleware
   // In standalone mode, allow origins from ALL products. In single-product mode, use boot-time config.
@@ -672,10 +672,46 @@ export async function mountRoutes(
     });
   }
 
-  // 2e. Chat routes (when chat backend is provided)
-  if (bootConfig?.chat) {
+  // 2e. Chat routes. Two paths:
+  //   - bootConfig.chat.backend  → explicit backend (custom product impls)
+  //   - features.chat === true   → default stack: GatewayChatBackend +
+  //                                DrizzleChatMessageRepository persistence
+  // Explicit backend wins when both are present.
+  if (bootConfig?.chat || bootConfig?.features?.chat) {
     const { createChatRoutes } = await import("../chat/routes.js");
-    app.route("/api/chat", createChatRoutes({ backend: bootConfig.chat.backend }));
+    const { DrizzleChatMessageRepository } = await import("../chat/repository.js");
+    const { DrizzleBotInstanceRepository } = await import("../fleet/drizzle-bot-instance-repository.js");
+    const messageRepo = new DrizzleChatMessageRepository(container.db);
+    // Required for ownership enforcement on /history and per-instance
+    // persistence — without this any authenticated user can read/write
+    // any instance's chat. createChatRoutes will only mount /history
+    // when botInstanceRepo is provided.
+    const botInstanceRepo = new DrizzleBotInstanceRepository(container.db);
+
+    let backend = bootConfig.chat?.backend;
+    if (!backend) {
+      // Build the default GatewayChatBackend. It streams via the core
+      // inference gateway and mints per-request service keys so metering
+      // attributes correctly.
+      const { GatewayChatBackend } = await import("../chat/gateway-backend.js");
+      const serviceKeyRepo = container.fleet?.serviceKeyRepo;
+      if (!serviceKeyRepo) {
+        throw new Error(
+          "features.chat requires fleet.serviceKeyRepo; enable features.fleet or pass a custom chat.backend",
+        );
+      }
+      const slug = bootConfig.slug;
+      // Gateway runs in-process; hardcoded localhost:3001 matches the pattern
+      // onboarding-chat.ts uses and avoids threading port config through
+      // MountConfig. Can be overridden via CHAT_GATEWAY_URL env if ever needed.
+      const gatewayUrl = process.env.CHAT_GATEWAY_URL ?? "http://localhost:3001/v1/chat/completions";
+      backend = new GatewayChatBackend({
+        gatewayUrl,
+        getServiceKey: () => serviceKeyRepo.generate("__platform__", "chat", slug),
+      });
+    }
+
+    app.route("/api/chat", createChatRoutes({ backend, messageRepo, botInstanceRepo }));
   }
 
   // 3. Crypto webhook (when crypto payments are enabled)

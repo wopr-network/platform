@@ -78,7 +78,7 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
       platformDomain: container.productConfig.product?.domain ?? "localhost",
     },
     config.routes,
-    config.standalone || config.auth || config.chat
+    config.standalone || config.auth || config.chat || config.features?.chat
       ? {
           standalone: config.standalone,
           auth: config.auth,
@@ -86,6 +86,7 @@ export async function bootPlatformServer(config: BootConfig): Promise<BootResult
           slug: config.slug,
           secrets: config.secrets,
           databaseUrl: config.databaseUrl,
+          features: config.features,
         }
       : undefined,
   );

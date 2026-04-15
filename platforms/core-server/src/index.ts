@@ -44,6 +44,10 @@ const platform = await bootPlatformServer({
     stripe: !!secrets.stripeSecretKey,
     gateway: true,
     hotPool: true,
+    // Chat is shared across all products on this core-server. Nemoclaw
+    // is the primary consumer (multi-agent chat UI); other products
+    // that don't need it simply don't call the endpoints.
+    chat: true,
   },
   standalone: {
     allowedServiceTokens: process.env.CORE_ALLOWED_SERVICE_TOKENS ?? "",
