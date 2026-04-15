@@ -20,6 +20,14 @@ export interface FeatureFlags {
   stripe: boolean;
   gateway: boolean;
   hotPool: boolean;
+  /**
+   * When true, core mounts /api/chat routes with its default
+   * GatewayChatBackend + DrizzleChatMessageRepository — persistence +
+   * history replay backed by the existing metered inference gateway.
+   * Products wanting a custom backend (e.g. a sidecar proxy) pass
+   * `chat: { backend }` in BootConfig instead, which takes precedence.
+   */
+  chat?: boolean;
 }
 
 // ---------------------------------------------------------------------------
