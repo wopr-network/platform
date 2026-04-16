@@ -85,8 +85,21 @@ export class DockerManager {
     try {
       const net = this.docker.getNetwork(network);
       await net.connect({ Container: containerId });
-    } catch {
-      // Already connected or network gone — non-fatal
+      logger.info("DockerManager.attachNetwork: attached", { containerId, network });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // "already connected" is fine; anything else is a real problem that will
+      // cause ENOTFOUND at health-check time — log it so we can diagnose.
+      if (/endpoint with name/i.test(msg)) {
+        logger.info("DockerManager.attachNetwork: already connected", { containerId, network, msg, err });
+      } else {
+        logger.warn("DockerManager.attachNetwork: failed to attach — container will be unreachable on overlay", {
+          containerId,
+          network,
+          msg,
+          err,
+        });
+      }
     }
   }
 
@@ -132,7 +145,7 @@ export class DockerManager {
     const { name } = payload;
     const envArr = payload.env ? Object.entries(payload.env).map(([k, v]) => `${k}=${v}`) : [];
 
-    // Pull image first (uses agent default registry auth if available).
+    logger.info("DockerManager.startBot: pulling image", { name, image: payload.image });
     const stream = await this.docker.pull(payload.image, this.pullOpts());
     await new Promise<void>((resolve, reject) => {
       this.docker.modem.followProgress(stream, (err: Error | null) => {
@@ -140,6 +153,7 @@ export class DockerManager {
         else resolve();
       });
     });
+    logger.info("DockerManager.startBot: image ready", { name, image: payload.image });
 
     const container = await this.docker.createContainer({
       Image: payload.image,
@@ -150,8 +164,10 @@ export class DockerManager {
         RestartPolicy: { Name: payload.restart ?? "unless-stopped" },
       },
     });
+    logger.info("DockerManager.startBot: container created", { name, containerId: container.id });
 
     await container.start();
+    logger.info("DockerManager.startBot: container started", { name, containerId: container.id });
 
     // Attach the tenant container to the host's overlay network so core can
     // reach it by name for the sidecar health check + tRPC proxy. Without
