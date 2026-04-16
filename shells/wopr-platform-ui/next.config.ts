@@ -15,6 +15,9 @@ const staticAssetPaths = ["/_next/static/:path*", "/_next/image/:path*", "/favic
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@wopr-network/platform-ui-core"],
+  images: {
+    remotePatterns: [{ hostname: "**.githubusercontent.com" }, { hostname: "**.googleusercontent.com" }],
+  },
   headers: async () => [
     {
       // Non-CSP security headers applied to all routes.

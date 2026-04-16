@@ -6,6 +6,9 @@ const CORE_URL = process.env.INTERNAL_CORE_URL || process.env.NEXT_PUBLIC_API_UR
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@wopr-network/platform-ui-core"],
+  images: {
+    remotePatterns: [{ hostname: "**.githubusercontent.com" }, { hostname: "**.googleusercontent.com" }],
+  },
   rewrites: async () => [
     // BetterAuth lives on core. Route /api/auth/* directly to core — never
     // through the holyship engine, whose fetch proxy silently ate 302s and
