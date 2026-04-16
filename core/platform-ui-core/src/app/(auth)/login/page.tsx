@@ -58,7 +58,8 @@ function LoginForm() {
         return;
       }
 
-      const callbackUrl = sanitizeRedirectUrl(searchParams.get("callbackUrl"));
+      const rawCallback = searchParams.get("callbackUrl");
+      const callbackUrl = rawCallback ? sanitizeRedirectUrl(rawCallback) : (getBrandConfig().homePath ?? "/");
       router.push(callbackUrl);
     } catch {
       setError("A network error occurred. Please try again.");
@@ -146,7 +147,7 @@ function LoginForm() {
               )}
             </Button>
           </form>
-          <OAuthButtons callbackUrl={sanitizeRedirectUrl(searchParams.get("callbackUrl"))} />
+          <OAuthButtons callbackUrl={searchParams.get("callbackUrl") ? sanitizeRedirectUrl(searchParams.get("callbackUrl")) : (getBrandConfig().homePath ?? "/")} />
         </CardContent>
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">

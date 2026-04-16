@@ -80,7 +80,8 @@ function AuthForm() {
         }
         return;
       }
-      const callbackUrl = sanitizeRedirectUrl(searchParams.get("callbackUrl"));
+      const rawCallback = searchParams.get("callbackUrl");
+      const callbackUrl = rawCallback ? sanitizeRedirectUrl(rawCallback) : (getBrandConfig().homePath ?? "/");
       window.location.href = callbackUrl;
     } catch {
       setError("A network error occurred. Please try again.");
@@ -493,7 +494,7 @@ function AuthForm() {
             </form>
           )}
 
-          <OAuthButtons callbackUrl={sanitizeRedirectUrl(searchParams.get("callbackUrl"))} />
+          <OAuthButtons callbackUrl={searchParams.get("callbackUrl") ? sanitizeRedirectUrl(searchParams.get("callbackUrl")) : (getBrandConfig().homePath ?? "/")} />
         </div>
       </div>
     </div>
