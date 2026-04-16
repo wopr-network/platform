@@ -20,6 +20,7 @@ export default function DashboardPage() {
         credentials: "include",
       });
       if (!res.ok) {
+        // biome-ignore lint/suspicious/noConsole: surface sync failures to devtools for field debugging
         console.error("sync-installations failed", res.status, await res.text().catch(() => ""));
       }
       setLoadKey((k) => k + 1);
@@ -28,6 +29,7 @@ export default function DashboardPage() {
     }
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loadKey is intentionally a refetch trigger, not consumed inside the effect
   useEffect(() => {
     let cancelled = false;
 

@@ -58,9 +58,7 @@ export default function ShipItPage() {
     setLoadingIssues(true);
     try {
       const [rfOwner, rfRepo] = repoFullName.split("/");
-      const res = await fetch(
-        `/api/github/repos/${encodeURIComponent(rfOwner)}/${encodeURIComponent(rfRepo)}/issues`,
-      );
+      const res = await fetch(`/api/github/repos/${encodeURIComponent(rfOwner)}/${encodeURIComponent(rfRepo)}/issues`);
       const data = await res.json();
       setIssues(data.issues ?? []);
     } catch {

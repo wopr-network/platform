@@ -23,9 +23,7 @@ export default function RepoIssuesPage({ params }: { params: Promise<{ owner: st
   const loadIssues = useCallback(async () => {
     setLoadingIssues(true);
     try {
-      const res = await fetch(
-        `/api/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`,
-      );
+      const res = await fetch(`/api/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/issues`);
       const data = await res.json();
       setIssues(data.issues ?? []);
     } catch {
