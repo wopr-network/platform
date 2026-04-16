@@ -194,7 +194,11 @@ async function main() {
   //
   // redirect: "manual" is critical for /api/auth/* (BetterAuth OAuth callback
   // returns 302 with Set-Cookie) — default redirect:"follow" eats the 302 and
-  // strips Set-Cookie, breaking login.
+  // strips Set-Cookie, breaking login. Intentionally applied to all proxied
+  // routes too: a transparent proxy should pass redirects through to the
+  // client rather than silently chase them. /api/products/*, /api/stripe/*,
+  // and /v1/* don't rely on server-side redirect-following today, so this is
+  // strictly more correct.
   const coreApiProxy = async (c: {
     req: { url: string; method: string; raw: Request; arrayBuffer(): Promise<ArrayBuffer> };
   }) => {
