@@ -28,11 +28,13 @@ export default function ConnectCallbackPage() {
       sessionStorage.setItem("holyship_installation_id", installationId);
     }
 
-    // Trigger GitHub OAuth via better-auth
+    // Trigger GitHub OAuth via better-auth. callbackURL must be absolute to the
+    // UI origin — a relative path resolves against BETTER_AUTH_URL (the API
+    // origin), which 404s since /connect/complete lives on the UI.
     signIn
       .social({
         provider: "github",
-        callbackURL: "/connect/complete",
+        callbackURL: `${window.location.origin}/connect/complete`,
       })
       .catch(() => {
         setStatus("error");

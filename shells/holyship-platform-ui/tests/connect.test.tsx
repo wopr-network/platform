@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Hoisted mocks — these run before imports
 const { mockReplace, mockSignInSocial, mockSearchParams } = vi.hoisted(() => {
@@ -47,11 +47,11 @@ describe("ConnectCallback", () => {
     expect(sessionStorage.getItem("holyship_installation_id")).toBe("123");
   });
 
-  it("triggers GitHub OAuth via better-auth", () => {
+  it("triggers GitHub OAuth via better-auth with absolute UI callback URL", () => {
     render(<ConnectCallbackPage />);
     expect(mockSignInSocial).toHaveBeenCalledWith({
       provider: "github",
-      callbackURL: "/connect/complete",
+      callbackURL: `${window.location.origin}/connect/complete`,
     });
   });
 
@@ -89,5 +89,46 @@ describe("LoginPage", () => {
   it("renders GitHub login button", () => {
     render(<LoginPage />);
     expect(screen.getByRole("button", { name: /log in with github/i })).toBeDefined();
+  });
+});
+
+describe("ConnectPage (server redirect)", () => {
+  const ORIGINAL_ENV = process.env.NEXT_PUBLIC_GITHUB_APP_URL;
+  const DEFAULT_URL = "https://github.com/apps/holy-ship/installations/new";
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.resetModules();
+    const nav = await import("next/navigation");
+    (nav.redirect as ReturnType<typeof vi.fn>).mockClear();
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_ENV === undefined) delete process.env.NEXT_PUBLIC_GITHUB_APP_URL;
+    else process.env.NEXT_PUBLIC_GITHUB_APP_URL = ORIGINAL_ENV;
+  });
+
+  it("falls back to default GitHub App URL when env is unset", async () => {
+    delete process.env.NEXT_PUBLIC_GITHUB_APP_URL;
+    const { default: ConnectPage } = await import("../src/app/connect/page");
+    const { redirect } = await import("next/navigation");
+    ConnectPage();
+    expect(redirect).toHaveBeenCalledWith(DEFAULT_URL);
+  });
+
+  it("falls back to default GitHub App URL when env is an empty string", async () => {
+    process.env.NEXT_PUBLIC_GITHUB_APP_URL = "";
+    const { default: ConnectPage } = await import("../src/app/connect/page");
+    const { redirect } = await import("next/navigation");
+    ConnectPage();
+    expect(redirect).toHaveBeenCalledWith(DEFAULT_URL);
+  });
+
+  it("uses env value when set", async () => {
+    process.env.NEXT_PUBLIC_GITHUB_APP_URL = "https://github.com/apps/custom";
+    const { default: ConnectPage } = await import("../src/app/connect/page");
+    const { redirect } = await import("next/navigation");
+    ConnectPage();
+    expect(redirect).toHaveBeenCalledWith("https://github.com/apps/custom/installations/new");
   });
 });
