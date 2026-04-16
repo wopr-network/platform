@@ -150,6 +150,12 @@ jobs:
 
       - name: Deploy chain server
         run: |
+          # Sync compose from repo — same pattern as core-server. Prevents the VPS
+          # from drifting to a stale hand-edited file (e.g. wrong image registry).
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+            ops/vps/chain-server/docker-compose.yml \
+            "root@${CHAIN_VPS_HOST}:/opt/chain-server/docker-compose.yml"
+
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@${CHAIN_VPS_HOST}" bash -s "$REGISTRY_PASSWORD" <<'CHAIN_DEPLOY'
           set -euo pipefail
           echo "$1" | docker login registry.wopr.bot -u wopr --password-stdin

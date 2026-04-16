@@ -17,6 +17,7 @@ import type { CryptoDb } from "./db/index.js";
 import { addressPool, derivedAddresses, keyRings, pathAllocations, paymentMethods } from "./db/schema.js";
 import { centsToNative } from "./oracle/convert.js";
 import type { PluginRegistry } from "./plugin/registry.js";
+import { normalizeAddress } from "./lib/normalize-address.js";
 import type { ICryptoChargeRepository } from "./stores/charge-store.js";
 import type { IPaymentMethodStore } from "./stores/payment-method-store.js";
 import type { IPriceStore } from "./stores/price-store.js";
@@ -157,12 +158,7 @@ async function deriveNextAddress(
     // with the next index (which is already incremented above).
     try {
       await dbWithTx.transaction(async (tx: CryptoDb) => {
-        // Only lowercase known case-insensitive types (bech32 + evm hex).
-        // Everything else — p2pkh, keccak-b58check (Tron), ton-base64url,
-        // base58-solana, ed25519-base58 — is case-sensitive and MUST
-        // preserve exact case or watcher lookups will silently miss.
-        const caseInsensitive = method.addressType === "bech32" || method.addressType === "evm";
-        const normalizedAddress = caseInsensitive ? address.toLowerCase() : address;
+        const normalizedAddress = normalizeAddress(method.addressType, address);
         await tx.insert(derivedAddresses).values({
           chainId,
           derivationIndex: index,
@@ -222,6 +218,10 @@ export function createKeyServerApp(deps: KeyServerDeps): Hono {
     }
     await next();
   });
+
+  // --- Health ---
+
+  app.get("/health", (c) => c.json({ status: "ok" }));
 
   // --- Product API ---
 
