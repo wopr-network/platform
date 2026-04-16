@@ -85,27 +85,50 @@ jobs:
     if: needs.build-and-push.result == 'success'
     runs-on: self-hosted
     timeout-minutes: 10
+    env:
+      # Falls back to the current IP if the variable isn't set, so deploys
+      # don't break before the repo variable is configured. Move to a pure
+      # `vars.PROD_VPS_HOST` once configured in repo settings.
+      PROD_VPS_HOST: ${{ vars.PROD_VPS_HOST || '138.68.30.247' }}
+      CHAIN_VPS_HOST: ${{ vars.CHAIN_VPS_HOST || '167.71.118.221' }}
     steps:
       - name: Deploy to production
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@138.68.30.247 bash -s <<'DEPLOY'
+
+          # Sync compose + Caddy config from the repo to the VPS. The VPS used
+          # to hold a stale hand-edited compose file that was missing services
+          # (e.g. holyship), so the engine was never actually deployed even
+          # after the image had been built for months. Treat ops/core-server/
+          # as source of truth — repo edits reach prod.
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+            ops/core-server/docker-compose.prod.yml \
+            ops/core-server/Caddyfile \
+            "root@${PROD_VPS_HOST}:/opt/core-server/"
+
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@${PROD_VPS_HOST}" bash -s <<'DEPLOY'
           set -euo pipefail
           cd /opt/core-server
 
           echo "=== Pulling all images ==="
-          docker compose pull
+          docker compose -f docker-compose.prod.yml pull
 
           echo "=== Recreating all services ==="
-          docker compose up -d --force-recreate || echo "::warning::Some containers unhealthy — continuing"
+          docker compose -f docker-compose.prod.yml up -d --force-recreate || echo "::warning::Some containers unhealthy — continuing"
+
+          echo "=== Reloading Caddy (picks up Caddyfile changes) ==="
+          if ! docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile < /dev/null; then
+            echo "::warning::Caddy reload failed — restarting container"
+            docker compose -f docker-compose.prod.yml restart caddy
+          fi
 
           echo "=== Waiting for core health ==="
           # NOTE: `< /dev/null` is critical — `docker compose exec -T` inherits stdin
           # from the heredoc and would otherwise consume the rest of the script.
           for i in $(seq 1 30); do
-            if docker compose exec -T core curl -sf http://localhost:3001/health > /dev/null 2>&1 < /dev/null; then
+            if docker compose -f docker-compose.prod.yml exec -T core curl -sf http://localhost:3001/health > /dev/null 2>&1 < /dev/null; then
               echo "Core healthy"
               break
             fi
@@ -127,7 +150,7 @@ jobs:
 
       - name: Deploy chain server
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@167.71.118.221 bash -s "$REGISTRY_PASSWORD" <<'CHAIN_DEPLOY'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@${CHAIN_VPS_HOST}" bash -s "$REGISTRY_PASSWORD" <<'CHAIN_DEPLOY'
           set -euo pipefail
           echo "$1" | docker login registry.wopr.bot -u wopr --password-stdin
           docker pull registry.wopr.bot/chain-server:latest
@@ -152,5 +175,5 @@ jobs:
       - name: Verify pool replenishment
         run: |
           sleep 30
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@138.68.30.247 \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@${PROD_VPS_HOST}" \
             "docker ps --filter 'name=pool-' --format '{{.Names}}\t{{.Image}}\t{{.Status}}'"

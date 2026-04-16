@@ -35,7 +35,7 @@ services:
   # Holy Ship API
   # ---------------------------------------------------------------------------
   api:
-    image: ${HOLYSHIP_API_IMAGE:-ghcr.io/wopr-network/holyship:latest}
+    image: ${HOLYSHIP_API_IMAGE:-registry.wopr.bot/holyship:latest}
     build:
       context: ${HOLYSHIP_SRC:-../../../holyship}
       dockerfile: Dockerfile
@@ -99,7 +99,7 @@ services:
   # Holy Ship UI (Next.js)
   # ---------------------------------------------------------------------------
   ui:
-    image: ${HOLYSHIP_UI_IMAGE:-ghcr.io/wopr-network/holyship-ui:latest}
+    image: ${HOLYSHIP_UI_IMAGE:-registry.wopr.bot/holyship-ui:latest}
     build:
       context: ${HOLYSHIP_UI_SRC:-../../../holyship-ui}
       dockerfile: Dockerfile
