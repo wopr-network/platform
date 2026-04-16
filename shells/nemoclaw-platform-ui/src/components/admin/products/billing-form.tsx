@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 interface BillingConfig {
   stripePublishableKey: string | null;
-  creditPrices: Record<string, number>;
+  creditPrices: Record<string, string>;
   affiliateBaseUrl: string | null;
   affiliateMatchRate: string;
   affiliateMaxCap: number;
@@ -40,11 +40,7 @@ export function BillingForm({ initial, onSave }: BillingFormProps) {
   }
 
   function setCreditPrice(tier: string, value: string) {
-    const n = Number.parseFloat(value);
-    setForm((prev) => ({
-      ...prev,
-      creditPrices: { ...prev.creditPrices, [tier]: Number.isNaN(n) ? 0 : n },
-    }));
+    setForm((prev) => ({ ...prev, creditPrices: { ...prev.creditPrices, [tier]: value } }));
   }
 
   async function handleSave() {
@@ -89,11 +85,10 @@ export function BillingForm({ initial, onSave }: BillingFormProps) {
                   </Label>
                   <Input
                     id={`billing-price-${tier}`}
-                    type="number"
-                    step="0.0001"
-                    value={form.creditPrices[tier]}
+                    type="text"
+                    value={form.creditPrices[tier] ?? ""}
                     onChange={(e) => setCreditPrice(tier, e.target.value)}
-                    min={0}
+                    placeholder="price_..."
                   />
                 </div>
               ))}

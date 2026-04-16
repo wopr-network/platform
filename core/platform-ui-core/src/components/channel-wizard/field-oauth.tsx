@@ -22,11 +22,21 @@ export function FieldOAuth({ field, value, onChange, error }: FieldOAuthProps) {
   const popupRef = useRef<Window | null>(null);
   const stateRef = useRef<string | null>(null);
   const statusRef = useRef<OAuthStatus>(value ? "authorized" : "idle");
+  const popupIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Keep statusRef in sync so the popup close monitor can read current status
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  // Clean up popup close monitor on unmount
+  useEffect(() => {
+    return () => {
+      if (popupIntervalRef.current) {
+        clearInterval(popupIntervalRef.current);
+      }
+    };
+  }, []);
 
   const pollForToken = useCallback(
     async (state: string) => {
@@ -140,9 +150,10 @@ export function FieldOAuth({ field, value, onChange, error }: FieldOAuthProps) {
       popup.location.href = authorizeUrl;
 
       // Monitor popup close (user might close it manually)
-      const interval = setInterval(() => {
+      popupIntervalRef.current = setInterval(() => {
         if (popup.closed) {
-          clearInterval(interval);
+          if (popupIntervalRef.current) clearInterval(popupIntervalRef.current);
+          popupIntervalRef.current = null;
           // If we haven't received a success/error message yet, return to idle
           if (statusRef.current === "authorizing") {
             setStatus("idle");

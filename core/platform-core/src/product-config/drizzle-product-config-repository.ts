@@ -228,7 +228,7 @@ export class DrizzleProductConfigRepository implements IProductConfigRepository 
       stripePublishableKey: row.stripePublishableKey ?? null,
       stripeSecretKey: row.stripeSecretKey ?? null,
       stripeWebhookSecret: row.stripeWebhookSecret ?? null,
-      creditPrices: (row.creditPrices ?? {}) as Record<string, number>,
+      creditPrices: (row.creditPrices ?? {}) as Record<string, string>,
       affiliateBaseUrl: row.affiliateBaseUrl ?? null,
       affiliateMatchRate: Number(row.affiliateMatchRate),
       affiliateMaxCap: row.affiliateMaxCap,

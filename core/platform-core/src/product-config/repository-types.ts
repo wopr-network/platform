@@ -109,7 +109,7 @@ export interface ProductBillingConfig {
   stripePublishableKey: string | null;
   stripeSecretKey: string | null;
   stripeWebhookSecret: string | null;
-  creditPrices: Record<string, number>;
+  creditPrices: Record<string, string>;
   affiliateBaseUrl: string | null;
   affiliateMatchRate: number;
   affiliateMaxCap: number;
