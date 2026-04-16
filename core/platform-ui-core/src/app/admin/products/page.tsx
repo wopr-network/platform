@@ -72,6 +72,7 @@ interface ProductConfig {
     affiliateMatchRate: string;
     affiliateMaxCap: number;
     dividendRate: string;
+    allowTestnet: boolean;
   } | null;
 }
 
@@ -147,6 +148,7 @@ const DEFAULT_BILLING: NonNullable<ProductConfig["billing"]> = {
   affiliateMatchRate: "0.10",
   affiliateMaxCap: 0,
   dividendRate: "0.05",
+  allowTestnet: false,
 };
 
 // ---------------------------------------------------------------------------

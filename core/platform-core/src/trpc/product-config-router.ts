@@ -149,6 +149,7 @@ export function createProductConfigRouter(getService: () => ProductConfigService
             affiliateMaxCap: z.number().int().min(0).optional(),
             dividendRate: z.number().min(0).optional(),
             marginConfig: z.unknown().optional(),
+            allowTestnet: z.boolean().optional(),
           }),
         )
         .mutation(async ({ input }) => {

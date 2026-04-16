@@ -15,6 +15,7 @@ interface BillingConfig {
   affiliateMatchRate: string;
   affiliateMaxCap: number;
   dividendRate: string;
+  allowTestnet: boolean;
 }
 
 interface BillingFormProps {
@@ -143,6 +144,19 @@ export function BillingForm({ initial, onSave }: BillingFormProps) {
               <p className="text-xs text-muted-foreground">Decimal, e.g. 0.05 = 5%</p>
             </div>
           </div>
+        </div>
+
+        <div className="border-t border-border pt-4 flex items-center justify-between">
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.allowTestnet}
+              onChange={(e) => setForm((prev) => ({ ...prev, allowTestnet: e.target.checked }))}
+              className="h-4 w-4 rounded border-border"
+            />
+            <span className="text-sm font-medium">Allow Testnet Payments</span>
+            <span className="text-xs text-muted-foreground">(exposes test chains in checkout)</span>
+          </label>
         </div>
 
         <div className="flex justify-end pt-2">
