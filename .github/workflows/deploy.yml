@@ -85,6 +85,12 @@ jobs:
     if: needs.build-and-push.result == 'success'
     runs-on: self-hosted
     timeout-minutes: 10
+    env:
+      # Falls back to the current IP if the variable isn't set, so deploys
+      # don't break before the repo variable is configured. Move to a pure
+      # `vars.PROD_VPS_HOST` once configured in repo settings.
+      PROD_VPS_HOST: ${{ vars.PROD_VPS_HOST || '138.68.30.247' }}
+      CHAIN_VPS_HOST: ${{ vars.CHAIN_VPS_HOST || '167.71.118.221' }}
     steps:
       - name: Deploy to production
         run: |
@@ -100,9 +106,9 @@ jobs:
           scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
             ops/core-server/docker-compose.prod.yml \
             ops/core-server/Caddyfile \
-            root@138.68.30.247:/opt/core-server/
+            "root@${PROD_VPS_HOST}:/opt/core-server/"
 
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@138.68.30.247 bash -s <<'DEPLOY'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@${PROD_VPS_HOST}" bash -s <<'DEPLOY'
           set -euo pipefail
           cd /opt/core-server
 
@@ -113,8 +119,10 @@ jobs:
           docker compose -f docker-compose.prod.yml up -d --force-recreate || echo "::warning::Some containers unhealthy — continuing"
 
           echo "=== Reloading Caddy (picks up Caddyfile changes) ==="
-          docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile < /dev/null \
-            || echo "::warning::Caddy reload failed — falling back to restart"
+          if ! docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile < /dev/null; then
+            echo "::warning::Caddy reload failed — restarting container"
+            docker compose -f docker-compose.prod.yml restart caddy
+          fi
 
           echo "=== Waiting for core health ==="
           # NOTE: `< /dev/null` is critical — `docker compose exec -T` inherits stdin
@@ -142,7 +150,7 @@ jobs:
 
       - name: Deploy chain server
         run: |
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@167.71.118.221 bash -s "$REGISTRY_PASSWORD" <<'CHAIN_DEPLOY'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@${CHAIN_VPS_HOST}" bash -s "$REGISTRY_PASSWORD" <<'CHAIN_DEPLOY'
           set -euo pipefail
           echo "$1" | docker login registry.wopr.bot -u wopr --password-stdin
           docker pull registry.wopr.bot/chain-server:latest
@@ -167,5 +175,5 @@ jobs:
       - name: Verify pool replenishment
         run: |
           sleep 30
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@138.68.30.247 \
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "root@${PROD_VPS_HOST}" \
             "docker ps --filter 'name=pool-' --format '{{.Names}}\t{{.Image}}\t{{.Status}}'"
