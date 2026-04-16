@@ -1,6 +1,6 @@
 "use client";
 
-import { trpc } from "@core/lib/trpc";
+import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { toast } from "sonner";
 
