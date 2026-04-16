@@ -1,3 +1,4 @@
+import { BrandHydrator } from "@core/components/brand-hydrator";
 import { ThemeProvider } from "@core/components/theme-provider";
 import { getBrandConfig, initBrandConfig } from "@core/lib/brand-config";
 import { TRPCProvider } from "@core/lib/trpc";
@@ -74,6 +75,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <MotionConfig nonce={nonce}>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange nonce={nonce}>
             <TRPCProvider>
+              <BrandHydrator config={brand} />
               {children}
               <Toaster theme="dark" richColors />
             </TRPCProvider>
