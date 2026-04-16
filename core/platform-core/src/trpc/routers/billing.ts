@@ -1079,16 +1079,16 @@ export function createBillingRouter(d: BillingRouterDeps) {
     }),
 
     affiliateReferrals: tenantProcedure
-      .input(z.object({ limit: z.number().int().min(1).max(100).default(20), offset: z.number().int().min(0).default(0) }))
+      .input(
+        z.object({ limit: z.number().int().min(1).max(100).default(20), offset: z.number().int().min(0).default(0) }),
+      )
       .query(async ({ input, ctx }: { input: { limit: number; offset: number }; ctx: TenantCtx }) => {
         const all = await d.affiliateRepo.listReferrals(ctx.tenantId);
         const total = all.length;
         const page = all.slice(input.offset, input.offset + input.limit);
         return {
           referrals: page.map((r) => {
-            const masked = r.signupEmail
-              ? r.signupEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2")
-              : "";
+            const masked = r.signupEmail ? r.signupEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2") : "";
             return {
               id: r.id,
               masked_email: masked,
