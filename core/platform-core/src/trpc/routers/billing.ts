@@ -1067,6 +1067,40 @@ export function createBillingRouter(d: BillingRouterDeps) {
       return await d.affiliateRepo.getStats(ctx.tenantId);
     }),
 
+    affiliateStats: tenantProcedure.query(async ({ ctx }: { ctx: TenantCtx }) => {
+      const stats = await d.affiliateRepo.getStats(ctx.tenantId);
+      return {
+        referral_code: stats.code,
+        referral_url: stats.link,
+        total_referred: stats.referrals_total,
+        total_converted: stats.referrals_converted,
+        total_earned_cents: stats.creditsEarned.toCents(),
+      };
+    }),
+
+    affiliateReferrals: tenantProcedure
+      .input(
+        z.object({ limit: z.number().int().min(1).max(100).default(20), offset: z.number().int().min(0).default(0) }),
+      )
+      .query(async ({ input, ctx }: { input: { limit: number; offset: number }; ctx: TenantCtx }) => {
+        const all = await d.affiliateRepo.listReferrals(ctx.tenantId);
+        const total = all.length;
+        const page = all.slice(input.offset, input.offset + input.limit);
+        return {
+          referrals: page.map((r) => {
+            const masked = r.signupEmail ? r.signupEmail.replace(/^(.{2}).*(@.*)$/, "$1***$2") : "";
+            return {
+              id: r.id,
+              masked_email: masked,
+              joined_at: r.signedUpAt,
+              status: r.firstPurchaseAt || r.matchedAt ? "matched" : "pending",
+              match_amount_cents: r.matchAmount ? r.matchAmount.toCents() : null,
+            };
+          }),
+          total,
+        };
+      }),
+
     affiliateRecordReferral: tenantProcedure
       .input(
         z.object({
