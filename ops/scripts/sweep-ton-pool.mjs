@@ -34,12 +34,29 @@
  *   MIN_BALANCE_NANOTON Skip addresses below this balance (default: 100000000 = 0.1 TON)
  */
 
-import { ed25519 } from "@noble/curves/ed25519";
-import { hmac } from "@noble/hashes/hmac";
-import { sha512 } from "@noble/hashes/sha512";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { hmac } from "@noble/hashes/hmac.js";
+import { sha512 } from "@noble/hashes/sha2.js";
 import * as bip39 from "@scure/bip39";
-import { wordlist } from "@scure/bip39/wordlists/english";
-import { TonSweeper, computeWalletV4R2Address } from "@wopr-network/platform-crypto-server/crypto-plugins/ton";
+import { wordlist } from "@scure/bip39/wordlists/english.js";
+import { createRequire } from "module";
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const _require = createRequire(import.meta.url);
+
+// Resolve TonSweeper from dist directory (subpath export not in package.json).
+// Tries container path first (/app/dist), then monorepo dev path.
+let _tonModule;
+for (const candidate of [
+  "/app/dist/crypto-plugins/ton/index.js",
+  path.resolve(__dirname, "../../services/platform-crypto-server/dist/crypto-plugins/ton/index.js"),
+]) {
+  try { _tonModule = _require(candidate); break; } catch { /* try next */ }
+}
+if (!_tonModule) throw new Error("Cannot find platform-crypto-server ton module");
+const { TonSweeper, computeWalletV4R2Address } = _tonModule;
 
 const TON_TREASURY = process.env.TON_TREASURY;
 const TON_RPC = process.env.TON_RPC ?? "https://toncenter.com/api/v2";
