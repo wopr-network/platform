@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
+// All /api/* traffic goes to the holyship engine. The engine owns holyship
+// routes (github, ship-it, engine, interrogation, etc.) and proxies everything
+// else (auth, tRPC, products, stripe) to core.
 const ENGINE_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
-const CORE_URL = process.env.INTERNAL_CORE_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -10,14 +12,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [{ hostname: "**.githubusercontent.com" }, { hostname: "**.googleusercontent.com" }],
   },
   rewrites: async () => [
-    // BetterAuth lives on core. Route /api/auth/* directly to core — never
-    // through the holyship engine, whose fetch proxy silently ate 302s and
-    // stripped Set-Cookie on the OAuth callback. More specific rule must
-    // come first so Next matches it before the generic engine rewrite.
-    {
-      source: "/api/auth/:path*",
-      destination: `${CORE_URL}/api/auth/:path*`,
-    },
     {
       source: "/api/:path*",
       destination: `${ENGINE_URL}/api/:path*`,
