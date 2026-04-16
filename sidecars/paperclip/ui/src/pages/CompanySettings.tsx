@@ -1,6 +1,7 @@
 import { ChangeEvent, useEffect, useState } from "react";
-import { Link } from "@/lib/router";
+import { Link, Navigate } from "@/lib/router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { DEFAULT_FEEDBACK_DATA_SHARING_TERMS_VERSION } from "@paperclipai/shared";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
@@ -23,6 +24,10 @@ type AgentSnippetInput = {
 const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
 
 export function CompanySettings() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) return <Navigate to="/" replace />;
+
   const { companies, selectedCompany, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();

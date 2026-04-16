@@ -7,6 +7,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { StatusBadge } from "../components/StatusBadge";
 import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
@@ -60,6 +61,7 @@ export function Agents() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile } = useSidebar();
+  const { isHosted } = useHostedMode();
   const pathSegment = location.pathname.split("/").pop() ?? "all";
   const tab: FilterTab =
     pathSegment === "all" || pathSegment === "active" || pathSegment === "paused" || pathSegment === "error"
@@ -203,10 +205,12 @@ export function Agents() {
               </button>
             </div>
           )}
-          <Button size="sm" variant="outline" onClick={openNewAgent}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Agent
-          </Button>
+          {!isHosted && (
+            <Button size="sm" variant="outline" onClick={openNewAgent}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New Agent
+            </Button>
+          )}
         </div>
       </div>
 
