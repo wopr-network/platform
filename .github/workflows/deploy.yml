@@ -91,21 +91,36 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+          # Sync compose + Caddy config from the repo to the VPS. The VPS used
+          # to hold a stale hand-edited compose file that was missing services
+          # (e.g. holyship), so the engine was never actually deployed even
+          # after the image had been built for months. Treat ops/core-server/
+          # as source of truth — repo edits reach prod.
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key \
+            ops/core-server/docker-compose.prod.yml \
+            ops/core-server/Caddyfile \
+            root@138.68.30.247:/opt/core-server/
+
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key root@138.68.30.247 bash -s <<'DEPLOY'
           set -euo pipefail
           cd /opt/core-server
 
           echo "=== Pulling all images ==="
-          docker compose pull
+          docker compose -f docker-compose.prod.yml pull
 
           echo "=== Recreating all services ==="
-          docker compose up -d --force-recreate || echo "::warning::Some containers unhealthy — continuing"
+          docker compose -f docker-compose.prod.yml up -d --force-recreate || echo "::warning::Some containers unhealthy — continuing"
+
+          echo "=== Reloading Caddy (picks up Caddyfile changes) ==="
+          docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile < /dev/null \
+            || echo "::warning::Caddy reload failed — falling back to restart"
 
           echo "=== Waiting for core health ==="
           # NOTE: `< /dev/null` is critical — `docker compose exec -T` inherits stdin
           # from the heredoc and would otherwise consume the rest of the script.
           for i in $(seq 1 30); do
-            if docker compose exec -T core curl -sf http://localhost:3001/health > /dev/null 2>&1 < /dev/null; then
+            if docker compose -f docker-compose.prod.yml exec -T core curl -sf http://localhost:3001/health > /dev/null 2>&1 < /dev/null; then
               echo "Core healthy"
               break
             fi
