@@ -90,8 +90,8 @@ export class DockerManager {
       const msg = err instanceof Error ? err.message : String(err);
       // "already connected" is fine; anything else is a real problem that will
       // cause ENOTFOUND at health-check time — log it so we can diagnose.
-      if (/already exists|endpoint with name/i.test(msg)) {
-        logger.info("DockerManager.attachNetwork: already connected", { containerId, network, msg });
+      if (/endpoint with name/i.test(msg)) {
+        logger.info("DockerManager.attachNetwork: already connected", { containerId, network, msg, err });
       } else {
         logger.warn("DockerManager.attachNetwork: failed to attach — container will be unreachable on overlay", {
           containerId,
