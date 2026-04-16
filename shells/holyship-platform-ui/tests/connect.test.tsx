@@ -47,11 +47,11 @@ describe("ConnectCallback", () => {
     expect(sessionStorage.getItem("holyship_installation_id")).toBe("123");
   });
 
-  it("triggers GitHub OAuth via better-auth", () => {
+  it("triggers GitHub OAuth via better-auth with absolute UI callback URL", () => {
     render(<ConnectCallbackPage />);
     expect(mockSignInSocial).toHaveBeenCalledWith({
       provider: "github",
-      callbackURL: "/connect/complete",
+      callbackURL: `${window.location.origin}/connect/complete`,
     });
   });
 
