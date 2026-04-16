@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { BillingForm } from "@core/components/admin/products/billing-form";
 import { BrandForm } from "@core/components/admin/products/brand-form";
 import { FeaturesForm } from "@core/components/admin/products/features-form";
@@ -11,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@core/components/ui/ta
 import { PLATFORM_BASE_URL } from "@core/lib/api-config";
 import { toUserMessage } from "@core/lib/errors";
 import { getActiveTenantId } from "@core/lib/tenant-context";
+import { useCallback, useEffect, useState } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,7 +67,7 @@ interface ProductConfig {
   } | null;
   billing: {
     stripePublishableKey: string | null;
-    creditPrices: Record<string, number>;
+    creditPrices: Record<string, string>;
     affiliateBaseUrl: string | null;
     affiliateMatchRate: string;
     affiliateMaxCap: number;

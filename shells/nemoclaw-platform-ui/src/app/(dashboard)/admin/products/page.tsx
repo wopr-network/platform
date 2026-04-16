@@ -67,7 +67,7 @@ interface ProductConfig {
   } | null;
   billing: {
     stripePublishableKey: string | null;
-    creditPrices: Record<string, number>;
+    creditPrices: Record<string, string>;
     affiliateBaseUrl: string | null;
     affiliateMatchRate: string;
     affiliateMaxCap: number;

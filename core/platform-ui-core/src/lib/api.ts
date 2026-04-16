@@ -24,6 +24,7 @@ export async function fetchPublicPricing(): Promise<ApiPricingResponse | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/v1/pricing`, {
       next: { revalidate: 60 },
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     return (await res.json()) as ApiPricingResponse;
@@ -41,6 +42,7 @@ export async function fetchDividendStats(): Promise<DividendStats | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/v1/billing/dividend/stats`, {
       next: { revalidate: 60 },
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     return (await res.json()) as DividendStats;
@@ -1355,7 +1357,8 @@ export async function getCreditHistory(_cursor?: string): Promise<CreditHistoryR
 }
 
 export async function getCreditOptions(): Promise<CreditOption[]> {
-  return trpcVanilla.billing.creditOptions.query(undefined);
+  const res = await trpcVanilla.billing.creditOptions.query(undefined);
+  return Array.isArray(res) ? res : [];
 }
 
 export async function createCreditCheckout(priceId: string): Promise<CheckoutResponse> {

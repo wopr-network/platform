@@ -147,7 +147,13 @@ function LoginForm() {
               )}
             </Button>
           </form>
-          <OAuthButtons callbackUrl={searchParams.get("callbackUrl") ? sanitizeRedirectUrl(searchParams.get("callbackUrl")) : (getBrandConfig().homePath ?? "/")} />
+          <OAuthButtons
+            callbackUrl={
+              searchParams.get("callbackUrl")
+                ? sanitizeRedirectUrl(searchParams.get("callbackUrl"))
+                : (getBrandConfig().homePath ?? "/")
+            }
+          />
         </CardContent>
         <CardFooter className="justify-center">
           <p className="text-sm text-muted-foreground">

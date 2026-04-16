@@ -91,16 +91,22 @@ export default function MarketplacePage() {
 
   // Detect first visit
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const visited = localStorage.getItem(FIRST_VISIT_KEY);
-    if (!visited) {
-      setShowFirstVisit(true);
+    if (typeof window === "undefined" || typeof localStorage === "undefined") return;
+    try {
+      const visited = localStorage.getItem(FIRST_VISIT_KEY);
+      if (!visited) setShowFirstVisit(true);
+    } catch {
+      // localStorage unavailable (e.g. private browsing, test env)
     }
   }, []);
 
   function handleDismissFirstVisit() {
     setShowFirstVisit(false);
-    localStorage.setItem(FIRST_VISIT_KEY, "1");
+    try {
+      localStorage.setItem(FIRST_VISIT_KEY, "1");
+    } catch {
+      // ignore
+    }
   }
 
   // Superpower plugins

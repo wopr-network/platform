@@ -149,7 +149,7 @@ export function createProductConfigRouter(getService: () => ProductConfigService
             stripePublishableKey: z.string().optional(),
             stripeSecretKey: z.string().optional(),
             stripeWebhookSecret: z.string().optional(),
-            creditPrices: z.record(z.string(), z.number()).optional(),
+            creditPrices: z.record(z.string(), z.string()).optional(),
             affiliateBaseUrl: z.string().optional(),
             affiliateMatchRate: z.number().min(0).optional(),
             affiliateMaxCap: z.number().int().min(0).optional(),
