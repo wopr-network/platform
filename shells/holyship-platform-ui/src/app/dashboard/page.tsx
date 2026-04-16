@@ -10,12 +10,18 @@ export default function DashboardPage() {
   const [repos, setRepos] = useState<RepoSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [_loadKey, setLoadKey] = useState(0);
+  const [loadKey, setLoadKey] = useState(0);
 
   async function syncInstallations() {
     setSyncing(true);
     try {
-      await fetch("/api/github/sync-installations", { method: "POST", credentials: "include" });
+      const res = await fetch("/api/github/sync-installations", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        console.error("sync-installations failed", res.status, await res.text().catch(() => ""));
+      }
       setLoadKey((k) => k + 1);
     } finally {
       setSyncing(false);
@@ -65,7 +71,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadKey]);
 
   if (loading) {
     return (
