@@ -19,10 +19,11 @@ function redactSecrets(config: ProductConfig): ProductConfig {
 
 export function createProductConfigRouter(getService: () => ProductConfigService, productSlug: string) {
   /** Resolve product id, throwing NOT_FOUND if the product doesn't exist. */
-  async function resolveProductId(): Promise<string> {
-    const config = await getService().getBySlug(productSlug);
+  async function resolveProductId(ctxSlug?: string): Promise<string> {
+    const slug = ctxSlug ?? productSlug;
+    const config = await getService().getBySlug(slug);
     if (!config) {
-      throw new TRPCError({ code: "NOT_FOUND", message: `Product not found: ${productSlug}` });
+      throw new TRPCError({ code: "NOT_FOUND", message: `Product not found: ${slug}` });
     }
     return config.product.id;
   }
@@ -47,8 +48,9 @@ export function createProductConfigRouter(getService: () => ProductConfigService
     // -----------------------------------------------------------------------
 
     admin: router({
-      get: adminProcedure.query(async () => {
-        const config = await getService().getBySlug(productSlug);
+      get: adminProcedure.query(async ({ ctx }) => {
+        const slug = ctx.productSlug ?? productSlug;
+        const config = await getService().getBySlug(slug);
         if (!config) return null;
         return redactSecrets(config);
       }),
@@ -78,8 +80,9 @@ export function createProductConfigRouter(getService: () => ProductConfigService
             storagePrefix: z.string().min(1).optional(),
           }),
         )
-        .mutation(async ({ input }) => {
-          await getService().upsertProduct(productSlug, input);
+        .mutation(async ({ ctx, input }) => {
+          const slug = ctx.productSlug ?? productSlug;
+          await getService().upsertProduct(slug, input);
         }),
 
       updateNavItems: adminProcedure
@@ -95,9 +98,10 @@ export function createProductConfigRouter(getService: () => ProductConfigService
             }),
           ),
         )
-        .mutation(async ({ input }) => {
-          const productId = await resolveProductId();
-          await getService().replaceNavItems(productSlug, productId, input);
+        .mutation(async ({ ctx, input }) => {
+          const slug = ctx.productSlug ?? productSlug;
+          const productId = await resolveProductId(slug);
+          await getService().replaceNavItems(slug, productId, input);
         }),
 
       updateFeatures: adminProcedure
@@ -114,9 +118,10 @@ export function createProductConfigRouter(getService: () => ProductConfigService
             sharedModuleAnalytics: z.boolean().optional(),
           }),
         )
-        .mutation(async ({ input }) => {
-          const productId = await resolveProductId();
-          await getService().upsertFeatures(productSlug, productId, input);
+        .mutation(async ({ ctx, input }) => {
+          const slug = ctx.productSlug ?? productSlug;
+          const productId = await resolveProductId(slug);
+          await getService().upsertFeatures(slug, productId, input);
         }),
 
       updateFleet: adminProcedure
@@ -132,9 +137,10 @@ export function createProductConfigRouter(getService: () => ProductConfigService
             fleetDataDir: z.string().optional(),
           }),
         )
-        .mutation(async ({ input }) => {
-          const productId = await resolveProductId();
-          await getService().upsertFleetConfig(productSlug, productId, input);
+        .mutation(async ({ ctx, input }) => {
+          const slug = ctx.productSlug ?? productSlug;
+          const productId = await resolveProductId(slug);
+          await getService().upsertFleetConfig(slug, productId, input);
         }),
 
       updateBilling: adminProcedure
@@ -152,9 +158,10 @@ export function createProductConfigRouter(getService: () => ProductConfigService
             allowTestnet: z.boolean().optional(),
           }),
         )
-        .mutation(async ({ input }) => {
-          const productId = await resolveProductId();
-          await getService().upsertBillingConfig(productSlug, productId, input);
+        .mutation(async ({ ctx, input }) => {
+          const slug = ctx.productSlug ?? productSlug;
+          const productId = await resolveProductId(slug);
+          await getService().upsertBillingConfig(slug, productId, input);
         }),
     }),
   });

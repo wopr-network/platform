@@ -430,6 +430,7 @@ export async function mountRoutes(
             },
           }
         : {}),
+      productConfigService: container.productConfigService,
     });
 
     // Mount tRPC endpoint with internal context
@@ -752,7 +753,11 @@ export async function mountRoutes(
           ctx.set("tenantId", tenantId);
           chatAuthLogger.info("chat auth: session valid", { path: c.req.path, userId: u.id, slug: chatSlug });
         } else {
-          chatAuthLogger.warn("chat auth: no valid session", { path: c.req.path, slug: chatSlug, hasCookies: !!c.req.header("cookie") });
+          chatAuthLogger.warn("chat auth: no valid session", {
+            path: c.req.path,
+            slug: chatSlug,
+            hasCookies: !!c.req.header("cookie"),
+          });
         }
       } catch (err) {
         chatAuthLogger.warn("chat auth: resolve failed", { err: String(err) });

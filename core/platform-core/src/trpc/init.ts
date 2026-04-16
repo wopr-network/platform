@@ -137,7 +137,7 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
     }
   }
 
-  return next({ ctx: { user: ctx.user, tenantId: ctx.tenantId } });
+  return next({ ctx: { user: ctx.user, tenantId: ctx.tenantId, productSlug: ctx.productSlug } });
 });
 
 /** Procedure that requires a valid authenticated user. */
@@ -154,7 +154,7 @@ const isAdmin = t.middleware(({ ctx, next }) => {
   if (!ctx.user.roles.includes("platform_admin")) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Platform admin role required" });
   }
-  return next({ ctx: { user: ctx.user, tenantId: ctx.tenantId } });
+  return next({ ctx: { user: ctx.user, tenantId: ctx.tenantId, productSlug: ctx.productSlug } });
 });
 
 /** Procedure that requires authentication + platform_admin role. */

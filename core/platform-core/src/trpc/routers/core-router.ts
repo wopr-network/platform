@@ -5,8 +5,10 @@
  * Each product calls createCoreRouter(deps) at boot time.
  */
 
+import type { ProductConfigService } from "../../product-config/service.js";
 import { authSocialRouter } from "../auth-social-router.js";
 import { router } from "../init.js";
+import { createProductConfigRouter } from "../product-config-router.js";
 import { type AccountRouterDeps, createAccountRouter } from "./account.js";
 import { type AddonRouterDeps, createAddonRouter } from "./addons.js";
 import { type AdminCoreRouterDeps, createAdminCoreRouter } from "./admin.js";
@@ -14,7 +16,6 @@ import { type BillingRouterDeps, createBillingRouter } from "./billing.js";
 import { createFleetCoreRouter, type FleetCoreRouterDeps } from "./fleet-core.js";
 import { createInferenceAdminRouter, type InferenceAdminRouterDeps } from "./inference-admin.js";
 import { createMarketplaceRouter, type MarketplaceRouterDeps } from "./marketplace.js";
-
 import { createNodesRouter, type NodesRouterDeps } from "./nodes.js";
 import { createOrgRouter, type OrgRouterDeps } from "./org.js";
 import { createOrgKeysRouter, type OrgKeysRouterDeps } from "./org-keys.js";
@@ -45,6 +46,8 @@ export interface CoreRouterDeps {
   inferenceAdmin?: InferenceAdminRouterDeps;
   addons?: AddonRouterDeps;
   nodes?: NodesRouterDeps;
+  /** Product config service for the product.admin.* tRPC procedures. */
+  productConfigService?: ProductConfigService;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,6 +89,9 @@ export function createCoreRouter(deps: CoreRouterDeps) {
     ...(deps.inferenceAdmin ? { inferenceAdmin: createInferenceAdminRouter(deps.inferenceAdmin) } : {}),
     ...(deps.addons ? { addons: createAddonRouter(deps.addons) } : {}),
     ...(deps.nodes ? { nodes: createNodesRouter(deps.nodes) } : {}),
+    // product.admin.* — resolves slug from ctx.productSlug at request time (standalone mode).
+    // Falls back to empty-string slug which will return NOT_FOUND if not set.
+    ...(deps.productConfigService ? { product: createProductConfigRouter(() => deps.productConfigService!, "") } : {}),
     authSocial: authSocialRouter,
   });
 }
