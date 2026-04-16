@@ -243,7 +243,7 @@ export default async function middleware(request: NextRequest) {
   const sessionToken =
     request.cookies.get("better-auth.session_token") ?? request.cookies.get("__Secure-better-auth.session_token");
 
-  if (!sessionToken || !sessionToken.value.trim()) {
+  if (!sessionToken?.value.trim()) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return withCsp(NextResponse.redirect(loginUrl));

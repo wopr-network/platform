@@ -3,7 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-const VALID_SUBDOMAIN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const VALID_AGENT_NAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
 function sanitize(input: string): string {
   return input
@@ -29,8 +29,8 @@ export function FirstRun({ onClaim, claiming }: { onClaim: (name: string) => voi
       setError("Name must contain at least one letter or number");
       return;
     }
-    if (!VALID_SUBDOMAIN.test(label)) {
-      setError("Invalid name for subdomain");
+    if (!VALID_AGENT_NAME.test(label)) {
+      setError("Invalid name — use letters, numbers, and hyphens only");
       return;
     }
     setError("");

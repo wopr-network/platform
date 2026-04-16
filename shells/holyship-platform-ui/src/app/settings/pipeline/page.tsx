@@ -193,7 +193,13 @@ export default function PipelineSettingsPage() {
                     {stage.approvalRequired && (
                       <span className="text-xs text-amber-400 font-medium mb-0.5">waits for approval</span>
                     )}
-                    <svg width="16" height="16" viewBox="0 0 16 16" className="text-muted-foreground">
+                    <svg
+                      aria-hidden="true"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      className="text-muted-foreground"
+                    >
                       <path d="M8 2 L8 14 M4 10 L8 14 L12 10" stroke="currentColor" strokeWidth="2" fill="none" />
                     </svg>
                   </div>

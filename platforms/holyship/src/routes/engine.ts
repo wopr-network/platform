@@ -99,6 +99,7 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
     const invocations = await deps.invocations.findByEntity(entity.id);
     const timeline = invocations
       .filter((inv) => inv.startedAt)
+      // biome-ignore lint/style/noNonNullAssertion: filtered above for inv.startedAt
       .sort((a, b) => new Date(a.startedAt!).getTime() - new Date(b.startedAt!).getTime())
       .map((inv) => ({
         id: inv.id,

@@ -3,10 +3,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@core/lib/brand-config", () => ({
-  getBrandConfig: () => ({ domain: "nemopod.com" }),
-}));
-
 import { FirstRun } from "@/components/first-run";
 
 function renderWith(ui: React.ReactElement) {
@@ -22,11 +18,12 @@ describe("FirstRun", () => {
     expect(screen.getByPlaceholderText(/name your first agent/i)).toBeInTheDocument();
   });
 
-  it("shows subdomain preview as user types", async () => {
+  it("reflects typed name in the input", async () => {
     const user = userEvent.setup();
     renderWith(<FirstRun onClaim={vi.fn()} claiming={false} />);
-    await user.type(screen.getByPlaceholderText(/name your first agent/i), "my-bot");
-    expect(screen.getByText(/my-bot\.nemopod\.com/)).toBeInTheDocument();
+    const input = screen.getByPlaceholderText(/name your first agent/i);
+    await user.type(input, "my-bot");
+    expect(input).toHaveValue("my-bot");
   });
 
   it("calls onClaim with sanitized name on Enter", async () => {
