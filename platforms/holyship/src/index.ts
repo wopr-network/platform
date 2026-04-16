@@ -164,11 +164,10 @@ async function main() {
     logger.info(`← ${method} ${path} ${c.res.status} ${ms}ms`);
   });
 
-  // ─── 5. (removed) Auth proxy ─────────────────────────────────────────
-  // BetterAuth is served directly by core at https://api.<domain>/api/auth/*.
-  // Any /api/auth/* traffic that reaches this engine is a misroute — the
-  // engine's fetch() default redirect:"follow" silently consumed 302s and
-  // stripped Set-Cookie headers, breaking OAuth login.
+  // ─── 5. Auth proxy to core ───────────────────────────────────────────
+  // BetterAuth lives on core. The UI points at the engine for ALL /api/* and
+  // the engine proxies /api/auth/* here via coreApiProxy (see §6b). The
+  // proxy uses redirect:"manual" to preserve 302s and Set-Cookie.
 
   // ─── 6. tRPC proxy — forward all tRPC to core ────────────────────────
   app.all("/trpc/*", async (c) => {
@@ -192,6 +191,14 @@ async function main() {
 
   // ─── 6b. Core API proxy — platform endpoints that live on core ───────
   // Must be BEFORE engine routes (which have worker token auth at /api).
+  //
+  // redirect: "manual" is critical for /api/auth/* (BetterAuth OAuth callback
+  // returns 302 with Set-Cookie) — default redirect:"follow" eats the 302 and
+  // strips Set-Cookie, breaking login. Intentionally applied to all proxied
+  // routes too: a transparent proxy should pass redirects through to the
+  // client rather than silently chase them. /api/products/*, /api/stripe/*,
+  // and /v1/* don't rely on server-side redirect-following today, so this is
+  // strictly more correct.
   const coreApiProxy = async (c: {
     req: { url: string; method: string; raw: Request; arrayBuffer(): Promise<ArrayBuffer> };
   }) => {
@@ -205,9 +212,11 @@ async function main() {
       method: c.req.method,
       headers,
       body: !["GET", "HEAD"].includes(c.req.method) ? await c.req.arrayBuffer() : undefined,
+      redirect: "manual",
     });
     return new Response(res.body, { status: res.status, headers: res.headers });
   };
+  app.all("/api/auth/*", coreApiProxy);
   app.all("/api/products/*", coreApiProxy);
   app.all("/api/stripe/*", coreApiProxy);
   app.all("/v1/*", coreApiProxy);
