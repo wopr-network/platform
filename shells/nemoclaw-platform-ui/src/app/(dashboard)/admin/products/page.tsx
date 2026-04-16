@@ -1,7 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { BillingForm } from "@/components/admin/products/billing-form";
 import { BrandForm } from "@core/components/admin/products/brand-form";
 import { FeaturesForm } from "@core/components/admin/products/features-form";
 import { FleetForm } from "@core/components/admin/products/fleet-form";
@@ -11,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@core/components/ui/ta
 import { PLATFORM_BASE_URL } from "@core/lib/api-config";
 import { toUserMessage } from "@core/lib/errors";
 import { getActiveTenantId } from "@core/lib/tenant-context";
+import { useCallback, useEffect, useState } from "react";
+import { BillingForm } from "@/components/admin/products/billing-form";
 
 // ---------------------------------------------------------------------------
 // Types

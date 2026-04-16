@@ -494,7 +494,13 @@ function AuthForm() {
             </form>
           )}
 
-          <OAuthButtons callbackUrl={searchParams.get("callbackUrl") ? sanitizeRedirectUrl(searchParams.get("callbackUrl")) : (getBrandConfig().homePath ?? "/")} />
+          <OAuthButtons
+            callbackUrl={
+              searchParams.get("callbackUrl")
+                ? sanitizeRedirectUrl(searchParams.get("callbackUrl"))
+                : (getBrandConfig().homePath ?? "/")
+            }
+          />
         </div>
       </div>
     </div>

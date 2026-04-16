@@ -60,14 +60,16 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const headersList = await headers();
+  const nonce = headersList.get("x-nonce") ?? undefined;
+  const initialTenantId = headersList.get("x-tenant-id") ?? "";
   return (
     <html lang="en" suppressHydrationWarning>
       <head>{nonce && <meta property="csp-nonce" content={nonce} />}</head>
       <body className={`${jetbrainsMono.variable} antialiased`}>
         <MotionConfig nonce={nonce}>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange nonce={nonce}>
-            <TRPCProvider>
+            <TRPCProvider initialTenantId={initialTenantId}>
               <BrandHydrator config={brand} />
               {children}
               <Toaster theme="dark" richColors />

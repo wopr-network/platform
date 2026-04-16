@@ -15,14 +15,10 @@ export default function DashboardPage() {
   async function syncInstallations() {
     setSyncing(true);
     try {
-      const res = await fetch("/api/github/sync-installations", {
+      await fetch("/api/github/sync-installations", {
         method: "POST",
         credentials: "include",
       });
-      if (!res.ok) {
-        // biome-ignore lint/suspicious/noConsole: surface sync failures to devtools for field debugging
-        console.error("sync-installations failed", res.status, await res.text().catch(() => ""));
-      }
       setLoadKey((k) => k + 1);
     } finally {
       setSyncing(false);
@@ -35,7 +31,7 @@ export default function DashboardPage() {
 
     async function load() {
       try {
-        const res = await fetch("/api/github/repos");
+        const res = await fetch("/api/github/repos", { credentials: "include" });
         const data = await res.json();
         const raw: { id: number; full_name: string; name: string }[] = data.repositories ?? [];
 
