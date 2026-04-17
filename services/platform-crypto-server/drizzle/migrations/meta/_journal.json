@@ -71,6 +71,13 @@
       "when": 1745020800000,
       "tag": "0009_fix_doge_lowercase_addresses",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776455500000,
+      "tag": "0010_watcher_cursors_bigint",
+      "breakpoints": true
     }
   ]
 }

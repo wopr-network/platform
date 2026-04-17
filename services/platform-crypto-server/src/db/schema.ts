@@ -52,10 +52,14 @@ export const cryptoCharges = pgTable(
 /**
  * Watcher cursor persistence — tracks the last processed block per watcher.
  * Eliminates in-memory processedTxids and enables clean restart recovery.
+ *
+ * cursor_block is bigint because TON's logical-time (lt) cursor is a uint64
+ * that already sits at ~6.4e13 on mainnet — 30,000x larger than Postgres
+ * int4 max. All EVM block numbers fit comfortably too.
  */
 export const watcherCursors = pgTable("watcher_cursors", {
   watcherId: text("watcher_id").primaryKey(),
-  cursorBlock: integer("cursor_block").notNull(),
+  cursorBlock: bigint("cursor_block", { mode: "number" }).notNull(),
   updatedAt: text("updated_at").notNull().default(sql`(now())`),
 });
 
