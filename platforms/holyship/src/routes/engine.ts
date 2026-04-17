@@ -168,7 +168,7 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
     // Include invocations that never started — previously filtered out, which
     // hid exactly the failures we needed to see (claim happened, provision
     // threw before startedAt was set). Sort by startedAt when present, else
-    // fall back to createdAt so pending/pre-start invocations still appear
+    // fall back to claimedAt so pending/pre-start invocations still appear
     // in order.
     const timeline = invocations
       .slice()
