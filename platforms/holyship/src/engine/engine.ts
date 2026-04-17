@@ -719,14 +719,6 @@ export class Engine {
       if (refreshed) entity = refreshed;
     }
 
-    await this.eventEmitter.emit({
-      type: "entity.created",
-      entityId: entity.id,
-      flowId: flow.id,
-      payload: { refs: refs ?? null },
-      emittedAt: new Date(),
-    });
-
     // Execute onEnter hook if defined on initial state
     const initialState = flow.states.find((s) => s.name === flow.initialState);
     if (initialState?.onEnter) {
@@ -782,6 +774,20 @@ export class Engine {
         initialState.agentRole ?? null,
       );
     }
+
+    // Emit entity.created AFTER the initial invocation has been persisted.
+    // The worker pool's entity.created handler calls claimWork to pick up
+    // the freshly-created entity — if we emit before the invocation insert
+    // (the previous ordering), claimWork races and finds nothing, the
+    // invocation sits unclaimed forever, and the entity stays in its
+    // initial state (observed: spec/3, pendingClaims/4, activeInvocations/0).
+    await this.eventEmitter.emit({
+      type: "entity.created",
+      entityId: entity.id,
+      flowId: flow.id,
+      payload: { refs: refs ?? null },
+      emittedAt: new Date(),
+    });
 
     return entity;
   }
