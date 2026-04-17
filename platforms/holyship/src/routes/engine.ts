@@ -194,7 +194,10 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
   app.get("/entities", requireWorkerOrSession, async (c) => {
     const flowId = c.req.query("flowId");
     const state = c.req.query("state");
-    const limit = Number(c.req.query("limit") || 50);
+    // Cap at 200 so a caller passing `?limit=1000000` can't force a full tenant
+    // scan; 50 stays the default for backward compat.
+    const MAX_LIMIT = 200;
+    const limit = Math.min(Number(c.req.query("limit") || 50) || 50, MAX_LIMIT);
     if (flowId && state) {
       const entities = await deps.entities.findByFlowAndState(flowId, state, limit);
       return c.json(entities, 200);
