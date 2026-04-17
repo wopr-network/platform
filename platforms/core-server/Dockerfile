@@ -36,6 +36,7 @@ COPY --chown=node:node --from=build /app/node_modules ./node_modules
 
 # Workspace packages are symlinks in hoisted mode — copy them explicitly
 COPY --chown=node:node --from=build /app/core/platform-core ./node_modules/@wopr-network/platform-core
+COPY --chown=node:node --from=build /app/core/vault-client ./node_modules/@wopr-network/vault-client
 COPY --chown=node:node --from=build /app/services/provision-client ./node_modules/@wopr-network/provision-client
 
 # Core server dist + package.json
