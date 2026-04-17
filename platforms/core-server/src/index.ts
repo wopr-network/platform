@@ -47,15 +47,20 @@ async function readVaultServiceTokens(): Promise<string[]> {
 
 // Race the Vault read against a timeout. Without this, a hung Vault fetch
 // blocks core's top-level await forever and the container never finishes
-// booting — observed on today's #121 deploy: 30 healthcheck polls all failed
-// because top-level await was still waiting on readVaultServiceTokens.
+// booting — observed on #121 deploy. Bumped to 30s because Vault cold-starts
+// via AppRole have been taking 6-8s and a 5s bound was tripping silently.
+// If it trips, we log a structured warning so deploy investigators don't
+// have to infer it from the negative space of missing tokens.
 const vaultServiceTokens = await Promise.race([
-  readVaultServiceTokens(),
+  readVaultServiceTokens().then((t) => {
+    logger.info("Vault service-token read succeeded", { count: t.length });
+    return t;
+  }),
   new Promise<string[]>((resolve) =>
     setTimeout(() => {
-      logger.warn("Vault service-token read timed out after 5s (non-fatal)");
+      logger.warn("Vault service-token read timed out after 30s (non-fatal) — allowedServiceTokens will be env-only");
       resolve([]);
-    }, 5000),
+    }, 30_000),
   ),
 ]);
 
