@@ -206,7 +206,11 @@ export class WorkerPool implements IEventBusAdapter {
     // Invocations don't carry artifacts, so reading invocation.artifacts always
     // yields {} and the worker provisions with blank owner/repo.
     const entity = await this.entityRepo.get(entityId);
-    const artifacts = entity?.artifacts ?? {};
+    if (!entity) {
+      logger.error(`${tag} entity not found — aborting invocation`, { entityId, invocationId });
+      return;
+    }
+    const artifacts = entity.artifacts ?? {};
     const repoFullName = (artifacts.repoFullName as string) ?? "";
     const [owner = "", repo = ""] = repoFullName.includes("/") ? repoFullName.split("/") : ["", ""];
     const issueNumber = Number(artifacts.issueNumber) || 0;
