@@ -97,6 +97,15 @@ jobs:
       PROD_VPS_HOST: ${{ vars.PROD_VPS_HOST || '138.68.30.247' }}
       CHAIN_VPS_HOST: ${{ vars.CHAIN_VPS_HOST || '167.71.118.221' }}
     steps:
+      # Check out the repo on the self-hosted runner so the `scp` step below
+      # can find ops/core-server/docker-compose.prod.yml. Without this, the
+      # deploy step runs against whatever files happen to be in the runner's
+      # workspace (previous job's leftovers) — when the workspace gets cleaned
+      # between jobs, scp fails with "No such file or directory" and the
+      # entire deploy is skipped. This bit us on #117's deploy.
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Deploy to production
         run: |
           mkdir -p ~/.ssh
