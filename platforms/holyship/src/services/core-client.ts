@@ -16,17 +16,28 @@ import { resolveVaultConfig, VaultClient } from "@wopr-network/vault-client";
 const CORE_URL = process.env.CORE_URL ?? "http://core:3001";
 
 async function resolveServiceToken(): Promise<string> {
-  try {
-    const vaultConfig = resolveVaultConfig();
-    if (vaultConfig) {
+  // Race Vault read against a 5s timeout. Without this, a hung Vault fetch
+  // blocks this module's top-level await forever, which in turn blocks the
+  // import chain for HolyshipperFleetManager → WorkerPool registration. The
+  // engine container still boots (health check passes on core routes) but
+  // the reactive worker pool never subscribes to entity.created, so shipped
+  // issues sit in `spec` state untouched. Fall back to env on timeout.
+  const vaultRead = (async (): Promise<string | null> => {
+    try {
+      const vaultConfig = resolveVaultConfig();
+      if (!vaultConfig) return null;
       const vault = new VaultClient(vaultConfig);
       const secret = await vault.read("holyship/prod").catch(() => ({}));
       const key = (secret as { platform_service_key?: string }).platform_service_key;
-      if (key) return key;
+      return key ?? null;
+    } catch {
+      return null;
     }
-  } catch {
-    // fall through to env
-  }
+  })();
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000));
+  const vaultToken = await Promise.race([vaultRead, timeout]);
+  if (vaultToken) return vaultToken;
+
   const envToken = process.env.CORE_SERVICE_TOKEN;
   if (envToken) return envToken;
   throw new Error(
