@@ -10,11 +10,6 @@ services:
       - bitcoin_data:/data
       - ./bitcoind-wrapper.sh:/opt/wrapper.sh:ro
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3100/chains || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   postgres:
     image: postgres:16-alpine
@@ -49,7 +44,7 @@ services:
       - "3100:3100"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3100/chains || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3100/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -66,11 +61,6 @@ services:
       - /data/dogecoin:/home/dogecoin/.dogecoin
       - ./dogecoind-wrapper.sh:/opt/wrapper.sh:ro
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3100/chains || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   litecoind:
     image: uphold/litecoin-core:latest
@@ -84,11 +74,6 @@ services:
       - ltc_data:/data
       - ./litecoind-wrapper.sh:/opt/wrapper.sh:ro
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3100/chains || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
 volumes:
   bitcoin_data:
