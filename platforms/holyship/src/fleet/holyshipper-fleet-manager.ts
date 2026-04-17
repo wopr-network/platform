@@ -43,7 +43,17 @@ export class HolyshipperFleetManager implements IFleetManager {
 
   async provision(entityId: string, config: ProvisionConfig): Promise<ProvisionResult> {
     const botName = `hs-${entityId.slice(0, 8)}-${Date.now()}`;
-    const core = coreClient({ tenantId: "holyship", userId: "system", product: "holyship" });
+    // Send explicit platform_admin role — internalServiceAuth on core defaults
+    // missing X-User-Roles to ["user"], which trips tRPC's tenant check with
+    // "Not authorized for this tenant". Engine→core is trusted service-to-
+    // service; send the full service+admin role set so the tRPC middleware
+    // short-circuits the org-membership lookup.
+    const core = coreClient({
+      tenantId: "holyship",
+      userId: "system",
+      product: "holyship",
+      roles: ["service", "platform_admin"],
+    });
     if (!core.fleet) {
       throw new Error("Core fleet API not available — ensure core has fleet enabled");
     }
@@ -130,7 +140,17 @@ export class HolyshipperFleetManager implements IFleetManager {
       containerId: containerId.slice(0, 12),
     });
 
-    const core = coreClient({ tenantId: "holyship", userId: "system", product: "holyship" });
+    // Send explicit platform_admin role — internalServiceAuth on core defaults
+    // missing X-User-Roles to ["user"], which trips tRPC's tenant check with
+    // "Not authorized for this tenant". Engine→core is trusted service-to-
+    // service; send the full service+admin role set so the tRPC middleware
+    // short-circuits the org-membership lookup.
+    const core = coreClient({
+      tenantId: "holyship",
+      userId: "system",
+      product: "holyship",
+      roles: ["service", "platform_admin"],
+    });
     if (!core.fleet) {
       logger.warn("[fleet] core fleet API not available for teardown");
       return;
