@@ -308,9 +308,13 @@ services:
         condition: service_healthy
     # Agent runs as USER node inside the image. group_add gives the container
     # user access to the host docker.sock (owned by root:docker). HOST_DOCKER_GID
-    # must match `stat -c '%g' /var/run/docker.sock` on the droplet.
+    # must match `stat -c '%g' /var/run/docker.sock` on the droplet; defaults to
+    # 999 (Debian/Ubuntu docker group) so compose doesn't abort with "Unable to
+    # find group" when the env var isn't set — the previous empty-string default
+    # crashed the entire `up -d --force-recreate` mid-run and left holyship-ui
+    # uncreated on every deploy.
     group_add:
-      - ${HOST_DOCKER_GID}
+      - ${HOST_DOCKER_GID:-999}
     environment:
       PLATFORM_URL: http://core:3001
       REGISTRATION_TOKEN: ${AGENT_REGISTRATION_TOKEN:-}
