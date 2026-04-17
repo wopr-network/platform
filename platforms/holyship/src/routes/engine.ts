@@ -20,6 +20,9 @@ export interface EngineRouteDeps {
   flows: IFlowRepository;
   invocations: IInvocationRepository;
   workerToken?: string;
+  /** Used by session-auth fallback on read routes — resolves to core's
+   *  /api/auth/get-session to validate a browser session cookie. */
+  coreUrl?: string;
 }
 
 function tokensMatch(a: string, b: string): boolean {
@@ -32,20 +35,85 @@ function tokensMatch(a: string, b: string): boolean {
 export function createEngineRoutes(deps: EngineRouteDeps): Hono {
   const app = new Hono();
 
-  // Worker auth middleware
-  app.use("/*", async (c, next) => {
-    if (!deps.workerToken) return next();
-    const auth = c.req.header("Authorization");
-    if (!auth) return c.json({ error: "Missing Authorization header" }, 401);
-    const parts = auth.split(" ");
+  // Auth for engine endpoints. There are two kinds of caller:
+  //  - Holyshippers (worker containers) hit write routes (/claim, report/fail,
+  //    POST /entities) with a bearer worker token resolved from Vault.
+  //  - The UI (browser on holyship.wtf) needs to read entity/flow/status to
+  //    render pipeline + entity detail — worker token isn't available in the
+  //    session, so we validate the BetterAuth cookie by asking core's
+  //    /api/auth/get-session.
+  //
+  // Before this split, the worker-token middleware guarded everything and the
+  // Pipeline view always rendered "No entities in the pipeline" from the
+  // 401 response.
+  const validateWorkerToken = (authHeader: string | undefined): true | Response => {
+    if (!deps.workerToken) return true; // token not configured → open
+    if (!authHeader) return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401 });
+    const parts = authHeader.split(" ");
     if (parts.length !== 2 || parts[0].toLowerCase() !== "bearer") {
-      return c.json({ error: "Invalid Authorization format" }, 401);
+      return new Response(JSON.stringify({ error: "Invalid Authorization format" }), { status: 401 });
     }
     if (!tokensMatch(parts[1], deps.workerToken)) {
-      return c.json({ error: "Invalid token" }, 403);
+      return new Response(JSON.stringify({ error: "Invalid token" }), { status: 403 });
+    }
+    return true;
+  };
+
+  const requireWorkerToken = async (
+    c: Parameters<Parameters<typeof app.use>[1]>[0],
+    next: Parameters<Parameters<typeof app.use>[1]>[1],
+  ) => {
+    const result = validateWorkerToken(c.req.header("Authorization"));
+    if (result !== true) return result;
+    return next();
+  };
+
+  /**
+   * Try worker-token auth first (for holyshippers). If that fails AND the
+   * caller has session cookies, validate against core's get-session. Reject
+   * otherwise.
+   */
+  const requireWorkerOrSession = async (
+    c: Parameters<Parameters<typeof app.use>[1]>[0],
+    next: Parameters<Parameters<typeof app.use>[1]>[1],
+  ) => {
+    // Path A: valid worker token → let through.
+    const authHeader = c.req.header("Authorization");
+    if (authHeader && deps.workerToken) {
+      const tokenResult = validateWorkerToken(authHeader);
+      if (tokenResult === true) return next();
+    }
+
+    // Path B: browser session cookie → ask core.
+    const cookie = c.req.header("Cookie");
+    if (!cookie || !deps.coreUrl) {
+      return c.json({ error: "Unauthorized — provide a worker token or a logged-in session cookie" }, 401);
+    }
+    try {
+      const res = await fetch(`${deps.coreUrl}/api/auth/get-session`, {
+        headers: { Cookie: cookie, "X-Product": "holyship" },
+      });
+      if (!res.ok) return c.json({ error: "Session invalid" }, 401);
+      const body = (await res.json().catch(() => null)) as { user?: { id?: string } } | null;
+      if (!body?.user?.id) return c.json({ error: "Session has no user" }, 401);
+    } catch (err) {
+      return c.json({ error: `Session validation failed: ${(err as Error).message}` }, 502);
     }
     return next();
-  });
+  };
+
+  // Write routes — worker-token only. Includes POST /entities (admin/testing
+  // creation) — session users shouldn't be able to spawn entities outside of
+  // the ship-it flow.
+  app.use("/claim", requireWorkerToken);
+  app.use("/flows/:flow/claim", requireWorkerToken);
+  app.use("/entities/:id/report", requireWorkerToken);
+  app.use("/entities/:id/fail", requireWorkerToken);
+
+  // Read routes — worker token OR session cookie. Note: POST /entities also
+  // matches `/entities`, so the catch-all `app.use("/entities", ...)` would
+  // accidentally allow session users to create entities. Apply the middleware
+  // inline on the GET handler instead.
 
   // POST /claim — claim next available entity (any flow)
   app.post("/claim", async (c) => {
@@ -93,7 +161,7 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
   });
 
   // GET /entities/:id/detail — enriched entity with invocations and timeline
-  app.get("/entities/:id/detail", async (c) => {
+  app.get("/entities/:id/detail", requireWorkerOrSession, async (c) => {
     const entity = await deps.entities.get(c.req.param("id"));
     if (!entity) return c.json({ error: "Not found" }, 404);
     const invocations = await deps.invocations.findByEntity(entity.id);
@@ -116,14 +184,14 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
   });
 
   // GET /entities/:id — get entity
-  app.get("/entities/:id", async (c) => {
+  app.get("/entities/:id", requireWorkerOrSession, async (c) => {
     const entity = await deps.entities.get(c.req.param("id"));
     if (!entity) return c.json({ error: "Not found" }, 404);
     return c.json(entity, 200);
   });
 
   // GET /entities — list entities
-  app.get("/entities", async (c) => {
+  app.get("/entities", requireWorkerOrSession, async (c) => {
     const flowId = c.req.query("flowId");
     const state = c.req.query("state");
     const limit = Number(c.req.query("limit") || 50);
@@ -136,8 +204,9 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
     return c.json(entities, 200);
   });
 
-  // POST /entities — create entity (admin/testing)
-  app.post("/entities", async (c) => {
+  // POST /entities — create entity (admin/testing). Worker token required —
+  // session users go through /api/ship-it for controlled entity creation.
+  app.post("/entities", requireWorkerToken, async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const flow = (body.flow as string) ?? "engineering";
     const refs = (body.refs as Record<string, unknown>) ?? {};
@@ -146,13 +215,13 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
   });
 
   // GET /flows — list all flow definitions
-  app.get("/flows", async (c) => {
+  app.get("/flows", requireWorkerOrSession, async (c) => {
     const flows = await deps.flows.list();
     return c.json(flows, 200);
   });
 
   // GET /status — engine status
-  app.get("/status", async (c) => {
+  app.get("/status", requireWorkerOrSession, async (c) => {
     const status = await deps.engine.getStatus();
     return c.json(status, 200);
   });
