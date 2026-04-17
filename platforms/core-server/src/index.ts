@@ -16,21 +16,33 @@ const vaultSecrets = await resolveSecrets(slug);
 // b63d41e9 failed with `provision: Not authorized for this tenant` while the
 // Vault-sourced platform_service_key would have matched).
 async function readVaultServiceTokens(): Promise<string[]> {
-  const vaultConfig = resolveVaultConfig();
-  if (!vaultConfig) return [];
-  const vault = new VaultClient(vaultConfig);
-  const products = ["holyship", "paperclip", "nemoclaw"];
-  const tokens = await Promise.all(
-    products.map(async (p) => {
-      try {
-        const secret = await vault.read(`${p}/prod`);
-        return secret.platform_service_key ?? null;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return tokens.filter((t): t is string => !!t);
+  // Every step here is best-effort. If Vault is unreachable or the config
+  // is absent, return [] and fall back to CORE_ALLOWED_SERVICE_TOKENS alone.
+  // A previous version threw at boot when resolveVaultConfig/VaultClient
+  // errored, which made the whole core container crash-loop — worse than
+  // the bug it was meant to fix.
+  try {
+    const vaultConfig = resolveVaultConfig();
+    if (!vaultConfig) return [];
+    const vault = new VaultClient(vaultConfig);
+    const products = ["holyship", "paperclip", "nemoclaw"];
+    const tokens = await Promise.all(
+      products.map(async (p) => {
+        try {
+          const secret = await vault.read(`${p}/prod`);
+          return secret.platform_service_key ?? null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return tokens.filter((t): t is string => !!t);
+  } catch (err) {
+    logger.warn("Vault service-token read failed (non-fatal)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return [];
+  }
 }
 
 const vaultServiceTokens = await readVaultServiceTokens();
