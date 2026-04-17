@@ -123,6 +123,14 @@ jobs:
           echo "=== Recreating all services ==="
           docker compose -f docker-compose.prod.yml up -d --force-recreate || echo "::warning::Some containers unhealthy — continuing"
 
+          # Self-heal: if the first up aborted mid-graph (e.g. node-agent
+          # group_add error), rerun without --force-recreate to pick up any
+          # services that never got created. Previously this manifested as
+          # holyship-ui stuck in 'Created' state (502 on holyship.wtf) until
+          # someone SSHed in and did `up -d holyship-ui` by hand.
+          echo "=== Self-heal pass (any services still missing) ==="
+          docker compose -f docker-compose.prod.yml up -d || echo "::warning::Self-heal up also reported issues — continuing"
+
           echo "=== Reloading Caddy (picks up Caddyfile changes) ==="
           if ! docker compose -f docker-compose.prod.yml exec -T caddy caddy reload --config /etc/caddy/Caddyfile < /dev/null; then
             echo "::warning::Caddy reload failed — restarting container"
