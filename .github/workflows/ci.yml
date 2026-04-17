@@ -27,12 +27,13 @@ jobs:
           node-version: 24
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          # Pin to match packageManager field in root package.json (pnpm@10.31.0).
-          # action-setup@v6's default pnpm is v11, which rejects our lockfileVersion: '9.0'
-          # with "broken lockfile: expected a single document in the stream, but found more".
-          version: 10
+        # Pinned to v5 — action-setup@v6 bumped the bootstrap pnpm to v11, which
+        # rejects our lockfile with ERR_PNPM_BROKEN_LOCKFILE even though the
+        # resolved version from packageManager is pnpm@10.31.0. Passing an
+        # explicit `version:` input collides with packageManager and fails with
+        # ERR_PNPM_BAD_PM_VERSION. Simplest fix is to stay on v5 until the
+        # monorepo upgrades its lockfile.
+        uses: pnpm/action-setup@v5
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
