@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { INBOX_MINE_ISSUE_STATUS_FILTER } from "@paperclipai/shared";
 import { approvalsApi } from "../api/approvals";
@@ -627,6 +628,12 @@ function ApprovalInboxRow({
   );
 }
 
+function JoinRequestAdapterSpan({ adapterType }: { adapterType: string }) {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
+  return <span>adapter: {adapterType}</span>;
+}
+
 function JoinRequestInboxRow({
   joinRequest,
   onApprove,
@@ -707,7 +714,8 @@ function JoinRequestInboxRow({
               <span>
                 requested {timeAgo(joinRequest.createdAt)} from IP {joinRequest.requestIp}
               </span>
-              {joinRequest.adapterType && <span>adapter: {joinRequest.adapterType}</span>}
+              {/* Hide adapter type in hosted mode — agent infrastructure is managed server-side */}
+              {joinRequest.adapterType && <JoinRequestAdapterSpan adapterType={joinRequest.adapterType} />}
             </span>
           </span>
         </div>
