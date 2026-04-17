@@ -74,10 +74,17 @@ export function createTonApiCaller(baseUrl: string, apiKey?: string): TonApiCall
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (apiKey) headers["X-API-Key"] = apiKey;
 
+  // TonCenter v2: read methods use GET + query params; write methods use POST + JSON body.
+  const POST_METHODS = new Set(["sendBoc", "sendQuery", "sendBocReturnHash"]);
+
   return async (method: string, params: Record<string, string>): Promise<unknown> => {
-    const qs = new URLSearchParams(params).toString();
-    const url = `${baseUrl}/${method}${qs ? `?${qs}` : ""}`;
-    const res = await fetch(url, { headers });
+    const isPost = POST_METHODS.has(method);
+    const url = isPost ? `${baseUrl}/${method}` : `${baseUrl}/${method}?${new URLSearchParams(params).toString()}`;
+    const res = await fetch(url, {
+      method: isPost ? "POST" : "GET",
+      headers,
+      body: isPost ? JSON.stringify(params) : undefined,
+    });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(`TON API ${method} failed: ${res.status} ${body.slice(0, 200)}`);

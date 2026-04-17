@@ -34,6 +34,18 @@ const WATCHER_TYPE_TO_PLUGIN: Record<string, string> = {
   evm: "evm",
 };
 
+/**
+ * Maximum eth_getLogs block range per chain. Public RPC nodes reject requests
+ * that span more than this many blocks. Local/dedicated nodes don't enforce a
+ * limit, but staying within 2000 is safe everywhere and keeps catch-up predictable.
+ */
+const CHAIN_MAX_BLOCK_RANGE: Record<string, number> = {
+  base: 2000,
+  ethereum: 2000,
+  arbitrum: 10000,
+  polygon: 3500,
+};
+
 function resolvePlugin(registry: PluginRegistry, method: PaymentMethodRecord): IChainPlugin | undefined {
   // Prefer explicit plugin_id, fall back to watcher_type mapping
   const id = method.pluginId ?? WATCHER_TYPE_TO_PLUGIN[method.watcherType];
@@ -73,6 +85,7 @@ export async function startPluginWatchers(opts: PluginWatcherServiceOpts): Promi
       contractAddress: method.contractAddress ?? undefined,
       decimals: method.decimals,
       confirmations: method.confirmations,
+      maxBlockRange: CHAIN_MAX_BLOCK_RANGE[method.chain],
     });
 
     try {

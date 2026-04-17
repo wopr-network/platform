@@ -91,6 +91,8 @@ export interface WatcherOpts {
   contractAddress?: string;
   decimals: number;
   confirmations: number;
+  /** Maximum block range per eth_getLogs call. Prevents RPC range-limit errors on public nodes. */
+  maxBlockRange?: number;
 }
 
 export interface SweeperOpts {

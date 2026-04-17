@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeAddress } from "../lib/normalize-address";
+import { normalizeAddress } from "../lib/normalize-address.js";
 
 describe("normalizeAddress", () => {
   it("lowercases evm addresses", () => {

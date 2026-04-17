@@ -62,6 +62,7 @@ export abstract class BaseEvmLikeWatcher implements IChainWatcher {
   protected readonly cursorStore: IWatcherCursorStore;
   protected readonly priceReader: IPriceReader;
   protected readonly watcherId: string;
+  protected readonly maxBlockRange: number | undefined;
   /** Hex-encoded addresses used for the topic[2] filter. */
   protected _watchedFilterAddresses: string[] = [];
 
@@ -77,6 +78,7 @@ export abstract class BaseEvmLikeWatcher implements IChainWatcher {
     this.decimals = opts.decimals;
     this.cursorStore = opts.cursorStore;
     this.priceReader = opts.priceReader;
+    this.maxBlockRange = opts.maxBlockRange;
     // watcherId has to be built from a method return rather than the
     // abstract field, because in JS the abstract-marked field is only
     // initialized after super() — at constructor-time it's still undefined.
@@ -157,14 +159,22 @@ export abstract class BaseEvmLikeWatcher implements IChainWatcher {
         ? this._watchedFilterAddresses.map((a) => `0x000000000000000000000000${a.slice(2)}`)
         : null;
 
-    const logs = (await this.rpc("eth_getLogs", [
-      {
-        address: this.contractAddress,
-        topics: [TRANSFER_TOPIC, null, toFilter],
-        fromBlock: `0x${this._cursor.toString(16)}`,
-        toBlock: `0x${latest.toString(16)}`,
-      },
-    ])) as RpcLog[];
+    // Chunk the range to avoid exceeding per-call block limits on public nodes.
+    const chunkSize = this.maxBlockRange ?? latest - this._cursor + 1;
+    const allLogs: RpcLog[] = [];
+    for (let from = this._cursor; from <= latest; from += chunkSize) {
+      const to = Math.min(from + chunkSize - 1, latest);
+      const chunk = (await this.rpc("eth_getLogs", [
+        {
+          address: this.contractAddress,
+          topics: [TRANSFER_TOPIC, null, toFilter],
+          fromBlock: `0x${from.toString(16)}`,
+          toBlock: `0x${to.toString(16)}`,
+        },
+      ])) as RpcLog[];
+      allLogs.push(...chunk);
+    }
+    const logs = allLogs;
 
     // Group logs by block so we can advance the cursor on a per-block
     // boundary (partial-block advancement would lose dedup on re-poll).
