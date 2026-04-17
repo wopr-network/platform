@@ -17,7 +17,10 @@ const envSchema = z.object({
 
   // Core server — holyship delegates auth, billing, credits, org, fleet to core
   CORE_URL: z.string().url().default("http://core:3001"),
-  CORE_SERVICE_TOKEN: z.string().min(1),
+  // Optional: services/core-client.ts prefers Vault holyship/prod.platform_service_key
+  // and falls back to this env var. Keep it optional so Vault-only deployments
+  // (no .env token) can still boot.
+  CORE_SERVICE_TOKEN: optStr,
 
   // UI
   UI_ORIGIN: z.string().default("https://holyship.wtf"),
