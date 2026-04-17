@@ -306,7 +306,6 @@ describe("TON sweeper — scan + sweep with mocked API", () => {
     const bocBuf = Buffer.from(body.boc, "base64");
     expect(() => Cell.fromBoc(bocBuf)).not.toThrow();
   });
-
 });
 
 // ─── Jetton (TEP-74) sweep tests ────────────────────────────────────────────
@@ -453,8 +452,8 @@ describe("TON sweeper — Jetton (TEP-74) sweep", () => {
   });
 
   it("scan: skips addresses with API error (undeployed Jetton wallet)", async () => {
-    (globalThis as any).fetch = vi.fn(async () =>
-      new Response(JSON.stringify({ ok: false, error: "Contract not deployed" }), { status: 200 }),
+    (globalThis as any).fetch = vi.fn(
+      async () => new Response(JSON.stringify({ ok: false, error: "Contract not deployed" }), { status: 200 }),
     );
     const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
     const sweeper = new TonSweeper(makeJettonOpts());

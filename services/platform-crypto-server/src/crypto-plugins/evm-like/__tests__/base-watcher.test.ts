@@ -262,7 +262,12 @@ describe("BaseEvmLikeWatcher via EvmLikeEvmWatcher", () => {
       const f = c[1] as Array<{ fromBlock: string; toBlock: string }>;
       return [Number.parseInt(f[0].fromBlock, 16), Number.parseInt(f[0].toBlock, 16)];
     });
-    expect(ranges).toEqual([[0, 99], [100, 199], [200, 299], [300, 300]]);
+    expect(ranges).toEqual([
+      [0, 99],
+      [100, 199],
+      [200, 299],
+      [300, 300],
+    ]);
   });
 
   it("constructor falls back to URL-based RpcCall when rpc not injected (legacy path still works)", () => {

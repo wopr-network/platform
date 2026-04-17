@@ -305,7 +305,7 @@ async function getJettonWalletAddress(api: TonApiCall, jettonMaster: string, own
   const bytes =
     typeof cellData === "string"
       ? cellData
-      : (cellData as { bytes?: string }).bytes ?? (cellData as { value?: string }).value ?? "";
+      : ((cellData as { bytes?: string }).bytes ?? (cellData as { value?: string }).value ?? "");
   const walletCell = Cell.fromBase64(bytes);
   return walletCell.beginParse().loadAddress().toString({ bounceable: true, urlSafe: true });
 }
@@ -326,7 +326,7 @@ async function getJettonBalance(api: TonApiCall, jettonWallet: string): Promise<
     typeof balanceData === "string"
       ? balanceData
       : ((balanceData as { number?: { number?: string } }).number?.number ??
-          String((balanceData as { value?: unknown }).value ?? "0"));
+        String((balanceData as { value?: unknown }).value ?? "0"));
   return BigInt(numStr);
 }
 
