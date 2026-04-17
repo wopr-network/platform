@@ -57,6 +57,20 @@
       "when": 1776460000000,
       "tag": "0007_fix_ton_testnet_address_type",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1744848000000,
+      "tag": "0008_seed_ton_key_rings_and_methods",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1745020800000,
+      "tag": "0009_fix_doge_lowercase_addresses",
+      "breakpoints": true
     }
   ]
 }

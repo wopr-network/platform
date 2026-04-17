@@ -231,6 +231,40 @@ describe("BaseEvmLikeWatcher via EvmLikeEvmWatcher", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("maxBlockRange: splits eth_getLogs into chunks when range exceeds limit", async () => {
+    // cursor=0, latest=0x12C (300) — with maxBlockRange=100 expect 4 getLogs calls
+    // covering [0,99], [100,199], [200,299], [300,300].
+    const rpc = vi.fn(async (method: string) => {
+      if (method === "eth_blockNumber") return "0x12c"; // 300
+      if (method === "eth_getLogs") return [];
+      throw new Error(`unmocked: ${method}`);
+    }) as MockedRpc;
+
+    const w = new EvmLikeEvmWatcher({
+      rpcUrl: "http://unused",
+      rpcHeaders: {},
+      rpc,
+      priceReader: mkPriceReader(),
+      cursorStore: mkCursorStore(),
+      chain: "ethereum",
+      token: "USDC",
+      contractAddress: CONTRACT,
+      decimals: 6,
+      confirmations: 0,
+      maxBlockRange: 100,
+    });
+    w.setWatchedAddresses([TO]);
+    await w.poll();
+
+    const getCalls = rpc.mock.calls.filter((c) => c[0] === "eth_getLogs");
+    expect(getCalls).toHaveLength(4);
+    const ranges = getCalls.map((c) => {
+      const f = c[1] as Array<{ fromBlock: string; toBlock: string }>;
+      return [Number.parseInt(f[0].fromBlock, 16), Number.parseInt(f[0].toBlock, 16)];
+    });
+    expect(ranges).toEqual([[0, 99], [100, 199], [200, 299], [300, 300]]);
+  });
+
   it("constructor falls back to URL-based RpcCall when rpc not injected (legacy path still works)", () => {
     // Just confirm no throw — we don't want to invoke fetch here.
     const w = new EvmLikeEvmWatcher({

@@ -294,13 +294,14 @@ describe("TON sweeper — scan + sweep with mocked API", () => {
     expect(results).toHaveLength(1);
     expect(results[0].txHash).toBe("real-tx-hash");
 
-    // Verify we actually POSTed a BOC.
+    // Verify we actually POSTed a BOC (sendBoc is POST with JSON body).
     const sendBocCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("sendBoc"));
     expect(sendBocCall).toBeTruthy();
-    const boc = new URL(String((sendBocCall as unknown as [string])[0])).searchParams.get("boc") ?? "";
-    // The BOC is base64, should be non-empty and decode without error.
-    expect(boc.length).toBeGreaterThan(10);
-    const bocBuf = Buffer.from(boc, "base64");
+    // Body is the second fetch() argument; boc is in the JSON body, not query params.
+    const fetchInit = (sendBocCall as unknown as [string, RequestInit])[1];
+    const body = JSON.parse(fetchInit.body as string) as { boc: string };
+    expect(body.boc.length).toBeGreaterThan(10);
+    const bocBuf = Buffer.from(body.boc, "base64");
     expect(() => Cell.fromBoc(bocBuf)).not.toThrow();
   });
 
