@@ -78,22 +78,30 @@ export class HolyshipperFleetManager implements IFleetManager {
 
     // Create bare container via core fleet API — returns a per-instance
     // gateway service key tied to the tenant for metered billing.
+    // 30s abort because hung calls leave the worker-pool slot occupied
+    // forever — observed today: a single stuck claim from before a deploy
+    // pinned activeInvocations=1 indefinitely and blocked all subsequent
+    // entity claims.
     let instance: { id: string; url: string; containerId: string; name: string; gatewayKey: string | null };
+    const abort = AbortSignal.timeout(30_000);
     try {
       logger.info("[fleet] calling core.fleet.createContainer", {
         botName,
         image: this.image,
         hasFleet: !!core.fleet,
       });
-      instance = await core.fleet.createContainer.mutate({
-        name: botName,
-        image: this.image,
-        productSlug: "holyship",
-        env,
-        network: this.network,
-        restartPolicy: "no",
-        readonlyRootfs: false,
-      });
+      instance = await core.fleet.createContainer.mutate(
+        {
+          name: botName,
+          image: this.image,
+          productSlug: "holyship",
+          env,
+          network: this.network,
+          restartPolicy: "no",
+          readonlyRootfs: false,
+        },
+        { signal: abort },
+      );
     } catch (err) {
       logger.error("[fleet] createContainer failed", {
         error: err instanceof Error ? err.message : String(err),
