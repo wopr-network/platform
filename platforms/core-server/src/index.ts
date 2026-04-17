@@ -1,9 +1,39 @@
 import { resolveSecrets } from "@wopr-network/platform-core/config";
 import { logger } from "@wopr-network/platform-core/config/logger";
 import { bootPlatformServer } from "@wopr-network/platform-core/server";
+import { resolveVaultConfig, VaultClient } from "@wopr-network/vault-client";
 
 const slug = process.env.PRODUCT_SLUG ?? "wopr";
 const vaultSecrets = await resolveSecrets(slug);
+
+// Collect the platform_service_key from every product that talks to core
+// (holyship, paperclip, nemoclaw, wopr UIs). Each product's server-to-server
+// Authorization header uses this token; core has to include all of them in
+// allowedServiceTokens or the tRPC auth middleware rejects the call with
+// `Not authorized for this tenant` even though the service-auth path should
+// short-circuit on platform_admin role. Currently `.env` on the VPS is the
+// only source, and it drifted away from Vault (observed on holyship: invocation
+// b63d41e9 failed with `provision: Not authorized for this tenant` while the
+// Vault-sourced platform_service_key would have matched).
+async function readVaultServiceTokens(): Promise<string[]> {
+  const vaultConfig = resolveVaultConfig();
+  if (!vaultConfig) return [];
+  const vault = new VaultClient(vaultConfig);
+  const products = ["holyship", "paperclip", "nemoclaw"];
+  const tokens = await Promise.all(
+    products.map(async (p) => {
+      try {
+        const secret = await vault.read(`${p}/prod`);
+        return secret.platform_service_key ?? null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return tokens.filter((t): t is string => !!t);
+}
+
+const vaultServiceTokens = await readVaultServiceTokens();
 
 // Merge env vars as fallback — container gets secrets via .env, not Vault directly
 // Merge env vars as fallback — container gets secrets via .env, not Vault directly.
@@ -50,7 +80,17 @@ const platform = await bootPlatformServer({
     chat: true,
   },
   standalone: {
-    allowedServiceTokens: process.env.CORE_ALLOWED_SERVICE_TOKENS ?? "",
+    // Combine .env tokens with every product's Vault-sourced
+    // platform_service_key so drift between .env and Vault doesn't block
+    // engine→core service calls. Deduplicate, filter empties.
+    allowedServiceTokens: Array.from(
+      new Set(
+        [
+          ...(process.env.CORE_ALLOWED_SERVICE_TOKENS ?? "").split(",").map((t) => t.trim()),
+          ...vaultServiceTokens,
+        ].filter(Boolean),
+      ),
+    ).join(","),
   },
   auth: {
     secret: secrets.betterAuthSecret ?? process.env.BETTER_AUTH_SECRET ?? "",
