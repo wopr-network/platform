@@ -18,9 +18,7 @@ const serviceToken = process.env.CORE_SERVICE_TOKEN ?? "";
 
 if (!serviceToken) {
   // biome-ignore lint/suspicious/noConsole: boot-time diagnostic
-  console.warn(
-    "[core-client] CORE_SERVICE_TOKEN env is empty — core API calls will fail with 401",
-  );
+  console.warn("[core-client] CORE_SERVICE_TOKEN env is empty — core API calls will fail with 401");
 }
 
 export const coreClient = createCoreClient({
