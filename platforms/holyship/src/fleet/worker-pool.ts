@@ -276,15 +276,27 @@ export class WorkerPool implements IEventBusAdapter {
         .set({ containerId, runnerUrl, status: "running", provisionedAt: new Date(), updatedAt: new Date() })
         .where(eq(holyshipperContainers.id, dbRecordId));
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       logger.error(`${tag} provision FAILED`, {
         entityId,
-        error: err instanceof Error ? err.message : String(err),
+        error: errMsg,
         stack: err instanceof Error ? err.stack : undefined,
       });
       await this.db
         .update(holyshipperContainers)
         .set({ status: "failed", updatedAt: new Date() })
         .where(eq(holyshipperContainers.id, dbRecordId));
+      // Also record on the invocation so /api/engine/entities/:id/detail
+      // surfaces the failure to the UI and operators — previously provision
+      // errors only went to container stdout, invisible without SSH.
+      try {
+        await this.invocationRepo.fail(invocationId, `provision: ${errMsg}`);
+      } catch (failErr) {
+        logger.warn(`${tag} invocation.fail record failed`, {
+          invocationId,
+          error: failErr instanceof Error ? failErr.message : String(failErr),
+        });
+      }
       return;
     }
 

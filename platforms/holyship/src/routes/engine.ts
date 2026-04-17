@@ -165,16 +165,26 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
     const entity = await deps.entities.get(c.req.param("id"));
     if (!entity) return c.json({ error: "Not found" }, 404);
     const invocations = await deps.invocations.findByEntity(entity.id);
+    // Include invocations that never started — previously filtered out, which
+    // hid exactly the failures we needed to see (claim happened, provision
+    // threw before startedAt was set). Sort by startedAt when present, else
+    // fall back to claimedAt so pending/pre-start invocations still appear
+    // in order.
     const timeline = invocations
-      .filter((inv) => inv.startedAt)
-      // biome-ignore lint/style/noNonNullAssertion: filtered above for inv.startedAt
-      .sort((a, b) => new Date(a.startedAt!).getTime() - new Date(b.startedAt!).getTime())
+      .slice()
+      .sort((a, b) => {
+        const ta = (a.startedAt ?? a.claimedAt ?? new Date(0)).getTime();
+        const tb = (b.startedAt ?? b.claimedAt ?? new Date(0)).getTime();
+        return ta - tb;
+      })
       .map((inv) => ({
         id: inv.id,
         stage: inv.stage,
         agentRole: inv.agentRole,
         signal: inv.signal,
         error: inv.error,
+        claimedBy: inv.claimedBy,
+        claimedAt: inv.claimedAt,
         startedAt: inv.startedAt,
         completedAt: inv.completedAt,
         failedAt: inv.failedAt,
