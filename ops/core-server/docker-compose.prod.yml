@@ -250,10 +250,16 @@ services:
       - platform
 
   caddy:
-    image: caddy:2-alpine
+    # Custom image built from ops/core-server/Dockerfile.caddy with the
+    # Cloudflare DNS provider module compiled in — stock caddy:2-alpine fails
+    # with "module not registered: dns.providers.cloudflare" because the
+    # Caddyfile uses `tls { dns cloudflare ... }` for wildcard certs.
+    image: registry.wopr.bot/caddy-cf:latest
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      CF_API_TOKEN: ${CF_API_TOKEN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
