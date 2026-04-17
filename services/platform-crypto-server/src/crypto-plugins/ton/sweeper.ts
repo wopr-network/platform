@@ -1,10 +1,7 @@
 /**
  * TON sweep strategy — WalletV4R2 external-message construction.
  *
- * Scope of this file (for #80):
- *   - Native TON sweep only. Jetton (USDT-TON) sweep is deferred to a
- *     follow-up PR (#81) because Jetton wallets are separate contracts
- *     with their own deploy-on-first-send dance.
+ * Handles both native TON sweep and Jetton (TEP-74) sweep.
  *
  * Architecture choice:
  *   - Uses `@ton/core` for cell + BOC primitives. Unlike `ton/encoder.ts`
@@ -23,6 +20,17 @@
  *   we include the StateInit in the external message so the first outgoing
  *   transfer doubles as the deploy. Every subsequent sweep is a plain
  *   transfer (no StateInit).
+ *
+ * Jetton (TEP-74) sweep:
+ *   Jetton wallets are per-owner contracts. To sweep Jettons:
+ *   1. Derive the owner's Jetton wallet address via get_wallet_address on
+ *      the Jetton master contract.
+ *   2. Query balance via get_wallet_data on the Jetton wallet.
+ *   3. Send an internal message FROM the V4R2 deposit wallet TO its Jetton
+ *      wallet, containing the transfer op with treasury as destination.
+ *   The transfer op attaches forward_ton_amount (0.05 TON) so the receiving
+ *   (treasury) Jetton wallet gets notified; JETTON_GAS_TON (0.1 TON) total
+ *   is attached to the internal message to cover all fees.
  */
 
 import { ed25519 } from "@noble/curves/ed25519.js";
@@ -58,7 +66,7 @@ const DEFAULT_SUBWALLET_ID = 698983191;
 /** Message valid-until window (seconds) — TON convention is 60s. */
 const DEFAULT_VALID_UNTIL_SECS = 60;
 
-/** Minimum balance in nanoton to attempt a sweep (0.01 TON — below storage+fee floor). */
+/** Minimum balance in nanoton to attempt a native TON sweep (0.01 TON — below storage+fee floor). */
 const MIN_SWEEPABLE_NANOTON = 10_000_000n;
 
 /** Gas reserve kept on the wallet after sweep (covers storage + deploy overhead). */
@@ -66,6 +74,25 @@ const DEPLOY_RESERVE_NANOTON = 50_000_000n; // 0.05 TON — generous to avoid bo
 
 /** Sweep fee reserve for already-deployed wallets. */
 const SWEEP_RESERVE_NANOTON = 10_000_000n; // 0.01 TON
+
+// ─── Jetton (TEP-74) constants ────────────────────────────────────────────────
+
+/** TEP-74 Jetton transfer op-code. */
+const JETTON_TRANSFER_OP = 0xf8a7ea5;
+
+/** TON forwarded with notification to the receiving Jetton wallet. 0.05 TON is standard for USDT-TON. */
+const JETTON_FORWARD_TON = 50_000_000n;
+
+/** Total TON attached to the internal-message call on the Jetton wallet (gas + forward). */
+const JETTON_GAS_TON = 100_000_000n;
+
+/**
+ * Minimum native TON balance required to execute a Jetton sweep.
+ * Must be > JETTON_GAS_TON + buffer for external-message gas.
+ */
+const MIN_TON_FOR_JETTON_SWEEP = 150_000_000n;
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export interface TonSweeperOpts extends SweeperOpts {
   /** Override subwallet id if needed (testing). */
@@ -168,6 +195,67 @@ function buildInternalTransfer(treasury: Address, nanoton: bigint): Cell {
 }
 
 /**
+ * Build a TEP-74 Jetton transfer body.
+ * Sent inside an internal message from the V4R2 wallet to its Jetton wallet.
+ */
+function buildJettonTransferBody(params: {
+  queryId: bigint;
+  amount: bigint;
+  destination: Address;
+  responseDestination: Address;
+  forwardTonAmount: bigint;
+}): Cell {
+  return beginCell()
+    .storeUint(JETTON_TRANSFER_OP, 32) // op: transfer (TEP-74)
+    .storeUint(params.queryId, 64) // query_id
+    .storeCoins(params.amount) // Jetton amount
+    .storeAddress(params.destination) // destination (treasury)
+    .storeAddress(params.responseDestination) // response_destination (excess TON returned here)
+    .storeBit(0) // no custom_payload
+    .storeCoins(params.forwardTonAmount) // forward_ton_amount (notification TON)
+    .storeBit(0) // forward_payload: empty, stored inline
+    .endCell();
+}
+
+/**
+ * Build the internal message from the V4R2 wallet to its Jetton wallet.
+ * Wraps the Jetton transfer body; the TON value covers gas + forward_ton.
+ */
+function buildJettonTransferInternalMsg(params: {
+  jettonWallet: Address;
+  tonAmount: bigint;
+  jettonAmount: bigint;
+  destination: Address;
+  responseDestination: Address;
+  forwardTonAmount: bigint;
+}): Cell {
+  const body = buildJettonTransferBody({
+    queryId: 0n,
+    amount: params.jettonAmount,
+    destination: params.destination,
+    responseDestination: params.responseDestination,
+    forwardTonAmount: params.forwardTonAmount,
+  });
+  return beginCell()
+    .storeUint(0, 1) // int_msg_info
+    .storeBit(1) // ihr_disabled
+    .storeBit(1) // bounce = 1 (Jetton wallet calls are bounceable — return TON on error)
+    .storeBit(0) // bounced
+    .storeUint(0, 2) // src = addr_none
+    .storeAddress(params.jettonWallet)
+    .storeCoins(params.tonAmount) // TON for gas
+    .storeUint(0, 1) // no extra currencies
+    .storeCoins(0n) // ihr_fee
+    .storeCoins(0n) // fwd_fee
+    .storeUint(0, 64) // created_lt
+    .storeUint(0, 32) // created_at
+    .storeBit(0) // no StateInit
+    .storeBit(1) // body as ref
+    .storeRef(body)
+    .endCell();
+}
+
+/**
  * Wrap a signed transfer body into an external-in message, optionally
  * including StateInit for the first send from an uninitialized wallet.
  */
@@ -198,12 +286,73 @@ function buildExternalMessage(params: {
 }
 
 /**
- * TON native sweep strategy.
+ * Fetch the owner's Jetton wallet address from the Jetton master contract.
  *
- * scan():  per key, hit getAddressInformation → balance + state.
- * sweep(): per deposit with > threshold, build signed external msg, sendBoc.
+ * Calls runGetMethod(get_wallet_address) on the Jetton master with the owner
+ * address as a cell slice argument. Returns the derived Jetton wallet address.
+ */
+async function getJettonWalletAddress(api: TonApiCall, jettonMaster: string, ownerAddress: string): Promise<string> {
+  const ownerCell = beginCell().storeAddress(Address.parse(ownerAddress)).endCell();
+  const ownerBoc = ownerCell.toBoc().toString("base64");
+
+  const result = (await api("runGetMethod", {
+    address: jettonMaster,
+    method: "get_wallet_address",
+    stack: JSON.stringify([["tvm.Slice", ownerBoc]]),
+  })) as { stack: Array<[string, unknown]> };
+
+  const [, cellData] = result.stack[0];
+  const bytes =
+    typeof cellData === "string"
+      ? cellData
+      : (cellData as { bytes?: string }).bytes ?? (cellData as { value?: string }).value ?? "";
+  const walletCell = Cell.fromBase64(bytes);
+  return walletCell.beginParse().loadAddress().toString({ bounceable: true, urlSafe: true });
+}
+
+/**
+ * Fetch the Jetton balance from a Jetton wallet contract.
+ * Returns 0n if the wallet contract does not exist yet.
+ */
+async function getJettonBalance(api: TonApiCall, jettonWallet: string): Promise<bigint> {
+  const result = (await api("runGetMethod", {
+    address: jettonWallet,
+    method: "get_wallet_data",
+    stack: JSON.stringify([]),
+  })) as { stack: Array<[string, unknown]> };
+
+  const [, balanceData] = result.stack[0];
+  const numStr =
+    typeof balanceData === "string"
+      ? balanceData
+      : ((balanceData as { number?: { number?: string } }).number?.number ??
+          String((balanceData as { value?: unknown }).value ?? "0"));
+  return BigInt(numStr);
+}
+
+/** Read seqno from a V4R2 wallet contract (0 if uninitialized). */
+async function getSeqno(api: TonApiCall, walletAddress: string): Promise<number> {
+  const result = (await api("runGetMethod", {
+    address: walletAddress,
+    method: "seqno",
+    stack: JSON.stringify([]),
+  })) as { stack?: Array<[string, { number?: { number?: string } } | string]> };
+  const top = result.stack?.[0];
+  if (top && Array.isArray(top) && typeof top[1] !== "string") {
+    return Number((top[1] as { number?: { number?: string } }).number?.number ?? 0);
+  }
+  return 0;
+}
+
+/**
+ * TON sweep strategy — handles both native TON and Jetton (TEP-74).
  *
- * Jetton (USDT-TON) sweeps intentionally not implemented here — see #81.
+ * Native TON:  scan() checks getAddressInformation balance + sweep() builds
+ *              a signed external message with a plain internal transfer.
+ *
+ * Jetton mode: scan() queries get_wallet_address → get_wallet_data on the
+ *              Jetton master to find balances. sweep() builds an external
+ *              message that calls the Jetton wallet's transfer method.
  */
 export class TonSweeper implements ISweepStrategy {
   private readonly api: TonApiCall;
@@ -211,6 +360,8 @@ export class TonSweeper implements ISweepStrategy {
   private readonly chain: string;
   private readonly subwalletId: number;
   private readonly isJetton: boolean;
+  private readonly jettonMaster: string | undefined;
+  private readonly decimals: number;
 
   constructor(opts: TonSweeperOpts) {
     this.api = createTonApiCaller(opts.rpcUrl, opts.rpcHeaders?.["X-API-Key"]);
@@ -218,15 +369,18 @@ export class TonSweeper implements ISweepStrategy {
     this.chain = opts.chain;
     this.subwalletId = opts.subwalletId ?? DEFAULT_SUBWALLET_ID;
     this.isJetton = !!opts.contractAddress;
+    this.jettonMaster = opts.contractAddress;
+    this.decimals = opts.decimals;
   }
 
   async scan(keys: KeyPair[], _treasury: string): Promise<DepositInfo[]> {
-    if (this.isJetton) {
-      // Explicit no-op until #81. Return empty so the CLI reports
-      // "nothing to sweep" rather than throwing.
-      return [];
+    if (!this.isJetton) {
+      return this._scanNative(keys);
     }
+    return this._scanJetton(keys);
+  }
 
+  private async _scanNative(keys: KeyPair[]): Promise<DepositInfo[]> {
     const results: DepositInfo[] = [];
     for (const key of keys) {
       const info = (await this.api("getAddressInformation", { address: key.address })) as {
@@ -246,11 +400,39 @@ export class TonSweeper implements ISweepStrategy {
     return results;
   }
 
-  async sweep(keys: KeyPair[], treasury: string, dryRun: boolean): Promise<SweepResult[]> {
-    if (this.isJetton) {
-      throw new Error("TON Jetton sweep not implemented in #80 — see #81 follow-up");
-    }
+  private async _scanJetton(keys: KeyPair[]): Promise<DepositInfo[]> {
+    const results: DepositInfo[] = [];
+    for (const key of keys) {
+      try {
+        const jettonWallet = await getJettonWalletAddress(this.api, this.jettonMaster!, key.address);
+        const jettonBalance = await getJettonBalance(this.api, jettonWallet);
+        if (jettonBalance === 0n) continue;
 
+        const info = (await this.api("getAddressInformation", { address: key.address })) as {
+          balance: string;
+          state: string;
+        };
+        results.push({
+          index: key.index,
+          address: key.address,
+          nativeBalance: BigInt(info.balance),
+          tokenBalances: [{ token: this.token, balance: jettonBalance, decimals: this.decimals }],
+        });
+      } catch {
+        // Jetton wallet not deployed yet (address never received Jettons) — skip.
+      }
+    }
+    return results;
+  }
+
+  async sweep(keys: KeyPair[], treasury: string, dryRun: boolean): Promise<SweepResult[]> {
+    if (!this.isJetton) {
+      return this._sweepNative(keys, treasury, dryRun);
+    }
+    return this._sweepJetton(keys, treasury, dryRun);
+  }
+
+  private async _sweepNative(keys: KeyPair[], treasury: string, dryRun: boolean): Promise<SweepResult[]> {
     const results: SweepResult[] = [];
     const treasuryAddr = Address.parse(treasury);
 
@@ -278,23 +460,11 @@ export class TonSweeper implements ISweepStrategy {
         continue;
       }
 
-      // Derive pubkey from privkey for StateInit construction
       const publicKey = ed25519.getPublicKey(key.privateKey);
 
-      // Uninitialized wallets have seqno=0; we pass 0 explicitly instead of
-      // querying runGetMethod, which avoids a second RPC roundtrip for the
-      // common first-sweep case. For active wallets, fetch the current seqno.
       let seqno = 0;
       if (!isUninitialized) {
-        const seqnoResult = (await this.api("runGetMethod", {
-          address: key.address,
-          method: "seqno",
-          stack: JSON.stringify([]),
-        })) as { stack?: Array<[string, { number?: { number?: string } } | string]> };
-        const top = seqnoResult.stack?.[0];
-        if (top && Array.isArray(top) && typeof top[1] !== "string") {
-          seqno = Number(top[1].number?.number ?? 0);
-        }
+        seqno = await getSeqno(this.api, key.address);
       }
 
       const internalMsg = buildInternalTransfer(treasuryAddr, sweepable);
@@ -328,7 +498,92 @@ export class TonSweeper implements ISweepStrategy {
 
     return results;
   }
+
+  private async _sweepJetton(keys: KeyPair[], treasury: string, dryRun: boolean): Promise<SweepResult[]> {
+    const results: SweepResult[] = [];
+    const treasuryAddr = Address.parse(treasury);
+
+    for (const key of keys) {
+      const jettonWalletAddr = await getJettonWalletAddress(this.api, this.jettonMaster!, key.address);
+      const jettonBalance = await getJettonBalance(this.api, jettonWalletAddr);
+      if (jettonBalance === 0n) continue;
+
+      const info = (await this.api("getAddressInformation", { address: key.address })) as {
+        balance: string;
+        state: "active" | "uninitialized" | "frozen";
+      };
+      const nativeBalance = BigInt(info.balance);
+      if (nativeBalance < MIN_TON_FOR_JETTON_SWEEP) continue; // not enough TON for gas
+
+      if (dryRun) {
+        results.push({
+          index: key.index,
+          address: key.address,
+          token: this.token,
+          amount: jettonBalance.toString(),
+          txHash: "dry-run",
+        });
+        continue;
+      }
+
+      const isUninitialized = info.state === "uninitialized";
+      const publicKey = ed25519.getPublicKey(key.privateKey);
+
+      let seqno = 0;
+      if (!isUninitialized) {
+        seqno = await getSeqno(this.api, key.address);
+      }
+
+      const depositAddr = Address.parse(key.address);
+      const jettonWallet = Address.parse(jettonWalletAddr);
+
+      const internalMsg = buildJettonTransferInternalMsg({
+        jettonWallet,
+        tonAmount: JETTON_GAS_TON,
+        jettonAmount: jettonBalance,
+        destination: treasuryAddr,
+        responseDestination: depositAddr,
+        forwardTonAmount: JETTON_FORWARD_TON,
+      });
+
+      const validUntil = Math.floor(Date.now() / 1000) + DEFAULT_VALID_UNTIL_SECS;
+      const signedBody = buildSignedTransferBody({
+        privateKey: key.privateKey,
+        subwalletId: this.subwalletId,
+        validUntil,
+        seqno,
+        sendMode: SendMode.PAY_GAS_SEPARATELY,
+        internalMessage: internalMsg,
+      });
+
+      const external = buildExternalMessage({
+        destination: depositAddr,
+        body: signedBody,
+        stateInit: isUninitialized ? buildWalletV4R2StateInit(publicKey, this.subwalletId) : undefined,
+      });
+
+      const bocBase64 = external.toBoc().toString("base64");
+      const sendResult = (await this.api("sendBoc", { boc: bocBase64 })) as { "@type"?: string; hash?: string };
+
+      results.push({
+        index: key.index,
+        address: key.address,
+        token: this.token,
+        amount: jettonBalance.toString(),
+        txHash: sendResult.hash ?? "pending",
+      });
+    }
+
+    return results;
+  }
 }
 
 // Re-export helpers for tests + reconciliation tooling.
-export { buildExternalMessage, buildInternalTransfer, buildSignedTransferBody, buildWalletV4R2StateInit };
+export {
+  buildExternalMessage,
+  buildInternalTransfer,
+  buildJettonTransferBody,
+  buildJettonTransferInternalMsg,
+  buildSignedTransferBody,
+  buildWalletV4R2StateInit,
+};

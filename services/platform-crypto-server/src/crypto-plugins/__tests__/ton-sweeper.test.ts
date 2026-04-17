@@ -7,6 +7,8 @@ import { describe, expect, it, vi } from "vitest";
 import { TonAddressEncoder } from "../ton/encoder.js";
 import {
   buildInternalTransfer,
+  buildJettonTransferBody,
+  buildJettonTransferInternalMsg,
   buildSignedTransferBody,
   buildWalletV4R2StateInit,
   computeWalletV4R2Address,
@@ -305,28 +307,264 @@ describe("TON sweeper — scan + sweep with mocked API", () => {
     expect(() => Cell.fromBoc(bocBuf)).not.toThrow();
   });
 
-  it("Jetton mode: scan returns empty, sweep throws (deferred to #81)", async () => {
-    installTonMock({});
+});
+
+// ─── Jetton (TEP-74) sweep tests ────────────────────────────────────────────
+
+// Jetton master: USDT-TON
+const JETTON_MASTER = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs";
+// Use PINNED_ADDRESS_0 as Jetton wallet address fixture — any valid TON address works.
+const JETTON_WALLET_ADDR = PINNED_ADDRESS_0;
+
+/**
+ * Build a TonCenter v2 runGetMethod mock that dispatches on (address, method).
+ *
+ * Jetton sweep requires 3 distinct runGetMethod calls:
+ *   1. get_wallet_address on Jetton master → cell BOC of Jetton wallet
+ *   2. get_wallet_data on Jetton wallet → Jetton balance
+ *   3. seqno on V4R2 deposit wallet → sequence number
+ */
+function installJettonMock(opts: {
+  jettonWalletBoc: string; // base64 BOC of cell containing Jetton wallet address
+  jettonBalance: bigint;
+  nativeBalance: string;
+  nativeState?: string;
+  seqno?: number;
+  sendBocHash?: string;
+}) {
+  const fetchMock = vi.fn(async (url: string | URL | Request) => {
+    const u = String(url);
+    const params = new URL(u).searchParams;
+
+    if (u.includes("/getAddressInformation")) {
+      return new Response(
+        JSON.stringify({ ok: true, result: { balance: opts.nativeBalance, state: opts.nativeState ?? "active" } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (u.includes("/runGetMethod")) {
+      const address = params.get("address") ?? "";
+      const method = params.get("method") ?? "";
+
+      // get_wallet_address on Jetton master → cell BOC
+      if (address === JETTON_MASTER && method === "get_wallet_address") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: { stack: [["cell", { bytes: opts.jettonWalletBoc }]] },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      // get_wallet_data on Jetton wallet → [balance, ...]
+      if (method === "get_wallet_data") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              stack: [["num", { number: { number: opts.jettonBalance.toString() } }]],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      // seqno on V4R2 wallet
+      if (method === "seqno") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            result: {
+              stack: [["num", { number: { number: String(opts.seqno ?? 0) } }]],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+    }
+
+    if (u.includes("/sendBoc")) {
+      return new Response(
+        JSON.stringify({ ok: true, result: { "@type": "ok", hash: opts.sendBocHash ?? "jetton-tx-hash" } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 });
+  });
+  (globalThis as any).fetch = fetchMock;
+  return fetchMock;
+}
+
+/** Build a cell BOC for a TON address — mimics what get_wallet_address returns. */
+function addressToCellBoc(addr: string): string {
+  const { beginCell: bc, Address: A } = { beginCell, Address };
+  return bc().storeAddress(A.parse(addr)).endCell().toBoc().toString("base64");
+}
+
+describe("TON sweeper — Jetton (TEP-74) sweep", () => {
+  const WATCHED = PINNED_ADDRESS_0;
+  const TREASURY = "UQDVJucJT96vGh_bYm3e5uzenasiTOwA9orUHQiyhNsKmBrP";
+
+  function makeJettonOpts() {
+    return {
+      rpcUrl: "https://toncenter.com/api/v2",
+      rpcHeaders: {},
+      token: "USDT",
+      chain: "ton",
+      decimals: 6,
+      contractAddress: JETTON_MASTER,
+    };
+  }
+
+  it("scan: returns deposit with Jetton balance when Jetton wallet has balance", async () => {
+    installJettonMock({
+      jettonWalletBoc: addressToCellBoc(JETTON_WALLET_ADDR),
+      jettonBalance: 10_000_000n, // 10 USDT (6 decimals)
+      nativeBalance: "200000000", // 0.2 TON
+    });
     const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
-    const sweeper = new TonSweeper(
-      makeOpts({
-        token: "USDT",
-        decimals: 6,
-        contractAddress: "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
-      }),
+    const sweeper = new TonSweeper(makeJettonOpts());
+    const deposits = await sweeper.scan(
+      [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
+      TREASURY,
     );
-    expect(
-      await sweeper.scan(
-        [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
-        TREASURY,
-      ),
-    ).toEqual([]);
-    await expect(
-      sweeper.sweep(
-        [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
-        TREASURY,
-        false,
-      ),
-    ).rejects.toThrow(/#81/);
+    expect(deposits).toHaveLength(1);
+    expect(deposits[0].address).toBe(WATCHED);
+    expect(deposits[0].tokenBalances[0].balance).toBe(10_000_000n);
+    expect(deposits[0].tokenBalances[0].token).toBe("USDT");
+  });
+
+  it("scan: skips addresses with zero Jetton balance", async () => {
+    installJettonMock({
+      jettonWalletBoc: addressToCellBoc(JETTON_WALLET_ADDR),
+      jettonBalance: 0n,
+      nativeBalance: "200000000",
+    });
+    const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
+    const sweeper = new TonSweeper(makeJettonOpts());
+    const deposits = await sweeper.scan(
+      [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
+      TREASURY,
+    );
+    expect(deposits).toHaveLength(0);
+  });
+
+  it("scan: skips addresses with API error (undeployed Jetton wallet)", async () => {
+    (globalThis as any).fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: false, error: "Contract not deployed" }), { status: 200 }),
+    );
+    const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
+    const sweeper = new TonSweeper(makeJettonOpts());
+    const deposits = await sweeper.scan(
+      [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
+      TREASURY,
+    );
+    expect(deposits).toHaveLength(0);
+  });
+
+  it("sweep dry-run: returns Jetton amount, no sendBoc", async () => {
+    const fetchMock = installJettonMock({
+      jettonWalletBoc: addressToCellBoc(JETTON_WALLET_ADDR),
+      jettonBalance: 50_000_000n, // 50 USDT
+      nativeBalance: "300000000", // 0.3 TON — enough for gas
+    });
+    const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
+    const sweeper = new TonSweeper(makeJettonOpts());
+    const results = await sweeper.sweep(
+      [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
+      TREASURY,
+      /* dryRun */ true,
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].txHash).toBe("dry-run");
+    expect(results[0].amount).toBe("50000000");
+    // No sendBoc in dry-run
+    const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.includes("sendBoc"))).toBe(false);
+  });
+
+  it("sweep: skips addresses with insufficient TON for gas", async () => {
+    installJettonMock({
+      jettonWalletBoc: addressToCellBoc(JETTON_WALLET_ADDR),
+      jettonBalance: 10_000_000n,
+      nativeBalance: "50000000", // 0.05 TON — below MIN_TON_FOR_JETTON_SWEEP (0.15 TON)
+    });
+    const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
+    const sweeper = new TonSweeper(makeJettonOpts());
+    const results = await sweeper.sweep(
+      [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
+      TREASURY,
+      /* dryRun */ false,
+    );
+    expect(results).toHaveLength(0);
+  });
+
+  it("sweep broadcast: POSTs BOC containing Jetton transfer op", async () => {
+    const fetchMock = installJettonMock({
+      jettonWalletBoc: addressToCellBoc(JETTON_WALLET_ADDR),
+      jettonBalance: 100_000_000n, // 100 USDT
+      nativeBalance: "500000000", // 0.5 TON
+      nativeState: "active",
+      seqno: 3,
+      sendBocHash: "jetton-tx-abc",
+    });
+    const priv = derivePrivkey(TEST_SEED, [44, 607, 0]);
+    const sweeper = new TonSweeper(makeJettonOpts());
+    const results = await sweeper.sweep(
+      [{ address: WATCHED, index: 0, privateKey: priv, publicKey: ed25519.getPublicKey(priv) }],
+      TREASURY,
+      /* dryRun */ false,
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0].txHash).toBe("jetton-tx-abc");
+    expect(results[0].amount).toBe("100000000");
+
+    // Verify sendBoc was called with a valid BOC
+    const sendBocCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("sendBoc"));
+    expect(sendBocCall).toBeTruthy();
+    const boc = new URL(String((sendBocCall as unknown as [string])[0])).searchParams.get("boc") ?? "";
+    expect(() => Cell.fromBoc(Buffer.from(boc, "base64"))).not.toThrow();
+  });
+});
+
+describe("TON sweeper — Jetton message construction", () => {
+  it("buildJettonTransferBody encodes op + destination correctly", () => {
+    const dst = Address.parse(PINNED_ADDRESS_0);
+    const resp = Address.parse(PINNED_ADDRESS_0);
+    const body = buildJettonTransferBody({
+      queryId: 0n,
+      amount: 1_000_000n,
+      destination: dst,
+      responseDestination: resp,
+      forwardTonAmount: 50_000_000n,
+    });
+    const slice = body.beginParse();
+    expect(slice.loadUint(32)).toBe(0xf8a7ea5); // op
+    expect(slice.loadUintBig(64)).toBe(0n); // query_id
+    expect(slice.loadCoins()).toBe(1_000_000n); // amount
+    const parsedDst = slice.loadAddress();
+    expect(parsedDst.toString({ bounceable: false, urlSafe: true })).toBe(PINNED_ADDRESS_0);
+  });
+
+  it("buildJettonTransferInternalMsg wraps body in ref with correct bounce bit", () => {
+    const jettonWallet = Address.parse(PINNED_ADDRESS_0);
+    const treasury = Address.parse(PINNED_ADDRESS_0);
+    const deposit = Address.parse(PINNED_ADDRESS_0);
+    const msg = buildJettonTransferInternalMsg({
+      jettonWallet,
+      tonAmount: 100_000_000n,
+      jettonAmount: 5_000_000n,
+      destination: treasury,
+      responseDestination: deposit,
+      forwardTonAmount: 50_000_000n,
+    });
+    const slice = msg.beginParse();
+    expect(slice.loadUint(1)).toBe(0); // int_msg_info
+    slice.loadBit(); // ihr_disabled
+    const bounce = slice.loadBit();
+    expect(bounce).toBe(true); // bounceable
   });
 });
