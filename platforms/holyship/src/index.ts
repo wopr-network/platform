@@ -381,6 +381,7 @@ async function main() {
       flows: repos.flows,
       invocations: repos.invocations,
       workerToken: workerToken,
+      coreUrl: config.CORE_URL,
     }),
   );
 
