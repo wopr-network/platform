@@ -348,6 +348,7 @@ async function main() {
         tenantId,
         fleetManager: holyshipperFleetManager,
         invocationRepo: repos.invocations,
+        entityRepo: repos.entities,
         getGithubToken: async () => {
           if (!hasGitHubApp) return null;
           const installations = await installationRepo.listByTenant(tenantId);
