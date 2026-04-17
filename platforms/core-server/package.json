@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@wopr-network/platform-core": "workspace:*",
+    "@wopr-network/vault-client": "workspace:*",
     "winston": "^3.17.0"
   }
 }
