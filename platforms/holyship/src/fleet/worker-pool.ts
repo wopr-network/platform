@@ -14,7 +14,7 @@ import type { Engine } from "../engine/engine.js";
 import type { EngineEvent, IEventBusAdapter } from "../engine/event-types.js";
 import { logger } from "../logger.js";
 import { holyshipperContainers } from "../repositories/drizzle/schema.js";
-import type { IInvocationRepository } from "../repositories/interfaces.js";
+import type { IEntityRepository, IInvocationRepository } from "../repositories/interfaces.js";
 import type { IFleetManager, ProvisionConfig } from "./provision-holyshipper.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: cross-driver compat
@@ -36,6 +36,7 @@ export interface WorkerPoolConfig {
   tenantId: string;
   fleetManager: IFleetManager;
   invocationRepo: IInvocationRepository;
+  entityRepo: IEntityRepository;
   getGithubToken: () => Promise<string | null>;
   /** Max concurrent workers (containers). Default 4. */
   poolSize?: number;
@@ -47,6 +48,7 @@ export class WorkerPool implements IEventBusAdapter {
   private readonly tenantId: string;
   private readonly fleetManager: IFleetManager;
   private readonly invocationRepo: IInvocationRepository;
+  private readonly entityRepo: IEntityRepository;
   private readonly getGithubToken: () => Promise<string | null>;
   private readonly poolSize: number;
 
@@ -59,6 +61,7 @@ export class WorkerPool implements IEventBusAdapter {
     this.tenantId = config.tenantId;
     this.fleetManager = config.fleetManager;
     this.invocationRepo = config.invocationRepo;
+    this.entityRepo = config.entityRepo;
     this.getGithubToken = config.getGithubToken;
     this.poolSize = config.poolSize ?? 4;
     logger.info("[worker-pool] initialized", {
@@ -198,7 +201,16 @@ export class WorkerPool implements IEventBusAdapter {
     }
 
     const { prompt } = invocation;
-    const artifacts = invocation.artifacts ?? {};
+    // Artifacts live on the entity — createEntity() stores the caller payload
+    // (owner, repo, repoFullName, issueNumber, ...) via entityRepo.updateArtifacts.
+    // Invocations don't carry artifacts, so reading invocation.artifacts always
+    // yields {} and the worker provisions with blank owner/repo.
+    const entity = await this.entityRepo.get(entityId);
+    if (!entity) {
+      logger.error(`${tag} entity not found — aborting invocation`, { entityId, invocationId });
+      return;
+    }
+    const artifacts = entity.artifacts ?? {};
     const repoFullName = (artifacts.repoFullName as string) ?? "";
     const [owner = "", repo = ""] = repoFullName.includes("/") ? repoFullName.split("/") : ["", ""];
     const issueNumber = Number(artifacts.issueNumber) || 0;
