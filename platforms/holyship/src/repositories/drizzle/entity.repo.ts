@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, not } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, not } from "drizzle-orm";
 import { NotFoundError } from "../../errors.js";
 import type { Artifacts, Entity, IEntityRepository, Refs } from "../interfaces.js";
 import type { Db } from "./db-type.js";
@@ -74,6 +74,16 @@ export class DrizzleEntityRepository implements IEntityRepository {
       .select()
       .from(entities)
       .where(and(eq(entities.flowId, flowId), eq(entities.state, state), eq(entities.tenantId, this.tenantId)));
+    const rows = await (limit !== undefined ? query.limit(limit) : query);
+    return rows.map((r: typeof entities.$inferSelect) => this.toEntity(r));
+  }
+
+  async list(limit?: number): Promise<Entity[]> {
+    const query = this.db
+      .select()
+      .from(entities)
+      .where(eq(entities.tenantId, this.tenantId))
+      .orderBy(desc(entities.createdAt));
     const rows = await (limit !== undefined ? query.limit(limit) : query);
     return rows.map((r: typeof entities.$inferSelect) => this.toEntity(r));
   }

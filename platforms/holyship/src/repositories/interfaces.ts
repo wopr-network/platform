@@ -278,6 +278,10 @@ export interface IEntityRepository {
   /** Find entities in a given flow and state, up to an optional limit. */
   findByFlowAndState(flowId: string, state: string, limit?: number): Promise<Entity[]>;
 
+  /** List all entities for the tenant, newest first, up to an optional limit.
+   *  Used by the pipeline view which filters client-side by artifacts.repoFullName. */
+  list(limit?: number): Promise<Entity[]>;
+
   /** Return true if at least one entity exists in the given flow across any of the given states. */
   hasAnyInFlowAndState(flowId: string, stateNames: string[]): Promise<boolean>;
 

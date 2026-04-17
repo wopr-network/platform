@@ -58,6 +58,10 @@ export class EventSourcedEntityRepository implements IEntityRepository {
     return this.mutable.findByFlowAndState(flowId, state, limit);
   }
 
+  async list(limit?: number): Promise<Entity[]> {
+    return this.mutable.list(limit);
+  }
+
   async hasAnyInFlowAndState(flowId: string, stateNames: string[]): Promise<boolean> {
     return this.mutable.hasAnyInFlowAndState(flowId, stateNames);
   }
