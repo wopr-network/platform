@@ -77,6 +77,17 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - core_data:/data
+    # Same group_add pattern as node-agent: core's container user is non-root
+    # (the image's USER directive), so it can't read /var/run/docker.sock owned
+    # by root:docker. Without this, fleet.createContainer / Fleet.versionCheck /
+    # Fleet.cleanupWarmPool all fail with `connect EACCES /var/run/docker.sock`,
+    # which surfaces to holyship's tRPC client as `Unable to transform response
+    # from server` (because the error response isn't a tRPC envelope) — exactly
+    # what's happening on every engine→core fleet provision call right now.
+    # Default 999 = Debian/Ubuntu docker group; HOST_DOCKER_GID overrides if
+    # the droplet's docker group has a different gid.
+    group_add:
+      - ${HOST_DOCKER_GID:-999}
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:3001/health"]
       interval: 30s
