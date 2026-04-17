@@ -28,6 +28,11 @@ jobs:
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
+        with:
+          # Pin to match packageManager field in root package.json (pnpm@10.31.0).
+          # action-setup@v6's default pnpm is v11, which rejects our lockfileVersion: '9.0'
+          # with "broken lockfile: expected a single document in the stream, but found more".
+          version: 10
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
