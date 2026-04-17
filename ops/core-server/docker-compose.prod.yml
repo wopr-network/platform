@@ -68,6 +68,12 @@ services:
       CRYPTO_SERVICE_URL: ${CRYPTO_SERVICE_URL}
       CRYPTO_SERVICE_KEY: ${CRYPTO_SERVICE_KEY}
       TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.16.0.0/12}
+      # Vault — core resolves cloudflareCaddyDnsToken + other shared/* secrets
+      # via AppRole at boot. Without VAULT_ADDR set, resolveSecrets() falls back
+      # to dev-defaults (all cloudflare.* = null) and container.ts throws.
+      VAULT_ADDR: ${VAULT_ADDR}
+      VAULT_ROLE_ID: ${CORE_VAULT_ROLE_ID}
+      VAULT_SECRET_ID: ${CORE_VAULT_SECRET_ID}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - core_data:/data
