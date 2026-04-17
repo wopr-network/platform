@@ -87,7 +87,7 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
     // Path B: browser session cookie → ask core.
     const cookie = c.req.header("Cookie");
     if (!cookie || !deps.coreUrl) {
-      return c.json({ error: "Missing Authorization header" }, 401);
+      return c.json({ error: "Unauthorized — provide a worker token or a logged-in session cookie" }, 401);
     }
     try {
       const res = await fetch(`${deps.coreUrl}/api/auth/get-session`, {
