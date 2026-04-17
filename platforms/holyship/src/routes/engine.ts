@@ -32,8 +32,16 @@ function tokensMatch(a: string, b: string): boolean {
 export function createEngineRoutes(deps: EngineRouteDeps): Hono {
   const app = new Hono();
 
-  // Worker auth middleware
-  app.use("/*", async (c, next) => {
+  // Worker auth middleware — gates *write* routes (claim/report/fail/POST
+  // /entities) that mutate engine state. Read routes stay open so the UI can
+  // render pipeline / entity detail without minting a worker token per-user.
+  // Without this split, /api/engine/entities returns 401 from the browser
+  // (worker token only lives in Vault, never in the session), and the Pipeline
+  // view shows "No entities in the pipeline" even when work is in flight.
+  const requireWorkerToken = async (
+    c: Parameters<Parameters<typeof app.use>[1]>[0],
+    next: Parameters<Parameters<typeof app.use>[1]>[1],
+  ) => {
     if (!deps.workerToken) return next();
     const auth = c.req.header("Authorization");
     if (!auth) return c.json({ error: "Missing Authorization header" }, 401);
@@ -45,7 +53,13 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
       return c.json({ error: "Invalid token" }, 403);
     }
     return next();
-  });
+  };
+  app.use("/claim", requireWorkerToken);
+  app.use("/flows/:flow/claim", requireWorkerToken);
+  app.use("/entities/:id/report", requireWorkerToken);
+  app.use("/entities/:id/fail", requireWorkerToken);
+  // POST /entities shares its path with GET /entities, so we can't use .use() —
+  // apply the middleware inline on the POST handler below.
 
   // POST /claim — claim next available entity (any flow)
   app.post("/claim", async (c) => {
@@ -137,7 +151,7 @@ export function createEngineRoutes(deps: EngineRouteDeps): Hono {
   });
 
   // POST /entities — create entity (admin/testing)
-  app.post("/entities", async (c) => {
+  app.post("/entities", requireWorkerToken, async (c) => {
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const flow = (body.flow as string) ?? "engineering";
     const refs = (body.refs as Record<string, unknown>) ?? {};
