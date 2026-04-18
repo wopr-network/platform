@@ -395,8 +395,13 @@ export class InstanceService {
       readonlyRootfs: params.readonlyRootfs,
       network: params.network,
     });
-    // Start the container — fleet.create() only creates, doesn't start
-    await instance.start();
+    // NOTE: no explicit instance.start() — Fleet.create() enqueues `bot.start`
+    // which dockerManager.startBot() handles in a single create-and-start step
+    // on the node-agent. Previously this called `instance.start()` directly,
+    // which always threw `Instance <id>: Docker not available — use command
+    // bus` on the core-side caller (Instance constructed from the queue result
+    // has no `docker` field; it's a value object for core, not a live handle).
+    // That broke every engine→core fleet.createContainer invocation.
 
     // Generate per-instance gateway service key for metered billing
     let gatewayKey: string | null = null;
