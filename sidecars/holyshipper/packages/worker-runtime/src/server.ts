@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import type { IncomingMessage, RequestListener, ServerResponse } from "node:http";
 import { join } from "node:path";
@@ -162,6 +162,30 @@ async function resolveGhToken(): Promise<string | null> {
   return null;
 }
 
+/**
+ * Return the first existing subdirectory under `parent`, or null if none.
+ * Used to anchor the OpenCode session cwd at the cloned repo worktree —
+ * when an entity has only one repo (the common case), this hits directly;
+ * multi-repo entities land on the first alphabetically.
+ */
+function firstExistingSubdir(parent: string): string | null {
+  try {
+    if (!existsSync(parent)) return null;
+    const entries = readdirSync(parent).sort();
+    for (const name of entries) {
+      const full = join(parent, name);
+      try {
+        if (statSync(full).isDirectory()) return full;
+      } catch {
+        // skip unreadable entries
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promise<void> {
   let body: string;
   try {
@@ -228,11 +252,26 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
       ocSessionId = sessionId;
       logger.info(`[dispatch] resuming OpenCode session`, { sessionId });
     } else {
-      const createRes = await client.session.create({
-        body: {
-          title: `holyshipper-${randomUUID().slice(0, 8)}`,
-        },
-      });
+      // Anchor OpenCode's cwd at the cloned repo worktree when we know the
+      // entity id. Without this, the session's cwd defaults to /app (the
+      // holyshipper runtime) and the agent's bash tools run `ls -la`, `git
+      // log`, etc. against the opencode source tree rather than the target
+      // repo — observed on prod: 36 SSE events, all `bash: ls -la` against
+      // /app, no gh invocations, no comment posted.
+      const entityId = process.env.HOLYSHIP_ENTITY_ID;
+      const workspace = process.env.HOLYSHIPPER_WORKSPACE ?? "/workspace";
+      const sessionBody: { title: string; directory?: string } = {
+        title: `holyshipper-${randomUUID().slice(0, 8)}`,
+      };
+      if (entityId) {
+        // Checkout handler clones repos under <workspace>/<entityId>/<repoName>.
+        // Default to the first repo subdirectory that exists; the agent can
+        // `cd` from there if the entity involves multiple repos.
+        const entityDir = join(workspace, entityId);
+        const defaultRepo = firstExistingSubdir(entityDir);
+        if (defaultRepo) sessionBody.directory = defaultRepo;
+      }
+      const createRes = await client.session.create({ body: sessionBody });
       if (createRes.error) {
         throw new Error(`Failed to create session: ${JSON.stringify(createRes.error)}`);
       }
@@ -240,6 +279,7 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
       logger.info(`[dispatch] created OpenCode session`, {
         sessionId: ocSessionId,
         title: createRes.data.title,
+        directory: sessionBody.directory ?? "(default)",
       });
     }
     resolvedSessionId = ocSessionId;
