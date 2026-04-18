@@ -119,6 +119,48 @@ export class WorkerPool implements IEventBusAdapter {
     return recovered;
   }
 
+  /**
+   * Drain entities that sit in an active state with no pending invocation.
+   *
+   * If a prior deploy transitioned an entity (e.g. spec→code) but skipped
+   * invocation creation because checkConcurrency was pinned by stale rows,
+   * the entity is stuck — no event will ever fire for it. engine.claimWork
+   * falls back (step 8) to claiming the entity and creating the missing
+   * invocation, which in turn emits invocation.created and feeds the pool
+   * through the normal path. Call this after completion-fix deploys to
+   * recover those orphans; capped at 2× poolSize to stay bounded.
+   */
+  async drainStuckEntities(): Promise<number> {
+    const cap = this.poolSize * 2;
+    let claimed = 0;
+    for (let i = 0; i < cap; i++) {
+      const result = await this.engine.claimWork("engineering").catch((err) => {
+        logger.warn("[worker-pool] drainStuckEntities: claimWork threw — stopping", {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return null;
+      });
+      if (!result || typeof result !== "object") break;
+      claimed++;
+      const syntheticEvent = {
+        type: "invocation.created" as const,
+        entityId: result.entityId,
+        invocationId: result.invocationId,
+        stage: result.stage,
+        emittedAt: new Date(),
+      };
+      if (this.activeWorkers < this.poolSize) {
+        void this.runWorker(syntheticEvent);
+      } else {
+        this.pending.push(syntheticEvent);
+      }
+    }
+    if (claimed > 0) {
+      logger.info("[worker-pool] drainStuckEntities: claimed and dispatched", { count: claimed });
+    }
+    return claimed;
+  }
+
   async emit(event: EngineEvent): Promise<void> {
     logger.debug("[worker-pool] event received", {
       type: event.type,

@@ -367,12 +367,15 @@ async function main() {
       logger.info("Reactive worker pool registered (4 slots)");
 
       // Re-emit invocation.created for invocations that were unclaimed when
-      // this process last exited. Without this, every deploy leaves those
-      // invocations stranded — the reactive pool only wakes on new events.
+      // this process last exited, then drain entities stuck in an active
+      // state without a pending invocation. Without these, every deploy
+      // leaves work stranded — the reactive pool only wakes on new events.
       void workerPool
         .recoverUnclaimed()
-        .then((count) => {
+        .then(async (count) => {
           if (count > 0) logger.info(`Worker pool recovered ${count} stranded invocation(s) from previous run`);
+          const drained = await workerPool.drainStuckEntities();
+          if (drained > 0) logger.info(`Worker pool drained ${drained} stuck entity/entities from previous run`);
         })
         .catch((err) =>
           logger.warn("Worker pool recovery failed (non-fatal)", {
