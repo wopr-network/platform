@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { queryKeys } from "../lib/queryKeys";
 import { IssueWorkspaceCard } from "./IssueWorkspaceCard";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -120,6 +121,7 @@ export function RoutineRunVariablesDialog({
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [workspaceConfig, setWorkspaceConfig] = useState(() => buildInitialWorkspaceConfig(project));
   const [workspaceConfigValid, setWorkspaceConfigValid] = useState(true);
+  const { isHosted } = useHostedMode();
 
   const { data: experimentalSettings } = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
@@ -127,7 +129,7 @@ export function RoutineRunVariablesDialog({
     retry: false,
   });
 
-  const workspaceSelectionEnabled = supportsRoutineRunWorkspaceSelection(
+  const workspaceSelectionEnabled = !isHosted && supportsRoutineRunWorkspaceSelection(
     project,
     experimentalSettings?.enableIsolatedWorkspaces === true,
   );
