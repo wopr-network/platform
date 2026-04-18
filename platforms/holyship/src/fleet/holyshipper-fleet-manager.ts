@@ -184,7 +184,12 @@ export class HolyshipperFleetManager implements IFleetManager {
   // Private helpers (direct HTTP to holyshipper container — not through core)
   // ---------------------------------------------------------------------------
 
-  private async waitForReady(runnerUrl: string, botName: string, timeoutMs = 30_000): Promise<void> {
+  // Bumped from 30s to 90s. Observed: prod containers routinely need
+  // 30-50s to pull the image + start the worker-runtime HTTP server on
+  // cold deploys. 30s caused every first-provision-after-deploy to fail
+  // (reviewer invocation on a41bad08 hit this). createContainer was
+  // already bumped to 90s in #143 — this matches that budget.
+  private async waitForReady(runnerUrl: string, botName: string, timeoutMs = 90_000): Promise<void> {
     const start = Date.now();
     const interval = 1000;
 
