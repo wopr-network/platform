@@ -252,6 +252,10 @@ export const GATES: CreateGateInput[] = [
     primitiveOp: "vcs.pr_ci_status",
     primitiveParams: {
       pullNumber: "{{entity.artifacts.prNumber}}",
+      // Fallback discovery for entities whose coder ran before the
+      // "PR created: <url>" signal requirement existed — the primitive
+      // searches open PRs for one referencing this issue.
+      issueNumber: "{{entity.artifacts.issueNumber}}",
     },
     timeoutMs: 600_000, // 10 minutes — CI can be slow
     failurePrompt:
