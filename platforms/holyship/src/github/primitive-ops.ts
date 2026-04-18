@@ -17,8 +17,28 @@ export type GateOpResult = { outcome: string; message?: string } & Record<string
  * need headSha pre-populated in artifacts (coder output only gives us prNumber
  * via the parse-signal regex).
  */
-export async function checkPrCiStatus(ctx: GitHubGateContext, params: { pullNumber: number }): Promise<GateOpResult> {
-  const prRes = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls/${params.pullNumber}`, {
+export async function checkPrCiStatus(
+  ctx: GitHubGateContext,
+  params: { pullNumber?: number | string; issueNumber?: number | string },
+): Promise<GateOpResult> {
+  // Resolve a concrete PR number. If prNumber wasn't populated in the entity
+  // artifacts (e.g. pre-fix coder runs), fall back to discovering a PR by
+  // searching open PRs and matching issueNumber mentions in the PR body.
+  let prNumber = Number(params.pullNumber);
+  let discovered = false;
+  if (!Number.isFinite(prNumber) || prNumber <= 0) {
+    const issueNumber = Number(params.issueNumber);
+    if (!Number.isFinite(issueNumber) || issueNumber <= 0) {
+      return { outcome: "pending", message: "No prNumber or issueNumber to resolve PR" };
+    }
+    const found = await discoverPrForIssue(ctx, issueNumber);
+    if (!found) {
+      return { outcome: "pending", message: `No open PR found referencing issue #${issueNumber}` };
+    }
+    prNumber = found;
+    discovered = true;
+  }
+  const prRes = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls/${prNumber}`, {
     headers: {
       Authorization: `Bearer ${ctx.token}`,
       Accept: "application/vnd.github+json",
@@ -32,6 +52,7 @@ export async function checkPrCiStatus(ctx: GitHubGateContext, params: { pullNumb
   const baseResult = await checkCiStatus(ctx, { ref: pr.head.sha });
   return {
     ...baseResult,
+    message: discovered ? `${baseResult.message ?? ""} (discovered PR #${pr.number})` : baseResult.message,
     artifacts: {
       ...((baseResult.artifacts as Record<string, unknown>) ?? {}),
       headSha: pr.head.sha,
@@ -40,6 +61,33 @@ export async function checkPrCiStatus(ctx: GitHubGateContext, params: { pullNumb
       prUrl: pr.html_url,
     },
   };
+}
+
+/**
+ * Find an open PR that references the given issue number via a GitHub
+ * close-keyword (Fixes/Closes/Resolves — or Fix/Close/Resolve — followed by
+ * `#N` or a full `issues/N` URL). Requiring the keyword avoids matching
+ * unrelated PRs that merely mention the issue ("see #20", "similar to #20").
+ *
+ * Scans up to 100 open PRs — fine for our low-volume target repos. If we
+ * ever point this at a high-volume repo we'll want pagination with a cap.
+ */
+async function discoverPrForIssue(ctx: GitHubGateContext, issueNumber: number): Promise<number | null> {
+  const res = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls?state=open&per_page=100`, {
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) return null;
+  const prs = (await res.json()) as Array<{ number: number; body: string | null; title: string }>;
+  const needle = new RegExp(`(?:fix|clos|resolv)(?:e[sd]?|ing)?\\s*:?\\s*(?:#|issues/)${issueNumber}\\b`, "i");
+  for (const pr of prs) {
+    const haystack = `${pr.title}\n${pr.body ?? ""}`;
+    if (needle.test(haystack)) return pr.number;
+  }
+  return null;
 }
 
 /** Check CI status on a commit or PR head. */

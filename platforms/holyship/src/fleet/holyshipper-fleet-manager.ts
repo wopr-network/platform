@@ -86,7 +86,10 @@ export class HolyshipperFleetManager implements IFleetManager {
     // pinned activeInvocations=1 indefinitely and blocked all subsequent
     // entity claims.
     let instance: { id: string; url: string; containerId: string; name: string; gatewayKey: string | null };
-    const abort = AbortSignal.timeout(30_000);
+    // Bumped from 30s to 90s: on VPS disk crunch / registry re-pulls the
+    // createContainer mutate can legitimately take >30s for cold images.
+    // The hang-forever protection is still there, just more generous.
+    const abort = AbortSignal.timeout(90_000);
     try {
       logger.info("[fleet] calling core.fleet.createContainer", {
         botName,
