@@ -165,14 +165,20 @@ export const PRODUCT_PRESETS: Record<string, ProductPreset> = {
     homePath: "/dashboard",
     storagePrefix: "holyship",
     marginDefault: 4,
+    // Holyship runs an agentic coding pipeline (architect/coder/reviewer) —
+    // the free-model cascade from the shared preset was routing coder
+    // requests to xiaomi/mimo-v2-pro which returned 402 (processing_error),
+    // so every coder ran for 10s with 0 tokens and 0 output. Put the
+    // Anthropic models the holyshipper MODEL_MAP dispatches against first
+    // so the gateway respects the client-selected tier. Free fallbacks
+    // remain as last-resort only.
     modelPriority: [
-      "qwen/qwen3.6-plus:free",
-      "openai/gpt-oss-120b:free",
-      "minimax/minimax-m2.5:free",
+      "anthropic/claude-sonnet-4-6",
+      "anthropic/claude-haiku-4-5",
+      "anthropic/claude-opus-4-6",
+      "deepseek/deepseek-v3.2",
       "xiaomi/mimo-v2-pro",
       "minimax/minimax-m2.7",
-      "stepfun/step-3.5-flash:free",
-      "nvidia/nemotron-3-super-120b-a12b:free",
       "qwen/qwen3.6-plus",
     ],
     navItems: [
