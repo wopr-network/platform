@@ -38,13 +38,36 @@ export async function checkPrCiStatus(
     prNumber = found;
     discovered = true;
   }
-  const prRes = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls/${prNumber}`, {
+  let prRes = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls/${prNumber}`, {
     headers: {
       Authorization: `Bearer ${ctx.token}`,
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });
+  // 404 = the recorded prNumber doesn't exist in THIS repo (e.g. the coder
+  // echoed an example URL from another repo). Retry via discovery if we have
+  // an issueNumber. Covers the prompt-example-leak failure mode without
+  // requiring a manual artifact rewrite.
+  if (
+    prRes.status === 404 &&
+    !discovered &&
+    Number.isFinite(Number(params.issueNumber)) &&
+    Number(params.issueNumber) > 0
+  ) {
+    const rediscovered = await discoverPrForIssue(ctx, Number(params.issueNumber));
+    if (rediscovered) {
+      prNumber = rediscovered;
+      discovered = true;
+      prRes = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls/${prNumber}`, {
+        headers: {
+          Authorization: `Bearer ${ctx.token}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      });
+    }
+  }
   if (!prRes.ok) {
     return { outcome: "error", message: `GitHub API error fetching PR: ${prRes.status}` };
   }

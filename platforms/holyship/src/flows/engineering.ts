@@ -104,12 +104,15 @@ cd github && gh issue comment {{entity.artifacts.issueNumber}} --body-file /tmp/
 3. Run the project's CI gate locally before pushing (lint, build, test).
 4. Create a pull request with a clear description.
 5. **Emit the pr_created signal.** The absolute last line of your response MUST be this
-   exact line (the pipeline parses it to learn the PR number and URL):
+   exact line, using the real PR URL you just opened (the pipeline parses it to learn
+   the PR number and URL):
 
-       PR created: <full-html-url>
+       PR created: <the-actual-github-pull-url-you-opened>
 
-   Example: \`PR created: https://github.com/wopr-network/platform/pull/137\`
-   If you skip this, the pipeline cannot advance the entity and your work stays pending.`,
+   Replace the placeholder with the full URL that \`gh pr create\` returned. Do NOT copy
+   an example URL from these instructions — the pipeline will believe whatever you write,
+   so a fake URL will stall the entity. If you skip this line, the pipeline cannot advance
+   the entity and your work stays pending.`,
   },
   {
     name: "review",
