@@ -8,7 +8,7 @@
  * via the pipeline configurator (toggle stages, add approval checkpoints).
  */
 
-import type { IFlowRepository, IGateRepository } from "../repositories/interfaces.js";
+import type { Flow, IFlowRepository, IGateRepository } from "../repositories/interfaces.js";
 import { ENGINEERING_FLOW, GATE_WIRING, GATES, STATES, TRANSITIONS } from "./engineering.js";
 
 export async function provisionEngineeringFlow(
@@ -18,12 +18,14 @@ export async function provisionEngineeringFlow(
   // Check if already provisioned (idempotent)
   const existing = await flowRepo.getByName(ENGINEERING_FLOW.name);
   if (existing) {
-    // Reconcile gate definitions so primitiveOp/params and prompts stay in
-    // sync with source. Without this, any change to a gate in engineering.ts
-    // silently diverges from prod because provision short-circuits on the
-    // "already created" check. Only the updatable fields are touched; gate
-    // IDs (and therefore transition wiring) are preserved.
+    // Reconcile gate AND state definitions so primitiveOp/params, prompts,
+    // and state prompt templates stay in sync with source. Without this,
+    // any change in engineering.ts silently diverges from prod because
+    // provision short-circuits on "already created". Only mutable fields
+    // are touched; state/gate IDs (and therefore transition wiring) are
+    // preserved.
     await reconcileGates(gateRepo);
+    await reconcileStates(flowRepo, existing);
     return { flowId: existing.id };
   }
 
@@ -68,6 +70,29 @@ async function reconcileGates(gateRepo: IGateRepository): Promise<void> {
       failurePrompt: gate.failurePrompt ?? null,
       timeoutPrompt: gate.timeoutPrompt ?? null,
       outcomes: gate.outcomes ?? null,
+    });
+  }
+}
+
+async function reconcileStates(flowRepo: IFlowRepository, flow: Flow): Promise<void> {
+  // `flow` comes from getByName(), which already hydrates states[] — no need
+  // to re-fetch. Name isn't in the payload because byName matched on it and
+  // the DB row's name already equals state.name; writing it back every boot
+  // is pointless churn.
+  const byName = new Map(flow.states.map((s) => [s.name, s]));
+  for (const state of STATES) {
+    const existing = byName.get(state.name);
+    if (!existing) continue; // new states get created on next clean provision
+    await flowRepo.updateState(existing.id, {
+      agentRole: state.agentRole ?? null,
+      modelTier: state.modelTier ?? null,
+      mode: state.mode,
+      promptTemplate: state.promptTemplate ?? null,
+      constraints: state.constraints ?? null,
+      onEnter: state.onEnter ?? null,
+      onExit: state.onExit ?? null,
+      retryAfterMs: state.retryAfterMs ?? null,
+      meta: state.meta ?? null,
     });
   }
 }
