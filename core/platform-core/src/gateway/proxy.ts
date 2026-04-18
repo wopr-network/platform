@@ -68,6 +68,13 @@ function shouldFallback(status: number): boolean {
 
 /** Upstream request timeout (60s). */
 const UPSTREAM_TIMEOUT_MS = 60_000;
+/**
+ * Clamp max_tokens to this value. OpenRouter returns HTTP 402 when a
+ * request's max_tokens exceeds the account's weekly budget per-call limit.
+ * OpenCode defaults to 32000 which far exceeds what the current plan allows.
+ * 4096 is enough for per-turn agent reasoning + tool calls.
+ */
+const MAX_TOKENS_CAP = 4096;
 
 /**
  * Record an incident and inject the ID into the error body.
@@ -343,6 +350,15 @@ export function chatCompletions(deps: ProxyDeps) {
       parsedBody = JSON.parse(rawBody) as typeof parsedBody;
       isStreaming = parsedBody?.stream === true;
       requestModel = parsedBody?.model;
+      // Clamp max_tokens to avoid OpenRouter HTTP 402 when a client requests
+      // more tokens than the account's weekly budget allows. OpenCode defaults
+      // to 32000 which exceeds our current OpenRouter weekly limit; every
+      // coder dispatch 402s and the agent returns an empty message. 4096 is
+      // plenty for agent reasoning per turn and fits the budget. If a caller
+      // needs more, they can bump their OpenRouter plan.
+      if (parsedBody && typeof parsedBody.max_tokens === "number" && parsedBody.max_tokens > MAX_TOKENS_CAP) {
+        parsedBody.max_tokens = MAX_TOKENS_CAP;
+      }
     } catch {
       // Not valid JSON, assume non-streaming
     }
