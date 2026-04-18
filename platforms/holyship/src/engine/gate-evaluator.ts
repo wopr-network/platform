@@ -79,11 +79,25 @@ export async function evaluateGate(
       return result;
     }
     try {
-      // Render Handlebars templates in primitiveParams
+      // Render Handlebars templates in primitiveParams. Per-param try/catch:
+      // strict-mode Handlebars throws when an artifact reference is undefined
+      // (e.g. {{entity.artifacts.prNumber}} before the coder has emitted its
+      // signal). A single missing artifact should not turn a recoverable
+      // "pending" into a hard gate error — primitives that accept optional
+      // params will pick up the fallback logic (e.g. issueNumber-based PR
+      // discovery). Failed params are passed through as undefined.
       const hbs = (await import("./handlebars.js")).getHandlebars();
       const renderedParams: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(gate.primitiveParams ?? {})) {
-        renderedParams[key] = typeof val === "string" ? hbs.compile(val)({ entity }) : val;
+        if (typeof val !== "string") {
+          renderedParams[key] = val;
+          continue;
+        }
+        try {
+          renderedParams[key] = hbs.compile(val)({ entity });
+        } catch {
+          renderedParams[key] = undefined;
+        }
       }
       const opResult = await primitiveOpHandler(gate.primitiveOp, renderedParams, entity);
       const outcome = opResult.outcome;
