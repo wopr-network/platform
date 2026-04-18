@@ -531,7 +531,18 @@ export interface IGateRepository {
   update(
     id: string,
     changes: Partial<
-      Pick<Gate, "command" | "functionRef" | "apiConfig" | "timeoutMs" | "failurePrompt" | "timeoutPrompt" | "outcomes">
+      Pick<
+        Gate,
+        | "command"
+        | "functionRef"
+        | "apiConfig"
+        | "timeoutMs"
+        | "failurePrompt"
+        | "timeoutPrompt"
+        | "outcomes"
+        | "primitiveOp"
+        | "primitiveParams"
+      >
     >,
   ): Promise<Gate>;
 

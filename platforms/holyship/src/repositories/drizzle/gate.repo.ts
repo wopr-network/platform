@@ -111,7 +111,18 @@ export class DrizzleGateRepository implements IGateRepository {
   async update(
     id: string,
     changes: Partial<
-      Pick<Gate, "command" | "functionRef" | "apiConfig" | "timeoutMs" | "failurePrompt" | "timeoutPrompt">
+      Pick<
+        Gate,
+        | "command"
+        | "functionRef"
+        | "apiConfig"
+        | "timeoutMs"
+        | "failurePrompt"
+        | "timeoutPrompt"
+        | "outcomes"
+        | "primitiveOp"
+        | "primitiveParams"
+      >
     >,
   ): Promise<Gate> {
     await this.db.update(gateDefinitions).set(changes).where(eq(gateDefinitions.id, id));

@@ -103,7 +103,13 @@ cd github && gh issue comment {{entity.artifacts.issueNumber}} --body-file /tmp/
 2. Write clean, tested code.
 3. Run the project's CI gate locally before pushing (lint, build, test).
 4. Create a pull request with a clear description.
-5. When the PR is created, you're done. The pipeline will detect the PR and verify CI.`,
+5. **Emit the pr_created signal.** The absolute last line of your response MUST be this
+   exact line (the pipeline parses it to learn the PR number and URL):
+
+       PR created: <full-html-url>
+
+   Example: \`PR created: https://github.com/wopr-network/platform/pull/137\`
+   If you skip this, the pipeline cannot advance the entity and your work stays pending.`,
   },
   {
     name: "review",
@@ -237,9 +243,15 @@ export const GATES: CreateGateInput[] = [
   {
     name: "ci-green",
     type: "primitive",
-    primitiveOp: "vcs.ci_status",
+    // Use vcs.pr_ci_status (takes pullNumber) rather than vcs.ci_status (which
+    // required headSha). The coder's output only gives us prNumber via the
+    // parse-signal regex; looking up head sha inside the primitive avoids a
+    // chicken-and-egg where the gate template needs an artifact that hasn't
+    // been populated yet. The primitive also returns headSha/headBranch as
+    // artifacts so downstream gates (pr-updated, etc.) can use them.
+    primitiveOp: "vcs.pr_ci_status",
     primitiveParams: {
-      ref: "{{entity.artifacts.headSha}}",
+      pullNumber: "{{entity.artifacts.prNumber}}",
     },
     timeoutMs: 600_000, // 10 minutes — CI can be slow
     failurePrompt:
