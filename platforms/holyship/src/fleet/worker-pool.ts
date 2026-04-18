@@ -70,6 +70,45 @@ export class WorkerPool implements IEventBusAdapter {
     });
   }
 
+  /**
+   * Re-emit invocation.created for every unclaimed active invocation.
+   *
+   * The pool is reactive — it only schedules work when it receives an
+   * invocation.created event. A restart (every prod deploy) drops that queue
+   * on the floor: invocations created before the restart sit unclaimed
+   * forever, because no new event ever fires for them. This method walks the
+   * DB once at boot and synthesizes the missing events so pre-restart work
+   * drains.
+   */
+  async recoverUnclaimed(): Promise<number> {
+    let unclaimed: Awaited<ReturnType<IInvocationRepository["findUnclaimedActive"]>>;
+    try {
+      unclaimed = await this.invocationRepo.findUnclaimedActive();
+    } catch (err) {
+      logger.error("[worker-pool] recoverUnclaimed: findUnclaimedActive failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return 0;
+    }
+    if (unclaimed.length === 0) {
+      logger.info("[worker-pool] recoverUnclaimed: no stranded invocations");
+      return 0;
+    }
+    logger.info("[worker-pool] recoverUnclaimed: re-emitting invocation.created", {
+      count: unclaimed.length,
+    });
+    for (const inv of unclaimed) {
+      await this.emit({
+        type: "invocation.created",
+        entityId: inv.entityId,
+        invocationId: inv.id,
+        stage: inv.stage,
+        emittedAt: new Date(),
+      });
+    }
+    return unclaimed.length;
+  }
+
   async emit(event: EngineEvent): Promise<void> {
     logger.debug("[worker-pool] event received", {
       type: event.type,
