@@ -49,7 +49,7 @@ export const STATES: CreateStateInput[] = [
     agentRole: "architect",
     modelTier: "sonnet",
     mode: "active",
-    promptTemplate: `You are an architect. Read the codebase, analyze the issue, and write a detailed implementation spec.
+    promptTemplate: `You are an architect. Read the codebase, analyze the issue, then POST the spec to the GitHub issue as a comment using the bash tool.
 
 ## Issue
 #{{entity.artifacts.issueNumber}}: {{entity.artifacts.issueTitle}}
@@ -60,11 +60,23 @@ export const STATES: CreateStateInput[] = [
 {{entity.artifacts.repoFullName}}
 
 ## Instructions
-1. Read the codebase thoroughly. Understand existing patterns, conventions, and architecture.
+
+1. Read the codebase under \`github/\` thoroughly. Understand existing patterns, conventions, and architecture.
 2. Identify which files to create, modify, or delete.
 3. Specify function signatures, data structures, and test cases.
-4. Post the spec as a comment on the issue. The comment MUST start with the exact heading "## Implementation Spec".
-5. When you've posted the spec, you're done. The pipeline will verify it was posted.`,
+4. **POST the spec to the GitHub issue using the bash tool.** Writing the spec as text in your response is not enough — it must be posted as a comment. Write the spec to a temp file, then run \`gh\`:
+
+\`\`\`bash
+cat > /tmp/spec.md <<'SPEC'
+## Implementation Spec
+
+<your detailed spec here — overview, files to touch, acceptance criteria>
+SPEC
+cd github && gh issue comment {{entity.artifacts.issueNumber}} --body-file /tmp/spec.md
+\`\`\`
+
+5. The first line of the comment MUST be exactly \`## Implementation Spec\` — the pipeline gate checks for that heading.
+6. After \`gh\` succeeds, you're done. Do NOT paste the spec text in your response; the posting IS the spec.`,
   },
   {
     name: "code",
