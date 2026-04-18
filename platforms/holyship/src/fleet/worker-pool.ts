@@ -379,6 +379,7 @@ export class WorkerPool implements IEventBusAdapter {
           body: text.slice(0, 500),
           dispatchMs,
         });
+        await this.markFailed(invocationId, tag, entityId, `dispatch HTTP ${res.status}: ${text.slice(0, 200)}`);
         await this.teardown(dbRecordId, containerId, tag, entityId);
         return;
       }
@@ -420,6 +421,7 @@ export class WorkerPool implements IEventBusAdapter {
           eventTypes: sseEvents.map((e) => e.type),
           rawBody: body.slice(0, 2000),
         });
+        await this.markFailed(invocationId, tag, entityId, "no result event in SSE stream");
         await this.teardown(dbRecordId, containerId, tag, entityId);
         return;
       }
@@ -436,7 +438,24 @@ export class WorkerPool implements IEventBusAdapter {
         stopReason: resultEvent.stopReason,
       });
 
-      // 5. Gate-driven transition: engine evaluates all outgoing gates to
+      // 5. Close the triggering invocation BEFORE gate-driven transition so
+      // the concurrency check for the next-state invocation doesn't count
+      // this one as still-pending. (Mirrors DirectFlowEngine.report() which
+      // completes, then processes the signal.) If we skip this, successful
+      // architect runs never mark their row complete — findUnclaimedActive
+      // keeps returning them, recovery re-dispatches on every boot, and
+      // checkConcurrency refuses to create coder invocations because the
+      // stale rows pin maxConcurrent.
+      try {
+        await this.invocationRepo.complete(invocationId, agentSignal || "agent_output", resultArtifacts);
+      } catch (err) {
+        logger.warn(`${tag} invocation.complete failed (non-fatal)`, {
+          invocationId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+
+      // 6. Gate-driven transition: engine evaluates all outgoing gates to
       // determine what happened, then falls back to fuzzy signal matching.
       // Agent output format is irrelevant — gates check external systems.
       logger.info(`${tag} evaluating gates for transition`, { entityId });
@@ -459,10 +478,28 @@ export class WorkerPool implements IEventBusAdapter {
         error: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined,
       });
+      await this.markFailed(
+        invocationId,
+        tag,
+        entityId,
+        `dispatch: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
-    // 6. Teardown — processSignal is sync so gates are done
+    // 7. Teardown — processSignal is sync so gates are done
     await this.teardown(dbRecordId, containerId, tag, entityId);
+  }
+
+  private async markFailed(invocationId: string, tag: string, entityId: string, reason: string): Promise<void> {
+    try {
+      await this.invocationRepo.fail(invocationId, reason);
+    } catch (err) {
+      logger.warn(`${tag} invocation.fail failed`, {
+        invocationId,
+        entityId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   private async teardown(dbRecordId: string, containerId: string, tag: string, entityId: string): Promise<void> {
