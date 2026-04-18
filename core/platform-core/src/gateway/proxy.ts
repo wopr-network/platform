@@ -70,11 +70,15 @@ function shouldFallback(status: number): boolean {
 const UPSTREAM_TIMEOUT_MS = 60_000;
 /**
  * Clamp max_tokens to this value. OpenRouter returns HTTP 402 when a
- * request's max_tokens exceeds the account's weekly budget per-call limit.
- * OpenCode defaults to 32000 which far exceeds what the current plan allows.
- * 4096 is enough for per-turn agent reasoning + tool calls.
+ * request's max_tokens exceeds the account's *remaining weekly credit*
+ * per-call limit. OpenCode defaults to 32000 which far exceeds anything
+ * reasonable. We observed OpenRouter's budget-allowed cap bouncing between
+ * 2380-2385 tokens on the current plan. 2000 is below that ceiling so
+ * requests actually go through, while still giving the agent enough per-turn
+ * output for tool use + short replies. Raise this once OpenRouter weekly
+ * budget is increased.
  */
-const MAX_TOKENS_CAP = 4096;
+const MAX_TOKENS_CAP = 2000;
 
 /**
  * Record an incident and inject the ID into the error body.
