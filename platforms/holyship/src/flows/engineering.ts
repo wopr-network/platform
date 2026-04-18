@@ -266,7 +266,12 @@ export const GATES: CreateGateInput[] = [
     timeoutPrompt: "CI checks are still running after 10 minutes. They may be queued or slow. The pipeline will retry.",
     outcomes: {
       passed: { proceed: true },
-      pending: { toState: "review" }, // retry — CI still running
+      // No routing for pending — entity stays in code, gate retries on the
+      // next invocation event (new coder run, reaper wake, etc). Previously
+      // pending → {toState: "review"} generated the signal
+      // "gate:ci-green:pending" but no matching transition existed, which
+      // crashed evaluateAndTransition with ValidationError every retry.
+      pending: {},
       failed: { toState: "fix" },
     },
   },
@@ -355,6 +360,11 @@ export const TRANSITIONS: CreateTransitionInput[] = [
 
   // code → review (gated: CI must be green)
   { fromState: "code", toState: "review", trigger: "pr_created", priority: 0 },
+  // ci-green gate "failed" outcome redirects to fix. resolveGate() generates
+  // signal "gate:<gateName>:<outcomeName>" for toState routes; this transition
+  // makes that signal resolvable. Without it, findTransition returns null and
+  // evaluateAndTransition throws ValidationError.
+  { fromState: "code", toState: "fix", trigger: "gate:ci-green:failed", priority: 0 },
 
   // review outcomes
   { fromState: "review", toState: "docs", trigger: "clean", priority: 0 },
