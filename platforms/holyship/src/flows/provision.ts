@@ -18,6 +18,12 @@ export async function provisionEngineeringFlow(
   // Check if already provisioned (idempotent)
   const existing = await flowRepo.getByName(ENGINEERING_FLOW.name);
   if (existing) {
+    // Reconcile gate definitions so primitiveOp/params and prompts stay in
+    // sync with source. Without this, any change to a gate in engineering.ts
+    // silently diverges from prod because provision short-circuits on the
+    // "already created" check. Only the updatable fields are touched; gate
+    // IDs (and therefore transition wiring) are preserved.
+    await reconcileGates(gateRepo);
     return { flowId: existing.id };
   }
 
@@ -49,4 +55,19 @@ export async function provisionEngineeringFlow(
   }
 
   return { flowId: flow.id };
+}
+
+async function reconcileGates(gateRepo: IGateRepository): Promise<void> {
+  for (const gate of GATES) {
+    const existing = await gateRepo.getByName(gate.name);
+    if (!existing) continue; // new gates get created on next clean provision
+    await gateRepo.update(existing.id, {
+      primitiveOp: gate.primitiveOp ?? null,
+      primitiveParams: gate.primitiveParams ?? null,
+      timeoutMs: gate.timeoutMs ?? null,
+      failurePrompt: gate.failurePrompt ?? null,
+      timeoutPrompt: gate.timeoutPrompt ?? null,
+      outcomes: gate.outcomes ?? null,
+    });
+  }
 }

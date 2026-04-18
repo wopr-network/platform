@@ -35,6 +35,7 @@ import {
   checkCiStatus,
   checkCommentExists,
   checkFilesChangedSince,
+  checkPrCiStatus,
   checkPrForBranch,
   checkPrHeadChanged,
   checkPrReviewStatus,
@@ -246,6 +247,8 @@ async function main() {
         switch (primitiveOp) {
           case "vcs.ci_status":
             return checkCiStatus(ctx, { ref: params.ref as string });
+          case "vcs.pr_ci_status":
+            return checkPrCiStatus(ctx, { pullNumber: Number(params.pullNumber) });
           case "vcs.pr_status":
             return checkPrStatus(ctx, { pullNumber: Number(params.pullNumber) });
           case "issue_tracker.comment_exists": {

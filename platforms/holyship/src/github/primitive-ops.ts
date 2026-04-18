@@ -11,6 +11,37 @@ export interface GitHubGateContext {
 
 export type GateOpResult = { outcome: string; message?: string } & Record<string, unknown>;
 
+/**
+ * Check CI status by PR number. Resolves the PR's current head sha and reports
+ * check-runs status. Used by the code → review transition so the gate doesn't
+ * need headSha pre-populated in artifacts (coder output only gives us prNumber
+ * via the parse-signal regex).
+ */
+export async function checkPrCiStatus(ctx: GitHubGateContext, params: { pullNumber: number }): Promise<GateOpResult> {
+  const prRes = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls/${params.pullNumber}`, {
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!prRes.ok) {
+    return { outcome: "error", message: `GitHub API error fetching PR: ${prRes.status}` };
+  }
+  const pr = (await prRes.json()) as { head: { sha: string; ref: string }; number: number; html_url: string };
+  const baseResult = await checkCiStatus(ctx, { ref: pr.head.sha });
+  return {
+    ...baseResult,
+    artifacts: {
+      ...((baseResult.artifacts as Record<string, unknown>) ?? {}),
+      headSha: pr.head.sha,
+      headBranch: pr.head.ref,
+      prNumber: pr.number,
+      prUrl: pr.html_url,
+    },
+  };
+}
+
 /** Check CI status on a commit or PR head. */
 export async function checkCiStatus(ctx: GitHubGateContext, params: { ref: string }): Promise<GateOpResult> {
   const res = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/commits/${params.ref}/check-runs`, {
