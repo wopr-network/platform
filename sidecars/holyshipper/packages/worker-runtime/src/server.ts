@@ -276,10 +276,22 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
         throw new Error(`Failed to create session: ${JSON.stringify(createRes.error)}`);
       }
       ocSessionId = createRes.data.id;
+      // Log a directory listing so we can confirm the clone actually
+      // produced files at the session cwd. Empty-coder symptom could be
+      // the agent running in an empty dir with nothing to see.
+      let directoryFiles: string[] = [];
+      if (sessionBody.directory) {
+        try {
+          directoryFiles = readdirSync(sessionBody.directory).slice(0, 20);
+        } catch (err) {
+          directoryFiles = [`(readdir failed: ${err instanceof Error ? err.message : String(err)})`];
+        }
+      }
       logger.info(`[dispatch] created OpenCode session`, {
         sessionId: ocSessionId,
         title: createRes.data.title,
         directory: sessionBody.directory ?? "(default)",
+        directoryFiles,
       });
     }
     resolvedSessionId = ocSessionId;
@@ -354,10 +366,13 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
               if (content) {
                 textBlockCount++;
                 allText.push(content);
-                logger.debug(`[dispatch:sse] text`, {
+                // Info-level so operators can see what the agent is actually
+                // saying. Debugging "coder finishes instantly without output"
+                // requires seeing the text deltas — cost=0 alone isn't enough.
+                logger.info(`[dispatch:sse] text`, {
                   textBlockCount,
                   length: content.length,
-                  preview: content.slice(0, 120),
+                  preview: content.slice(0, 300),
                 });
                 sendSSE(res, { type: "text", text: content });
               }
@@ -418,9 +433,12 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
 
           // ── everything else — log for forensics ──
           else {
-            logger.debug(`[dispatch:sse] unhandled event`, {
+            // Elevated to info: empty-run diagnosis needs visibility into
+            // every event the session emits, not just the known types.
+            logger.info(`[dispatch:sse] unhandled event`, {
               type: evtType,
               sessionId: ocSessionId,
+              propertyKeys: Object.keys(props),
             });
           }
         }
@@ -470,17 +488,32 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
       tokens: assistantInfo?.tokens,
       finish: assistantInfo?.finish,
       partCount: resultParts?.length ?? 0,
+      // Full diagnostics for the empty-coder-run symptom: summarize the
+      // shape of every part the LLM returned.
+      partTypes: (resultParts ?? []).map((p) => p.type),
     });
 
     // Extract any text from result parts that weren't streamed via SSE
     for (const part of resultParts ?? []) {
       if (part.type === "text" && part.text) {
         const text = part.text as string;
+        logger.info(`[dispatch] result.text part`, {
+          sessionId: ocSessionId,
+          length: text.length,
+          alreadySeen: allText.includes(text),
+          preview: text.slice(0, 400),
+        });
         if (!allText.includes(text)) {
           textBlockCount++;
           allText.push(text);
           sendSSE(res, { type: "text", text });
         }
+      } else if (part.type === "tool" && part.tool) {
+        logger.info(`[dispatch] result.tool part`, {
+          sessionId: ocSessionId,
+          tool: part.tool,
+          state: (part.state as Record<string, unknown> | undefined)?.status,
+        });
       }
     }
 
@@ -489,7 +522,18 @@ async function handleDispatch(req: IncomingMessage, res: ServerResponse): Promis
     await eventLoop;
 
     // Parse signal from all collected text
-    const { signal, artifacts } = parseSignal(allText.join("\n"));
+    const joinedText = allText.join("\n");
+    // Log a preview of what parseSignal sees — the bottom-up regex scan
+    // returns "unknown" silently on any miss, so without this it's
+    // impossible to tell whether the agent emitted a signal we failed to
+    // parse vs. emitted nothing at all.
+    logger.info(`[dispatch] parseSignal input`, {
+      sessionId: ocSessionId,
+      totalChars: joinedText.length,
+      blockCount: allText.length,
+      tailPreview: joinedText.slice(-400),
+    });
+    const { signal, artifacts } = parseSignal(joinedText);
     const elapsed = Date.now() - startTime;
 
     logger.info(`[dispatch] result`, {
