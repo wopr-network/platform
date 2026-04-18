@@ -365,6 +365,21 @@ async function main() {
 
       eventEmitter.register(workerPool);
       logger.info("Reactive worker pool registered (4 slots)");
+
+      // Re-emit invocation.created for invocations that were unclaimed when
+      // this process last exited. Without this, every deploy leaves those
+      // invocations stranded — the reactive pool only wakes on new events.
+      void workerPool
+        .recoverUnclaimed()
+        .then((count) => {
+          if (count > 0) logger.info(`Worker pool recovered ${count} stranded invocation(s) from previous run`);
+        })
+        .catch((err) =>
+          logger.warn("Worker pool recovery failed (non-fatal)", {
+            error: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          }),
+        );
     } catch (err) {
       logger.warn("Worker pool setup failed (non-fatal)", (err as Error).message);
     }

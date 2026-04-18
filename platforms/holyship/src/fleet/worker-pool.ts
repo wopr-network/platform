@@ -70,6 +70,55 @@ export class WorkerPool implements IEventBusAdapter {
     });
   }
 
+  /**
+   * Re-emit invocation.created for every unclaimed active invocation.
+   *
+   * The pool is reactive — it only schedules work when it receives an
+   * invocation.created event. A restart (every prod deploy) drops that queue
+   * on the floor: invocations created before the restart sit unclaimed
+   * forever, because no new event ever fires for them. This method walks the
+   * DB once at boot and synthesizes the missing events so pre-restart work
+   * drains.
+   */
+  async recoverUnclaimed(): Promise<number> {
+    // Let a repo failure reject up to the caller's .catch — swallowing it
+    // would collapse "nothing to recover" and "DB unavailable" into the
+    // same return value and hide real incidents.
+    const unclaimed = await this.invocationRepo.findUnclaimedActive();
+    if (unclaimed.length === 0) {
+      logger.info("[worker-pool] recoverUnclaimed: no stranded invocations");
+      return 0;
+    }
+    logger.info("[worker-pool] recoverUnclaimed: re-emitting invocation.created", {
+      count: unclaimed.length,
+    });
+    let recovered = 0;
+    for (const inv of unclaimed) {
+      // Per-invocation try/catch: a single bad record (e.g. entity vanished
+      // between the repo read and emit) must not strand the rest. Each
+      // emit() is a local in-process dispatch — this sync-await inside the
+      // loop is cheap because emit() either kicks off runWorker synchronously
+      // or pushes to this.pending and returns.
+      try {
+        await this.emit({
+          type: "invocation.created",
+          entityId: inv.entityId,
+          invocationId: inv.id,
+          stage: inv.stage,
+          emittedAt: new Date(),
+        });
+        recovered++;
+      } catch (err) {
+        logger.warn("[worker-pool] recoverUnclaimed: emit failed for one invocation — continuing", {
+          invocationId: inv.id,
+          entityId: inv.entityId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return recovered;
+  }
+
   async emit(event: EngineEvent): Promise<void> {
     logger.debug("[worker-pool] event received", {
       type: event.type,
