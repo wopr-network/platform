@@ -64,9 +64,13 @@ export async function checkPrCiStatus(
 }
 
 /**
- * Find an open PR that references the given issue number — scan body for
- * `#<n>` mentions ("Fixes #12", "Closes #12", etc.) or a `Fixes`/`Closes`
- * trailer. Returns the PR number, or null if no match.
+ * Find an open PR that references the given issue number via a GitHub
+ * close-keyword (Fixes/Closes/Resolves — or Fix/Close/Resolve — followed by
+ * `#N` or a full `issues/N` URL). Requiring the keyword avoids matching
+ * unrelated PRs that merely mention the issue ("see #20", "similar to #20").
+ *
+ * Scans up to 100 open PRs — fine for our low-volume target repos. If we
+ * ever point this at a high-volume repo we'll want pagination with a cap.
  */
 async function discoverPrForIssue(ctx: GitHubGateContext, issueNumber: number): Promise<number | null> {
   const res = await fetch(`https://api.github.com/repos/${ctx.owner}/${ctx.repo}/pulls?state=open&per_page=100`, {
@@ -78,7 +82,7 @@ async function discoverPrForIssue(ctx: GitHubGateContext, issueNumber: number): 
   });
   if (!res.ok) return null;
   const prs = (await res.json()) as Array<{ number: number; body: string | null; title: string }>;
-  const needle = new RegExp(`(?:#|issues/)${issueNumber}\\b`);
+  const needle = new RegExp(`(?:fix|clos|resolv)(?:e[sd]?|ing)?\\s*:?\\s*(?:#|issues/)${issueNumber}\\b`, "i");
   for (const pr of prs) {
     const haystack = `${pr.title}\n${pr.body ?? ""}`;
     if (needle.test(haystack)) return pr.number;

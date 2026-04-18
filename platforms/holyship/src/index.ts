@@ -248,7 +248,10 @@ async function main() {
           case "vcs.ci_status":
             return checkCiStatus(ctx, { ref: params.ref as string });
           case "vcs.pr_ci_status":
-            return checkPrCiStatus(ctx, { pullNumber: Number(params.pullNumber) });
+            return checkPrCiStatus(ctx, {
+              pullNumber: params.pullNumber as number | string | undefined,
+              issueNumber: params.issueNumber as number | string | undefined,
+            });
           case "vcs.pr_status":
             return checkPrStatus(ctx, { pullNumber: Number(params.pullNumber) });
           case "issue_tracker.comment_exists": {
