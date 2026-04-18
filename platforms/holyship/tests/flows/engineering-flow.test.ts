@@ -41,8 +41,8 @@ describe("Engineering flow definition", () => {
     ]);
   });
 
-  it("defines 12 transitions covering full flow graph", () => {
-    expect(TRANSITIONS).toHaveLength(12);
+  it("defines 13 transitions covering full flow graph", () => {
+    expect(TRANSITIONS).toHaveLength(13);
   });
 
   it("spec-posted gate has outcomes map and artifactKey", () => {
@@ -132,7 +132,7 @@ describe("Engineering flow provisioning", () => {
     expect(flow).not.toBeNull();
     expect(flow!.initialState).toBe("spec");
     expect(flow!.states).toHaveLength(10);
-    expect(flow!.transitions).toHaveLength(12);
+    expect(flow!.transitions).toHaveLength(13);
   });
 
   it("provisioning is idempotent", async () => {

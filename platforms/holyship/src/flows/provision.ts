@@ -26,6 +26,7 @@ export async function provisionEngineeringFlow(
     // preserved.
     await reconcileGates(gateRepo);
     await reconcileStates(flowRepo, existing);
+    await reconcileTransitions(flowRepo, gateRepo, existing);
     return { flowId: existing.id };
   }
 
@@ -71,6 +72,26 @@ async function reconcileGates(gateRepo: IGateRepository): Promise<void> {
       timeoutPrompt: gate.timeoutPrompt ?? null,
       outcomes: gate.outcomes ?? null,
     });
+  }
+}
+
+async function reconcileTransitions(flowRepo: IFlowRepository, gateRepo: IGateRepository, flow: Flow): Promise<void> {
+  // Add any transitions in source that don't exist in the DB yet. Matched
+  // by (fromState, toState, trigger). Gates are wired via GATE_WIRING just
+  // like the fresh-provision path.
+  const have = new Set(flow.transitions.map((t) => `${t.fromState}|${t.toState}|${t.trigger}`));
+  for (const transition of TRANSITIONS) {
+    const key = `${transition.fromState}|${transition.toState}|${transition.trigger}`;
+    if (have.has(key)) continue;
+    const wiring = Object.entries(GATE_WIRING).find(
+      ([, w]) => w.fromState === transition.fromState && w.trigger === transition.trigger,
+    );
+    let gateId: string | undefined;
+    if (wiring) {
+      const g = await gateRepo.getByName(wiring[0]);
+      gateId = g?.id;
+    }
+    await flowRepo.addTransition(flow.id, { ...transition, gateId });
   }
 }
 
