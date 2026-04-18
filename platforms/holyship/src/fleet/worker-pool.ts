@@ -81,15 +81,10 @@ export class WorkerPool implements IEventBusAdapter {
    * drains.
    */
   async recoverUnclaimed(): Promise<number> {
-    let unclaimed: Awaited<ReturnType<IInvocationRepository["findUnclaimedActive"]>>;
-    try {
-      unclaimed = await this.invocationRepo.findUnclaimedActive();
-    } catch (err) {
-      logger.error("[worker-pool] recoverUnclaimed: findUnclaimedActive failed", {
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return 0;
-    }
+    // Let a repo failure reject up to the caller's .catch — swallowing it
+    // would collapse "nothing to recover" and "DB unavailable" into the
+    // same return value and hide real incidents.
+    const unclaimed = await this.invocationRepo.findUnclaimedActive();
     if (unclaimed.length === 0) {
       logger.info("[worker-pool] recoverUnclaimed: no stranded invocations");
       return 0;
