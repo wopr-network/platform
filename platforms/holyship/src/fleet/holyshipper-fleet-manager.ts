@@ -68,7 +68,10 @@ export class HolyshipperFleetManager implements IFleetManager {
     const env: Record<string, string> = {
       HOLYSHIP_GATEWAY_URL: this.gatewayUrl,
       HOLYSHIP_ENTITY_ID: entityId,
-      PORT: "8080",
+      // Core's Fleet.create builds `instance.url = http://<name>:3100`. If the
+      // holyshipper listens on a different port, waitForReady pings a closed
+      // port and times out after 30s — which is exactly what was happening.
+      PORT: "3100",
     };
 
     if (config.githubToken) {
