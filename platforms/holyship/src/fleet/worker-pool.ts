@@ -379,9 +379,7 @@ export class WorkerPool implements IEventBusAdapter {
           body: text.slice(0, 500),
           dispatchMs,
         });
-        await this.invocationRepo
-          .fail(invocationId, `dispatch HTTP ${res.status}: ${text.slice(0, 200)}`)
-          .catch((e) => logger.warn(`${tag} invocation.fail failed`, { error: String(e) }));
+        await this.markFailed(invocationId, tag, entityId, `dispatch HTTP ${res.status}: ${text.slice(0, 200)}`);
         await this.teardown(dbRecordId, containerId, tag, entityId);
         return;
       }
@@ -423,9 +421,7 @@ export class WorkerPool implements IEventBusAdapter {
           eventTypes: sseEvents.map((e) => e.type),
           rawBody: body.slice(0, 2000),
         });
-        await this.invocationRepo
-          .fail(invocationId, "no result event in SSE stream")
-          .catch((e) => logger.warn(`${tag} invocation.fail failed`, { error: String(e) }));
+        await this.markFailed(invocationId, tag, entityId, "no result event in SSE stream");
         await this.teardown(dbRecordId, containerId, tag, entityId);
         return;
       }
@@ -482,13 +478,28 @@ export class WorkerPool implements IEventBusAdapter {
         error: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined,
       });
-      await this.invocationRepo
-        .fail(invocationId, `dispatch: ${err instanceof Error ? err.message : String(err)}`)
-        .catch((e) => logger.warn(`${tag} invocation.fail failed`, { error: String(e) }));
+      await this.markFailed(
+        invocationId,
+        tag,
+        entityId,
+        `dispatch: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // 7. Teardown — processSignal is sync so gates are done
     await this.teardown(dbRecordId, containerId, tag, entityId);
+  }
+
+  private async markFailed(invocationId: string, tag: string, entityId: string, reason: string): Promise<void> {
+    try {
+      await this.invocationRepo.fail(invocationId, reason);
+    } catch (err) {
+      logger.warn(`${tag} invocation.fail failed`, {
+        invocationId,
+        entityId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   private async teardown(dbRecordId: string, containerId: string, tag: string, entityId: string): Promise<void> {
