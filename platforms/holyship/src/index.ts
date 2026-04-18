@@ -374,7 +374,7 @@ async function main() {
         .then((count) => {
           if (count > 0) logger.info(`Worker pool recovered ${count} stranded invocation(s) from previous run`);
         })
-        .catch((err) => logger.warn("Worker pool recovery failed (non-fatal)", (err as Error).message));
+        .catch((err) => logger.warn("Worker pool recovery failed (non-fatal)", err));
     } catch (err) {
       logger.warn("Worker pool setup failed (non-fatal)", (err as Error).message);
     }

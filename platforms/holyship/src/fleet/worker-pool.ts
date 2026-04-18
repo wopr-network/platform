@@ -97,16 +97,31 @@ export class WorkerPool implements IEventBusAdapter {
     logger.info("[worker-pool] recoverUnclaimed: re-emitting invocation.created", {
       count: unclaimed.length,
     });
+    let recovered = 0;
     for (const inv of unclaimed) {
-      await this.emit({
-        type: "invocation.created",
-        entityId: inv.entityId,
-        invocationId: inv.id,
-        stage: inv.stage,
-        emittedAt: new Date(),
-      });
+      // Per-invocation try/catch: a single bad record (e.g. entity vanished
+      // between the repo read and emit) must not strand the rest. Each
+      // emit() is a local in-process dispatch — this sync-await inside the
+      // loop is cheap because emit() either kicks off runWorker synchronously
+      // or pushes to this.pending and returns.
+      try {
+        await this.emit({
+          type: "invocation.created",
+          entityId: inv.entityId,
+          invocationId: inv.id,
+          stage: inv.stage,
+          emittedAt: new Date(),
+        });
+        recovered++;
+      } catch (err) {
+        logger.warn("[worker-pool] recoverUnclaimed: emit failed for one invocation — continuing", {
+          invocationId: inv.id,
+          entityId: inv.entityId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
-    return unclaimed.length;
+    return recovered;
   }
 
   async emit(event: EngineEvent): Promise<void> {
