@@ -8,7 +8,7 @@
  * via the pipeline configurator (toggle stages, add approval checkpoints).
  */
 
-import type { IFlowRepository, IGateRepository } from "../repositories/interfaces.js";
+import type { Flow, IFlowRepository, IGateRepository } from "../repositories/interfaces.js";
 import { ENGINEERING_FLOW, GATE_WIRING, GATES, STATES, TRANSITIONS } from "./engineering.js";
 
 export async function provisionEngineeringFlow(
@@ -25,7 +25,7 @@ export async function provisionEngineeringFlow(
     // are touched; state/gate IDs (and therefore transition wiring) are
     // preserved.
     await reconcileGates(gateRepo);
-    await reconcileStates(flowRepo, existing.id);
+    await reconcileStates(flowRepo, existing);
     return { flowId: existing.id };
   }
 
@@ -74,15 +74,16 @@ async function reconcileGates(gateRepo: IGateRepository): Promise<void> {
   }
 }
 
-async function reconcileStates(flowRepo: IFlowRepository, flowId: string): Promise<void> {
-  const live = await flowRepo.get(flowId);
-  if (!live) return;
-  const byName = new Map(live.states.map((s) => [s.name, s]));
+async function reconcileStates(flowRepo: IFlowRepository, flow: Flow): Promise<void> {
+  // `flow` comes from getByName(), which already hydrates states[] — no need
+  // to re-fetch. Name isn't in the payload because byName matched on it and
+  // the DB row's name already equals state.name; writing it back every boot
+  // is pointless churn.
+  const byName = new Map(flow.states.map((s) => [s.name, s]));
   for (const state of STATES) {
     const existing = byName.get(state.name);
     if (!existing) continue; // new states get created on next clean provision
     await flowRepo.updateState(existing.id, {
-      name: state.name,
       agentRole: state.agentRole ?? null,
       modelTier: state.modelTier ?? null,
       mode: state.mode,
