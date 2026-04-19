@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   Activity as ActivityIcon,
   ChevronDown,
@@ -256,6 +257,7 @@ export function RoutineDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const { pushToast } = useToast();
+  const { isHosted } = useHostedMode();
   const hydratedRoutineIdRef = useRef<string | null>(null);
   const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
@@ -967,8 +969,9 @@ export function RoutineDetail() {
 
         <TabsContent value="triggers" className="space-y-4">
           {/* Add trigger form */}
-          <div className="rounded-lg border border-border p-4 space-y-3">
-            <p className="text-sm font-medium">Add trigger</p>
+          {!isHosted && (
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <p className="text-sm font-medium">Add trigger</p>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Kind</Label>
@@ -1039,6 +1042,7 @@ export function RoutineDetail() {
               </Button>
             </div>
           </div>
+          )}
 
           {/* Existing triggers */}
           {routine.triggers.length === 0 ? (

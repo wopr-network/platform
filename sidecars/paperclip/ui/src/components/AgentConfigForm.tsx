@@ -5,6 +5,7 @@ import type { AdapterModel } from "../api/agents";
 import { agentsApi } from "../api/agents";
 import { secretsApi } from "../api/secrets";
 import { assetsApi } from "../api/assets";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
@@ -170,6 +171,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const hideInstructionsFile = props.hideInstructionsFile ?? false;
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
+  const { isHosted } = useHostedMode();
 
   // Sync disabled adapter types from server so dropdown filters them out
   const disabledTypes = useDisabledAdaptersSync();
@@ -541,30 +543,31 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       )}
 
       {/* ---- Adapter ---- */}
-      <div className={cn(!cards && (isCreate ? "border-t border-border" : "border-b border-border"))}>
-        <div
-          className={cn(
-            cards ? "flex items-center justify-between mb-3" : "px-4 py-2 flex items-center justify-between gap-2",
-          )}
-        >
-          {cards ? (
-            <h3 className="text-sm font-medium">Adapter</h3>
-          ) : (
-            <span className="text-xs font-medium text-muted-foreground">Adapter</span>
-          )}
-          {showAdapterTestEnvironmentButton && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 px-2.5 text-xs"
-              onClick={() => testEnvironment.mutate()}
-              disabled={testEnvironment.isPending || !selectedCompanyId}
-            >
-              {testEnvironment.isPending ? "Testing..." : "Test environment"}
-            </Button>
-          )}
-        </div>
+      {!isHosted && (
+        <div className={cn(!cards && (isCreate ? "border-t border-border" : "border-b border-border"))}>
+          <div
+            className={cn(
+              cards ? "flex items-center justify-between mb-3" : "px-4 py-2 flex items-center justify-between gap-2",
+            )}
+          >
+            {cards ? (
+              <h3 className="text-sm font-medium">Adapter</h3>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground">Adapter</span>
+            )}
+            {showAdapterTestEnvironmentButton && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2.5 text-xs"
+                onClick={() => testEnvironment.mutate()}
+                disabled={testEnvironment.isPending || !selectedCompanyId}
+              >
+                {testEnvironment.isPending ? "Testing..." : "Test environment"}
+              </Button>
+            )}
+          </div>
         <div className={cn(cards ? "border border-border rounded-lg p-4 space-y-3" : "px-4 pb-3 space-y-3")}>
           {showAdapterTypeField && (
             <Field label="Adapter type" hint={help.adapterType}>
@@ -671,9 +674,10 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
           {/* Adapter-specific fields are rendered inside Permissions & Configuration */}
         </div>
       </div>
+      )}
 
       {/* ---- Permissions & Configuration ---- */}
-      {isLocal && (
+      {!isHosted && isLocal && (
         <div className={cn(!cards && "border-b border-border")}>
           {cards ? (
             <h3 className="text-sm font-medium mb-3">Permissions &amp; Configuration</h3>

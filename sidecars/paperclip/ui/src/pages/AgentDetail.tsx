@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agentsApi, type AgentKey, type ClaudeLoginResult, type AgentPermissionUpdate } from "../api/agents";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { companySkillsApi } from "../api/companySkills";
 import { budgetsApi } from "../api/budgets";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -1537,6 +1538,7 @@ function ConfigurationTab({
 }) {
   const queryClient = useQueryClient();
   const { pushToast } = useToast();
+  const { isHosted } = useHostedMode();
   const [awaitingRefreshAfterSave, setAwaitingRefreshAfterSave] = useState(false);
   const lastAgentRef = useRef(agent);
 
@@ -1609,27 +1611,28 @@ function ConfigurationTab({
         sectionLayout="cards"
       />
 
-      <div>
-        <h3 className="text-sm font-medium mb-3">Permissions</h3>
-        <div className="border border-border rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <div className="space-y-1">
-              <div>Can create new agents</div>
-              <p className="text-xs text-muted-foreground">
-                Lets this agent create or hire agents and implicitly assign tasks.
-              </p>
+      {!isHosted && (
+        <div>
+          <h3 className="text-sm font-medium mb-3">Permissions</h3>
+          <div className="border border-border rounded-lg p-4 space-y-4">
+            <div className="flex items-center justify-between gap-4 text-sm">
+              <div className="space-y-1">
+                <div>Can create new agents</div>
+                <p className="text-xs text-muted-foreground">
+                  Lets this agent create or hire agents and implicitly assign tasks.
+                </p>
+              </div>
+              <ToggleSwitch
+                checked={canCreateAgents}
+                onCheckedChange={() =>
+                  updatePermissions.mutate({
+                    canCreateAgents: !canCreateAgents,
+                    canAssignTasks: !canCreateAgents ? true : canAssignTasks,
+                  })
+                }
+                disabled={updatePermissions.isPending}
+              />
             </div>
-            <ToggleSwitch
-              checked={canCreateAgents}
-              onCheckedChange={() =>
-                updatePermissions.mutate({
-                  canCreateAgents: !canCreateAgents,
-                  canAssignTasks: !canCreateAgents ? true : canAssignTasks,
-                })
-              }
-              disabled={updatePermissions.isPending}
-            />
-          </div>
           <div className="flex items-center justify-between gap-4 text-sm">
             <div className="space-y-1">
               <div>Can assign tasks</div>
@@ -1648,6 +1651,7 @@ function ConfigurationTab({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

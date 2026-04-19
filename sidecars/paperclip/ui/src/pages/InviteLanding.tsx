@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useParams } from "@/lib/router";
+import { Link, useParams, Navigate } from "@/lib/router";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { healthApi } from "../api/health";
@@ -8,6 +8,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
 import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 type JoinType = "human" | "agent";
 const joinAdapterOptions: AgentAdapterType[] = [...AGENT_ADAPTER_TYPES];
@@ -38,6 +39,7 @@ function readNestedString(value: unknown, path: string[]): string | null {
 
 export function InviteLandingPage() {
   const queryClient = useQueryClient();
+  const { isHosted } = useHostedMode();
   const params = useParams();
   const token = (params.token ?? "").trim();
   const [joinType, setJoinType] = useState<JoinType>("human");
@@ -254,7 +256,7 @@ export function InviteLandingPage() {
           </div>
         )}
 
-        {joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
+        {!isHosted && joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-4 space-y-3">
             <label className="block text-sm">
               <span className="mb-1 block text-muted-foreground">Agent name</span>
