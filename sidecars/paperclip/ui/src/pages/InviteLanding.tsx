@@ -8,6 +8,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
 import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 type JoinType = "human" | "agent";
 const joinAdapterOptions: AgentAdapterType[] = [...AGENT_ADAPTER_TYPES];
@@ -40,6 +41,7 @@ export function InviteLandingPage() {
   const queryClient = useQueryClient();
   const params = useParams();
   const token = (params.token ?? "").trim();
+  const { isHosted } = useHostedMode();
   const [joinType, setJoinType] = useState<JoinType>("human");
   const [agentName, setAgentName] = useState("");
   const [adapterType, setAdapterType] = useState<AgentAdapterType>("claude_local");
@@ -69,9 +71,10 @@ export function InviteLandingPage() {
   const allowedJoinTypes = invite?.allowedJoinTypes ?? "both";
   const availableJoinTypes = useMemo(() => {
     if (invite?.inviteType === "bootstrap_ceo") return ["human"] as JoinType[];
+    if (isHosted) return ["human"] as JoinType[];
     if (allowedJoinTypes === "both") return ["human", "agent"] as JoinType[];
     return [allowedJoinTypes] as JoinType[];
-  }, [invite?.inviteType, allowedJoinTypes]);
+  }, [invite?.inviteType, allowedJoinTypes, isHosted]);
 
   useEffect(() => {
     if (!availableJoinTypes.includes(joinType)) {
