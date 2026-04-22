@@ -61,6 +61,19 @@ if ! command -v docker &>/dev/null; then
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 fi
 
+# --- Swarm + overlay network (for fleet-spawned tenant containers) ---
+# docker-compose.prod.yml declares `platform-overlay` as an external network.
+# It lives on a single-host swarm: fleet-spawned tenant containers (warm pools,
+# customer Paperclip / WOPR / NemoPod instances) attach to it, and `core` +
+# `node-agent` are dual-attached in the compose file so DNS resolves from
+# either network. Guarded so re-running cloud-init is a no-op.
+if [ "$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null)" != "active" ]; then
+  docker swarm init
+fi
+if ! docker network inspect platform-overlay &>/dev/null; then
+  docker network create -d overlay --attachable platform-overlay
+fi
+
 # --- Deploy user ---
 if ! id deploy &>/dev/null; then
   useradd -m -s /bin/bash -G docker deploy
