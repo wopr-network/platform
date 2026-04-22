@@ -5,6 +5,7 @@ import type { AdapterModel } from "../api/agents";
 import { agentsApi } from "../api/agents";
 import { secretsApi } from "../api/secrets";
 import { assetsApi } from "../api/assets";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
   DEFAULT_CODEX_LOCAL_MODEL,
@@ -162,6 +163,13 @@ const claudeThinkingEffortOptions = [
 
 export function AgentConfigForm(props: AgentConfigFormProps) {
   const { mode, adapterModels: externalModels } = props;
+  const { isHosted } = useHostedMode();
+
+  // In hosted mode, return empty content to hide infrastructure details
+  if (isHosted) {
+    return null;
+  }
+
   const isCreate = mode === "create";
   const cards = props.sectionLayout === "cards";
   const showAdapterTypeField = props.showAdapterTypeField ?? true;

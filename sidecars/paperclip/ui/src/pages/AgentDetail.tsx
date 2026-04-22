@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { agentsApi, type AgentKey, type ClaudeLoginResult, type AgentPermissionUpdate } from "../api/agents";
 import { companySkillsApi } from "../api/companySkills";
 import { budgetsApi } from "../api/budgets";
@@ -612,6 +613,7 @@ function WorkspaceOperationsSection({
 }
 
 export function AgentDetail() {
+  const { isHosted } = useHostedMode();
   const {
     companyPrefix,
     agentId,
@@ -631,7 +633,12 @@ export function AgentDetail() {
   const navigate = useNavigate();
   const [actionError, setActionError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  const activeView = urlRunId ? ("runs" as AgentDetailView) : parseAgentDetailView(urlTab ?? null);
+  let requestedView = urlRunId ? ("runs" as AgentDetailView) : parseAgentDetailView(urlTab ?? null);
+  // In hosted mode, redirect away from configuration view to dashboard
+  if (isHosted && requestedView === "configuration") {
+    requestedView = "dashboard";
+  }
+  const activeView = requestedView;
   const needsDashboardData = activeView === "dashboard";
   const needsRunData = activeView === "runs" || Boolean(urlRunId);
   const shouldLoadHeartbeats = needsDashboardData || needsRunData;
@@ -1019,7 +1026,7 @@ export function AgentDetail() {
               { value: "dashboard", label: "Dashboard" },
               { value: "instructions", label: "Instructions" },
               { value: "skills", label: "Skills" },
-              { value: "configuration", label: "Configuration" },
+              ...(isHosted ? [] : [{ value: "configuration", label: "Configuration" }]),
               { value: "runs", label: "Runs" },
               { value: "budget", label: "Budget" },
             ]}
