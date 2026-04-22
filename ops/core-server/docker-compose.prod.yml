@@ -105,7 +105,12 @@ services:
         max-size: "20m"
         max-file: "5"
     networks:
-      - platform
+      platform:
+        aliases:
+          - core
+      platform-overlay:
+        aliases:
+          - core
 
   wopr-ui:
     image: registry.wopr.bot/wopr-ui:latest
@@ -355,12 +360,31 @@ services:
         max-size: "10m"
         max-file: "5"
     networks:
-      - platform
+      platform:
+        aliases:
+          - node-agent
+      platform-overlay:
+        aliases:
+          - node-agent
 
 networks:
+  # Bridge network for compose-managed services (caddy, UIs, holyship, postgres, core, node-agent).
+  # Created by compose on first boot.
   platform:
     name: platform
     driver: bridge
+  # Swarm overlay network for fleet-spawned tenant containers (warm pools and
+  # customer instances). `core` and `node-agent` must be reachable from these
+  # containers via http://core:3001 and http://node-agent:..., so those two
+  # services are dual-attached below with `core` / `node-agent` aliases on
+  # each network. `postgres` intentionally stays on `platform` only: tenants
+  # must go through core's API, never raw SQL.
+  # Pre-provision on a fresh host via cloud-init.sh, or manually:
+  #   docker swarm init
+  #   docker network create -d overlay --attachable platform-overlay
+  platform-overlay:
+    name: platform-overlay
+    external: true
 
 volumes:
   pgdata:
