@@ -155,7 +155,7 @@ platform-ui-core (npm package)
 | Droplet | IP | Size | Purpose |
 |---------|-----|------|---------|
 | paperclip-platform | 68.183.160.201 | 24GB disk | Paperclip platform: API + UI + Caddy + managed instances |
-| wopr-platform | 138.68.30.247 | -- | WOPR platform |
+| wopr-platform | 138.68.30.247 | -- | WOPR platform + nefariousplan.com (content site in a sibling compose project at `/opt/nefariousplan/`) |
 | holyship | 138.68.46.192 | -- | Holy Ship platform |
 | chain-server | 167.71.118.221 | s-4vcpu-8gb | Crypto chain nodes (BTC/LTC/DOGE/ETH) |
 | nemoclaw-platform-v2 | 167.172.208.149 | s-1vcpu-1gb ($6/mo) | NemoPod |
@@ -570,6 +570,62 @@ All nodes use wrapper entrypoint pattern:
 12 payment methods seeded: BTC, DOGE, LTC, 9 EVM tokens on Base (USDC, USDT, DAI, etc.).
 
 BTCPay, nbxplorer: removed entirely from platform-core v1.44.0. CryptoServiceClient replaces BTCPayClient.
+
+## Nefariousplan (nefariousplan.com — security blog)
+
+Not one of the four products. Kevlar's security research blog, co-located
+on the wopr VPS as a sibling compose project. Lives in a SEPARATE repo:
+`TSavo/nefariousplan` (not in this monorepo). Caddy config DOES live here,
+at `ops/core-server/Caddyfile` — one of the two places config for this
+site is split across.
+
+```
+Internet
+  └─ Cloudflare DNS (proxy OFF — required for Caddy DNS-01)
+       ├─ nefariousplan.com        → 138.68.30.247 (A)
+       ├─ www.nefariousplan.com    → 138.68.30.247 (A) → 301 to apex
+       └─ blog.nefariousplan.com   → 138.68.30.247 (A) → 301 to apex
+
+VPS (DigitalOcean — wopr-platform, 138.68.30.247)
+  └─ /opt/nefariousplan/ops/docker-compose.prod.yml
+       ├─ ops-web-1        (registry.wopr.bot/nefariousplan-web:latest)     (3000)
+       │    Next.js Astro site. Gets canonical URL from NEXT_PUBLIC_SITE_URL
+       │    = https://nefariousplan.com (apex).
+       ├─ ops-scanner-1    (registry.wopr.bot/nefariousplan-scanner:latest)
+       │    4h CVE poll loop → candidate rows in postgres.
+       ├─ ops-reconciler-1 (registry.wopr.bot/nefariousplan-reconciler:latest)
+       │    Promotes queued drafts to publish via /api/mcp/posts/publish.
+       ├─ ops-blog-writer-1 (registry.wopr.bot/nefariousplan-dispatcher:latest) (8080)
+       │    Receives writer-spawn requests, spawns ephemeral
+       │    nefariousplan-writer containers on the `platform` external network.
+       └─ ops-postgres-1   (postgres:16-alpine)  (5432)
+            Private to nefariousplan compose — NOT the shared core-server pg.
+
+Caddy (from sibling compose project core-server)
+  Three blocks serve nefariousplan hostnames:
+  ├─ nefariousplan.com           → reverse_proxy ops-web-1:3000
+  └─ blog.*, www.*               → redir https://nefariousplan.com{uri} 301
+
+  Both blocks get their certs via DNS-01 (Cloudflare), not HTTP-01.
+
+MCP endpoint
+  https://nefariousplan.com/api/mcp/* — POST with X-Service-Token (issued
+  per-consumer; tokens live in vault at secret/nefariousplan/mcp-tokens.*).
+  Moved from blog.* to apex on 2026-04-23 — see DECISIONS.md.
+```
+
+**Deploy path.** The nefariousplan repo has its own
+`.github/workflows/build-and-deploy.yml` — self-hosted GHA runner builds 6
+docker images (web, scanner, reconciler, dispatcher, writer, migrator),
+pushes to `registry.wopr.bot`, SSHes into the VPS as root, `compose pull`
++ one-shot migrator + `up -d --force-recreate`. Daily cron at 14:00 UTC
+for scheduled posts.
+
+**Caddy config contract.** Nefariousplan Caddy vhosts live in
+`ops/core-server/Caddyfile` (this repo, at the bottom — "nefariousplan"
+section). Past drift between the live Caddyfile on the VPS and this
+committed file has caused confusion; the 2026-04-23 apex cutover commit
+(`push-pmtltpzxvumk`) explicitly reconciled them.
 
 ## Shared Dependencies
 
