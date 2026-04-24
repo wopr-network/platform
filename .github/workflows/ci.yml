@@ -33,7 +33,7 @@ jobs:
         # explicit `version:` input collides with packageManager and fails with
         # ERR_PNPM_BAD_PM_VERSION. Simplest fix is to stay on v5 until the
         # monorepo upgrades its lockfile.
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
