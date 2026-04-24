@@ -8,6 +8,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { AGENT_ADAPTER_TYPES } from "@paperclipai/shared";
 import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 type JoinType = "human" | "agent";
 const joinAdapterOptions: AgentAdapterType[] = [...AGENT_ADAPTER_TYPES];
@@ -37,6 +38,7 @@ function readNestedString(value: unknown, path: string[]): string | null {
 }
 
 export function InviteLandingPage() {
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const params = useParams();
   const token = (params.token ?? "").trim();
@@ -235,7 +237,7 @@ export function InviteLandingPage() {
           Invite expires {dateTime(invite.expiresAt)}.
         </p>
 
-        {invite.inviteType !== "bootstrap_ceo" && (
+        {!isHosted && invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-5 flex gap-2">
             {availableJoinTypes.map((type) => (
               <button
@@ -254,7 +256,7 @@ export function InviteLandingPage() {
           </div>
         )}
 
-        {joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
+        {!isHosted && joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-4 space-y-3">
             <label className="block text-sm">
               <span className="mb-1 block text-muted-foreground">Agent name</span>

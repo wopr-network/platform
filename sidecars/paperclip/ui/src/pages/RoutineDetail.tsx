@@ -24,6 +24,7 @@ import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToast } from "../context/ToastContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { buildRoutineTriggerPatch } from "../lib/routine-trigger-patch";
 import { timeAgo } from "../lib/timeAgo";
@@ -252,6 +253,7 @@ export function RoutineDetail() {
   const { routineId } = useParams<{ routineId: string }>();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -981,7 +983,7 @@ export function RoutineDetail() {
                   </SelectTrigger>
                   <SelectContent>
                     {triggerKinds.map((kind) => (
-                      <SelectItem key={kind} value={kind} disabled={kind === "webhook"}>
+                      <SelectItem key={kind} value={kind} disabled={kind === "webhook" || (isHosted && kind === "webhook")}>
                         {kind}
                         {kind === "webhook" ? " — COMING SOON" : ""}
                       </SelectItem>

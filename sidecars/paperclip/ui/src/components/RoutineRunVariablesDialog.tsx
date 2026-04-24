@@ -3,6 +3,7 @@ import type { IssueExecutionWorkspaceSettings, Project, RoutineVariable } from "
 import { useQuery } from "@tanstack/react-query";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { queryKeys } from "../lib/queryKeys";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { IssueWorkspaceCard } from "./IssueWorkspaceCard";
 import { Button } from "@/components/ui/button";
 import {
@@ -117,6 +118,7 @@ export function RoutineRunVariablesDialog({
   isPending: boolean;
   onSubmit: (data: RoutineRunDialogSubmitData) => void;
 }) {
+  const { isHosted } = useHostedMode();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [workspaceConfig, setWorkspaceConfig] = useState(() => buildInitialWorkspaceConfig(project));
   const [workspaceConfigValid, setWorkspaceConfigValid] = useState(true);
@@ -257,7 +259,7 @@ export function RoutineRunVariablesDialog({
             </div>
           ))}
 
-          {workspaceSelectionEnabled && project && companyId ? (
+          {!isHosted && workspaceSelectionEnabled && project && companyId ? (
             <IssueWorkspaceCard
               key={`${open ? "open" : "closed"}:${project.id}`}
               issue={workspaceIssue}

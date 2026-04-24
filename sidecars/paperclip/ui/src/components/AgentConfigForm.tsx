@@ -40,6 +40,7 @@ import { shouldShowLegacyWorkingDirectoryField } from "../lib/legacy-agent-confi
 import { listAdapterOptions, listVisibleAdapterTypes } from "../adapters/metadata";
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
 import { useDisabledAdaptersSync } from "../adapters/use-disabled-adapters";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 /* ---- Create mode values ---- */
 
@@ -169,6 +170,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const showCreateRunPolicySection = props.showCreateRunPolicySection ?? true;
   const hideInstructionsFile = props.hideInstructionsFile ?? false;
   const { selectedCompanyId } = useCompany();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
 
   // Sync disabled adapter types from server so dropdown filters them out
@@ -541,7 +543,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       )}
 
       {/* ---- Adapter ---- */}
-      <div className={cn(!cards && (isCreate ? "border-t border-border" : "border-b border-border"))}>
+      {!isHosted && (
+        <div className={cn(!cards && (isCreate ? "border-t border-border" : "border-b border-border"))}>
         <div
           className={cn(
             cards ? "flex items-center justify-between mb-3" : "px-4 py-2 flex items-center justify-between gap-2",
@@ -670,10 +673,11 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
 
           {/* Adapter-specific fields are rendered inside Permissions & Configuration */}
         </div>
-      </div>
+        </div>
+      )}
 
       {/* ---- Permissions & Configuration ---- */}
-      {isLocal && (
+      {!isHosted && isLocal && (
         <div className={cn(!cards && "border-b border-border")}>
           {cards ? (
             <h3 className="text-sm font-medium mb-3">Permissions &amp; Configuration</h3>
