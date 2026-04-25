@@ -9,6 +9,10 @@ import { RoutineRunVariablesDialog } from "./RoutineRunVariablesDialog";
 
 let issueWorkspaceDraftCalls = 0;
 
+vi.mock("../hooks/useHostedMode", () => ({
+  useHostedMode: () => ({ isHosted: false, modeKnown: true }),
+}));
+
 vi.mock("../api/instanceSettings", () => ({
   instanceSettingsApi: {
     getExperimental: vi.fn(async () => ({ enableIsolatedWorkspaces: true })),

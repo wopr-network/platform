@@ -37,6 +37,7 @@ import {
   type OptimisticIssueComment,
 } from "../lib/optimistic-issue-comments";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { relativeTime, cn, formatTokens, visibleRunCostUsd } from "../lib/utils";
 import { ApprovalCard } from "../components/ApprovalCard";
 import { InlineEditor } from "../components/InlineEditor";
@@ -284,6 +285,7 @@ export function IssueDetail() {
   const { openNewIssue } = useDialog();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1648,13 +1650,17 @@ export function IssueDetail() {
         onOpenChange={setGalleryOpen}
       />
 
-      <IssueWorkspaceCard
-        issue={issue}
-        project={orderedProjects.find((p) => p.id === issue.projectId) ?? null}
-        onUpdate={(data) => updateIssue.mutate(data)}
-      />
-
-      <Separator />
+      {!isHosted && (
+        <>
+          <IssueWorkspaceCard
+            issue={issue}
+            project={orderedProjects.find((p) => p.id === issue.projectId) ?? null}
+            onUpdate={(data) => updateIssue.mutate(data)}
+          />
+          <Separator />
+        </>
+      )}
+      {isHosted && <Separator />}
 
       <Tabs value={detailTab} onValueChange={setDetailTab} className="space-y-3">
         <TabsList variant="line" className="w-full justify-start gap-1">

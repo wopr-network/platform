@@ -22,6 +22,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useToast } from "../context/ToastContext";
 import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { AgentConfigForm } from "../components/AgentConfigForm";
 import { PageTabBar } from "../components/PageTabBar";
@@ -627,6 +628,7 @@ export function AgentDetail() {
   const { closePanel } = usePanel();
   const { openNewIssue } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -1018,10 +1020,10 @@ export function AgentDetail() {
             items={[
               { value: "dashboard", label: "Dashboard" },
               { value: "instructions", label: "Instructions" },
-              { value: "skills", label: "Skills" },
-              { value: "configuration", label: "Configuration" },
+              ...(!isHosted ? [{ value: "skills", label: "Skills" }] : []),
+              ...(!isHosted ? [{ value: "configuration", label: "Configuration" }] : []),
               { value: "runs", label: "Runs" },
-              { value: "budget", label: "Budget" },
+              ...(!isHosted ? [{ value: "budget", label: "Budget" }] : []),
             ]}
             value={activeView}
             onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
@@ -1093,7 +1095,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "configuration" && (
+      {!isHosted && activeView === "configuration" && (
         <AgentConfigurePage
           agent={agent}
           agentId={agent.id}
@@ -1106,7 +1108,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "skills" && <AgentSkillsTab agent={agent} companyId={resolvedCompanyId ?? undefined} />}
+      {!isHosted && activeView === "skills" && <AgentSkillsTab agent={agent} companyId={resolvedCompanyId ?? undefined} />}
 
       {activeView === "runs" && (
         <RunsTab
@@ -1120,7 +1122,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "budget" && resolvedCompanyId ? (
+      {!isHosted && activeView === "budget" && resolvedCompanyId ? (
         <div className="max-w-3xl">
           <BudgetPolicyCard
             summary={agentBudgetSummary}
