@@ -14,6 +14,7 @@ import { assetsApi } from "../api/assets";
 import { buildCompanyUserInlineOptions, buildMarkdownMentionOptions } from "../lib/company-members";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
 import { getRecentProjectIds, trackRecentProject } from "../lib/recent-projects";
 import { buildExecutionPolicy } from "../lib/issue-execution-policy";
