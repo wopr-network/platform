@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => ({
   plugins: [react(), tailwindcss()],
   build: {
     minify: "esbuild",
+    // esbuild 0.28+ rejects vendored ES2020 destructuring in @lezer tokenizers
+    // when targeting the default browserslist. esnext disables the lowering
+    // pass; modern browsers and our hosted-mode app target Chromium-current.
+    target: "esnext",
   },
   esbuild:
     mode === "production"
