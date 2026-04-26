@@ -29,6 +29,12 @@ const SUBTREE_PREFIX = "sidecars/paperclip";
 const UPSTREAM_REMOTE = "paperclip-upstream";
 const UPSTREAM_BRANCH = "master";
 const UI_DIR = `${SUBTREE_PREFIX}/ui/src`;
+// Baseline file: tracks the last upstream SHA we synced from. Required for
+// graft-based 3-way merge when the original `git subtree --squash` metadata
+// was lost (which silently no-op'd this script for 17 days through 2026-04-25
+// and let CVE-2026-41679 sit in our fork unpatched).
+const BASELINE_FILE = `${SUBTREE_PREFIX}/.upstream-baseline`;
+const FORK_TRUNK_BRANCH = "paperclip-fork-trunk-sync";
 
 // Agent event log
 const AGENT_LOG_TMP = join("/tmp", `agent-events-${Date.now()}.log`);
@@ -131,7 +137,21 @@ async function runAgent(prompt, opts = {}) {
   return result;
 }
 
-// --- Subtree merge ---
+// --- Subtree merge (graft-based, since the squash metadata is gone) ---
+//
+// The original implementation used `git subtree pull --squash`, which silently
+// no-op'd when it couldn't find a squash-base in the merge-commit history.
+// That's how we missed v2026.416.0 (the CVE-2026-41679 patch) for 9 days.
+//
+// New approach: maintain a baseline-SHA file (`sidecars/paperclip/.upstream-baseline`)
+// recording the last successfully-synced upstream commit. Each run:
+//   1. Read baseline. If missing or unreachable from upstream/master, FAIL LOUD.
+//   2. If upstream HEAD == baseline, truly nothing to do.
+//   3. Otherwise: subtree-split into a synthetic linear branch, graft the
+//      baseline as the root's parent so 3-way merge has the correct base,
+//      merge upstream/master, resolve conflicts via agent (preserving fork
+//      patches), then archive-extract the merged tree back into the prefix.
+//   4. Write the new baseline SHA. Commit.
 async function mergeUpstream() {
   log("Fetching upstream...");
   run(`git fetch ${UPSTREAM_REMOTE}`);
@@ -139,62 +159,139 @@ async function mergeUpstream() {
   const upstreamHead = run(`git rev-parse ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}`);
   log(`Upstream HEAD: ${upstreamHead}`);
 
+  // CANARY 1: baseline file must exist
+  if (!existsSync(BASELINE_FILE)) {
+    die(
+      `${BASELINE_FILE} is missing. Cannot determine merge base. ` +
+        `Manual sync required. After resolving the next sync by hand, write the ` +
+        `merged upstream SHA to ${BASELINE_FILE} and commit it. ` +
+        `This file gates every future sync — its absence means future runs will not silently no-op.`,
+    );
+  }
+  const baseline = readFileSync(BASELINE_FILE, "utf-8").trim();
+  if (!/^[0-9a-f]{40}$/.test(baseline)) {
+    die(`${BASELINE_FILE} contents are not a 40-char SHA: ${JSON.stringify(baseline)}`);
+  }
+  log(`Baseline (last synced upstream SHA): ${baseline}`);
+
+  // CANARY 2: baseline must be reachable from current upstream/master.
+  // If not, upstream rewrote history or our baseline is wrong.
+  const reachable = tryRun(`git merge-base --is-ancestor ${baseline} ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}`);
+  if (!reachable.ok) {
+    die(
+      `Baseline ${baseline} is NOT reachable from ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}. ` +
+        `Upstream may have rewritten history, or the baseline file is wrong. ` +
+        `Manual investigation required — do NOT run this script again until resolved.`,
+    );
+  }
+
+  // Truly up-to-date check
+  if (baseline === upstreamHead) {
+    log(`Up to date with upstream (${baseline.slice(0, 8)}). No sync needed.`);
+    return { merged: false, behind: 0, upstreamHead };
+  }
+  const deltaCount = run(`git rev-list --count ${baseline}..${upstreamHead}`);
+  log(`Upstream is ${deltaCount} commits ahead of baseline. Syncing.`);
+  logEvent("sync", { type: "delta", baseline, upstreamHead, deltaCount: parseInt(deltaCount, 10) });
+
+  // Step 1: split subtree into synthetic linear history
+  log("Splitting subtree into synthetic fork-trunk...");
+  tryRun(`git branch -D ${FORK_TRUNK_BRANCH}`); // clean any stale leftover
+  run(`git subtree split --prefix=${SUBTREE_PREFIX} --branch=${FORK_TRUNK_BRANCH}`);
+
+  // Step 2: set up graft so 3-way merge has the right base
+  const forkTrunkRoot = run(`git rev-list --max-parents=0 ${FORK_TRUNK_BRANCH}`);
+  log(`Fork-trunk root: ${forkTrunkRoot}, grafting baseline ${baseline} as parent`);
+  tryRun(`git replace -d ${forkTrunkRoot}`); // clean any prior graft for this root
+  run(`git replace --graft ${forkTrunkRoot} ${baseline}`);
+
+  // Verify graft worked
+  const mergeBase = tryRun(`git merge-base ${FORK_TRUNK_BRANCH} ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}`);
+  if (!mergeBase.ok || !mergeBase.output.trim()) {
+    die(`Graft did not produce a usable merge-base. Aborting.`);
+  }
+  log(`Merge-base after graft: ${mergeBase.output.trim()}`);
+
+  // Step 3: merge on the synthetic branch
+  const monorepoBranch = run("git rev-parse --abbrev-ref HEAD");
+  run(`git checkout ${FORK_TRUNK_BRANCH}`);
+  const datestamp = new Date().toISOString().slice(0, 10);
   const mergeResult = tryRun(
-    `git subtree pull --prefix=${SUBTREE_PREFIX} ${UPSTREAM_REMOTE} ${UPSTREAM_BRANCH} --squash -m "chore: sync paperclip upstream ${new Date().toISOString().slice(0, 10)}"`,
+    `git merge ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} --no-edit -m "merge upstream master ${datestamp}"`,
   );
 
-  if (mergeResult.ok) {
-    const diff = tryRun(`git diff HEAD~1 --stat -- ${SUBTREE_PREFIX}`);
-    if (diff.ok && diff.output.trim()) {
-      log("Subtree merge succeeded with changes.");
-      return { merged: true, behind: 1 };
+  if (!mergeResult.ok) {
+    // Conflicts expected; invoke agent to resolve
+    const conflicting = run(`git diff --name-only --diff-filter=U`);
+    if (!conflicting.trim()) {
+      run(`git checkout ${monorepoBranch}`);
+      die(`Merge failed but no conflicts found. Output:\n${mergeResult.output}`);
     }
-    log("Subtree pull succeeded but no changes.");
-    return { merged: false, behind: 0 };
-  }
-
-  // Check for conflicts
-  const conflicting = tryRun("git diff --name-only --diff-filter=U");
-  if (conflicting.ok && conflicting.output.trim()) {
-    const conflictFiles = conflicting.output;
-    log(`Merge has conflicts in:\n${conflictFiles}`);
-    logEvent("merge", { type: "conflicts", files: conflictFiles });
+    const conflictFiles = conflicting;
+    log(`Merge has conflicts in ${conflictFiles.split("\n").filter(Boolean).length} files. Invoking agent...`);
+    logEvent("merge", { type: "conflicts", count: conflictFiles.split("\n").filter(Boolean).length });
 
     await runAgent(
-      `The git subtree pull from paperclipai/paperclip into ${SUBTREE_PREFIX}/ has conflicts.
+      `Merge conflicts in a fork of paperclipai/paperclip. You're on the synthetic
+\`${FORK_TRUNK_BRANCH}\` branch (subtree-split linear history of our fork). The merge
+of \`${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}\` left ${conflictFiles.split("\n").filter(Boolean).length}
+files with conflict markers.
 
-Conflicting files:
-\`\`\`
-${conflictFiles}
-\`\`\`
+Resolution rules:
+- Preserve every fork patch testing isHosted, hostedMode, useHostedMode, showProjects,
+  modeKnown, hosted_proxy. KEEP these guards.
+- Preserve fork-only files: Dockerfile.managed, managed-entrypoint.sh,
+  docker-compose.{quickstart,untrusted-review}.yml, provision routes, EmbeddedBridge,
+  useHostedMode hook, test-harness/, agent-sandbox spec.
+- Preserve UI QoL patches per AGENTS.md: stderr_group/tool_group accordions in
+  RunTranscriptView, LatestRunCard markdown excerpt, deleteLabel mutation in
+  IssueProperties, Feedback Sharing in CompanySettings.
+- Self-hosted runner CI changes — KEEP.
+- For files where we have no fork mods (compare HEAD vs merge-base), take theirs.
+- For all other conflicts: read both sides, take upstream's structural changes,
+  keep our guards.
+- Do NOT git merge --abort.
 
-Resolve ALL conflicts. Key rules:
-- Preserve hostedMode guards (any code checking isHosted or hostedMode)
-- For upstream-only changes to unguarded files, accept upstream version
-- For files with our hostedMode patches, merge carefully — keep our guards
-
-IMPORTANT: Do NOT use git merge --abort. Resolve all conflicts.`,
-      { model: "claude-haiku-4-5-20251001", phase: "merge-conflicts" },
+After resolving, run: git add -A && git commit --no-edit -m "merge upstream master ${datestamp} (conflicts resolved)"`,
+      { model: "claude-haiku-4-5-20251001", phase: "merge-conflicts", maxTurns: 200 },
     );
 
-    const addResult = tryRun("git add -A");
-    if (!addResult.ok) die("Failed to stage resolved files.");
-
-    const commitResult = tryRun(
-      `git commit --no-edit -m "chore: sync paperclip upstream ${new Date().toISOString().slice(0, 10)} (conflicts resolved)"`,
-    );
-    if (!commitResult.ok) {
-      const status = tryRun("git diff --name-only --diff-filter=U");
-      if (status.ok && status.output.trim()) {
-        die("Merge conflicts remain after agent intervention. Manual resolution needed.");
-      }
+    const remaining = tryRun("git diff --name-only --diff-filter=U");
+    if (remaining.ok && remaining.output.trim()) {
+      run(`git checkout ${monorepoBranch}`);
+      die(`Conflicts remain after agent: ${remaining.output}`);
     }
 
-    return { merged: true, behind: 1 };
+    // Agent may have already committed; if not, commit
+    const stillStaged = tryRun("git diff --cached --name-only");
+    if (stillStaged.ok && stillStaged.output.trim()) {
+      run(`git commit --no-edit -m "merge upstream master ${datestamp} (conflicts resolved)"`);
+    }
   }
 
-  log(`Subtree pull failed: ${mergeResult.output}`);
-  return { merged: false, behind: 0 };
+  const forkTrunkMerged = run("git rev-parse HEAD");
+  log(`Fork-trunk merge complete at ${forkTrunkMerged}`);
+
+  // Step 4: fold back into the monorepo branch via tree replacement
+  log(`Folding fork-trunk merge back into ${monorepoBranch}...`);
+  run(`git checkout ${monorepoBranch}`);
+  run(`rm -rf ${SUBTREE_PREFIX}`);
+  run(`mkdir -p ${SUBTREE_PREFIX}`);
+  run(`git archive ${forkTrunkMerged} | tar -x -C ${SUBTREE_PREFIX}`);
+
+  // Step 5: update baseline file
+  writeFileSync(BASELINE_FILE, upstreamHead + "\n");
+  log(`Updated ${BASELINE_FILE} -> ${upstreamHead}`);
+
+  run(`git add -A ${SUBTREE_PREFIX}`);
+  const commitMsg =
+    `chore(paperclip): sync upstream master ${datestamp}\n\n` +
+    `Synced sidecars/paperclip with paperclipai/paperclip@${upstreamHead.slice(0, 8)}, ` +
+    `${deltaCount} commits ahead of prior baseline ${baseline.slice(0, 8)}.\n\n` +
+    `Upstream-Baseline-Sha: ${upstreamHead}`;
+  run(`git commit -m ${JSON.stringify(commitMsg)}`);
+
+  return { merged: true, behind: parseInt(deltaCount, 10), upstreamHead };
 }
 
 // --- hostedMode scan ---
