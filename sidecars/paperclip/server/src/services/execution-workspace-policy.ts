@@ -38,7 +38,9 @@ export function parseProjectExecutionWorkspacePolicy(raw: unknown): ProjectExecu
   const defaultMode = asString(parsed.defaultMode, "");
   const defaultProjectWorkspaceId =
     typeof parsed.defaultProjectWorkspaceId === "string" ? parsed.defaultProjectWorkspaceId : undefined;
-  const allowIssueOverride = typeof parsed.allowIssueOverride === "boolean" ? parsed.allowIssueOverride : undefined;
+  const environmentId = typeof parsed.environmentId === "string" ? parsed.environmentId : undefined;
+  const allowIssueOverride =
+    typeof parsed.allowIssueOverride === "boolean" ? parsed.allowIssueOverride : undefined;
   const normalizedDefaultMode = (() => {
     if (
       defaultMode === "shared_workspace" ||
@@ -57,18 +59,15 @@ export function parseProjectExecutionWorkspacePolicy(raw: unknown): ProjectExecu
     ...(normalizedDefaultMode ? { defaultMode: normalizedDefaultMode } : {}),
     ...(allowIssueOverride !== undefined ? { allowIssueOverride } : {}),
     ...(defaultProjectWorkspaceId ? { defaultProjectWorkspaceId } : {}),
+    ...(environmentId !== undefined ? { environmentId } : {}),
     ...(workspaceStrategy ? { workspaceStrategy } : {}),
-    ...(parsed.workspaceRuntime &&
-    typeof parsed.workspaceRuntime === "object" &&
-    !Array.isArray(parsed.workspaceRuntime)
+    ...(parsed.workspaceRuntime && typeof parsed.workspaceRuntime === "object" && !Array.isArray(parsed.workspaceRuntime)
       ? { workspaceRuntime: { ...(parsed.workspaceRuntime as Record<string, unknown>) } }
       : {}),
     ...(parsed.branchPolicy && typeof parsed.branchPolicy === "object" && !Array.isArray(parsed.branchPolicy)
       ? { branchPolicy: { ...(parsed.branchPolicy as Record<string, unknown>) } }
       : {}),
-    ...(parsed.pullRequestPolicy &&
-    typeof parsed.pullRequestPolicy === "object" &&
-    !Array.isArray(parsed.pullRequestPolicy)
+    ...(parsed.pullRequestPolicy && typeof parsed.pullRequestPolicy === "object" && !Array.isArray(parsed.pullRequestPolicy)
       ? { pullRequestPolicy: { ...(parsed.pullRequestPolicy as Record<string, unknown>) } }
       : {}),
     ...(parsed.runtimePolicy && typeof parsed.runtimePolicy === "object" && !Array.isArray(parsed.runtimePolicy)
@@ -109,14 +108,37 @@ export function parseIssueExecutionWorkspaceSettings(raw: unknown): IssueExecuti
     return "";
   })();
   return {
-    ...(normalizedMode ? { mode: normalizedMode as IssueExecutionWorkspaceSettings["mode"] } : {}),
+    ...(normalizedMode
+      ? { mode: normalizedMode as IssueExecutionWorkspaceSettings["mode"] }
+      : {}),
+    ...(typeof parsed.environmentId === "string" ? { environmentId: parsed.environmentId } : {}),
     ...(workspaceStrategy ? { workspaceStrategy } : {}),
-    ...(parsed.workspaceRuntime &&
-    typeof parsed.workspaceRuntime === "object" &&
-    !Array.isArray(parsed.workspaceRuntime)
+    ...(parsed.workspaceRuntime && typeof parsed.workspaceRuntime === "object" && !Array.isArray(parsed.workspaceRuntime)
       ? { workspaceRuntime: { ...(parsed.workspaceRuntime as Record<string, unknown>) } }
       : {}),
   };
+}
+
+export function resolveExecutionWorkspaceEnvironmentId(input: {
+  projectPolicy: ProjectExecutionWorkspacePolicy | null;
+  issueSettings: IssueExecutionWorkspaceSettings | null;
+  workspaceConfig: { environmentId?: string | null } | null;
+  agentDefaultEnvironmentId: string | null;
+  defaultEnvironmentId: string;
+}) {
+  if (input.workspaceConfig?.environmentId !== undefined) {
+    return input.workspaceConfig.environmentId ?? input.defaultEnvironmentId;
+  }
+  if (input.issueSettings?.environmentId !== undefined) {
+    return input.issueSettings.environmentId ?? input.defaultEnvironmentId;
+  }
+  if (input.projectPolicy?.environmentId !== undefined) {
+    return input.projectPolicy.environmentId ?? input.defaultEnvironmentId;
+  }
+  if (input.agentDefaultEnvironmentId !== null) {
+    return input.agentDefaultEnvironmentId;
+  }
+  return input.defaultEnvironmentId;
 }
 
 export function defaultIssueExecutionWorkspaceSettingsForProject(
@@ -181,10 +203,11 @@ export function buildExecutionWorkspaceAdapterConfig(input: {
   const nextConfig = { ...input.agentConfig };
   const projectHasPolicy = Boolean(input.projectPolicy?.enabled);
   const issueHasWorkspaceOverrides = Boolean(
-    input.issueSettings?.mode || input.issueSettings?.workspaceStrategy || input.issueSettings?.workspaceRuntime,
+    input.issueSettings?.mode ||
+    input.issueSettings?.workspaceStrategy ||
+    input.issueSettings?.workspaceRuntime,
   );
-  const hasWorkspaceControl =
-    projectHasPolicy || issueHasWorkspaceOverrides || input.legacyUseProjectWorkspace === false;
+  const hasWorkspaceControl = projectHasPolicy || issueHasWorkspaceOverrides || input.legacyUseProjectWorkspace === false;
 
   if (hasWorkspaceControl) {
     if (input.mode === "isolated_workspace") {

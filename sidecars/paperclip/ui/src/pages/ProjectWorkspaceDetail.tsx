@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ChoosePathButton } from "../components/PathInstructionsModal";
 import { projectsApi } from "../api/projects";
+import {
+  buildWorkspaceRuntimeControlSections,
+  WorkspaceRuntimeControls,
+  type WorkspaceRuntimeControlRequest,
+} from "../components/WorkspaceRuntimeControls";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -35,11 +40,7 @@ const SOURCE_TYPE_OPTIONS: Array<{ value: ProjectWorkspaceSourceType; label: str
   { value: "local_path", label: "Local git checkout", description: "A local path Paperclip can use directly." },
   { value: "non_git_path", label: "Local non-git path", description: "A local folder without git semantics." },
   { value: "git_repo", label: "Remote git repo", description: "A repo URL with optional refs and local checkout." },
-  {
-    value: "remote_managed",
-    label: "Remote-managed workspace",
-    description: "A hosted workspace tracked by external reference.",
-  },
+  { value: "remote_managed", label: "Remote-managed workspace", description: "A hosted workspace tracked by external reference." },
 ];
 
 const VISIBILITY_OPTIONS: Array<{ value: ProjectWorkspaceVisibility; label: string }> = [
@@ -63,12 +64,6 @@ function isAbsolutePath(value: string) {
 
 function readText(value: string | null | undefined) {
   return value ?? "";
-}
-
-function hasActiveRuntimeServices(workspace: ProjectWorkspace | null | undefined) {
-  return (workspace?.runtimeServices ?? []).some(
-    (service) => service.status === "starting" || service.status === "running",
-  );
 }
 
 function formatJson(value: Record<string, unknown> | null | undefined) {
@@ -108,7 +103,7 @@ function parseRuntimeConfigJson(value: string) {
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return {
         ok: false as const,
-        error: "Runtime services JSON must be a JSON object.",
+        error: "Workspace commands JSON must be a JSON object.",
       };
     }
     return { ok: true as const, value: parsed as Record<string, unknown> };
@@ -185,7 +180,15 @@ function validateWorkspaceForm(form: WorkspaceFormState) {
   return null;
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="space-y-1.5">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
@@ -305,22 +308,24 @@ export function ProjectWorkspaceDetail() {
   });
 
   const controlRuntimeServices = useMutation({
-    mutationFn: (action: "start" | "stop" | "restart") =>
-      projectsApi.controlWorkspaceRuntimeServices(project!.id, routeWorkspaceId, action, lookupCompanyId),
-    onSuccess: (result, action) => {
+    mutationFn: (request: WorkspaceRuntimeControlRequest) =>
+      projectsApi.controlWorkspaceCommands(project!.id, routeWorkspaceId, request.action, lookupCompanyId, request),
+    onSuccess: (result, request) => {
       invalidateProject();
       setErrorMessage(null);
       setRuntimeActionMessage(
-        action === "stop"
-          ? "Runtime services stopped."
-          : action === "restart"
-            ? "Runtime services restarted."
-            : "Runtime services started.",
+        request.action === "run"
+          ? "Workspace job completed."
+          : request.action === "stop"
+            ? "Workspace service stopped."
+            : request.action === "restart"
+              ? "Workspace service restarted."
+              : "Workspace service started.",
       );
     },
     onError: (error) => {
       setRuntimeActionMessage(null);
-      setErrorMessage(error instanceof Error ? error.message : "Failed to control runtime services.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to control workspace commands.");
     },
   });
 
@@ -336,6 +341,16 @@ export function ProjectWorkspaceDetail() {
     return <p className="text-sm text-muted-foreground">Workspace not found for this project.</p>;
   }
 
+  const canRunWorkspaceCommands = Boolean(workspace.cwd);
+  const canStartRuntimeServices = Boolean(workspace.runtimeConfig?.workspaceRuntime) && canRunWorkspaceCommands;
+  const runtimeControlSections = buildWorkspaceRuntimeControlSections({
+    runtimeConfig: workspace.runtimeConfig?.workspaceRuntime ?? null,
+    runtimeServices: workspace.runtimeServices ?? [],
+    canStartServices: canStartRuntimeServices,
+    canRunJobs: canRunWorkspaceCommands,
+  });
+  const pendingRuntimeAction = controlRuntimeServices.isPending ? controlRuntimeServices.variables ?? null : null;
+
   const saveChanges = () => {
     const validationError = validateWorkspaceForm(form);
     if (validationError) {
@@ -347,8 +362,7 @@ export function ProjectWorkspaceDetail() {
     updateWorkspace.mutate(patch);
   };
 
-  const sourceTypeDescription =
-    SOURCE_TYPE_OPTIONS.find((option) => option.value === form.sourceType)?.description ?? null;
+  const sourceTypeDescription = SOURCE_TYPE_OPTIONS.find((option) => option.value === form.sourceType)?.description ?? null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -386,11 +400,9 @@ export function ProjectWorkspaceDetail() {
                   disabled={setPrimaryWorkspace.isPending}
                   onClick={() => setPrimaryWorkspace.mutate()}
                 >
-                  {setPrimaryWorkspace.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Check className="mr-2 h-4 w-4" />
-                  )}
+                  {setPrimaryWorkspace.isPending
+                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    : <Check className="mr-2 h-4 w-4" />}
                   Make primary
                 </Button>
               ) : (
@@ -408,9 +420,7 @@ export function ProjectWorkspaceDetail() {
                 <input
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
                   value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => (current ? { ...current, name: event.target.value } : current))
-                  }
+                  onChange={(event) => setForm((current) => current ? { ...current, name: event.target.value } : current)}
                   placeholder="Workspace name"
                 />
               </Field>
@@ -420,15 +430,11 @@ export function ProjectWorkspaceDetail() {
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
                   value={form.visibility}
                   onChange={(event) =>
-                    setForm((current) =>
-                      current ? { ...current, visibility: event.target.value as ProjectWorkspaceVisibility } : current,
-                    )
+                    setForm((current) => current ? { ...current, visibility: event.target.value as ProjectWorkspaceVisibility } : current)
                   }
                 >
                   {VISIBILITY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </Field>
@@ -440,15 +446,11 @@ export function ProjectWorkspaceDetail() {
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
                   value={form.sourceType}
                   onChange={(event) =>
-                    setForm((current) =>
-                      current ? { ...current, sourceType: event.target.value as ProjectWorkspaceSourceType } : current,
-                    )
+                    setForm((current) => current ? { ...current, sourceType: event.target.value as ProjectWorkspaceSourceType } : current)
                   }
                 >
                   {SOURCE_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </Field>
@@ -458,9 +460,7 @@ export function ProjectWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.cwd}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, cwd: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, cwd: event.target.value } : current)}
                     placeholder="/absolute/path/to/workspace"
                   />
                 </Field>
@@ -474,9 +474,7 @@ export function ProjectWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
                     value={form.repoUrl}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, repoUrl: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, repoUrl: event.target.value } : current)}
                     placeholder="https://github.com/org/repo"
                   />
                 </Field>
@@ -484,9 +482,7 @@ export function ProjectWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.repoRef}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, repoRef: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, repoRef: event.target.value } : current)}
                     placeholder="origin/main"
                   />
                 </Field>
@@ -497,9 +493,7 @@ export function ProjectWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.defaultRef}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, defaultRef: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, defaultRef: event.target.value } : current)}
                     placeholder="origin/main"
                   />
                 </Field>
@@ -507,9 +501,7 @@ export function ProjectWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.sharedWorkspaceKey}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, sharedWorkspaceKey: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, sharedWorkspaceKey: event.target.value } : current)}
                     placeholder="frontend"
                   />
                 </Field>
@@ -520,9 +512,7 @@ export function ProjectWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
                     value={form.remoteProvider}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, remoteProvider: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, remoteProvider: event.target.value } : current)}
                     placeholder="codespaces"
                   />
                 </Field>
@@ -530,9 +520,7 @@ export function ProjectWorkspaceDetail() {
                   <input
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.remoteWorkspaceRef}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, remoteWorkspaceRef: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, remoteWorkspaceRef: event.target.value } : current)}
                     placeholder="workspace-123"
                   />
                 </Field>
@@ -543,9 +531,7 @@ export function ProjectWorkspaceDetail() {
                   <textarea
                     className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.setupCommand}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, setupCommand: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, setupCommand: event.target.value } : current)}
                     placeholder="pnpm install && pnpm dev"
                   />
                 </Field>
@@ -553,37 +539,32 @@ export function ProjectWorkspaceDetail() {
                   <textarea
                     className="min-h-28 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
                     value={form.cleanupCommand}
-                    onChange={(event) =>
-                      setForm((current) => (current ? { ...current, cleanupCommand: event.target.value } : current))
-                    }
+                    onChange={(event) => setForm((current) => current ? { ...current, cleanupCommand: event.target.value } : current)}
                     placeholder="pkill -f vite || true"
                   />
                 </Field>
               </div>
 
-              <Field
-                label="Runtime services JSON"
-                hint="Default runtime services for this workspace. Execution workspaces inherit this config unless they set an override. If you do not know the commands yet, ask your CEO to configure them for you."
-              >
-                <textarea
-                  className="min-h-36 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
-                  value={form.runtimeConfig}
-                  onChange={(event) =>
-                    setForm((current) => (current ? { ...current, runtimeConfig: event.target.value } : current))
-                  }
-                  placeholder={
-                    '{\n  "services": [\n    {\n      "name": "web",\n      "command": "pnpm dev",\n      "cwd": ".",\n      "port": { "type": "auto" },\n      "readiness": {\n        "type": "http",\n        "urlTemplate": "http://127.0.0.1:${port}"\n      },\n      "expose": {\n        "type": "url",\n        "urlTemplate": "http://127.0.0.1:${port}"\n      },\n      "lifecycle": "shared",\n      "reuseScope": "project_workspace"\n    }\n  ]\n}'
-                  }
-                />
-              </Field>
+              <details className="rounded-xl border border-dashed border-border/70 bg-background px-3 py-3">
+                <summary className="cursor-pointer text-sm font-medium">Advanced runtime JSON</summary>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Paperclip derives Services and Jobs from this JSON. Prefer editing named commands first; use raw JSON for advanced lifecycle, port, readiness, or environment settings.
+                </p>
+                <div className="mt-3">
+                  <Field label="Workspace commands JSON" hint="Execution workspaces inherit this config unless they override it. Legacy `services` arrays still work, but `commands` supports both services and jobs.">
+                    <textarea
+                      className="min-h-96 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm outline-none"
+                      value={form.runtimeConfig}
+                      onChange={(event) => setForm((current) => current ? { ...current, runtimeConfig: event.target.value } : current)}
+                      placeholder={"{\n  \"commands\": [\n    {\n      \"id\": \"web\",\n      \"name\": \"web\",\n      \"kind\": \"service\",\n      \"command\": \"pnpm dev\",\n      \"cwd\": \".\",\n      \"port\": { \"type\": \"auto\" },\n      \"readiness\": {\n        \"type\": \"http\",\n        \"urlTemplate\": \"http://127.0.0.1:${port}\"\n      },\n      \"expose\": {\n        \"type\": \"url\",\n        \"urlTemplate\": \"http://127.0.0.1:${port}\"\n      },\n      \"lifecycle\": \"shared\",\n      \"reuseScope\": \"project_workspace\"\n    },\n    {\n      \"id\": \"db-migrate\",\n      \"name\": \"db:migrate\",\n      \"kind\": \"job\",\n      \"command\": \"pnpm db:migrate\",\n      \"cwd\": \".\"\n    }\n  ]\n}"}
+                    />
+                  </Field>
+                </div>
+              </details>
             </div>
 
             <div className="mt-5 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-              <Button
-                className="w-full sm:w-auto"
-                disabled={!isDirty || updateWorkspace.isPending}
-                onClick={saveChanges}
-              >
+              <Button className="w-full sm:w-auto" disabled={!isDirty || updateWorkspace.isPending} onClick={saveChanges}>
                 {updateWorkspace.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Save changes
               </Button>
@@ -599,9 +580,7 @@ export function ProjectWorkspaceDetail() {
                 Reset
               </Button>
               {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-              {!errorMessage && runtimeActionMessage ? (
-                <p className="text-sm text-muted-foreground">{runtimeActionMessage}</p>
-              ) : null}
+              {!errorMessage && runtimeActionMessage ? <p className="text-sm text-muted-foreground">{runtimeActionMessage}</p> : null}
               {!errorMessage && !isDirty ? <p className="text-sm text-muted-foreground">No unsaved changes.</p> : null}
             </div>
           </div>
@@ -610,16 +589,12 @@ export function ProjectWorkspaceDetail() {
         <div className="space-y-6">
           <div className="rounded-2xl border border-border bg-card p-5">
             <div className="space-y-1">
-              <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Workspace facts
-              </div>
+              <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Workspace facts</div>
               <h2 className="text-lg font-semibold">Current state</h2>
             </div>
             <Separator className="my-4" />
             <DetailRow label="Project">
-              <Link to={`/projects/${canonicalProjectRef}`} className="hover:underline">
-                {project.name}
-              </Link>
+              <Link to={`/projects/${canonicalProjectRef}`} className="hover:underline">{project.name}</Link>
             </DetailRow>
             <DetailRow label="Workspace ID">
               <span className="break-all font-mono text-xs">{workspace.id}</span>
@@ -629,20 +604,13 @@ export function ProjectWorkspaceDetail() {
             </DetailRow>
             <DetailRow label="Repo">
               {workspace.repoUrl && isSafeExternalUrl(workspace.repoUrl) ? (
-                <a
-                  href={workspace.repoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 hover:underline"
-                >
+                <a href={workspace.repoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline">
                   {workspace.repoUrl}
                   <ExternalLink className="h-3 w-3" />
                 </a>
               ) : workspace.repoUrl ? (
                 <span className="break-all font-mono text-xs">{workspace.repoUrl}</span>
-              ) : (
-                "None"
-              )}
+              ) : "None"}
             </DetailRow>
             <DetailRow label="Default ref">{workspace.defaultRef ?? "None"}</DetailRow>
             <DetailRow label="Updated">{new Date(workspace.updatedAt).toLocaleString()}</DetailRow>
@@ -651,87 +619,27 @@ export function ProjectWorkspaceDetail() {
           <div className="rounded-2xl border border-border bg-card p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  Runtime services
-                </div>
-                <h2 className="text-lg font-semibold">Attached services</h2>
+                <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Workspace commands</div>
+                <h2 className="text-lg font-semibold">Services and jobs</h2>
                 <p className="text-sm text-muted-foreground">
-                  Shared services for this project workspace. Execution workspaces inherit this config unless they
-                  override it.
+                  Long-running services stay supervised here, while one-shot jobs run on demand against this workspace. Execution workspaces inherit this config unless they override it.
                 </p>
               </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  disabled={
-                    controlRuntimeServices.isPending || !workspace.runtimeConfig?.workspaceRuntime || !workspace.cwd
-                  }
-                  onClick={() => controlRuntimeServices.mutate("start")}
-                >
-                  {controlRuntimeServices.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                  Start
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  disabled={controlRuntimeServices.isPending || !workspace.cwd}
-                  onClick={() => controlRuntimeServices.mutate("restart")}
-                >
-                  Restart
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  disabled={controlRuntimeServices.isPending || !hasActiveRuntimeServices(workspace)}
-                  onClick={() => controlRuntimeServices.mutate("stop")}
-                >
-                  Stop
-                </Button>
-              </div>
             </div>
-            <Separator className="my-4" />
-            {workspace.runtimeServices && workspace.runtimeServices.length > 0 ? (
-              <div className="space-y-3">
-                {workspace.runtimeServices.map((service) => (
-                  <div key={service.id} className="rounded-xl border border-border/80 bg-background px-3 py-2">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium">{service.serviceName}</div>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          {service.url ? (
-                            <a
-                              href={service.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 hover:underline"
-                            >
-                              {service.url}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          ) : null}
-                          {service.port ? <div>Port {service.port}</div> : null}
-                          <div>{service.command ?? "No command recorded"}</div>
-                          {service.cwd ? <div className="break-all font-mono">{service.cwd}</div> : null}
-                        </div>
-                      </div>
-                      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground sm:text-right">
-                        {service.status} · {service.healthStatus}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {workspace.runtimeConfig?.workspaceRuntime
-                  ? "No runtime services are currently running for this workspace."
-                  : "No runtime-service default is configured for this workspace yet."}
-              </p>
-            )}
+            <WorkspaceRuntimeControls
+              className="mt-4"
+              sections={runtimeControlSections}
+              isPending={controlRuntimeServices.isPending}
+              pendingRequest={pendingRuntimeAction}
+              serviceEmptyMessage={
+                workspace.runtimeConfig?.workspaceRuntime
+                  ? "No services have been started for this workspace yet."
+                  : "No workspace command config is defined for this workspace yet."
+              }
+              jobEmptyMessage="No one-shot jobs are configured for this workspace yet."
+              disabledHint="Project workspaces need a working directory before local commands can run, and services also need runtime config."
+              onAction={(request) => controlRuntimeServices.mutate(request)}
+            />
           </div>
         </div>
       </div>

@@ -33,13 +33,19 @@ export const sessionCodec: AdapterSessionCodec = {
     const sessionId = readNonEmptyString(record.sessionId) ?? readNonEmptyString(record.session_id);
     if (!sessionId) return null;
     const cwd =
-      readNonEmptyString(record.cwd) ?? readNonEmptyString(record.workdir) ?? readNonEmptyString(record.folder);
+      readNonEmptyString(record.cwd) ??
+      readNonEmptyString(record.workdir) ??
+      readNonEmptyString(record.folder);
+    const promptBundleKey =
+      readNonEmptyString(record.promptBundleKey) ??
+      readNonEmptyString(record.prompt_bundle_key);
     const workspaceId = readNonEmptyString(record.workspaceId) ?? readNonEmptyString(record.workspace_id);
     const repoUrl = readNonEmptyString(record.repoUrl) ?? readNonEmptyString(record.repo_url);
     const repoRef = readNonEmptyString(record.repoRef) ?? readNonEmptyString(record.repo_ref);
     return {
       sessionId,
       ...(cwd ? { cwd } : {}),
+      ...(promptBundleKey ? { promptBundleKey } : {}),
       ...(workspaceId ? { workspaceId } : {}),
       ...(repoUrl ? { repoUrl } : {}),
       ...(repoRef ? { repoRef } : {}),
@@ -50,13 +56,19 @@ export const sessionCodec: AdapterSessionCodec = {
     const sessionId = readNonEmptyString(params.sessionId) ?? readNonEmptyString(params.session_id);
     if (!sessionId) return null;
     const cwd =
-      readNonEmptyString(params.cwd) ?? readNonEmptyString(params.workdir) ?? readNonEmptyString(params.folder);
+      readNonEmptyString(params.cwd) ??
+      readNonEmptyString(params.workdir) ??
+      readNonEmptyString(params.folder);
+    const promptBundleKey =
+      readNonEmptyString(params.promptBundleKey) ??
+      readNonEmptyString(params.prompt_bundle_key);
     const workspaceId = readNonEmptyString(params.workspaceId) ?? readNonEmptyString(params.workspace_id);
     const repoUrl = readNonEmptyString(params.repoUrl) ?? readNonEmptyString(params.repo_url);
     const repoRef = readNonEmptyString(params.repoRef) ?? readNonEmptyString(params.repo_ref);
     return {
       sessionId,
       ...(cwd ? { cwd } : {}),
+      ...(promptBundleKey ? { promptBundleKey } : {}),
       ...(workspaceId ? { workspaceId } : {}),
       ...(repoUrl ? { repoUrl } : {}),
       ...(repoRef ? { repoRef } : {}),

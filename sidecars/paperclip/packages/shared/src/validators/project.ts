@@ -19,6 +19,7 @@ export const projectExecutionWorkspacePolicySchema = z
     defaultMode: z.enum(["shared_workspace", "isolated_workspace", "operator_branch", "adapter_default"]).optional(),
     allowIssueOverride: z.boolean().optional(),
     defaultProjectWorkspaceId: z.string().uuid().optional().nullable(),
+    environmentId: z.string().uuid().optional().nullable(),
     workspaceStrategy: executionWorkspaceStrategySchema.optional().nullable(),
     workspaceRuntime: z.record(z.unknown()).optional().nullable(),
     branchPolicy: z.record(z.unknown()).optional().nullable(),
@@ -28,12 +29,11 @@ export const projectExecutionWorkspacePolicySchema = z
   })
   .strict();
 
-export const projectWorkspaceRuntimeConfigSchema = z
-  .object({
-    workspaceRuntime: z.record(z.unknown()).optional().nullable(),
-    desiredState: z.enum(["running", "stopped"]).optional().nullable(),
-  })
-  .strict();
+export const projectWorkspaceRuntimeConfigSchema = z.object({
+  workspaceRuntime: z.record(z.unknown()).optional().nullable(),
+  desiredState: z.enum(["running", "stopped", "manual"]).optional().nullable(),
+  serviceStates: z.record(z.enum(["running", "stopped", "manual"])).optional().nullable(),
+}).strict();
 
 const projectWorkspaceSourceTypeSchema = z.enum(["local_path", "git_repo", "remote_managed", "non_git_path"]);
 const projectWorkspaceVisibilitySchema = z.enum(["default", "advanced"]);
@@ -81,21 +81,17 @@ function validateProjectWorkspace(value: Record<string, unknown>, ctx: z.Refinem
   }
 }
 
-export const createProjectWorkspaceSchema = z
-  .object({
-    ...projectWorkspaceFields,
-    isPrimary: z.boolean().optional().default(false),
-  })
-  .superRefine(validateProjectWorkspace);
+export const createProjectWorkspaceSchema = z.object({
+  ...projectWorkspaceFields,
+  isPrimary: z.boolean().optional().default(false),
+}).superRefine(validateProjectWorkspace);
 
 export type CreateProjectWorkspace = z.infer<typeof createProjectWorkspaceSchema>;
 
-export const updateProjectWorkspaceSchema = z
-  .object({
-    ...projectWorkspaceFields,
-    isPrimary: z.boolean().optional(),
-  })
-  .partial();
+export const updateProjectWorkspaceSchema = z.object({
+  ...projectWorkspaceFields,
+  isPrimary: z.boolean().optional(),
+}).partial();
 
 export type UpdateProjectWorkspace = z.infer<typeof updateProjectWorkspaceSchema>;
 

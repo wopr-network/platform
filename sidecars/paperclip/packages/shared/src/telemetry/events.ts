@@ -4,7 +4,10 @@ export function trackInstallStarted(client: TelemetryClient): void {
   client.track("install.started");
 }
 
-export function trackInstallCompleted(client: TelemetryClient, dims: { adapterType: string }): void {
+export function trackInstallCompleted(
+  client: TelemetryClient,
+  dims: { adapterType: string },
+): void {
   client.track("install.completed", { adapter_type: dims.adapterType });
 }
 
@@ -28,19 +31,31 @@ export function trackRoutineCreated(client: TelemetryClient): void {
   client.track("routine.created");
 }
 
-export function trackRoutineRun(client: TelemetryClient, dims: { source: string; status: string }): void {
+export function trackRoutineRun(
+  client: TelemetryClient,
+  dims: { source: string; status: string },
+): void {
   client.track("routine.run", {
     source: dims.source,
     status: dims.status,
   });
 }
 
-export function trackGoalCreated(client: TelemetryClient, dims?: { goalLevel?: string | null }): void {
+export function trackGoalCreated(
+  client: TelemetryClient,
+  dims?: { goalLevel?: string | null },
+): void {
   client.track("goal.created", dims?.goalLevel ? { goal_level: dims.goalLevel } : undefined);
 }
 
-export function trackAgentCreated(client: TelemetryClient, dims: { agentRole: string }): void {
-  client.track("agent.created", { agent_role: dims.agentRole });
+export function trackAgentCreated(
+  client: TelemetryClient,
+  dims: { agentRole: string; agentId?: string },
+): void {
+  client.track("agent.created", {
+    agent_role: dims.agentRole,
+    ...(dims.agentId ? { agent_id: dims.agentId } : {}),
+  });
 }
 
 export function trackSkillImported(
@@ -53,14 +68,31 @@ export function trackSkillImported(
   });
 }
 
-export function trackAgentFirstHeartbeat(client: TelemetryClient, dims: { agentRole: string }): void {
-  client.track("agent.first_heartbeat", { agent_role: dims.agentRole });
+export function trackAgentFirstHeartbeat(
+  client: TelemetryClient,
+  dims: { agentRole: string; agentId?: string },
+): void {
+  client.track("agent.first_heartbeat", {
+    agent_role: dims.agentRole,
+    ...(dims.agentId ? { agent_id: dims.agentId } : {}),
+  });
 }
 
-export function trackAgentTaskCompleted(client: TelemetryClient, dims: { agentRole: string }): void {
-  client.track("agent.task_completed", { agent_role: dims.agentRole });
+export function trackAgentTaskCompleted(
+  client: TelemetryClient,
+  dims: { agentRole: string; agentId?: string; adapterType?: string; model?: string },
+): void {
+  client.track("agent.task_completed", {
+    agent_role: dims.agentRole,
+    ...(dims.agentId ? { agent_id: dims.agentId } : {}),
+    ...(dims.adapterType ? { adapter_type: dims.adapterType } : {}),
+    ...(dims.model ? { model: dims.model } : {}),
+  });
 }
 
-export function trackErrorHandlerCrash(client: TelemetryClient, dims: { errorCode: string }): void {
+export function trackErrorHandlerCrash(
+  client: TelemetryClient,
+  dims: { errorCode: string },
+): void {
   client.track("error.handler_crash", { error_code: dims.errorCode });
 }

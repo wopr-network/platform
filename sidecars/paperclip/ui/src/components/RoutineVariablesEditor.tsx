@@ -5,7 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 const variableTypes: RoutineVariable["type"][] = ["text", "textarea", "number", "boolean", "select"];
@@ -30,16 +36,21 @@ function updateVariableList(
 }
 
 export function RoutineVariablesEditor({
+  title,
   description,
   value,
   onChange,
 }: {
+  title: string;
   description: string;
   value: RoutineVariable[];
   onChange: (value: RoutineVariable[]) => void;
 }) {
   const [open, setOpen] = useState(true);
-  const syncedVariables = useMemo(() => syncRoutineVariablesWithTemplate(description, value), [description, value]);
+  const syncedVariables = useMemo(
+    () => syncRoutineVariablesWithTemplate([title, description], value),
+    [description, title, value],
+  );
   const syncedSignature = serializeVariables(syncedVariables);
   const currentSignature = serializeVariables(value);
 
@@ -59,14 +70,10 @@ export function RoutineVariablesEditor({
         <div>
           <p className="text-sm font-medium">Variables</p>
           <p className="text-xs text-muted-foreground">
-            Detected from `{"{{name}}"}` placeholders in the routine instructions.
+            Detected from `{"{{name}}"}` placeholders in the routine title and instructions.
           </p>
         </div>
-        {open ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
+        {open ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-3 pt-3">
         {syncedVariables.map((variable) => (
@@ -85,14 +92,10 @@ export function RoutineVariablesEditor({
                 <Label className="text-xs">Label</Label>
                 <Input
                   value={variable.label ?? ""}
-                  onChange={(event) =>
-                    onChange(
-                      updateVariableList(syncedVariables, variable.name, (current) => ({
-                        ...current,
-                        label: event.target.value || null,
-                      })),
-                    )
-                  }
+                  onChange={(event) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                    ...current,
+                    label: event.target.value || null,
+                  })))}
                   placeholder={variable.name.replaceAll("_", " ")}
                 />
               </div>
@@ -101,25 +104,19 @@ export function RoutineVariablesEditor({
                 <Label className="text-xs">Type</Label>
                 <Select
                   value={variable.type}
-                  onValueChange={(type) =>
-                    onChange(
-                      updateVariableList(syncedVariables, variable.name, (current) => ({
-                        ...current,
-                        type: type as RoutineVariable["type"],
-                        defaultValue: type === "boolean" ? null : current.defaultValue,
-                        options: type === "select" ? current.options : [],
-                      })),
-                    )
-                  }
+                  onValueChange={(type) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                    ...current,
+                    type: type as RoutineVariable["type"],
+                    defaultValue: type === "boolean" ? null : current.defaultValue,
+                    options: type === "select" ? current.options : [],
+                  })))}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {variableTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>
+                      <SelectItem key={type} value={type}>{type}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -132,14 +129,10 @@ export function RoutineVariablesEditor({
                     <input
                       type="checkbox"
                       checked={variable.required}
-                      onChange={(event) =>
-                        onChange(
-                          updateVariableList(syncedVariables, variable.name, (current) => ({
-                            ...current,
-                            required: event.target.checked,
-                          })),
-                        )
-                      }
+                      onChange={(event) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                        ...current,
+                        required: event.target.checked,
+                      })))}
                     />
                     Required
                   </label>
@@ -149,28 +142,18 @@ export function RoutineVariablesEditor({
                   <Textarea
                     rows={3}
                     value={variable.defaultValue == null ? "" : String(variable.defaultValue)}
-                    onChange={(event) =>
-                      onChange(
-                        updateVariableList(syncedVariables, variable.name, (current) => ({
-                          ...current,
-                          defaultValue: event.target.value || null,
-                        })),
-                      )
-                    }
+                    onChange={(event) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                      ...current,
+                      defaultValue: event.target.value || null,
+                    })))}
                   />
                 ) : variable.type === "boolean" ? (
                   <Select
-                    value={
-                      variable.defaultValue === true ? "true" : variable.defaultValue === false ? "false" : "__unset__"
-                    }
-                    onValueChange={(next) =>
-                      onChange(
-                        updateVariableList(syncedVariables, variable.name, (current) => ({
-                          ...current,
-                          defaultValue: next === "__unset__" ? null : next === "true",
-                        })),
-                      )
-                    }
+                    value={variable.defaultValue === true ? "true" : variable.defaultValue === false ? "false" : "__unset__"}
+                    onValueChange={(next) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                      ...current,
+                      defaultValue: next === "__unset__" ? null : next === "true",
+                    })))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -189,16 +172,14 @@ export function RoutineVariablesEditor({
                         value={variable.options.join(", ")}
                         onChange={(event) => {
                           const options = parseSelectOptions(event.target.value);
-                          onChange(
-                            updateVariableList(syncedVariables, variable.name, (current) => ({
-                              ...current,
-                              options,
-                              defaultValue:
-                                typeof current.defaultValue === "string" && options.includes(current.defaultValue)
-                                  ? current.defaultValue
-                                  : null,
-                            })),
-                          );
+                          onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                            ...current,
+                            options,
+                            defaultValue:
+                              typeof current.defaultValue === "string" && options.includes(current.defaultValue)
+                                ? current.defaultValue
+                                : null,
+                          })));
                         }}
                         placeholder="high, medium, low"
                       />
@@ -207,14 +188,10 @@ export function RoutineVariablesEditor({
                       <Label className="text-xs">Default option</Label>
                       <Select
                         value={typeof variable.defaultValue === "string" ? variable.defaultValue : "__unset__"}
-                        onValueChange={(next) =>
-                          onChange(
-                            updateVariableList(syncedVariables, variable.name, (current) => ({
-                              ...current,
-                              defaultValue: next === "__unset__" ? null : next,
-                            })),
-                          )
-                        }
+                        onValueChange={(next) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                          ...current,
+                          defaultValue: next === "__unset__" ? null : next,
+                        })))}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="No default" />
@@ -222,9 +199,7 @@ export function RoutineVariablesEditor({
                         <SelectContent>
                           <SelectItem value="__unset__">No default</SelectItem>
                           {variable.options.map((option) => (
-                            <SelectItem key={option} value={option}>
-                              {option}
-                            </SelectItem>
+                            <SelectItem key={option} value={option}>{option}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -234,14 +209,10 @@ export function RoutineVariablesEditor({
                   <Input
                     type={variable.type === "number" ? "number" : "text"}
                     value={variable.defaultValue == null ? "" : String(variable.defaultValue)}
-                    onChange={(event) =>
-                      onChange(
-                        updateVariableList(syncedVariables, variable.name, (current) => ({
-                          ...current,
-                          defaultValue: event.target.value || null,
-                        })),
-                      )
-                    }
+                    onChange={(event) => onChange(updateVariableList(syncedVariables, variable.name, (current) => ({
+                      ...current,
+                      defaultValue: event.target.value || null,
+                    })))}
                     placeholder={variable.type === "number" ? "42" : "Default value"}
                   />
                 )}

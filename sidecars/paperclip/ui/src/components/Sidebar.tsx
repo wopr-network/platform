@@ -10,6 +10,7 @@ import {
   Network,
   Boxes,
   Repeat,
+  GitBranch,
   Settings,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -20,17 +21,23 @@ import { SidebarAgents } from "./SidebarAgents";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { heartbeatsApi } from "../api/heartbeats";
+import { instanceSettingsApi } from "../api/instanceSettings";
 import { queryKeys } from "../lib/queryKeys";
 import { useInboxBadge } from "../hooks/useInboxBadge";
 import { useHostedMode } from "../hooks/useHostedMode";
 import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
+import { SidebarCompanyMenu } from "./SidebarCompanyMenu";
 
 export function Sidebar() {
   const { openNewIssue } = useDialog();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { isHosted, modeKnown } = useHostedMode();
   const inboxBadge = useInboxBadge(selectedCompanyId);
+  const { data: experimentalSettings } = useQuery({
+    queryKey: queryKeys.instance.experimentalSettings,
+    queryFn: () => instanceSettingsApi.getExperimental(),
+  });
   const { data: liveRuns } = useQuery({
     queryKey: queryKeys.liveRuns(selectedCompanyId!),
     queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
@@ -38,6 +45,7 @@ export function Sidebar() {
     refetchInterval: 10_000,
   });
   const liveRunCount = liveRuns?.length ?? 0;
+  const showWorkspacesLink = experimentalSettings?.enableIsolatedWorkspaces === true;
 
   function openSearch() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
@@ -52,13 +60,13 @@ export function Sidebar() {
     <aside className="w-60 h-full min-h-0 border-r border-border bg-background flex flex-col">
       {/* Top bar: Company name (bold) + Search — aligned with top sections (no visible border) */}
       <div className="flex items-center gap-1 px-3 h-12 shrink-0">
-        {selectedCompany?.brandColor && (
-          <div className="w-4 h-4 rounded-sm shrink-0 ml-1" style={{ backgroundColor: selectedCompany.brandColor }} />
-        )}
-        <span className="flex-1 text-sm font-bold text-foreground truncate pl-1">
-          {selectedCompany?.name ?? "Select company"}
-        </span>
-        <Button variant="ghost" size="icon-sm" className="text-muted-foreground shrink-0" onClick={openSearch}>
+        <SidebarCompanyMenu />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="text-muted-foreground shrink-0"
+          onClick={openSearch}
+        >
           <Search className="h-4 w-4" />
         </Button>
       </div>
@@ -93,8 +101,11 @@ export function Sidebar() {
 
         <SidebarSection label="Work">
           <SidebarNavItem to="/issues" label="Issues" icon={CircleDot} />
-          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} textBadge="Beta" textBadgeTone="amber" />
+          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+          {showWorkspacesLink ? (
+            <SidebarNavItem to="/workspaces" label="Workspaces" icon={GitBranch} />
+          ) : null}
         </SidebarSection>
 
         {/* Projects sidebar hidden in hosted mode — ProjectDetail is gated

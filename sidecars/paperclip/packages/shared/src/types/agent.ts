@@ -65,6 +65,7 @@ export interface Agent {
   adapterType: AgentAdapterType;
   adapterConfig: Record<string, unknown>;
   runtimeConfig: Record<string, unknown>;
+  defaultEnvironmentId?: string | null;
   budgetMonthlyCents: number;
   spentMonthlyCents: number;
   pauseReason: PauseReason | null;

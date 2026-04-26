@@ -7,13 +7,19 @@ import {
   companies,
   companySkills,
   createDb,
+  documents,
+  documentRevisions,
   heartbeatRuns,
   issueComments,
+  issueDocuments,
   issueExecutionDecisions,
   issueReadStates,
   issues,
 } from "@paperclipai/db";
-import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
+import {
+  getEmbeddedPostgresTestSupport,
+  startEmbeddedPostgresTestDatabase,
+} from "./helpers/embedded-postgres.js";
 import { agentService } from "../services/agents.ts";
 import { companyService } from "../services/companies.ts";
 
@@ -40,6 +46,8 @@ describeEmbeddedPostgres("cleanup removal services", () => {
     await db.delete(issueReadStates);
     await db.delete(issueComments);
     await db.delete(issueExecutionDecisions);
+    await db.delete(documentRevisions);
+    await db.delete(documents);
     await db.delete(companySkills);
     await db.delete(heartbeatRuns);
     await db.delete(issues);
@@ -145,6 +153,8 @@ describeEmbeddedPostgres("cleanup removal services", () => {
 
   it("removes issue read states and activity rows before deleting the company", async () => {
     const { companyId, issueId, runId } = await seedFixture();
+    const documentId = randomUUID();
+    const revisionId = randomUUID();
 
     await db.insert(issueReadStates).values({
       id: randomUUID(),
@@ -174,14 +184,48 @@ describeEmbeddedPostgres("cleanup removal services", () => {
       details: {},
     });
 
+    await db.insert(documents).values({
+      id: documentId,
+      companyId,
+      title: "Run summary",
+      latestBody: "body",
+      latestRevisionId: revisionId,
+      latestRevisionNumber: 1,
+      createdByAgentId: null,
+      createdByUserId: "user-1",
+      updatedByAgentId: null,
+      updatedByUserId: "user-1",
+    });
+
+    await db.insert(issueDocuments).values({
+      id: randomUUID(),
+      companyId,
+      issueId,
+      documentId,
+      key: "summary",
+    });
+
+    await db.insert(documentRevisions).values({
+      id: revisionId,
+      companyId,
+      documentId,
+      revisionNumber: 1,
+      title: "Run summary",
+      format: "markdown",
+      body: "body",
+      createdByAgentId: null,
+      createdByUserId: "user-1",
+      createdByRunId: runId,
+    });
+
     const removed = await companyService(db).remove(companyId);
 
     expect(removed?.id).toBe(companyId);
     await expect(db.select().from(companies).where(eq(companies.id, companyId))).resolves.toHaveLength(0);
     await expect(db.select().from(issues).where(eq(issues.id, issueId))).resolves.toHaveLength(0);
-    await expect(
-      db.select().from(issueReadStates).where(eq(issueReadStates.companyId, companyId)),
-    ).resolves.toHaveLength(0);
+    await expect(db.select().from(documents).where(eq(documents.id, documentId))).resolves.toHaveLength(0);
+    await expect(db.select().from(documentRevisions).where(eq(documentRevisions.id, revisionId))).resolves.toHaveLength(0);
+    await expect(db.select().from(issueReadStates).where(eq(issueReadStates.companyId, companyId))).resolves.toHaveLength(0);
     await expect(db.select().from(activityLog).where(eq(activityLog.companyId, companyId))).resolves.toHaveLength(0);
   });
 });

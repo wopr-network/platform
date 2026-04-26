@@ -17,13 +17,12 @@ import {
 } from "lucide-react";
 import { routinesApi, type RoutineTriggerResponse, type RotateRoutineTriggerResponse } from "../api/routines";
 import { heartbeatsApi } from "../api/heartbeats";
-import { instanceSettingsApi } from "../api/instanceSettings";
 import { LiveRunWidget } from "../components/LiveRunWidget";
 import { agentsApi } from "../api/agents";
 import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
-import { useToast } from "../context/ToastContext";
+import { useToastActions } from "../context/ToastContext";
 import { queryKeys } from "../lib/queryKeys";
 import { buildRoutineTriggerPatch } from "../lib/routine-trigger-patch";
 import { timeAgo } from "../lib/timeAgo";
@@ -35,19 +34,25 @@ import { InlineEntitySelector, type InlineEntityOption } from "../components/Inl
 import { MarkdownEditor, type MarkdownEditorRef } from "../components/MarkdownEditor";
 import {
   RoutineRunVariablesDialog,
-  routineRunNeedsConfiguration,
   type RoutineRunDialogSubmitData,
 } from "../components/RoutineRunVariablesDialog";
 import { RoutineVariablesEditor, RoutineVariablesHint } from "../components/RoutineVariablesEditor";
 import { ScheduleEditor, describeSchedule } from "../components/ScheduleEditor";
 import { RunButton } from "../components/AgentActionButtons";
 import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
+import { getRecentProjectIds, trackRecentProject } from "../lib/recent-projects";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import type { RoutineTrigger, RoutineVariable } from "@paperclipai/shared";
@@ -101,8 +106,7 @@ function formatActivityDetailValue(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
-  if (Array.isArray(value))
-    return value.length === 0 ? "[]" : value.map((item) => formatActivityDetailValue(item)).join(", ");
+  if (Array.isArray(value)) return value.length === 0 ? "[]" : value.map((item) => formatActivityDetailValue(item)).join(", ");
   try {
     return JSON.stringify(value);
   } catch {
@@ -116,6 +120,24 @@ function getLocalTimezone(): string {
   } catch {
     return "UTC";
   }
+}
+
+function buildRoutineMutationPayload(input: {
+  title: string;
+  description: string;
+  projectId: string;
+  assigneeAgentId: string;
+  priority: string;
+  concurrencyPolicy: string;
+  catchUpPolicy: string;
+  variables: RoutineVariable[];
+}) {
+  return {
+    ...input,
+    description: input.description.trim() || null,
+    projectId: input.projectId || null,
+    assigneeAgentId: input.assigneeAgentId || null,
+  };
 }
 
 function TriggerEditor({
@@ -149,13 +171,7 @@ function TriggerEditor({
     <div className="rounded-lg border border-border p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm font-medium">
-          {trigger.kind === "schedule" ? (
-            <Clock3 className="h-3.5 w-3.5" />
-          ) : trigger.kind === "webhook" ? (
-            <Webhook className="h-3.5 w-3.5" />
-          ) : (
-            <Zap className="h-3.5 w-3.5" />
-          )}
+          {trigger.kind === "schedule" ? <Clock3 className="h-3.5 w-3.5" /> : trigger.kind === "webhook" ? <Webhook className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
           {trigger.label ?? trigger.kind}
         </div>
         <span className="text-xs text-muted-foreground">
@@ -197,9 +213,7 @@ function TriggerEditor({
                 </SelectTrigger>
                 <SelectContent>
                   {signingModes.map((mode) => (
-                    <SelectItem key={mode} value={mode}>
-                      {mode}
-                    </SelectItem>
+                    <SelectItem key={mode} value={mode}>{mode}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -255,7 +269,7 @@ export function RoutineDetail() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
-  const { pushToast } = useToast();
+  const { pushToast } = useToastActions();
   const hydratedRoutineIdRef = useRef<string | null>(null);
   const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
@@ -291,11 +305,7 @@ export function RoutineDetail() {
   });
   const activeTab = useMemo(() => getRoutineTabFromSearch(location.search), [location.search]);
 
-  const {
-    data: routine,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data: routine, isLoading, error } = useQuery({
     queryKey: queryKeys.routines.detail(routineId!),
     queryFn: () => routinesApi.get(routineId!),
     enabled: !!routineId,
@@ -340,11 +350,6 @@ export function RoutineDetail() {
     queryFn: () => projectsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
-  const { data: experimentalSettings } = useQuery({
-    queryKey: queryKeys.instance.experimentalSettings,
-    queryFn: () => instanceSettingsApi.getExperimental(),
-    retry: false,
-  });
 
   const routineDefaults = useMemo(
     () =>
@@ -352,8 +357,8 @@ export function RoutineDetail() {
         ? {
             title: routine.title,
             description: routine.description ?? "",
-            projectId: routine.projectId,
-            assigneeAgentId: routine.assigneeAgentId,
+            projectId: routine.projectId ?? "",
+            assigneeAgentId: routine.assigneeAgentId ?? "",
             priority: routine.priority,
             concurrencyPolicy: routine.concurrencyPolicy,
             catchUpPolicy: routine.catchUpPolicy,
@@ -425,10 +430,7 @@ export function RoutineDetail() {
 
   const saveRoutine = useMutation({
     mutationFn: () => {
-      return routinesApi.update(routineId!, {
-        ...editDraft,
-        description: editDraft.description.trim() || null,
-      });
+      return routinesApi.update(routineId!, buildRoutineMutationPayload(editDraft));
     },
     onSuccess: async () => {
       await Promise.all([
@@ -450,6 +452,8 @@ export function RoutineDetail() {
     mutationFn: (data?: RoutineRunDialogSubmitData) =>
       routinesApi.run(routineId!, {
         ...(data?.variables && Object.keys(data.variables).length > 0 ? { variables: data.variables } : {}),
+        ...(data?.assigneeAgentId !== undefined ? { assigneeAgentId: data.assigneeAgentId } : {}),
+        ...(data?.projectId !== undefined ? { projectId: data.projectId } : {}),
         ...(data?.executionWorkspaceId !== undefined ? { executionWorkspaceId: data.executionWorkspaceId } : {}),
         ...(data?.executionWorkspacePreference !== undefined
           ? { executionWorkspacePreference: data.executionWorkspacePreference }
@@ -512,9 +516,9 @@ export function RoutineDetail() {
           : {}),
         ...(newTrigger.kind === "webhook"
           ? {
-              signingMode: newTrigger.signingMode,
-              replayWindowSec: Number(newTrigger.replayWindowSec || "300"),
-            }
+            signingMode: newTrigger.signingMode,
+            replayWindowSec: Number(newTrigger.replayWindowSec || "300"),
+          }
           : {}),
       });
     },
@@ -614,9 +618,16 @@ export function RoutineDetail() {
     },
   });
 
-  const agentById = useMemo(() => new Map((agents ?? []).map((agent) => [agent.id, agent])), [agents]);
-  const projectById = useMemo(() => new Map((projects ?? []).map((project) => [project.id, project])), [projects]);
+  const agentById = useMemo(
+    () => new Map((agents ?? []).map((agent) => [agent.id, agent])),
+    [agents],
+  );
+  const projectById = useMemo(
+    () => new Map((projects ?? []).map((project) => [project.id, project])),
+    [projects],
+  );
   const recentAssigneeIds = useMemo(() => getRecentAssigneeIds(), [routine?.id]);
+  const recentProjectIds = useMemo(() => getRecentProjectIds(), [routine?.id]);
   const assigneeOptions = useMemo<InlineEntityOption[]>(
     () =>
       sortAgentsByRecency(
@@ -638,8 +649,8 @@ export function RoutineDetail() {
       })),
     [projects],
   );
-  const currentAssignee = editDraft.assigneeAgentId ? (agentById.get(editDraft.assigneeAgentId) ?? null) : null;
-  const currentProject = editDraft.projectId ? (projectById.get(editDraft.projectId) ?? null) : null;
+  const currentAssignee = editDraft.assigneeAgentId ? agentById.get(editDraft.assigneeAgentId) ?? null : null;
+  const currentProject = editDraft.projectId ? projectById.get(editDraft.projectId) ?? null : null;
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Repeat} message="Select a company to view routines." />;
@@ -651,25 +662,27 @@ export function RoutineDetail() {
 
   if (error || !routine) {
     return (
-      <p className="pt-6 text-sm text-destructive">{error instanceof Error ? error.message : "Routine not found"}</p>
+      <p className="pt-6 text-sm text-destructive">
+        {error instanceof Error ? error.message : "Routine not found"}
+      </p>
     );
   }
 
   const automationEnabled = routine.status === "active";
-  const selectedProject = projects?.find((project) => project.id === routine.projectId) ?? null;
-  const needsRunConfiguration = routineRunNeedsConfiguration({
-    variables: routine.variables ?? [],
-    project: selectedProject,
-    isolatedWorkspacesEnabled: experimentalSettings?.enableIsolatedWorkspaces === true,
-  });
+  const selectedProject = routine.projectId ? (projects?.find((project) => project.id === routine.projectId) ?? null) : null;
   const automationToggleDisabled = updateRoutineStatus.isPending || routine.status === "archived";
-  const automationLabel = routine.status === "archived" ? "Archived" : automationEnabled ? "Active" : "Paused";
-  const automationLabelClassName =
-    routine.status === "archived"
-      ? "text-muted-foreground"
+  const automationLabel = routine.status === "archived"
+    ? "Archived"
+    : !routine.assigneeAgentId
+      ? "Draft"
       : automationEnabled
-        ? "text-emerald-400"
-        : "text-muted-foreground";
+        ? "Active"
+        : "Paused";
+  const automationLabelClassName = routine.status === "archived"
+    ? "text-muted-foreground"
+    : automationEnabled
+      ? "text-emerald-400"
+      : "text-muted-foreground";
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -708,22 +721,30 @@ export function RoutineDetail() {
         <div className="flex shrink-0 items-center gap-3 pt-1">
           <RunButton
             onClick={() => {
-              if (needsRunConfiguration) {
-                setRunVariablesOpen(true);
-                return;
-              }
-              runRoutine.mutate({});
+              setRunVariablesOpen(true);
             }}
             disabled={runRoutine.isPending}
           />
           <ToggleSwitch
             size="lg"
             checked={automationEnabled}
-            onCheckedChange={() => updateRoutineStatus.mutate(automationEnabled ? "paused" : "active")}
+            onCheckedChange={() => {
+              if (!automationEnabled && !routine.assigneeAgentId) {
+                pushToast({
+                  title: "Default agent required",
+                  body: "Set a default agent before enabling routine automation.",
+                  tone: "warn",
+                });
+                return;
+              }
+              updateRoutineStatus.mutate(automationEnabled ? "paused" : "active");
+            }}
             disabled={automationToggleDisabled}
             aria-label={automationEnabled ? "Pause automatic triggers" : "Enable automatic triggers"}
           />
-          <span className={`min-w-[3.75rem] text-sm font-medium ${automationLabelClassName}`}>{automationLabel}</span>
+          <span className={`min-w-[3.75rem] text-sm font-medium ${automationLabelClassName}`}>
+            {automationLabel}
+          </span>
         </div>
       </div>
 
@@ -732,29 +753,19 @@ export function RoutineDetail() {
         <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4 space-y-3 text-sm">
           <div>
             <p className="font-medium">{secretMessage.title}</p>
-            <p className="text-xs text-muted-foreground">
-              Save this now. Paperclip will not show the secret value again.
-            </p>
+            <p className="text-xs text-muted-foreground">Save this now. Paperclip will not show the secret value again.</p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Input value={secretMessage.webhookUrl} readOnly className="flex-1" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copySecretValue("Webhook URL", secretMessage.webhookUrl)}
-              >
+              <Button variant="outline" size="sm" onClick={() => copySecretValue("Webhook URL", secretMessage.webhookUrl)}>
                 <Copy className="h-3.5 w-3.5 mr-1" />
                 URL
               </Button>
             </div>
             <div className="flex items-center gap-2">
               <Input value={secretMessage.webhookSecret} readOnly className="flex-1" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => copySecretValue("Webhook secret", secretMessage.webhookSecret)}
-              >
+              <Button variant="outline" size="sm" onClick={() => copySecretValue("Webhook secret", secretMessage.webhookSecret)}>
                 <Copy className="h-3.5 w-3.5 mr-1" />
                 Secret
               </Button>
@@ -762,6 +773,12 @@ export function RoutineDetail() {
           </div>
         </div>
       )}
+
+      {!routine.assigneeAgentId ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-sm text-amber-900 dark:text-amber-200">
+          Default agent required. This routine can stay as a draft and still run manually, but automation stays paused until you assign a default agent.
+        </div>
+      ) : null}
 
       {/* Assignment row */}
       <div className="overflow-x-auto overscroll-x-contain">
@@ -771,6 +788,7 @@ export function RoutineDetail() {
             ref={assigneeSelectorRef}
             value={editDraft.assigneeAgentId}
             options={assigneeOptions}
+            recentOptionIds={recentAssigneeIds}
             placeholder="Assignee"
             noneLabel="No assignee"
             searchPlaceholder="Search assignees..."
@@ -805,9 +823,7 @@ export function RoutineDetail() {
               const assignee = agentById.get(option.id);
               return (
                 <>
-                  {assignee ? (
-                    <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  ) : null}
+                  {assignee ? <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
                   <span className="truncate">{option.label}</span>
                 </>
               );
@@ -818,11 +834,15 @@ export function RoutineDetail() {
             ref={projectSelectorRef}
             value={editDraft.projectId}
             options={projectOptions}
+            recentOptionIds={recentProjectIds}
             placeholder="Project"
             noneLabel="No project"
             searchPlaceholder="Search projects..."
             emptyMessage="No projects found."
-            onChange={(projectId) => setEditDraft((current) => ({ ...current, projectId }))}
+            onChange={(projectId) => {
+              if (projectId) trackRecentProject(projectId);
+              setEditDraft((current) => ({ ...current, projectId }));
+            }}
             onConfirm={() => descriptionEditorRef.current?.focus()}
             renderTriggerValue={(option) =>
               option && currentProject ? (
@@ -863,13 +883,14 @@ export function RoutineDetail() {
         bordered={false}
         contentClassName="min-h-[120px] text-[15px] leading-7"
         onSubmit={() => {
-          if (!saveRoutine.isPending && editDraft.title.trim() && editDraft.projectId && editDraft.assigneeAgentId) {
+          if (!saveRoutine.isPending && editDraft.title.trim()) {
             saveRoutine.mutate();
           }
         }}
       />
       <RoutineVariablesHint />
       <RoutineVariablesEditor
+        title={editDraft.title}
         description={editDraft.description}
         value={editDraft.variables}
         onChange={(variables) => setEditDraft((current) => ({ ...current, variables }))}
@@ -879,11 +900,7 @@ export function RoutineDetail() {
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
         <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
           <span className="text-sm font-medium">Advanced delivery settings</span>
-          {advancedOpen ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
+          {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           <div className="grid gap-4 md:grid-cols-2">
@@ -898,15 +915,11 @@ export function RoutineDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   {concurrencyPolicies.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value.replaceAll("_", " ")}
-                    </SelectItem>
+                    <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                {concurrencyPolicyDescriptions[editDraft.concurrencyPolicy]}
-              </p>
+              <p className="text-xs text-muted-foreground">{concurrencyPolicyDescriptions[editDraft.concurrencyPolicy]}</p>
             </div>
             <div className="space-y-2">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Catch-up</p>
@@ -919,9 +932,7 @@ export function RoutineDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   {catchUpPolicies.map((value) => (
-                    <SelectItem key={value} value={value}>
-                      {value.replaceAll("_", " ")}
-                    </SelectItem>
+                    <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -933,12 +944,14 @@ export function RoutineDetail() {
 
       {/* Save bar */}
       <div className="flex items-center justify-between">
-        {isEditDirty ? <span className="text-xs text-amber-600">Unsaved changes</span> : <span />}
+        {isEditDirty ? (
+          <span className="text-xs text-amber-600">Unsaved changes</span>
+        ) : (
+          <span />
+        )}
         <Button
           onClick={() => saveRoutine.mutate()}
-          disabled={
-            saveRoutine.isPending || !editDraft.title.trim() || !editDraft.projectId || !editDraft.assigneeAgentId
-          }
+          disabled={saveRoutine.isPending || !editDraft.title.trim()}
         >
           <Save className="mr-2 h-4 w-4" />
           Save routine
@@ -959,7 +972,7 @@ export function RoutineDetail() {
             Runs
             {hasLiveRun && <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />}
           </TabsTrigger>
-          <TabsTrigger value="activity" className="gap-1.5">
+<TabsTrigger value="activity" className="gap-1.5">
             <ActivityIcon className="h-3.5 w-3.5" />
             Activity
           </TabsTrigger>
@@ -972,18 +985,14 @@ export function RoutineDetail() {
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Kind</Label>
-                <Select
-                  value={newTrigger.kind}
-                  onValueChange={(kind) => setNewTrigger((current) => ({ ...current, kind }))}
-                >
+                <Select value={newTrigger.kind} onValueChange={(kind) => setNewTrigger((current) => ({ ...current, kind }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {triggerKinds.map((kind) => (
                       <SelectItem key={kind} value={kind} disabled={kind === "webhook"}>
-                        {kind}
-                        {kind === "webhook" ? " — COMING SOON" : ""}
+                        {kind}{kind === "webhook" ? " — COMING SOON" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1002,18 +1011,13 @@ export function RoutineDetail() {
                 <>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Signing mode</Label>
-                    <Select
-                      value={newTrigger.signingMode}
-                      onValueChange={(signingMode) => setNewTrigger((current) => ({ ...current, signingMode }))}
-                    >
+                    <Select value={newTrigger.signingMode} onValueChange={(signingMode) => setNewTrigger((current) => ({ ...current, signingMode }))}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {signingModes.map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {mode}
-                          </SelectItem>
+                          <SelectItem key={mode} value={mode}>{mode}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1022,12 +1026,7 @@ export function RoutineDetail() {
                   {!SIGNING_MODES_WITHOUT_REPLAY_WINDOW.has(newTrigger.signingMode) && (
                     <div className="space-y-1.5">
                       <Label className="text-xs">Replay window (seconds)</Label>
-                      <Input
-                        value={newTrigger.replayWindowSec}
-                        onChange={(event) =>
-                          setNewTrigger((current) => ({ ...current, replayWindowSec: event.target.value }))
-                        }
-                      />
+                      <Input value={newTrigger.replayWindowSec} onChange={(event) => setNewTrigger((current) => ({ ...current, replayWindowSec: event.target.value }))} />
                     </div>
                   )}
                 </>
@@ -1069,9 +1068,7 @@ export function RoutineDetail() {
               {(routineRuns ?? []).map((run) => (
                 <div key={run.id} className="flex items-center justify-between px-3 py-2 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
-                    <Badge variant="outline" className="shrink-0">
-                      {run.source}
-                    </Badge>
+                    <Badge variant="outline" className="shrink-0">{run.source}</Badge>
                     <Badge variant={run.status === "failed" ? "destructive" : "secondary"} className="shrink-0">
                       {run.status.replaceAll("_", " ")}
                     </Badge>
@@ -1079,10 +1076,7 @@ export function RoutineDetail() {
                       <span className="text-muted-foreground truncate">{run.trigger.label ?? run.trigger.kind}</span>
                     )}
                     {run.linkedIssue && (
-                      <Link
-                        to={`/issues/${run.linkedIssue.identifier ?? run.linkedIssue.id}`}
-                        className="text-muted-foreground hover:underline truncate"
-                      >
+                      <Link to={`/issues/${run.linkedIssue.identifier ?? run.linkedIssue.id}`} className="text-muted-foreground hover:underline truncate">
                         {run.linkedIssue.identifier ?? run.linkedIssue.id.slice(0, 8)}
                       </Link>
                     )}
@@ -1105,15 +1099,13 @@ export function RoutineDetail() {
                     <span className="font-medium text-foreground/90 shrink-0">{event.action.replaceAll(".", " ")}</span>
                     {event.details && Object.keys(event.details).length > 0 && (
                       <span className="text-muted-foreground truncate">
-                        {Object.entries(event.details)
-                          .slice(0, 3)
-                          .map(([key, value], i) => (
-                            <span key={key}>
-                              {i > 0 && <span className="mx-1 text-border">·</span>}
-                              <span className="text-muted-foreground/70">{key.replaceAll("_", " ")}:</span>{" "}
-                              {formatActivityDetailValue(value)}
-                            </span>
-                          ))}
+                        {Object.entries(event.details).slice(0, 3).map(([key, value], i) => (
+                          <span key={key}>
+                            {i > 0 && <span className="mx-1 text-border">·</span>}
+                            <span className="text-muted-foreground/70">{key.replaceAll("_", " ")}:</span>{" "}
+                            {formatActivityDetailValue(value)}
+                          </span>
+                        ))}
                       </span>
                     )}
                   </div>
@@ -1129,7 +1121,11 @@ export function RoutineDetail() {
         open={runVariablesOpen}
         onOpenChange={setRunVariablesOpen}
         companyId={routine.companyId}
-        project={selectedProject}
+        routineName={routine.title}
+        agents={agents ?? []}
+        projects={projects ?? []}
+        defaultProjectId={routine.projectId}
+        defaultAssigneeAgentId={routine.assigneeAgentId}
         variables={routine.variables ?? []}
         isPending={runRoutine.isPending}
         onSubmit={(data) => runRoutine.mutate(data)}

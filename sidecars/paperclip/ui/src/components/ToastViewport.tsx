@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "@/lib/router";
 import { X } from "lucide-react";
-import { useToast, type ToastItem, type ToastTone } from "../context/ToastContext";
+import {
+  useToastActions,
+  useToastState,
+  type ToastItem,
+  type ToastTone,
+} from "../context/ToastContext";
 import { cn } from "../lib/utils";
 
 const toneClasses: Record<ToastTone, string> = {
@@ -64,7 +69,8 @@ function AnimatedToast({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id:
 }
 
 export function ToastViewport() {
-  const { toasts, dismissToast } = useToast();
+  const toasts = useToastState();
+  const { dismissToast } = useToastActions();
 
   if (toasts.length === 0) return null;
 

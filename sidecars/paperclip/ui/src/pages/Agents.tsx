@@ -90,8 +90,8 @@ export function Agents() {
   });
 
   const { data: runs } = useQuery({
-    queryKey: queryKeys.heartbeats(selectedCompanyId!),
-    queryFn: () => heartbeatsApi.list(selectedCompanyId!),
+    queryKey: [...queryKeys.liveRuns(selectedCompanyId!), "agents-page"],
+    queryFn: () => heartbeatsApi.liveRunsForCompany(selectedCompanyId!),
     enabled: !!selectedCompanyId,
     refetchInterval: 15_000,
   });
@@ -270,7 +270,7 @@ export function Agents() {
                           liveCount={liveRunByAgent.get(agent.id)!.liveCount}
                         />
                       )}
-                      <span className="text-xs text-muted-foreground font-mono w-14 text-right">
+                      <span className="w-28 whitespace-nowrap text-right font-mono text-xs text-muted-foreground">
                         {getAdapterLabel(agent.adapterType)}
                       </span>
                       <span className="text-xs text-muted-foreground w-16 text-right">
@@ -377,7 +377,7 @@ function OrgTreeNode({
             )}
             {agent && (
               <>
-                <span className="text-xs text-muted-foreground font-mono w-14 text-right">
+                <span className="w-28 whitespace-nowrap text-right font-mono text-xs text-muted-foreground">
                   {getAdapterLabel(agent.adapterType)}
                 </span>
                 <span className="text-xs text-muted-foreground w-16 text-right">

@@ -1,4 +1,14 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { agents } from "./agents.js";
 import { companies } from "./companies.js";
 import { companySecrets } from "./company_secrets.js";
@@ -11,19 +21,13 @@ export const routines = pgTable(
   "routines",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
-    projectId: uuid("project_id")
-      .notNull()
-      .references(() => projects.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
     goalId: uuid("goal_id").references(() => goals.id, { onDelete: "set null" }),
     parentIssueId: uuid("parent_issue_id").references(() => issues.id, { onDelete: "set null" }),
     title: text("title").notNull(),
     description: text("description"),
-    assigneeAgentId: uuid("assignee_agent_id")
-      .notNull()
-      .references(() => agents.id),
+    assigneeAgentId: uuid("assignee_agent_id").references(() => agents.id),
     priority: text("priority").notNull().default("medium"),
     status: text("status").notNull().default("active"),
     concurrencyPolicy: text("concurrency_policy").notNull().default("coalesce_if_active"),
@@ -49,12 +53,8 @@ export const routineTriggers = pgTable(
   "routine_triggers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
-    routineId: uuid("routine_id")
-      .notNull()
-      .references(() => routines.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    routineId: uuid("routine_id").notNull().references(() => routines.id, { onDelete: "cascade" }),
     kind: text("kind").notNull(),
     label: text("label"),
     enabled: boolean("enabled").notNull().default(true),
@@ -88,18 +88,15 @@ export const routineRuns = pgTable(
   "routine_runs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
-    routineId: uuid("routine_id")
-      .notNull()
-      .references(() => routines.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    routineId: uuid("routine_id").notNull().references(() => routines.id, { onDelete: "cascade" }),
     triggerId: uuid("trigger_id").references(() => routineTriggers.id, { onDelete: "set null" }),
     source: text("source").notNull(),
     status: text("status").notNull().default("received"),
     triggeredAt: timestamp("triggered_at", { withTimezone: true }).notNull().defaultNow(),
     idempotencyKey: text("idempotency_key"),
     triggerPayload: jsonb("trigger_payload").$type<Record<string, unknown>>(),
+    dispatchFingerprint: text("dispatch_fingerprint"),
     linkedIssueId: uuid("linked_issue_id").references(() => issues.id, { onDelete: "set null" }),
     coalescedIntoRunId: uuid("coalesced_into_run_id"),
     failureReason: text("failure_reason"),
@@ -110,6 +107,7 @@ export const routineRuns = pgTable(
   (table) => ({
     companyRoutineIdx: index("routine_runs_company_routine_idx").on(table.companyId, table.routineId, table.createdAt),
     triggerIdx: index("routine_runs_trigger_idx").on(table.triggerId, table.createdAt),
+    dispatchFingerprintIdx: index("routine_runs_dispatch_fingerprint_idx").on(table.routineId, table.dispatchFingerprint),
     linkedIssueIdx: index("routine_runs_linked_issue_idx").on(table.linkedIssueId),
     idempotencyIdx: index("routine_runs_trigger_idempotency_idx").on(table.triggerId, table.idempotencyKey),
   }),

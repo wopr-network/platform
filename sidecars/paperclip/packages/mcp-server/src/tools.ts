@@ -1,9 +1,13 @@
 import { z } from "zod";
 import {
   addIssueCommentSchema,
+  askUserQuestionsPayloadSchema,
   checkoutIssueSchema,
   createApprovalSchema,
   createIssueSchema,
+  issueThreadInteractionContinuationPolicySchema,
+  requestConfirmationPayloadSchema,
+  suggestTasksPayloadSchema,
   updateIssueSchema,
   upsertIssueDocumentSchema,
   linkIssueApprovalSchema,
@@ -89,17 +93,13 @@ const upsertDocumentToolSchema = z.object({
   baseRevisionId: z.string().uuid().nullable().optional(),
 });
 
-const createIssueToolSchema = z
-  .object({
-    companyId: companyIdOptional,
-  })
-  .merge(createIssueSchema);
+const createIssueToolSchema = z.object({
+  companyId: companyIdOptional,
+}).merge(createIssueSchema);
 
-const updateIssueToolSchema = z
-  .object({
-    issueId: issueIdSchema,
-  })
-  .merge(updateIssueSchema);
+const updateIssueToolSchema = z.object({
+  issueId: issueIdSchema,
+}).merge(updateIssueSchema);
 
 const checkoutIssueToolSchema = z.object({
   issueId: issueIdSchema,
@@ -107,11 +107,42 @@ const checkoutIssueToolSchema = z.object({
   expectedStatuses: checkoutIssueSchema.shape.expectedStatuses.optional(),
 });
 
-const addCommentToolSchema = z
-  .object({
-    issueId: issueIdSchema,
-  })
-  .merge(addIssueCommentSchema);
+const addCommentToolSchema = z.object({
+  issueId: issueIdSchema,
+}).merge(addIssueCommentSchema);
+
+const createSuggestTasksToolSchema = z.object({
+  issueId: issueIdSchema,
+  idempotencyKey: z.string().trim().max(255).nullable().optional(),
+  sourceCommentId: z.string().uuid().nullable().optional(),
+  sourceRunId: z.string().uuid().nullable().optional(),
+  title: z.string().trim().max(240).nullable().optional(),
+  summary: z.string().trim().max(1000).nullable().optional(),
+  continuationPolicy: issueThreadInteractionContinuationPolicySchema.optional().default("wake_assignee"),
+  payload: suggestTasksPayloadSchema,
+});
+
+const createAskUserQuestionsToolSchema = z.object({
+  issueId: issueIdSchema,
+  idempotencyKey: z.string().trim().max(255).nullable().optional(),
+  sourceCommentId: z.string().uuid().nullable().optional(),
+  sourceRunId: z.string().uuid().nullable().optional(),
+  title: z.string().trim().max(240).nullable().optional(),
+  summary: z.string().trim().max(1000).nullable().optional(),
+  continuationPolicy: issueThreadInteractionContinuationPolicySchema.optional().default("wake_assignee"),
+  payload: askUserQuestionsPayloadSchema,
+});
+
+const createRequestConfirmationToolSchema = z.object({
+  issueId: issueIdSchema,
+  idempotencyKey: z.string().trim().max(255).nullable().optional(),
+  sourceCommentId: z.string().uuid().nullable().optional(),
+  sourceRunId: z.string().uuid().nullable().optional(),
+  title: z.string().trim().max(240).nullable().optional(),
+  summary: z.string().trim().max(1000).nullable().optional(),
+  continuationPolicy: issueThreadInteractionContinuationPolicySchema.optional().default("none"),
+  payload: requestConfirmationPayloadSchema,
+});
 
 const approvalDecisionSchema = z.object({
   approvalId: approvalIdSchema,
@@ -120,11 +151,9 @@ const approvalDecisionSchema = z.object({
   payloadJson: z.string().optional(),
 });
 
-const createApprovalToolSchema = z
-  .object({
-    companyId: companyIdOptional,
-  })
-  .merge(createApprovalSchema);
+const createApprovalToolSchema = z.object({
+  companyId: companyIdOptional,
+}).merge(createApprovalSchema);
 
 const apiRequestSchema = z.object({
   method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]),
@@ -132,10 +161,73 @@ const apiRequestSchema = z.object({
   jsonBody: z.string().optional(),
 });
 
+const workspaceRuntimeControlTargetSchema = z.object({
+  workspaceCommandId: z.string().min(1).optional().nullable(),
+  runtimeServiceId: z.string().uuid().optional().nullable(),
+  serviceIndex: z.number().int().nonnegative().optional().nullable(),
+});
+
+const issueWorkspaceRuntimeControlSchema = z.object({
+  issueId: issueIdSchema,
+  action: z.enum(["start", "stop", "restart"]),
+}).merge(workspaceRuntimeControlTargetSchema);
+
+const waitForIssueWorkspaceServiceSchema = z.object({
+  issueId: issueIdSchema,
+  runtimeServiceId: z.string().uuid().optional().nullable(),
+  serviceName: z.string().min(1).optional().nullable(),
+  timeoutSeconds: z.number().int().positive().max(300).optional(),
+});
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function readCurrentExecutionWorkspace(context: unknown): Record<string, unknown> | null {
+  if (!context || typeof context !== "object") return null;
+  const workspace = (context as { currentExecutionWorkspace?: unknown }).currentExecutionWorkspace;
+  return workspace && typeof workspace === "object" ? workspace as Record<string, unknown> : null;
+}
+
+function readWorkspaceRuntimeServices(workspace: Record<string, unknown> | null): Array<Record<string, unknown>> {
+  const raw = workspace?.runtimeServices;
+  return Array.isArray(raw)
+    ? raw.filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")
+    : [];
+}
+
+function selectRuntimeService(
+  services: Array<Record<string, unknown>>,
+  input: { runtimeServiceId?: string | null; serviceName?: string | null },
+) {
+  if (input.runtimeServiceId) {
+    return services.find((service) => service.id === input.runtimeServiceId) ?? null;
+  }
+  if (input.serviceName) {
+    return services.find((service) => service.serviceName === input.serviceName) ?? null;
+  }
+  return services.find((service) => service.status === "running" || service.status === "starting")
+    ?? services[0]
+    ?? null;
+}
+
+async function getIssueWorkspaceRuntime(client: PaperclipApiClient, issueId: string) {
+  const context = await client.requestJson("GET", `/issues/${encodeURIComponent(issueId)}/heartbeat-context`);
+  const workspace = readCurrentExecutionWorkspace(context);
+  return {
+    context,
+    workspace,
+    runtimeServices: readWorkspaceRuntimeServices(workspace),
+  };
+}
+
 export function createToolDefinitions(client: PaperclipApiClient): ToolDefinition[] {
   return [
-    makeTool("paperclipMe", "Get the current authenticated Paperclip actor details", z.object({}), async () =>
-      client.requestJson("GET", "/agents/me"),
+    makeTool(
+      "paperclipMe",
+      "Get the current authenticated Paperclip actor details",
+      z.object({}),
+      async () => client.requestJson("GET", "/agents/me"),
     ),
     makeTool(
       "paperclipInboxLite",
@@ -253,13 +345,65 @@ export function createToolDefinitions(client: PaperclipApiClient): ToolDefinitio
       },
     ),
     makeTool(
+      "paperclipGetIssueWorkspaceRuntime",
+      "Get the current execution workspace and runtime services for an issue, including service URLs",
+      z.object({ issueId: issueIdSchema }),
+      async ({ issueId }) => getIssueWorkspaceRuntime(client, issueId),
+    ),
+    makeTool(
+      "paperclipControlIssueWorkspaceServices",
+      "Start, stop, or restart the current issue execution workspace runtime services",
+      issueWorkspaceRuntimeControlSchema,
+      async ({ issueId, action, ...target }) => {
+        const runtime = await getIssueWorkspaceRuntime(client, issueId);
+        const workspaceId = typeof runtime.workspace?.id === "string" ? runtime.workspace.id : null;
+        if (!workspaceId) {
+          throw new Error("Issue has no current execution workspace");
+        }
+        return client.requestJson(
+          "POST",
+          `/execution-workspaces/${encodeURIComponent(workspaceId)}/runtime-services/${action}`,
+          { body: target },
+        );
+      },
+    ),
+    makeTool(
+      "paperclipWaitForIssueWorkspaceService",
+      "Wait until an issue execution workspace runtime service is running and has a URL when one is exposed",
+      waitForIssueWorkspaceServiceSchema,
+      async ({ issueId, runtimeServiceId, serviceName, timeoutSeconds }) => {
+        const deadline = Date.now() + (timeoutSeconds ?? 60) * 1000;
+        let latest: Awaited<ReturnType<typeof getIssueWorkspaceRuntime>> | null = null;
+        while (Date.now() <= deadline) {
+          latest = await getIssueWorkspaceRuntime(client, issueId);
+          const service = selectRuntimeService(latest.runtimeServices, { runtimeServiceId, serviceName });
+          if (service?.status === "running" && service.healthStatus !== "unhealthy") {
+            return {
+              workspace: latest.workspace,
+              service,
+            };
+          }
+          await sleep(1000);
+        }
+
+        return {
+          timedOut: true,
+          latestWorkspace: latest?.workspace ?? null,
+          latestRuntimeServices: latest?.runtimeServices ?? [],
+        };
+      },
+    ),
+    makeTool(
       "paperclipListGoals",
       "List goals in a company",
       z.object({ companyId: companyIdOptional }),
       async ({ companyId }) => client.requestJson("GET", `/companies/${client.resolveCompanyId(companyId)}/goals`),
     ),
-    makeTool("paperclipGetGoal", "Get a goal by id", z.object({ goalId: goalIdSchema }), async ({ goalId }) =>
-      client.requestJson("GET", `/goals/${encodeURIComponent(goalId)}`),
+    makeTool(
+      "paperclipGetGoal",
+      "Get a goal by id",
+      z.object({ goalId: goalIdSchema }),
+      async ({ goalId }) => client.requestJson("GET", `/goals/${encodeURIComponent(goalId)}`),
     ),
     makeTool(
       "paperclipListApprovals",
@@ -297,14 +441,19 @@ export function createToolDefinitions(client: PaperclipApiClient): ToolDefinitio
       z.object({ approvalId: approvalIdSchema }),
       async ({ approvalId }) => client.requestJson("GET", `/approvals/${encodeURIComponent(approvalId)}/comments`),
     ),
-    makeTool("paperclipCreateIssue", "Create a new issue", createIssueToolSchema, async ({ companyId, ...body }) =>
-      client.requestJson("POST", `/companies/${client.resolveCompanyId(companyId)}/issues`, { body }),
+    makeTool(
+      "paperclipCreateIssue",
+      "Create a new issue",
+      createIssueToolSchema,
+      async ({ companyId, ...body }) =>
+        client.requestJson("POST", `/companies/${client.resolveCompanyId(companyId)}/issues`, { body }),
     ),
     makeTool(
       "paperclipUpdateIssue",
-      "Patch an issue, optionally including a comment",
+      "Patch an issue, optionally including a comment; include resume=true when intentionally requesting follow-up on resumable closed work",
       updateIssueToolSchema,
-      async ({ issueId, ...body }) => client.requestJson("PATCH", `/issues/${encodeURIComponent(issueId)}`, { body }),
+      async ({ issueId, ...body }) =>
+        client.requestJson("PATCH", `/issues/${encodeURIComponent(issueId)}`, { body }),
     ),
     makeTool(
       "paperclipCheckoutIssue",
@@ -324,17 +473,59 @@ export function createToolDefinitions(client: PaperclipApiClient): ToolDefinitio
       z.object({ issueId: issueIdSchema }),
       async ({ issueId }) => client.requestJson("POST", `/issues/${encodeURIComponent(issueId)}/release`, { body: {} }),
     ),
-    makeTool("paperclipAddComment", "Add a comment to an issue", addCommentToolSchema, async ({ issueId, ...body }) =>
-      client.requestJson("POST", `/issues/${encodeURIComponent(issueId)}/comments`, { body }),
+    makeTool(
+      "paperclipAddComment",
+      "Add a comment to an issue; include resume=true when intentionally requesting follow-up on resumable closed work",
+      addCommentToolSchema,
+      async ({ issueId, ...body }) =>
+        client.requestJson("POST", `/issues/${encodeURIComponent(issueId)}/comments`, { body }),
+    ),
+    makeTool(
+      "paperclipSuggestTasks",
+      "Create a suggest_tasks interaction on an issue",
+      createSuggestTasksToolSchema,
+      async ({ issueId, ...body }) =>
+        client.requestJson("POST", `/issues/${encodeURIComponent(issueId)}/interactions`, {
+          body: {
+            kind: "suggest_tasks",
+            ...body,
+          },
+        }),
+    ),
+    makeTool(
+      "paperclipAskUserQuestions",
+      "Create an ask_user_questions interaction on an issue",
+      createAskUserQuestionsToolSchema,
+      async ({ issueId, ...body }) =>
+        client.requestJson("POST", `/issues/${encodeURIComponent(issueId)}/interactions`, {
+          body: {
+            kind: "ask_user_questions",
+            ...body,
+          },
+        }),
+    ),
+    makeTool(
+      "paperclipRequestConfirmation",
+      "Create a request_confirmation interaction on an issue",
+      createRequestConfirmationToolSchema,
+      async ({ issueId, ...body }) =>
+        client.requestJson("POST", `/issues/${encodeURIComponent(issueId)}/interactions`, {
+          body: {
+            kind: "request_confirmation",
+            ...body,
+          },
+        }),
     ),
     makeTool(
       "paperclipUpsertIssueDocument",
       "Create or update an issue document",
       upsertDocumentToolSchema,
       async ({ issueId, key, ...body }) =>
-        client.requestJson("PUT", `/issues/${encodeURIComponent(issueId)}/documents/${encodeURIComponent(key)}`, {
-          body,
-        }),
+        client.requestJson(
+          "PUT",
+          `/issues/${encodeURIComponent(issueId)}/documents/${encodeURIComponent(key)}`,
+          { body },
+        ),
     ),
     makeTool(
       "paperclipRestoreIssueDocumentRevision",
@@ -384,7 +575,10 @@ export function createToolDefinitions(client: PaperclipApiClient): ToolDefinitio
                 ? `/approvals/${encodeURIComponent(approvalId)}/request-revision`
                 : `/approvals/${encodeURIComponent(approvalId)}/resubmit`;
 
-        const body = action === "resubmit" ? { payload: parseOptionalJson(payloadJson) ?? {} } : { decisionNote };
+        const body =
+          action === "resubmit"
+            ? { payload: parseOptionalJson(payloadJson) ?? {} }
+            : { decisionNote };
 
         return client.requestJson("POST", path, { body });
       },

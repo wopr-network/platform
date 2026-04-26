@@ -124,6 +124,7 @@ function KanbanCard({
     >
       <Link
         to={`/issues/${issue.identifier ?? issue.id}`}
+        disableIssueQuicklook
         className="block no-underline text-inherit"
         onClick={(e) => {
           // Prevent navigation during drag

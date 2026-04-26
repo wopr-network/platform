@@ -1,4 +1,4 @@
-import { Router, type Request } from "express";
+import { Router, type Request, type Response } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
 import type { Db } from "@paperclipai/db";
@@ -7,6 +7,7 @@ import { and, desc, eq, inArray, not, sql } from "drizzle-orm";
 import {
   agentSkillSyncSchema,
   agentMineInboxQuerySchema,
+  AGENT_DEFAULT_MAX_CONCURRENT_RUNS,
   createAgentKeySchema,
   createAgentHireSchema,
   createAgentSchema,
@@ -22,6 +23,7 @@ import {
   updateAgentInstructionsPathSchema,
   wakeAgentSchema,
   updateAgentSchema,
+  supportedEnvironmentDriversForAdapter,
 } from "@paperclipai/shared";
 import {
   readPaperclipSkillSyncPreference,
@@ -37,31 +39,33 @@ import {
   companySkillService,
   budgetService,
   heartbeatService,
+  ISSUE_LIST_DEFAULT_LIMIT,
   issueApprovalService,
   issueService,
   logActivity,
-  secretService,
   syncInstructionsBundleConfigFromFilePath,
   workspaceOperationService,
 } from "../services/index.js";
 import { conflict, forbidden, notFound, unprocessable } from "../errors.js";
 import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo } from "./authz.js";
 import {
+  assertNoAgentHostWorkspaceCommandMutation,
+  collectAgentAdapterWorkspaceCommandPaths,
+} from "./workspace-command-authz.js";
+import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
+import { environmentService } from "../services/environments.js";
+import { secretService } from "../services/secrets.js";
+import {
   detectAdapterModel,
   findActiveServerAdapter,
   findServerAdapter,
   listAdapterModels,
+  refreshAdapterModels,
   requireServerAdapter,
 } from "../adapters/index.js";
 import { redactEventPayload } from "../redaction.js";
 import { redactCurrentUserValue } from "../log-redaction.js";
-import {
-  renderOrgChartSvg,
-  renderOrgChartPng,
-  type OrgNode,
-  type OrgChartStyle,
-  ORG_CHART_STYLES,
-} from "./org-chart-svg.js";
+import { renderOrgChartSvg, renderOrgChartPng, type OrgNode, type OrgChartStyle, ORG_CHART_STYLES } from "./org-chart-svg.js";
 import { instanceSettingsService } from "../services/instance-settings.js";
 import { runClaudeLogin } from "@paperclipai/adapter-claude-local/server";
 import {
@@ -76,8 +80,30 @@ import {
   resolveDefaultAgentInstructionsBundleRole,
 } from "../services/default-agent-instructions.js";
 import { getTelemetryClient } from "../telemetry.js";
+import { assertEnvironmentSelectionForCompany } from "./environment-selection.js";
+import { recoveryService } from "../services/recovery/service.js";
 
-export function agentRoutes(db: Db) {
+const RUN_LOG_DEFAULT_LIMIT_BYTES = 256_000;
+const RUN_LOG_MAX_LIMIT_BYTES = 1024 * 1024;
+
+function readRunLogLimitBytes(value: unknown) {
+  const parsed = Number(value ?? RUN_LOG_DEFAULT_LIMIT_BYTES);
+  if (!Number.isFinite(parsed)) return RUN_LOG_DEFAULT_LIMIT_BYTES;
+  return Math.max(1, Math.min(RUN_LOG_MAX_LIMIT_BYTES, Math.trunc(parsed)));
+}
+
+function readLiveRunsQueryInt(value: unknown, max: number, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.min(max, Math.trunc(parsed)));
+}
+
+export function agentRoutes(
+  db: Db,
+  options: { pluginWorkerManager?: PluginWorkerManager } = {},
+) {
+  // Legacy hardcoded maps — used as fallback when adapter module does not
+  // declare capability flags explicitly.
   const DEFAULT_INSTRUCTIONS_PATH_KEYS: Record<string, string> = {
     claude_local: "instructionsFilePath",
     codex_local: "instructionsFilePath",
@@ -89,6 +115,22 @@ export function agentRoutes(db: Db) {
     pi_local: "instructionsFilePath",
   };
   const DEFAULT_MANAGED_INSTRUCTIONS_ADAPTER_TYPES = new Set(Object.keys(DEFAULT_INSTRUCTIONS_PATH_KEYS));
+
+  /** Check if an adapter supports the managed instructions bundle. */
+  function adapterSupportsInstructionsBundle(adapterType: string): boolean {
+    const adapter = findActiveServerAdapter(adapterType);
+    if (adapter?.supportsInstructionsBundle !== undefined) return adapter.supportsInstructionsBundle;
+    return DEFAULT_MANAGED_INSTRUCTIONS_ADAPTER_TYPES.has(adapterType);
+  }
+
+  /** Resolve the adapter config key for the instructions file path. */
+  function resolveInstructionsPathKey(adapterType: string): string | null {
+    const adapter = findActiveServerAdapter(adapterType);
+    if (adapter?.instructionsPathKey) return adapter.instructionsPathKey;
+    if (adapter?.supportsInstructionsBundle === true) return "instructionsFilePath";
+    if (adapter?.supportsInstructionsBundle === false) return null;
+    return DEFAULT_INSTRUCTIONS_PATH_KEYS[adapterType] ?? null;
+  }
   const KNOWN_INSTRUCTIONS_PATH_KEYS = new Set(["instructionsFilePath", "agentsMdPath"]);
   const KNOWN_INSTRUCTIONS_BUNDLE_KEYS = [
     "instructionsBundleMode",
@@ -103,7 +145,11 @@ export function agentRoutes(db: Db) {
   const access = accessService(db);
   const approvalsSvc = approvalService(db);
   const budgets = budgetService(db);
-  const heartbeat = heartbeatService(db);
+  const environmentsSvc = environmentService(db);
+  const heartbeat = heartbeatService(db, {
+    pluginWorkerManager: options.pluginWorkerManager,
+  });
+  const recovery = recoveryService(db, { enqueueWakeup: heartbeat.wakeup });
   const issueApprovalsSvc = issueApprovalService(db);
   const secretsSvc = secretService(db);
   const instructions = agentInstructionsService();
@@ -111,6 +157,17 @@ export function agentRoutes(db: Db) {
   const workspaceOperations = workspaceOperationService(db);
   const instanceSettings = instanceSettingsService(db);
   const strictSecretsMode = process.env.PAPERCLIP_SECRETS_STRICT_MODE === "true";
+
+  async function assertAgentEnvironmentSelection(
+    companyId: string,
+    adapterType: string,
+    environmentId: string | null | undefined,
+  ) {
+    if (environmentId === undefined || environmentId === null) return;
+    await assertEnvironmentSelectionForCompany(environmentService(db), companyId, environmentId, {
+      allowedDrivers: allowedEnvironmentDriversForAgent(adapterType),
+    });
+  }
 
   async function getCurrentUserRedactionOptions() {
     return {
@@ -125,7 +182,9 @@ export function agentRoutes(db: Db) {
 
   async function buildAgentAccessState(agent: NonNullable<Awaited<ReturnType<typeof svc.getById>>>) {
     const membership = await access.getMembership(agent.companyId, "agent", agent.id);
-    const grants = membership ? await access.listPrincipalGrants(agent.companyId, "agent", agent.id) : [];
+    const grants = membership
+      ? await access.listPrincipalGrants(agent.companyId, "agent", agent.id)
+      : [];
     const hasExplicitTaskAssignGrant = grants.some((grant) => grant.permissionKey === "tasks:assign");
 
     if (agent.role === "ceo") {
@@ -179,9 +238,20 @@ export function agentRoutes(db: Db) {
     };
   }
 
-  async function applyDefaultAgentTaskAssignGrant(companyId: string, agentId: string, grantedByUserId: string | null) {
+  async function applyDefaultAgentTaskAssignGrant(
+    companyId: string,
+    agentId: string,
+    grantedByUserId: string | null,
+  ) {
     await access.ensureMembership(companyId, "agent", agentId, "member", "active");
-    await access.setPrincipalPermission(companyId, "agent", agentId, "tasks:assign", true, grantedByUserId);
+    await access.setPrincipalPermission(
+      companyId,
+      "agent",
+      agentId,
+      "tasks:assign",
+      true,
+      grantedByUserId,
+    );
   }
 
   async function assertCanCreateAgentsForCompany(req: Request, companyId: string) {
@@ -206,8 +276,31 @@ export function agentRoutes(db: Db) {
     return actorAgent;
   }
 
+  async function assertBoardCanManageAgentsForCompany(req: Request, companyId: string) {
+    assertBoard(req);
+    assertCompanyAccess(req, companyId);
+    if (req.actor.source === "local_implicit" || req.actor.isInstanceAdmin) return;
+    const allowed = await access.canUser(companyId, req.actor.userId, "agents:create");
+    if (!allowed) {
+      throw forbidden("Missing permission: agents:create");
+    }
+  }
+
   async function assertCanReadConfigurations(req: Request, companyId: string) {
     return assertCanCreateAgentsForCompany(req, companyId);
+  }
+
+  async function getAccessibleAgent(req: Request, res: Response, id: string) {
+    const agent = await svc.getById(id);
+    if (!agent) {
+      res.status(404).json({ error: "Agent not found" });
+      return null;
+    }
+    assertCompanyAccess(req, agent.companyId);
+    if (req.actor.type === "board") {
+      await assertBoardCanManageAgentsForCompany(req, agent.companyId);
+    }
+    return agent;
   }
 
   async function actorCanReadConfigurationsForCompany(req: Request, companyId: string) {
@@ -292,7 +385,10 @@ export function agentRoutes(db: Db) {
 
   async function assertCanUpdateAgent(req: Request, targetAgent: { id: string; companyId: string }) {
     assertCompanyAccess(req, targetAgent.companyId);
-    if (req.actor.type === "board") return;
+    if (req.actor.type === "board") {
+      await assertBoardCanManageAgentsForCompany(req, targetAgent.companyId);
+      return;
+    }
     if (!req.actor.agentId) throw forbidden("Agent authentication required");
 
     const actorAgent = await svc.getById(req.actor.agentId);
@@ -302,14 +398,22 @@ export function agentRoutes(db: Db) {
 
     if (actorAgent.id === targetAgent.id) return;
     if (actorAgent.role === "ceo") return;
-    const allowedByGrant = await access.hasPermission(targetAgent.companyId, "agent", actorAgent.id, "agents:create");
+    const allowedByGrant = await access.hasPermission(
+      targetAgent.companyId,
+      "agent",
+      actorAgent.id,
+      "agents:create",
+    );
     if (allowedByGrant || canCreateAgents(actorAgent)) return;
     throw forbidden("Only CEO or agent creators can modify other agents");
   }
 
   async function assertCanReadAgent(req: Request, targetAgent: { companyId: string }) {
     assertCompanyAccess(req, targetAgent.companyId);
-    if (req.actor.type === "board") return;
+    if (req.actor.type === "board") {
+      await assertCanReadConfigurations(req, targetAgent.companyId);
+      return;
+    }
     if (!req.actor.agentId) throw forbidden("Agent authentication required");
 
     const actorAgent = await svc.getById(req.actor.agentId);
@@ -329,14 +433,55 @@ export function agentRoutes(db: Db) {
     return adapterType;
   }
 
+  async function assertAgentDefaultEnvironmentSelection(
+    companyId: string,
+    environmentId: string | null | undefined,
+    options?: { allowedDrivers?: string[]; allowedSandboxProviders?: string[] },
+  ) {
+    if (environmentId === undefined || environmentId === null) return;
+    const environment = await environmentsSvc.getById(environmentId);
+    if (!environment || environment.companyId !== companyId) {
+      throw unprocessable("Selected environment must belong to the same company");
+    }
+    if (options?.allowedDrivers && !options.allowedDrivers.includes(environment.driver)) {
+      throw unprocessable(`Environment driver "${environment.driver}" is not allowed here`);
+    }
+    if (environment.driver === "sandbox" && options?.allowedSandboxProviders) {
+      const config = environment.config && typeof environment.config === "object"
+        ? environment.config as Record<string, unknown>
+        : {};
+      const provider = typeof config.provider === "string" ? config.provider : "";
+      if (provider === "fake") {
+        throw unprocessable(
+          `Selected sandbox provider "${provider}" is not supported for agent defaults yet`,
+        );
+      }
+      if (options.allowedSandboxProviders.length > 0 && !options.allowedSandboxProviders.includes(provider)) {
+        throw unprocessable(
+          `Selected sandbox provider "${provider || "unknown"}" is not supported for agent defaults yet`,
+        );
+      }
+    }
+  }
+
   function hasOwn(value: object, key: string): boolean {
     return Object.hasOwn(value, key);
+  }
+
+  function allowedEnvironmentDriversForAgent(adapterType: string): string[] {
+    return supportedEnvironmentDriversForAdapter(adapterType);
+  }
+
+  function allowedSandboxProvidersForAgent(adapterType: string): string[] | undefined {
+    return supportedEnvironmentDriversForAdapter(adapterType).includes("sandbox") ? [] : [];
   }
 
   async function resolveCompanyIdForAgentReference(req: Request): Promise<string | null> {
     const companyIdQuery = req.query.companyId;
     const requestedCompanyId =
-      typeof companyIdQuery === "string" && companyIdQuery.trim().length > 0 ? companyIdQuery.trim() : null;
+      typeof companyIdQuery === "string" && companyIdQuery.trim().length > 0
+        ? companyIdQuery.trim()
+        : null;
     if (requestedCompanyId) {
       assertCompanyAccess(req, requestedCompanyId);
       return requestedCompanyId;
@@ -366,7 +511,10 @@ export function agentRoutes(db: Db) {
     return resolved.agent.id;
   }
 
-  function parseSourceIssueIds(input: { sourceIssueId?: string | null; sourceIssueIds?: string[] }): string[] {
+  function parseSourceIssueIds(input: {
+    sourceIssueId?: string | null;
+    sourceIssueIds?: string[];
+  }): string[] {
     const values: string[] = [];
     if (Array.isArray(input.sourceIssueIds)) values.push(...input.sourceIssueIds);
     if (typeof input.sourceIssueId === "string" && input.sourceIssueId.length > 0) {
@@ -432,9 +580,26 @@ export function agentRoutes(db: Db) {
   function parseSchedulerHeartbeatPolicy(runtimeConfig: unknown) {
     const heartbeat = asRecord(asRecord(runtimeConfig)?.heartbeat) ?? {};
     return {
-      enabled: parseBooleanLike(heartbeat.enabled) ?? true,
+      enabled: parseBooleanLike(heartbeat.enabled) ?? false,
       intervalSec: Math.max(0, parseNumberLike(heartbeat.intervalSec) ?? 0),
     };
+  }
+
+  function normalizeNewAgentRuntimeConfig(runtimeConfig: unknown): Record<string, unknown> {
+    const parsedRuntimeConfig = asRecord(runtimeConfig);
+    const normalizedRuntimeConfig = parsedRuntimeConfig ? { ...parsedRuntimeConfig } : {};
+    const parsedHeartbeat = asRecord(normalizedRuntimeConfig.heartbeat);
+    const heartbeat = parsedHeartbeat ? { ...parsedHeartbeat } : {};
+
+    if (parseBooleanLike(heartbeat.enabled) == null) {
+      heartbeat.enabled = false;
+    }
+    if (parseNumberLike(heartbeat.maxConcurrentRuns) == null) {
+      heartbeat.maxConcurrentRuns = AGENT_DEFAULT_MAX_CONCURRENT_RUNS;
+    }
+
+    normalizedRuntimeConfig.heartbeat = heartbeat;
+    return normalizedRuntimeConfig;
   }
 
   function generateEd25519PrivateKeyPem(): string {
@@ -508,7 +673,9 @@ export function agentRoutes(db: Db) {
 
     const cwd = asNonEmptyString(adapterConfig.cwd);
     if (!cwd) {
-      throw unprocessable("Relative instructions path requires adapterConfig.cwd to be set to an absolute path");
+      throw unprocessable(
+        "Relative instructions path requires adapterConfig.cwd to be set to an absolute path",
+      );
     }
     if (!path.isAbsolute(cwd)) {
       throw unprocessable("adapterConfig.cwd must be an absolute path to resolve relative instructions path");
@@ -516,40 +683,40 @@ export function agentRoutes(db: Db) {
     return path.resolve(cwd, trimmed);
   }
 
-  async function materializeDefaultInstructionsBundleForNewAgent<
-    T extends {
-      id: string;
-      companyId: string;
-      name: string;
-      role: string;
-      adapterType: string;
-      adapterConfig: unknown;
-    },
-  >(agent: T): Promise<T> {
-    if (!DEFAULT_MANAGED_INSTRUCTIONS_ADAPTER_TYPES.has(agent.adapterType)) {
+  async function materializeDefaultInstructionsBundleForNewAgent<T extends {
+    id: string;
+    companyId: string;
+    name: string;
+    role: string;
+    adapterType: string;
+    adapterConfig: unknown;
+  }>(agent: T): Promise<T> {
+    if (!adapterSupportsInstructionsBundle(agent.adapterType)) {
       return agent;
     }
 
     const adapterConfig = asRecord(agent.adapterConfig) ?? {};
     const hasExplicitInstructionsBundle =
-      Boolean(asNonEmptyString(adapterConfig.instructionsBundleMode)) ||
-      Boolean(asNonEmptyString(adapterConfig.instructionsRootPath)) ||
-      Boolean(asNonEmptyString(adapterConfig.instructionsEntryFile)) ||
-      Boolean(asNonEmptyString(adapterConfig.instructionsFilePath)) ||
-      Boolean(asNonEmptyString(adapterConfig.agentsMdPath));
+      Boolean(asNonEmptyString(adapterConfig.instructionsBundleMode))
+      || Boolean(asNonEmptyString(adapterConfig.instructionsRootPath))
+      || Boolean(asNonEmptyString(adapterConfig.instructionsEntryFile))
+      || Boolean(asNonEmptyString(adapterConfig.instructionsFilePath))
+      || Boolean(asNonEmptyString(adapterConfig.agentsMdPath));
     if (hasExplicitInstructionsBundle) {
       return agent;
     }
 
-    const promptTemplate = typeof adapterConfig.promptTemplate === "string" ? adapterConfig.promptTemplate : "";
-    const files =
-      promptTemplate.trim().length === 0
-        ? await loadDefaultAgentInstructionsBundle(resolveDefaultAgentInstructionsBundleRole(agent.role))
-        : { "AGENTS.md": promptTemplate };
-    const materialized = await instructions.materializeManagedBundle(agent, files, {
-      entryFile: "AGENTS.md",
-      replaceExisting: false,
-    });
+    const promptTemplate = typeof adapterConfig.promptTemplate === "string"
+      ? adapterConfig.promptTemplate
+      : "";
+    const files = promptTemplate.trim().length === 0
+      ? await loadDefaultAgentInstructionsBundle(resolveDefaultAgentInstructionsBundleRole(agent.role))
+      : { "AGENTS.md": promptTemplate };
+    const materialized = await instructions.materializeManagedBundle(
+      agent,
+      files,
+      { entryFile: "AGENTS.md", replaceExisting: false },
+    );
     const nextAdapterConfig = { ...materialized.adapterConfig };
     delete nextAdapterConfig.promptTemplate;
 
@@ -559,19 +726,24 @@ export function agentRoutes(db: Db) {
 
   async function assertCanManageInstructionsPath(req: Request, targetAgent: { id: string; companyId: string }) {
     assertCompanyAccess(req, targetAgent.companyId);
-    if (req.actor.type === "board") return;
-    if (!req.actor.agentId) throw forbidden("Agent authentication required");
-
-    const actorAgent = await svc.getById(req.actor.agentId);
-    if (!actorAgent || actorAgent.companyId !== targetAgent.companyId) {
-      throw forbidden("Agent key cannot access another company");
+    if (req.actor.type !== "board") {
+      throw forbidden(
+        "Only board-authenticated callers can manage instructions path or bundle configuration",
+      );
     }
-    if (actorAgent.id === targetAgent.id) return;
+    await assertBoardCanManageAgentsForCompany(req, targetAgent.companyId);
+  }
 
-    const chainOfCommand = await svc.getChainOfCommand(targetAgent.id);
-    if (chainOfCommand.some((manager) => manager.id === actorAgent.id)) return;
-
-    throw forbidden("Only the target agent or an ancestor manager can update instructions path");
+  function assertNoAgentInstructionsConfigMutation(
+    req: Request,
+    adapterConfig: Record<string, unknown> | null | undefined,
+  ) {
+    if (req.actor.type !== "agent" || !adapterConfig) return;
+    const changedSensitiveKeys = KNOWN_INSTRUCTIONS_BUNDLE_KEYS.filter((key) => adapterConfig[key] !== undefined);
+    if (changedSensitiveKeys.length === 0) return;
+    throw forbidden(
+      `Agent-authenticated callers cannot modify instructions path or bundle configuration (${changedSensitiveKeys.join(", ")})`,
+    );
   }
 
   function summarizeAgentUpdateDetails(patch: Record<string, unknown>) {
@@ -591,7 +763,10 @@ export function agentRoutes(db: Db) {
     return details;
   }
 
-  function buildUnsupportedSkillSnapshot(adapterType: string, desiredSkills: string[] = []): AgentSkillSnapshot {
+  function buildUnsupportedSkillSnapshot(
+    adapterType: string,
+    desiredSkills: string[] = [],
+  ): AgentSkillSnapshot {
     return {
       adapterType,
       supported: false,
@@ -602,7 +777,9 @@ export function agentRoutes(db: Db) {
     };
   }
 
-  const ADAPTERS_REQUIRING_MATERIALIZED_RUNTIME_SKILLS = new Set([
+  // Legacy hardcoded set — used as fallback when adapter module does not
+  // declare requiresMaterializedRuntimeSkills explicitly.
+  const LEGACY_MATERIALIZED_SKILLS_SET = new Set([
     "cursor",
     "gemini_local",
     "opencode_local",
@@ -610,10 +787,18 @@ export function agentRoutes(db: Db) {
   ]);
 
   function shouldMaterializeRuntimeSkillsForAdapter(adapterType: string) {
-    return ADAPTERS_REQUIRING_MATERIALIZED_RUNTIME_SKILLS.has(adapterType);
+    const adapter = findActiveServerAdapter(adapterType);
+    if (adapter?.requiresMaterializedRuntimeSkills !== undefined) {
+      return adapter.requiresMaterializedRuntimeSkills;
+    }
+    return LEGACY_MATERIALIZED_SKILLS_SET.has(adapterType);
   }
 
-  async function buildRuntimeSkillConfig(companyId: string, adapterType: string, config: Record<string, unknown>) {
+  async function buildRuntimeSkillConfig(
+    companyId: string,
+    adapterType: string,
+    config: Record<string, unknown>,
+  ) {
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(companyId, {
       materializeMissing: shouldMaterializeRuntimeSkillsForAdapter(adapterType),
     });
@@ -637,11 +822,16 @@ export function agentRoutes(db: Db) {
       };
     }
 
-    const resolvedRequestedSkills = await companySkills.resolveRequestedSkillKeys(companyId, requestedDesiredSkills);
+    const resolvedRequestedSkills = await companySkills.resolveRequestedSkillKeys(
+      companyId,
+      requestedDesiredSkills,
+    );
     const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(companyId, {
       materializeMissing: shouldMaterializeRuntimeSkillsForAdapter(adapterType),
     });
-    const requiredSkills = runtimeSkillEntries.filter((entry) => entry.required).map((entry) => entry.key);
+    const requiredSkills = runtimeSkillEntries
+      .filter((entry) => entry.required)
+      .map((entry) => entry.key);
     const desiredSkills = Array.from(new Set([...requiredSkills, ...resolvedRequestedSkills]));
 
     return {
@@ -696,11 +886,13 @@ export function agentRoutes(db: Db) {
       metadata:
         typeof record.metadata === "object" && record.metadata !== null
           ? redactEventPayload(record.metadata as Record<string, unknown>)
-          : (record.metadata ?? null),
+          : record.metadata ?? null,
     };
   }
 
-  function redactConfigRevision(revision: Record<string, unknown> & { beforeConfig: unknown; afterConfig: unknown }) {
+  function redactConfigRevision(
+    revision: Record<string, unknown> & { beforeConfig: unknown; afterConfig: unknown },
+  ) {
     return {
       ...revision,
       beforeConfig: redactRevisionSnapshot(revision.beforeConfig),
@@ -734,7 +926,12 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const type = assertKnownAdapterType(req.params.type as string);
-    const models = await listAdapterModels(type);
+    const refresh = typeof req.query.refresh === "string"
+      ? ["1", "true", "yes"].includes(req.query.refresh.toLowerCase())
+      : false;
+    const models = refresh
+      ? await refreshAdapterModels(type)
+      : await listAdapterModels(type);
     res.json(models);
   });
 
@@ -757,7 +954,8 @@ export function agentRoutes(db: Db) {
 
       const adapter = requireServerAdapter(type);
 
-      const inputAdapterConfig = (req.body?.adapterConfig ?? {}) as Record<string, unknown>;
+      const inputAdapterConfig =
+        (req.body?.adapterConfig ?? {}) as Record<string, unknown>;
       const normalizedAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
         companyId,
         inputAdapterConfig,
@@ -789,17 +987,14 @@ export function agentRoutes(db: Db) {
 
     const adapter = findActiveServerAdapter(agent.adapterType);
     if (!adapter?.listSkills) {
-      const preference = readPaperclipSkillSyncPreference(agent.adapterConfig as Record<string, unknown>);
+      const preference = readPaperclipSkillSyncPreference(
+        agent.adapterConfig as Record<string, unknown>,
+      );
       const runtimeSkillEntries = await companySkills.listRuntimeSkillEntries(agent.companyId, {
         materializeMissing: false,
       });
       const requiredSkills = runtimeSkillEntries.filter((entry) => entry.required).map((entry) => entry.key);
-      res.json(
-        buildUnsupportedSkillSnapshot(
-          agent.adapterType,
-          Array.from(new Set([...requiredSkills, ...preference.desiredSkills])),
-        ),
-      );
+      res.json(buildUnsupportedSkillSnapshot(agent.adapterType, Array.from(new Set([...requiredSkills, ...preference.desiredSkills]))));
       return;
     }
 
@@ -807,7 +1002,11 @@ export function agentRoutes(db: Db) {
       agent.companyId,
       agent.adapterConfig,
     );
-    const runtimeSkillConfig = await buildRuntimeSkillConfig(agent.companyId, agent.adapterType, runtimeConfig);
+    const runtimeSkillConfig = await buildRuntimeSkillConfig(
+      agent.companyId,
+      agent.adapterType,
+      runtimeConfig,
+    );
     const snapshot = await adapter.listSkills({
       agentId: agent.id,
       companyId: agent.companyId,
@@ -817,106 +1016,114 @@ export function agentRoutes(db: Db) {
     res.json(snapshot);
   });
 
-  router.post("/agents/:id/skills/sync", validate(agentSkillSyncSchema), async (req, res) => {
-    const id = req.params.id as string;
-    const agent = await svc.getById(id);
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
-    await assertCanUpdateAgent(req, agent);
+  router.post(
+    "/agents/:id/skills/sync",
+    validate(agentSkillSyncSchema),
+    async (req, res) => {
+      const id = req.params.id as string;
+      const agent = await svc.getById(id);
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
+      await assertCanUpdateAgent(req, agent);
 
-    const requestedSkills = Array.from(
-      new Set((req.body.desiredSkills as string[]).map((value) => value.trim()).filter(Boolean)),
-    );
-    const {
-      adapterConfig: nextAdapterConfig,
-      desiredSkills,
-      runtimeSkillEntries,
-    } = await resolveDesiredSkillAssignment(
-      agent.companyId,
-      agent.adapterType,
-      agent.adapterConfig as Record<string, unknown>,
-      requestedSkills,
-    );
-    if (!desiredSkills || !runtimeSkillEntries) {
-      throw unprocessable("Skill sync requires desiredSkills.");
-    }
-    const actor = getActorInfo(req);
-    const updated = await svc.update(
-      agent.id,
-      {
+      const requestedSkills = Array.from(
+        new Set(
+          (req.body.desiredSkills as string[])
+            .map((value) => value.trim())
+            .filter(Boolean),
+        ),
+      );
+      const {
         adapterConfig: nextAdapterConfig,
-      },
-      {
+        desiredSkills,
+        runtimeSkillEntries,
+      } = await resolveDesiredSkillAssignment(
+        agent.companyId,
+        agent.adapterType,
+        agent.adapterConfig as Record<string, unknown>,
+        requestedSkills,
+      );
+      if (!desiredSkills || !runtimeSkillEntries) {
+        throw unprocessable("Skill sync requires desiredSkills.");
+      }
+      const actor = getActorInfo(req);
+      const updated = await svc.update(agent.id, {
+        adapterConfig: nextAdapterConfig,
+      }, {
         recordRevision: {
           createdByAgentId: actor.agentId,
           createdByUserId: actor.actorType === "user" ? actor.actorId : null,
           source: "skill-sync",
         },
-      },
-    );
-    if (!updated) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+      });
+      if (!updated) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
 
-    const adapter = findActiveServerAdapter(updated.adapterType);
-    const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(
-      updated.companyId,
-      updated.adapterConfig,
-    );
-    const runtimeSkillConfig = {
-      ...runtimeConfig,
-      paperclipRuntimeSkills: runtimeSkillEntries,
-    };
-    const snapshot = adapter?.syncSkills
-      ? await adapter.syncSkills(
-          {
+      const adapter = findActiveServerAdapter(updated.adapterType);
+      const { config: runtimeConfig } = await secretsSvc.resolveAdapterConfigForRuntime(
+        updated.companyId,
+        updated.adapterConfig,
+      );
+      const runtimeSkillConfig = {
+        ...runtimeConfig,
+        paperclipRuntimeSkills: runtimeSkillEntries,
+      };
+      const snapshot = adapter?.syncSkills
+        ? await adapter.syncSkills({
             agentId: updated.id,
             companyId: updated.companyId,
             adapterType: updated.adapterType,
             config: runtimeSkillConfig,
-          },
+          }, desiredSkills)
+        : adapter?.listSkills
+          ? await adapter.listSkills({
+              agentId: updated.id,
+              companyId: updated.companyId,
+              adapterType: updated.adapterType,
+              config: runtimeSkillConfig,
+            })
+          : buildUnsupportedSkillSnapshot(updated.adapterType, desiredSkills);
+
+      await logActivity(db, {
+        companyId: updated.companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        action: "agent.skills_synced",
+        entityType: "agent",
+        entityId: updated.id,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        details: {
+          adapterType: updated.adapterType,
           desiredSkills,
-        )
-      : adapter?.listSkills
-        ? await adapter.listSkills({
-            agentId: updated.id,
-            companyId: updated.companyId,
-            adapterType: updated.adapterType,
-            config: runtimeSkillConfig,
-          })
-        : buildUnsupportedSkillSnapshot(updated.adapterType, desiredSkills);
+          mode: snapshot.mode,
+          supported: snapshot.supported,
+          entryCount: snapshot.entries.length,
+          warningCount: snapshot.warnings.length,
+        },
+      });
 
-    await logActivity(db, {
-      companyId: updated.companyId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      action: "agent.skills_synced",
-      entityType: "agent",
-      entityId: updated.id,
-      agentId: actor.agentId,
-      runId: actor.runId,
-      details: {
-        adapterType: updated.adapterType,
-        desiredSkills,
-        mode: snapshot.mode,
-        supported: snapshot.supported,
-        entryCount: snapshot.entries.length,
-        warningCount: snapshot.warnings.length,
-      },
-    });
-
-    res.json(snapshot);
-  });
+      res.json(snapshot);
+    },
+  );
 
   router.get("/companies/:companyId/agents", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
+    const unsupportedQueryParams = Object.keys(req.query).sort();
+    if (unsupportedQueryParams.length > 0) {
+      res.status(400).json({
+        error: `Unsupported query parameter${unsupportedQueryParams.length === 1 ? "" : "s"}: ${unsupportedQueryParams.join(", ")}`,
+      });
+      return;
+    }
     const result = await svc.list(companyId);
     const canReadConfigs = await actorCanReadConfigurationsForCompany(req, companyId);
-    if (canReadConfigs || req.actor.type === "board") {
+    if (canReadConfigs) {
       res.json(result);
       return;
     }
@@ -948,7 +1155,9 @@ export function agentRoutes(db: Db) {
       .map((row) => {
         const policy = parseSchedulerHeartbeatPolicy(row.runtimeConfig);
         const statusEligible =
-          row.status !== "paused" && row.status !== "terminated" && row.status !== "pending_approval";
+          row.status !== "paused" &&
+          row.status !== "terminated" &&
+          row.status !== "pending_approval";
 
         return {
           id: row.id,
@@ -967,7 +1176,11 @@ export function agentRoutes(db: Db) {
           lastHeartbeatAt: row.lastHeartbeatAt,
         };
       })
-      .filter((item) => item.status !== "paused" && item.status !== "terminated" && item.status !== "pending_approval")
+      .filter((item) =>
+        item.status !== "paused" &&
+        item.status !== "terminated" &&
+        item.status !== "pending_approval",
+      )
       .sort((left, right) => {
         if (left.schedulerActive !== right.schedulerActive) {
           return left.schedulerActive ? -1 : 1;
@@ -991,9 +1204,7 @@ export function agentRoutes(db: Db) {
   router.get("/companies/:companyId/org.svg", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const style = (
-      ORG_CHART_STYLES.includes(req.query.style as OrgChartStyle) ? req.query.style : "warmth"
-    ) as OrgChartStyle;
+    const style = (ORG_CHART_STYLES.includes(req.query.style as OrgChartStyle) ? req.query.style : "warmth") as OrgChartStyle;
     const tree = await svc.orgForCompany(companyId);
     const leanTree = tree.map((node) => toLeanOrgNode(node as Record<string, unknown>));
     const svg = renderOrgChartSvg(leanTree as unknown as OrgNode[], style);
@@ -1005,9 +1216,7 @@ export function agentRoutes(db: Db) {
   router.get("/companies/:companyId/org.png", async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
-    const style = (
-      ORG_CHART_STYLES.includes(req.query.style as OrgChartStyle) ? req.query.style : "warmth"
-    ) as OrgChartStyle;
+    const style = (ORG_CHART_STYLES.includes(req.query.style as OrgChartStyle) ? req.query.style : "warmth") as OrgChartStyle;
     const tree = await svc.orgForCompany(companyId);
     const leanTree = tree.map((node) => toLeanOrgNode(node as Record<string, unknown>));
     const png = await renderOrgChartPng(leanTree as unknown as OrgNode[], style);
@@ -1046,7 +1255,13 @@ export function agentRoutes(db: Db) {
     const rows = await issuesSvc.list(req.actor.companyId, {
       assigneeAgentId: req.actor.agentId,
       status: "todo,in_progress,blocked",
+      includeRoutineExecutions: true,
+      limit: ISSUE_LIST_DEFAULT_LIMIT,
     });
+    const dependencyReadiness = await issuesSvc.listDependencyReadiness(
+      req.actor.companyId,
+      rows.map((issue) => issue.id),
+    );
 
     res.json(
       rows.map((issue) => ({
@@ -1060,6 +1275,9 @@ export function agentRoutes(db: Db) {
         parentId: issue.parentId,
         updatedAt: issue.updatedAt,
         activeRun: issue.activeRun,
+        dependencyReady: dependencyReadiness.get(issue.id)?.isDependencyReady ?? true,
+        unresolvedBlockerCount: dependencyReadiness.get(issue.id)?.unresolvedBlockerCount ?? 0,
+        unresolvedBlockerIssueIds: dependencyReadiness.get(issue.id)?.unresolvedBlockerIssueIds ?? [],
       })),
     );
   });
@@ -1076,6 +1294,7 @@ export function agentRoutes(db: Db) {
       touchedByUserId: query.userId,
       inboxArchivedByUserId: query.userId,
       status: query.status,
+      limit: ISSUE_LIST_DEFAULT_LIMIT,
     });
 
     res.json(rows);
@@ -1089,12 +1308,13 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, agent.companyId);
-    if (req.actor.type === "agent" && req.actor.agentId !== id) {
-      const canRead = await actorCanReadConfigurationsForCompany(req, agent.companyId);
-      if (!canRead) {
-        res.json(await buildAgentDetail(agent, { restricted: true }));
-        return;
-      }
+    const isSelf = req.actor.type === "agent" && req.actor.agentId === id;
+    const canReadSensitiveDetail = isSelf
+      ? true
+      : await actorCanReadConfigurationsForCompany(req, agent.companyId);
+    if (!canReadSensitiveDetail) {
+      res.json(await buildAgentDetail(agent, { restricted: true }));
+      return;
     }
     res.json(await buildAgentDetail(agent));
   });
@@ -1182,6 +1402,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+    await assertBoardCanManageAgentsForCompany(req, agent.companyId);
     assertCompanyAccess(req, agent.companyId);
 
     const state = await heartbeat.getRuntimeState(id);
@@ -1196,6 +1417,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+    await assertBoardCanManageAgentsForCompany(req, agent.companyId);
     assertCompanyAccess(req, agent.companyId);
 
     const sessions = await heartbeat.listTaskSessions(id);
@@ -1215,10 +1437,13 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+    await assertBoardCanManageAgentsForCompany(req, agent.companyId);
     assertCompanyAccess(req, agent.companyId);
 
     const taskKey =
-      typeof req.body.taskKey === "string" && req.body.taskKey.trim().length > 0 ? req.body.taskKey.trim() : null;
+      typeof req.body.taskKey === "string" && req.body.taskKey.trim().length > 0
+        ? req.body.taskKey.trim()
+        : null;
     const state = await heartbeat.resetRuntimeSession(id, { taskKey });
 
     await logActivity(db, {
@@ -1245,9 +1470,17 @@ export function agentRoutes(db: Db) {
       ...hireInput
     } = req.body;
     hireInput.adapterType = assertKnownAdapterType(hireInput.adapterType);
+    assertNoAgentHostWorkspaceCommandMutation(
+      req,
+      collectAgentAdapterWorkspaceCommandPaths(hireInput.adapterConfig),
+    );
+    assertNoAgentInstructionsConfigMutation(
+      req,
+      (hireInput.adapterConfig ?? {}) as Record<string, unknown>,
+    );
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
       hireInput.adapterType,
-      (hireInput.adapterConfig ?? {}) as Record<string, unknown>,
+      ((hireInput.adapterConfig ?? {}) as Record<string, unknown>),
     );
     const desiredSkillAssignment = await resolveDesiredSkillAssignment(
       companyId,
@@ -1260,10 +1493,15 @@ export function agentRoutes(db: Db) {
       desiredSkillAssignment.adapterConfig,
       { strictMode: strictSecretsMode },
     );
-    await assertAdapterConfigConstraints(companyId, hireInput.adapterType, normalizedAdapterConfig);
+    await assertAdapterConfigConstraints(
+      companyId,
+      hireInput.adapterType,
+      normalizedAdapterConfig,
+    );
     const normalizedHireInput = {
       ...hireInput,
       adapterConfig: normalizedAdapterConfig,
+      runtimeConfig: normalizeNewAgentRuntimeConfig(hireInput.runtimeConfig),
     };
 
     const company = await db
@@ -1292,11 +1530,17 @@ export function agentRoutes(db: Db) {
     if (requiresApproval) {
       const requestedAdapterType = normalizedHireInput.adapterType ?? agent.adapterType;
       const requestedAdapterConfig =
-        redactEventPayload((agent.adapterConfig ?? normalizedHireInput.adapterConfig) as Record<string, unknown>) ?? {};
+        redactEventPayload(
+          (agent.adapterConfig ?? normalizedHireInput.adapterConfig) as Record<string, unknown>,
+        ) ?? {};
       const requestedRuntimeConfig =
-        redactEventPayload((normalizedHireInput.runtimeConfig ?? agent.runtimeConfig) as Record<string, unknown>) ?? {};
+        redactEventPayload(
+          (normalizedHireInput.runtimeConfig ?? agent.runtimeConfig) as Record<string, unknown>,
+        ) ?? {};
       const requestedMetadata =
-        redactEventPayload((normalizedHireInput.metadata ?? agent.metadata ?? {}) as Record<string, unknown>) ?? {};
+        redactEventPayload(
+          ((normalizedHireInput.metadata ?? agent.metadata ?? {}) as Record<string, unknown>),
+        ) ?? {};
       approval = await approvalsSvc.create(companyId, {
         type: "hire_agent",
         requestedByAgentId: actor.actorType === "agent" ? actor.actorId : null,
@@ -1361,10 +1605,14 @@ export function agentRoutes(db: Db) {
     });
     const telemetryClient = getTelemetryClient();
     if (telemetryClient) {
-      trackAgentCreated(telemetryClient, { agentRole: agent.role });
+      trackAgentCreated(telemetryClient, { agentRole: agent.role, agentId: agent.id });
     }
 
-    await applyDefaultAgentTaskAssignGrant(companyId, agent.id, actor.actorType === "user" ? actor.actorId : null);
+    await applyDefaultAgentTaskAssignGrant(
+      companyId,
+      agent.id,
+      actor.actorType === "user" ? actor.actorId : null,
+    );
 
     if (approval) {
       await logActivity(db, {
@@ -1385,17 +1633,39 @@ export function agentRoutes(db: Db) {
 
   router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
-    assertCompanyAccess(req, companyId);
+    await assertCanCreateAgentsForCompany(req, companyId);
 
-    if (req.actor.type === "agent") {
-      assertBoard(req);
+    const company = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .then((rows) => rows[0] ?? null);
+    if (!company) {
+      res.status(404).json({ error: "Company not found" });
+      return;
+    }
+    if (company.requireBoardApprovalForNewAgents) {
+      throw conflict(
+        "Direct agent creation requires board approval. Use POST /api/companies/:companyId/agent-hires to create a pending hire approval.",
+      );
     }
 
-    const { desiredSkills: requestedDesiredSkills, ...createInput } = req.body;
+    const {
+      desiredSkills: requestedDesiredSkills,
+      ...createInput
+    } = req.body;
     createInput.adapterType = assertKnownAdapterType(createInput.adapterType);
+    assertNoAgentHostWorkspaceCommandMutation(
+      req,
+      collectAgentAdapterWorkspaceCommandPaths(createInput.adapterConfig),
+    );
+    assertNoAgentInstructionsConfigMutation(
+      req,
+      (createInput.adapterConfig ?? {}) as Record<string, unknown>,
+    );
     const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
       createInput.adapterType,
-      (createInput.adapterConfig ?? {}) as Record<string, unknown>,
+      ((createInput.adapterConfig ?? {}) as Record<string, unknown>),
     );
     const desiredSkillAssignment = await resolveDesiredSkillAssignment(
       companyId,
@@ -1408,11 +1678,21 @@ export function agentRoutes(db: Db) {
       desiredSkillAssignment.adapterConfig,
       { strictMode: strictSecretsMode },
     );
-    await assertAdapterConfigConstraints(companyId, createInput.adapterType, normalizedAdapterConfig);
+    await assertAdapterConfigConstraints(
+      companyId,
+      createInput.adapterType,
+      normalizedAdapterConfig,
+    );
+    await assertAgentEnvironmentSelection(companyId, createInput.adapterType, createInput.defaultEnvironmentId);
+    await assertAgentDefaultEnvironmentSelection(companyId, createInput.defaultEnvironmentId, {
+      allowedDrivers: allowedEnvironmentDriversForAgent(createInput.adapterType),
+      allowedSandboxProviders: allowedSandboxProvidersForAgent(createInput.adapterType),
+    });
 
     const createdAgent = await svc.create(companyId, {
       ...createInput,
       adapterConfig: normalizedAdapterConfig,
+      runtimeConfig: normalizeNewAgentRuntimeConfig(createInput.runtimeConfig),
       status: "idle",
       spentMonthlyCents: 0,
       lastHeartbeatAt: null,
@@ -1437,7 +1717,7 @@ export function agentRoutes(db: Db) {
     });
     const telemetryClient = getTelemetryClient();
     if (telemetryClient) {
-      trackAgentCreated(telemetryClient, { agentRole: agent.role });
+      trackAgentCreated(telemetryClient, { agentRole: agent.role, agentId: agent.id });
     }
 
     await applyDefaultAgentTaskAssignGrant(
@@ -1481,6 +1761,8 @@ export function agentRoutes(db: Db) {
         res.status(403).json({ error: "Only CEO can manage permissions" });
         return;
       }
+    } else {
+      await assertBoardCanManageAgentsForCompany(req, existing.companyId);
     }
 
     const agent = await svc.updatePermissions(id, req.body);
@@ -1521,6 +1803,10 @@ export function agentRoutes(db: Db) {
   });
 
   router.patch("/agents/:id/instructions-path", validate(updateAgentInstructionsPathSchema), async (req, res) => {
+    if (req.actor.type !== "board") {
+      throw forbidden("Only board-authenticated callers can manage instructions path or bundle configuration");
+    }
+
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -1532,7 +1818,7 @@ export function agentRoutes(db: Db) {
 
     const existingAdapterConfig = asRecord(existing.adapterConfig) ?? {};
     const explicitKey = asNonEmptyString(req.body.adapterConfigKey);
-    const defaultKey = DEFAULT_INSTRUCTIONS_PATH_KEYS[existing.adapterType] ?? null;
+    const defaultKey = resolveInstructionsPathKey(existing.adapterType);
     const adapterConfigKey = explicitKey ?? defaultKey;
     if (!adapterConfigKey) {
       res.status(422).json({
@@ -1781,8 +2067,15 @@ export function agentRoutes(db: Db) {
         res.status(422).json({ error: "adapterConfig must be an object" });
         return;
       }
-      const changingInstructionsPath = Object.keys(adapterConfig).some((key) => KNOWN_INSTRUCTIONS_PATH_KEYS.has(key));
-      if (changingInstructionsPath) {
+      assertNoAgentInstructionsConfigMutation(req, adapterConfig);
+      assertNoAgentHostWorkspaceCommandMutation(
+        req,
+        collectAgentAdapterWorkspaceCommandPaths(adapterConfig),
+      );
+      const changingInstructionsConfig = Object.keys(adapterConfig).some((key) =>
+        KNOWN_INSTRUCTIONS_BUNDLE_KEYS.includes(key as (typeof KNOWN_INSTRUCTIONS_BUNDLE_KEYS)[number]),
+      );
+      if (changingInstructionsConfig) {
         await assertCanManageInstructionsPath(req, existing);
       }
       patchData.adapterConfig = adapterConfig;
@@ -1791,7 +2084,9 @@ export function agentRoutes(db: Db) {
     const requestedAdapterType = hasOwn(patchData, "adapterType")
       ? assertKnownAdapterType(patchData.adapterType as string | null | undefined)
       : existing.adapterType;
-    const touchesAdapterConfiguration = hasOwn(patchData, "adapterType") || hasOwn(patchData, "adapterConfig");
+    const touchesAdapterConfiguration =
+      hasOwn(patchData, "adapterType") ||
+      hasOwn(patchData, "adapterConfig");
     if (touchesAdapterConfiguration) {
       const existingAdapterConfig = asRecord(existing.adapterConfig) ?? {};
       const changingAdapterType =
@@ -1800,10 +2095,10 @@ export function agentRoutes(db: Db) {
         ? (asRecord(patchData.adapterConfig) ?? {})
         : null;
       if (
-        requestedAdapterConfig &&
-        replaceAdapterConfig &&
-        KNOWN_INSTRUCTIONS_BUNDLE_KEYS.some(
-          (key) => existingAdapterConfig[key] !== undefined && requestedAdapterConfig[key] === undefined,
+        requestedAdapterConfig
+        && replaceAdapterConfig
+        && KNOWN_INSTRUCTIONS_BUNDLE_KEYS.some((key) =>
+          existingAdapterConfig[key] !== undefined && requestedAdapterConfig[key] === undefined,
         )
       ) {
         await assertCanManageInstructionsPath(req, existing);
@@ -1817,21 +2112,23 @@ export function agentRoutes(db: Db) {
         // when the adapter type changes. Without this, a PATCH that includes
         // adapterConfig but omits these keys would silently drop them.
         const ADAPTER_AGNOSTIC_KEYS = [
-          "env",
-          "cwd",
-          "timeoutSec",
-          "graceSec",
-          "promptTemplate",
-          "bootstrapPromptTemplate",
+          "env", "cwd", "timeoutSec", "graceSec",
+          "promptTemplate", "bootstrapPromptTemplate",
         ] as const;
         for (const key of ADAPTER_AGNOSTIC_KEYS) {
           if (rawEffectiveAdapterConfig[key] === undefined && existingAdapterConfig[key] !== undefined) {
             rawEffectiveAdapterConfig = { ...rawEffectiveAdapterConfig, [key]: existingAdapterConfig[key] };
           }
         }
-        rawEffectiveAdapterConfig = preserveInstructionsBundleConfig(existingAdapterConfig, rawEffectiveAdapterConfig);
+        rawEffectiveAdapterConfig = preserveInstructionsBundleConfig(
+          existingAdapterConfig,
+          rawEffectiveAdapterConfig,
+        );
       }
-      const effectiveAdapterConfig = applyCreateDefaultsByAdapterType(requestedAdapterType, rawEffectiveAdapterConfig);
+      const effectiveAdapterConfig = applyCreateDefaultsByAdapterType(
+        requestedAdapterType,
+        rawEffectiveAdapterConfig,
+      );
       const normalizedEffectiveAdapterConfig = await secretsSvc.normalizeAdapterConfigForPersistence(
         existing.companyId,
         effectiveAdapterConfig,
@@ -1841,7 +2138,23 @@ export function agentRoutes(db: Db) {
     }
     if (touchesAdapterConfiguration && requestedAdapterType === "opencode_local") {
       const effectiveAdapterConfig = asRecord(patchData.adapterConfig) ?? {};
-      await assertAdapterConfigConstraints(existing.companyId, requestedAdapterType, effectiveAdapterConfig);
+      await assertAdapterConfigConstraints(
+        existing.companyId,
+        requestedAdapterType,
+        effectiveAdapterConfig,
+      );
+    }
+    if (touchesAdapterConfiguration || Object.prototype.hasOwnProperty.call(patchData, "defaultEnvironmentId")) {
+      await assertAgentDefaultEnvironmentSelection(
+        existing.companyId,
+        Object.prototype.hasOwnProperty.call(patchData, "defaultEnvironmentId")
+          ? (typeof patchData.defaultEnvironmentId === "string" ? patchData.defaultEnvironmentId : null)
+          : existing.defaultEnvironmentId,
+        {
+          allowedDrivers: allowedEnvironmentDriversForAgent(requestedAdapterType),
+          allowedSandboxProviders: allowedSandboxProvidersForAgent(requestedAdapterType),
+        },
+      );
     }
 
     const actor = getActorInfo(req);
@@ -1875,6 +2188,9 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/pause", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    if (!(await getAccessibleAgent(req, res, id))) {
+      return;
+    }
     const agent = await svc.pause(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1898,6 +2214,9 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/resume", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    if (!(await getAccessibleAgent(req, res, id))) {
+      return;
+    }
     const agent = await svc.resume(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1916,9 +2235,47 @@ export function agentRoutes(db: Db) {
     res.json(agent);
   });
 
+  router.post("/agents/:id/approve", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await getAccessibleAgent(req, res, id);
+    if (!existing) {
+      return;
+    }
+    if (existing.status !== "pending_approval") {
+      res.status(409).json({ error: "Only pending approval agents can be approved" });
+      return;
+    }
+    const approval = await svc.activatePendingApproval(id);
+    if (!approval) {
+      res.status(404).json({ error: "Agent not found" });
+      return;
+    }
+    if (!approval.activated) {
+      res.status(409).json({ error: "Only pending approval agents can be approved" });
+      return;
+    }
+    const { agent } = approval;
+
+    await logActivity(db, {
+      companyId: agent.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "agent.approved",
+      entityType: "agent",
+      entityId: agent.id,
+      details: { source: "agent_detail" },
+    });
+
+    res.json(agent);
+  });
+
   router.post("/agents/:id/terminate", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    if (!(await getAccessibleAgent(req, res, id))) {
+      return;
+    }
     const agent = await svc.terminate(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1942,6 +2299,9 @@ export function agentRoutes(db: Db) {
   router.delete("/agents/:id", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    if (!(await getAccessibleAgent(req, res, id))) {
+      return;
+    }
     const agent = await svc.remove(id);
     if (!agent) {
       res.status(404).json({ error: "Agent not found" });
@@ -1963,6 +2323,10 @@ export function agentRoutes(db: Db) {
   router.get("/agents/:id/keys", async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const agent = await getAccessibleAgent(req, res, id);
+    if (!agent) {
+      return;
+    }
     const keys = await svc.listKeys(id);
     res.json(keys);
   });
@@ -1970,32 +2334,56 @@ export function agentRoutes(db: Db) {
   router.post("/agents/:id/keys", validate(createAgentKeySchema), async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
+    const agent = await getAccessibleAgent(req, res, id);
+    if (!agent) {
+      return;
+    }
     const key = await svc.createApiKey(id, req.body.name);
 
-    const agent = await svc.getById(id);
-    if (agent) {
-      await logActivity(db, {
-        companyId: agent.companyId,
-        actorType: "user",
-        actorId: req.actor.userId ?? "board",
-        action: "agent.key_created",
-        entityType: "agent",
-        entityId: agent.id,
-        details: { keyId: key.id, name: key.name },
-      });
-    }
+    await logActivity(db, {
+      companyId: agent.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "agent.key_created",
+      entityType: "agent",
+      entityId: agent.id,
+      details: { keyId: key.id, name: key.name },
+    });
 
     res.status(201).json(key);
   });
 
   router.delete("/agents/:id/keys/:keyId", async (req, res) => {
     assertBoard(req);
+    const id = req.params.id as string;
     const keyId = req.params.keyId as string;
-    const revoked = await svc.revokeKey(keyId);
+    const agent = await getAccessibleAgent(req, res, id);
+    if (!agent) {
+      return;
+    }
+
+    const key = await svc.getKeyById(keyId);
+    if (!key || key.agentId !== agent.id) {
+      res.status(404).json({ error: "Key not found" });
+      return;
+    }
+
+    const revoked = await svc.revokeKey(agent.id, keyId);
     if (!revoked) {
       res.status(404).json({ error: "Key not found" });
       return;
     }
+
+    await logActivity(db, {
+      companyId: agent.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "agent.key_revoked",
+      entityType: "agent",
+      entityId: agent.id,
+      details: { keyId: key.id, name: key.name },
+    });
+
     res.json({ ok: true });
   });
 
@@ -2008,9 +2396,13 @@ export function agentRoutes(db: Db) {
     }
     assertCompanyAccess(req, agent.companyId);
 
-    if (req.actor.type === "agent" && req.actor.agentId !== id) {
-      res.status(403).json({ error: "Agent can only invoke itself" });
-      return;
+    if (req.actor.type === "agent") {
+      if (req.actor.agentId !== id) {
+        res.status(403).json({ error: "Agent can only invoke itself" });
+        return;
+      }
+    } else {
+      await assertBoardCanManageAgentsForCompany(req, agent.companyId);
     }
 
     const run = await heartbeat.wakeup(id, {
@@ -2020,7 +2412,7 @@ export function agentRoutes(db: Db) {
       payload: req.body.payload ?? null,
       idempotencyKey: req.body.idempotencyKey ?? null,
       requestedByActorType: req.actor.type === "agent" ? "agent" : "user",
-      requestedByActorId: req.actor.type === "agent" ? (req.actor.agentId ?? null) : (req.actor.userId ?? null),
+      requestedByActorId: req.actor.type === "agent" ? req.actor.agentId ?? null : req.actor.userId ?? null,
       contextSnapshot: {
         triggeredBy: req.actor.type,
         actorId: req.actor.type === "agent" ? req.actor.agentId : req.actor.userId,
@@ -2058,9 +2450,13 @@ export function agentRoutes(db: Db) {
     }
     assertCompanyAccess(req, agent.companyId);
 
-    if (req.actor.type === "agent" && req.actor.agentId !== id) {
-      res.status(403).json({ error: "Agent can only invoke itself" });
-      return;
+    if (req.actor.type === "agent") {
+      if (req.actor.agentId !== id) {
+        res.status(403).json({ error: "Agent can only invoke itself" });
+        return;
+      }
+    } else {
+      await assertBoardCanManageAgentsForCompany(req, agent.companyId);
     }
 
     const run = await heartbeat.invoke(
@@ -2073,7 +2469,7 @@ export function agentRoutes(db: Db) {
       "manual",
       {
         actorType: req.actor.type === "agent" ? "agent" : "user",
-        actorId: req.actor.type === "agent" ? (req.actor.agentId ?? null) : (req.actor.userId ?? null),
+        actorId: req.actor.type === "agent" ? req.actor.agentId ?? null : req.actor.userId ?? null,
       },
     );
 
@@ -2106,6 +2502,7 @@ export function agentRoutes(db: Db) {
       res.status(404).json({ error: "Agent not found" });
       return;
     }
+    await assertBoardCanManageAgentsForCompany(req, agent.companyId);
     assertCompanyAccess(req, agent.companyId);
     if (agent.adapterType !== "claude_local") {
       res.status(400).json({ error: "Login is only supported for claude_local agents" });
@@ -2143,11 +2540,12 @@ export function agentRoutes(db: Db) {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
 
-    const minCountParam = req.query.minCount as string | undefined;
-    const minCount = minCountParam ? Math.max(0, Math.min(20, parseInt(minCountParam, 10) || 0)) : 0;
+    const minCount = readLiveRunsQueryInt(req.query.minCount, 50);
+    const limit = readLiveRunsQueryInt(req.query.limit, 50);
 
     const columns = {
       id: heartbeatRuns.id,
+      companyId: heartbeatRuns.companyId,
       status: heartbeatRuns.status,
       invocationSource: heartbeatRuns.invocationSource,
       triggerDetail: heartbeatRuns.triggerDetail,
@@ -2157,17 +2555,36 @@ export function agentRoutes(db: Db) {
       agentId: heartbeatRuns.agentId,
       agentName: agentsTable.name,
       adapterType: agentsTable.adapterType,
+      logBytes: heartbeatRuns.logBytes,
+      livenessState: heartbeatRuns.livenessState,
+      livenessReason: heartbeatRuns.livenessReason,
+      continuationAttempt: heartbeatRuns.continuationAttempt,
+      lastUsefulActionAt: heartbeatRuns.lastUsefulActionAt,
+      nextAction: heartbeatRuns.nextAction,
+      lastOutputAt: heartbeatRuns.lastOutputAt,
+      lastOutputSeq: heartbeatRuns.lastOutputSeq,
+      lastOutputStream: heartbeatRuns.lastOutputStream,
+      lastOutputBytes: heartbeatRuns.lastOutputBytes,
+      processStartedAt: heartbeatRuns.processStartedAt,
       issueId: sql<string | null>`${heartbeatRuns.contextSnapshot} ->> 'issueId'`.as("issueId"),
     };
 
-    const liveRuns = await db
+    const liveRunsQuery = db
       .select(columns)
       .from(heartbeatRuns)
       .innerJoin(agentsTable, eq(heartbeatRuns.agentId, agentsTable.id))
-      .where(and(eq(heartbeatRuns.companyId, companyId), inArray(heartbeatRuns.status, ["queued", "running"])))
+      .where(
+        and(
+          eq(heartbeatRuns.companyId, companyId),
+          inArray(heartbeatRuns.status, ["queued", "running"]),
+        ),
+      )
       .orderBy(desc(heartbeatRuns.createdAt));
 
-    if (minCount > 0 && liveRuns.length < minCount) {
+    const liveRuns = limit > 0 ? await liveRunsQuery.limit(limit) : await liveRunsQuery;
+    const targetRunCount = limit > 0 ? Math.min(minCount, limit) : minCount;
+
+    if (targetRunCount > 0 && liveRuns.length < targetRunCount) {
       const activeIds = liveRuns.map((r) => r.id);
       const recentRuns = await db
         .select(columns)
@@ -2181,13 +2598,20 @@ export function agentRoutes(db: Db) {
           ),
         )
         .orderBy(desc(heartbeatRuns.createdAt))
-        .limit(minCount - liveRuns.length);
+        .limit(targetRunCount - liveRuns.length);
 
-      res.json([...liveRuns, ...recentRuns]);
+      const rows = [...liveRuns, ...recentRuns];
+      res.json(await Promise.all(rows.map(async (run) => ({
+        ...run,
+        outputSilence: await heartbeat.buildRunOutputSilence(run),
+      }))));
       return;
     }
 
-    res.json(liveRuns);
+    res.json(await Promise.all(liveRuns.map(async (run) => ({
+      ...run,
+      outputSilence: await heartbeat.buildRunOutputSilence(run),
+    }))));
   });
 
   router.get("/heartbeat-runs/:runId", async (req, res) => {
@@ -2198,12 +2622,22 @@ export function agentRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, run.companyId);
-    res.json(redactCurrentUserValue(run, await getCurrentUserRedactionOptions()));
+    const retryExhaustedReason = await heartbeat.getRetryExhaustedReason(runId);
+    res.json(
+      redactCurrentUserValue(
+        { ...run, retryExhaustedReason, outputSilence: await heartbeat.buildRunOutputSilence(run) },
+        await getCurrentUserRedactionOptions(),
+      ),
+    );
   });
 
   router.post("/heartbeat-runs/:runId/cancel", async (req, res) => {
     assertBoard(req);
     const runId = req.params.runId as string;
+    const existing = await heartbeat.getRun(runId);
+    if (existing) {
+      assertCompanyAccess(req, existing.companyId);
+    }
     const run = await heartbeat.cancelRun(runId);
 
     if (run) {
@@ -2221,6 +2655,42 @@ export function agentRoutes(db: Db) {
     res.json(run);
   });
 
+  router.post("/heartbeat-runs/:runId/watchdog-decisions", async (req, res) => {
+    const runId = req.params.runId as string;
+    const existing = await heartbeat.getRun(runId);
+    if (!existing) {
+      res.status(404).json({ error: "Heartbeat run not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    const decision = typeof req.body?.decision === "string" ? req.body.decision : "";
+    if (!["snooze", "continue", "dismissed_false_positive"].includes(decision)) {
+      res.status(400).json({ error: "Unsupported watchdog decision" });
+      return;
+    }
+    const evaluationIssueId = typeof req.body?.evaluationIssueId === "string" ? req.body.evaluationIssueId : null;
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.slice(0, 4000) : null;
+    const snoozedUntil = decision === "snooze"
+      ? new Date(String(req.body?.snoozedUntil ?? ""))
+      : null;
+    if (decision === "snooze" && (!snoozedUntil || Number.isNaN(snoozedUntil.getTime()) || snoozedUntil <= new Date())) {
+      res.status(400).json({ error: "snoozedUntil must be a future ISO datetime" });
+      return;
+    }
+
+    const row = await recovery.recordWatchdogDecision({
+      runId: existing.id,
+      actor: req.actor,
+      decision: decision as "snooze" | "continue" | "dismissed_false_positive",
+      evaluationIssueId,
+      reason,
+      snoozedUntil,
+      createdByRunId: req.actor.runId ?? null,
+    });
+
+    res.json(row);
+  });
+
   router.get("/heartbeat-runs/:runId/events", async (req, res) => {
     const runId = req.params.runId as string;
     const run = await heartbeat.getRun(runId);
@@ -2232,27 +2702,20 @@ export function agentRoutes(db: Db) {
 
     const afterSeq = Number(req.query.afterSeq ?? 0);
     const limit = Number(req.query.limit ?? 200);
-    const events = await heartbeat.listEvents(
-      runId,
-      Number.isFinite(afterSeq) ? afterSeq : 0,
-      Number.isFinite(limit) ? limit : 200,
-    );
+    const events = await heartbeat.listEvents(runId, Number.isFinite(afterSeq) ? afterSeq : 0, Number.isFinite(limit) ? limit : 200);
     const currentUserRedactionOptions = await getCurrentUserRedactionOptions();
     const redactedEvents = events.map((event) =>
-      redactCurrentUserValue(
-        {
-          ...event,
-          payload: redactEventPayload(event.payload),
-        },
-        currentUserRedactionOptions,
-      ),
+      redactCurrentUserValue({
+        ...event,
+        payload: redactEventPayload(event.payload),
+      }, currentUserRedactionOptions),
     );
     res.json(redactedEvents);
   });
 
   router.get("/heartbeat-runs/:runId/log", async (req, res) => {
     const runId = req.params.runId as string;
-    const run = await heartbeat.getRun(runId);
+    const run = await heartbeat.getRunLogAccess(runId);
     if (!run) {
       res.status(404).json({ error: "Heartbeat run not found" });
       return;
@@ -2260,12 +2723,13 @@ export function agentRoutes(db: Db) {
     assertCompanyAccess(req, run.companyId);
 
     const offset = Number(req.query.offset ?? 0);
-    const limitBytes = Number(req.query.limitBytes ?? 256000);
-    const result = await heartbeat.readLog(runId, {
+    const limitBytes = readRunLogLimitBytes(req.query.limitBytes);
+    const result = await heartbeat.readLog(run, {
       offset: Number.isFinite(offset) ? offset : 0,
-      limitBytes: Number.isFinite(limitBytes) ? limitBytes : 256000,
+      limitBytes,
     });
 
+    res.set("Cache-Control", "no-cache, no-store");
     res.json(result);
   });
 
@@ -2294,12 +2758,13 @@ export function agentRoutes(db: Db) {
     assertCompanyAccess(req, operation.companyId);
 
     const offset = Number(req.query.offset ?? 0);
-    const limitBytes = Number(req.query.limitBytes ?? 256000);
+    const limitBytes = readRunLogLimitBytes(req.query.limitBytes);
     const result = await workspaceOperations.readLog(operationId, {
       offset: Number.isFinite(offset) ? offset : 0,
-      limitBytes: Number.isFinite(limitBytes) ? limitBytes : 256000,
+      limitBytes,
     });
 
+    res.set("Cache-Control", "no-cache, no-store");
     res.json(result);
   });
 
@@ -2326,6 +2791,17 @@ export function agentRoutes(db: Db) {
         agentId: heartbeatRuns.agentId,
         agentName: agentsTable.name,
         adapterType: agentsTable.adapterType,
+        logBytes: heartbeatRuns.logBytes,
+        livenessState: heartbeatRuns.livenessState,
+        livenessReason: heartbeatRuns.livenessReason,
+        continuationAttempt: heartbeatRuns.continuationAttempt,
+        lastUsefulActionAt: heartbeatRuns.lastUsefulActionAt,
+        nextAction: heartbeatRuns.nextAction,
+        lastOutputAt: heartbeatRuns.lastOutputAt,
+        lastOutputSeq: heartbeatRuns.lastOutputSeq,
+        lastOutputStream: heartbeatRuns.lastOutputStream,
+        lastOutputBytes: heartbeatRuns.lastOutputBytes,
+        processStartedAt: heartbeatRuns.processStartedAt,
       })
       .from(heartbeatRuns)
       .innerJoin(agentsTable, eq(heartbeatRuns.agentId, agentsTable.id))
@@ -2338,7 +2814,10 @@ export function agentRoutes(db: Db) {
       )
       .orderBy(desc(heartbeatRuns.createdAt));
 
-    res.json(liveRuns);
+    res.json(await Promise.all(liveRuns.map(async (run) => ({
+      ...run,
+      outputSilence: await heartbeat.buildRunOutputSilence({ ...run, companyId: issue.companyId }),
+    }))));
   });
 
   router.get("/issues/:issueId/active-run", async (req, res) => {
@@ -2352,15 +2831,20 @@ export function agentRoutes(db: Db) {
     }
     assertCompanyAccess(req, issue.companyId);
 
-    let run = issue.executionRunId ? await heartbeat.getRun(issue.executionRunId) : null;
-    if (run && run.status !== "queued" && run.status !== "running") {
+    let run = issue.executionRunId ? await heartbeat.getRunIssueSummary(issue.executionRunId) : null;
+    if (
+      run &&
+      (
+        (run.status !== "queued" && run.status !== "running") ||
+        run.issueId !== issue.id
+      )
+    ) {
       run = null;
     }
 
     if (!run && issue.assigneeAgentId && issue.status === "in_progress") {
-      const candidateRun = await heartbeat.getActiveRunForAgent(issue.assigneeAgentId);
-      const candidateContext = asRecord(candidateRun?.contextSnapshot);
-      const candidateIssueId = asNonEmptyString(candidateContext?.issueId);
+      const candidateRun = await heartbeat.getActiveRunIssueSummaryForAgent(issue.assigneeAgentId);
+      const candidateIssueId = asNonEmptyString(candidateRun?.issueId);
       if (candidateRun && candidateIssueId === issue.id) {
         run = candidateRun;
       }
@@ -2377,10 +2861,11 @@ export function agentRoutes(db: Db) {
     }
 
     res.json({
-      ...redactCurrentUserValue(run, await getCurrentUserRedactionOptions()),
+      ...run,
       agentId: agent.id,
       agentName: agent.name,
       adapterType: agent.adapterType,
+      outputSilence: await heartbeat.buildRunOutputSilence({ ...run, companyId: issue.companyId }),
     });
   });
 

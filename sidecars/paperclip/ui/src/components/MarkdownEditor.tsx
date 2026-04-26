@@ -8,6 +8,9 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -28,8 +31,8 @@ import {
   thematicBreakPlugin,
   type RealmPlugin,
 } from "@mdxeditor/editor";
-import { buildAgentMentionHref, buildProjectMentionHref } from "@paperclipai/shared";
-import { Boxes } from "lucide-react";
+import { buildAgentMentionHref, buildProjectMentionHref, buildUserMentionHref } from "@paperclipai/shared";
+import { Boxes, User } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
 import { applyMentionChipDecoration, clearMentionChipDecoration, parseMentionChipHref } from "../lib/mention-chips";
 import { MentionAwareLinkNode, mentionAwareLinkNodeReplacement } from "../lib/mention-aware-link-node";
@@ -45,11 +48,12 @@ import { useEditorAutocomplete, type SkillCommandOption } from "../context/Edito
 export interface MentionOption {
   id: string;
   name: string;
-  kind?: "agent" | "project";
+  kind?: "agent" | "project" | "user";
   agentId?: string;
   agentIcon?: string | null;
   projectId?: string;
   projectColor?: string | null;
+  userId?: string;
 }
 
 /* ---- Editor props ---- */
@@ -64,19 +68,96 @@ interface MarkdownEditorProps {
   imageUploadHandler?: (file: File) => Promise<string>;
   /** Called when a non-image file is dropped onto the editor (e.g. .zip). */
   onDropFile?: (file: File) => Promise<void>;
+  /** When set to `parent`, a wrapper owns drag/drop behavior and visuals. */
+  fileDropTarget?: "editor" | "parent";
   bordered?: boolean;
   /** List of mentionable entities. Enables @-mention autocomplete. */
   mentions?: MentionOption[];
   /** Called on Cmd/Ctrl+Enter */
   onSubmit?: () => void;
+  /** Render the rich editor without allowing edits. */
+  readOnly?: boolean;
 }
 
 export interface MarkdownEditorRef {
   focus: () => void;
 }
 
+function readHtmlAttribute(attrs: string, name: string): string | null {
+  const match = new RegExp(`${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(attrs);
+  return match?.[2] ?? match?.[3] ?? match?.[4] ?? null;
+}
+
+function convertHtmlImagesToMarkdown(text: string): string {
+  return text.replace(/<img\b([^>]*?)\/?>/gi, (tag, attrs: string) => {
+    const src = readHtmlAttribute(attrs, "src");
+    if (!src) return tag;
+    const alt = readHtmlAttribute(attrs, "alt") ?? "image";
+    const title = readHtmlAttribute(attrs, "title");
+    const escapedAlt = alt.replace(/[[\]]/g, "\\$&");
+    const escapedTitle = title?.replace(/"/g, '\\"');
+    return escapedTitle
+      ? `![${escapedAlt}](${src} "${escapedTitle}")`
+      : `![${escapedAlt}](${src})`;
+  });
+}
+
+function prepareMarkdownForEditor(value: string): string {
+  const normalizedLineEndings = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  return convertHtmlImagesToMarkdown(normalizedLineEndings);
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasMeaningfulEditorContent(node: Node | null): boolean {
+  if (!node) return false;
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node.textContent ?? "").trim().length > 0;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+
+  const element = node as HTMLElement;
+  if (["IMG", "HR", "TABLE", "VIDEO", "IFRAME"].includes(element.tagName)) {
+    return true;
+  }
+
+  return Array.from(element.childNodes).some((child) => hasMeaningfulEditorContent(child));
+}
+
+function hasMarkdownImage(value: string): boolean {
+  return /!\[[\s\S]*?\]\([^)]+\)/.test(value);
+}
+
+function isRichEditorDomEmpty(
+  editable: HTMLElement,
+  expectedValue: string,
+  placeholder?: string,
+): boolean {
+  const expectedText = expectedValue.trim();
+  if (!expectedText) return false;
+  const expectedHasImage = hasMarkdownImage(expectedText);
+
+  const visibleText = (editable.textContent ?? "").trim();
+  if (visibleText.length === 0) {
+    if (expectedHasImage) return false;
+    return !Array.from(editable.childNodes).some((child) => hasMeaningfulEditorContent(child));
+  }
+
+  const normalizedPlaceholder = placeholder?.trim();
+  if (
+    normalizedPlaceholder
+    && visibleText === normalizedPlaceholder
+    && expectedText !== normalizedPlaceholder
+  ) {
+    if (expectedHasImage) return false;
+    return true;
+  }
+
+  return false;
 }
 
 function isSafeMarkdownLinkUrl(url: string): boolean {
@@ -256,13 +337,18 @@ function getMentionMenuSize(optionCount: number): MentionMenuSize {
   const visibleRows = Math.max(1, Math.min(optionCount, 8));
   return {
     width: MENTION_MENU_WIDTH,
-    height: Math.min(MENTION_MENU_HEIGHT, visibleRows * MENTION_MENU_ROW_HEIGHT + MENTION_MENU_CHROME_HEIGHT),
+    height: Math.min(
+      MENTION_MENU_HEIGHT,
+      visibleRows * MENTION_MENU_ROW_HEIGHT + MENTION_MENU_CHROME_HEIGHT,
+    ),
   };
 }
 
 function nodeInsideCodeLike(container: HTMLElement, node: Node | null): boolean {
   if (!node || !container.contains(node)) return false;
-  const el = node.nodeType === Node.ELEMENT_NODE ? (node as HTMLElement) : node.parentElement;
+  const el = node.nodeType === Node.ELEMENT_NODE
+    ? (node as HTMLElement)
+    : node.parentElement;
   return Boolean(el?.closest("pre, code"));
 }
 
@@ -280,6 +366,9 @@ function mentionMarkdown(option: MentionOption): string {
   if (option.kind === "project" && option.projectId) {
     return `[@${option.name}](${buildProjectMentionHref(option.projectId, option.projectColor ?? null)}) `;
   }
+  if (option.kind === "user" && option.userId) {
+    return `[@${option.name}](${buildUserMentionHref(option.userId)}) `;
+  }
   const agentId = option.agentId ?? option.id.replace(/^agent:/, "");
   return `[@${option.name}](${buildAgentMentionHref(agentId, option.agentIcon ?? null)}) `;
 }
@@ -290,6 +379,105 @@ function skillMarkdown(option: SkillCommandOption): string {
 
 function autocompleteMarkdown(option: AutocompleteOption): string {
   return option.kind === "skill" ? skillMarkdown(option) : mentionMarkdown(option);
+}
+
+export function shouldAcceptAutocompleteKey(
+  key: string,
+  trigger: MentionState["trigger"] | null,
+  skillEnterArmed = false,
+): boolean {
+  if (key === "Tab") return true;
+  if (key !== "Enter") return false;
+  return trigger === "mention" || (trigger === "skill" && skillEnterArmed);
+}
+
+export function isSameAutocompleteSession(
+  left: Pick<MentionState, "trigger" | "marker" | "query" | "textNode" | "atPos" | "endPos"> | null,
+  right: Pick<MentionState, "trigger" | "marker" | "query" | "textNode" | "atPos" | "endPos"> | null,
+): boolean {
+  if (!left || !right) return false;
+  return left.trigger === right.trigger
+    && left.marker === right.marker
+    && left.query === right.query
+    && left.textNode === right.textNode
+    && left.atPos === right.atPos
+    && left.endPos === right.endPos;
+}
+
+function autocompleteOptionMatchesLink(option: AutocompleteOption, href: string): boolean {
+  const parsed = parseMentionChipHref(href);
+  if (!parsed) return false;
+
+  if (option.kind === "skill") {
+    return parsed.kind === "skill" && parsed.skillId === option.skillId;
+  }
+
+  if (option.kind === "project" && option.projectId) {
+    return parsed.kind === "project" && parsed.projectId === option.projectId;
+  }
+  if (option.kind === "user" && option.userId) {
+    return parsed.kind === "user" && parsed.userId === option.userId;
+  }
+
+  const agentId = option.agentId ?? option.id.replace(/^agent:/, "");
+  return parsed.kind === "agent" && parsed.agentId === agentId;
+}
+
+export function findClosestAutocompleteAnchor(
+  editable: HTMLElement,
+  option: AutocompleteOption,
+  origin?: Pick<MentionState, "left" | "top"> | null,
+): HTMLAnchorElement | null {
+  const matchingMentions = Array.from(editable.querySelectorAll("a"))
+    .filter((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement)
+    .filter((link) => autocompleteOptionMatchesLink(option, link.getAttribute("href") ?? ""));
+
+  if (matchingMentions.length === 0) return null;
+  if (!origin) return matchingMentions[0] ?? null;
+
+  const containerRect = editable.getBoundingClientRect();
+  return matchingMentions.sort((a, b) => {
+    const rectA = a.getBoundingClientRect();
+    const rectB = b.getBoundingClientRect();
+    const leftA = rectA.left - containerRect.left;
+    const topA = rectA.top - containerRect.top;
+    const leftB = rectB.left - containerRect.left;
+    const topB = rectB.top - containerRect.top;
+    const distA = Math.hypot(leftA - origin.left, topA - origin.top);
+    const distB = Math.hypot(leftB - origin.left, topB - origin.top);
+    return distA - distB;
+  })[0] ?? null;
+}
+
+export function placeCaretAfterMentionAnchor(target: HTMLAnchorElement): boolean {
+  const selection = window.getSelection();
+  if (!selection) return false;
+
+  const range = document.createRange();
+  const nextSibling = target.nextSibling;
+  if (nextSibling?.nodeType === Node.TEXT_NODE) {
+    const text = nextSibling.textContent ?? "";
+    if (text.startsWith(" ")) {
+      range.setStart(nextSibling, 1);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+    if (text.length > 0) {
+      range.setStart(nextSibling, 0);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return true;
+    }
+  }
+
+  range.setStartAfter(target);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  return true;
 }
 
 /** Replace the active autocomplete token in the markdown string with the selected token. */
@@ -303,28 +491,29 @@ function applyMention(markdown: string, state: MentionState, option: Autocomplet
 
 /* ---- Component ---- */
 
-export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor(
-  {
-    value,
-    onChange,
-    placeholder,
-    className,
-    contentClassName,
-    onBlur,
-    imageUploadHandler,
-    onDropFile,
-    bordered = true,
-    mentions,
-    onSubmit,
-  }: MarkdownEditorProps,
-  forwardedRef,
-) {
+export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(function MarkdownEditor({
+  value,
+  onChange,
+  placeholder,
+  className,
+  contentClassName,
+  onBlur,
+  imageUploadHandler,
+  onDropFile,
+  fileDropTarget = "editor",
+  bordered = true,
+  mentions,
+  onSubmit,
+  readOnly = false,
+}: MarkdownEditorProps, forwardedRef) {
+  const editorValue = useMemo(() => prepareMarkdownForEditor(value), [value]);
   const { slashCommands } = useEditorAutocomplete();
   const containerRef = useRef<HTMLDivElement>(null);
   const ref = useRef<MDXEditorMethods>(null);
-  const valueRef = useRef(value);
-  valueRef.current = value;
-  const latestValueRef = useRef(value);
+  const fallbackTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const valueRef = useRef(editorValue);
+  valueRef.current = editorValue;
+  const latestValueRef = useRef(editorValue);
   const initialChildOnChangeRef = useRef(true);
   /**
    * After imperative `setMarkdown` (prop sync, mentions, image upload), MDXEditor may emit `onChange`
@@ -334,6 +523,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   const echoIgnoreMarkdownRef = useRef<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [richEditorError, setRichEditorError] = useState<string | null>(null);
   const dragDepthRef = useRef(0);
 
   // Stable ref for imageUploadHandler so plugins don't recreate on every render
@@ -344,10 +534,12 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   const [mentionState, setMentionState] = useState<MentionState | null>(null);
   const mentionStateRef = useRef<MentionState | null>(null);
   const [mentionIndex, setMentionIndex] = useState(0);
-  const mentionActive =
-    mentionState !== null &&
-    ((mentionState.trigger === "mention" && Boolean(mentions?.length)) ||
-      (mentionState.trigger === "skill" && slashCommands.length > 0));
+  const skillEnterArmedRef = useRef(false);
+  const autocompleteSelectionHandledRef = useRef(false);
+  const mentionActive = mentionState !== null && (
+    (mentionState.trigger === "mention" && Boolean(mentions?.length))
+    || (mentionState.trigger === "skill" && slashCommands.length > 0)
+  );
   const mentionOptionByKey = useMemo(() => {
     const map = new Map<string, MentionOption>();
     for (const mention of mentions ?? []) {
@@ -355,12 +547,28 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         const agentId = mention.agentId ?? mention.id.replace(/^agent:/, "");
         map.set(`agent:${agentId}`, mention);
       }
+      if (mention.kind === "user" && mention.userId) {
+        map.set(`user:${mention.userId}`, mention);
+      }
       if (mention.kind === "project" && mention.projectId) {
         map.set(`project:${mention.projectId}`, mention);
       }
     }
     return map;
   }, [mentions]);
+
+  const setEditorRef = useCallback((instance: MDXEditorMethods | null) => {
+    ref.current = instance;
+    if (!instance) {
+      return;
+    }
+    if (valueRef.current !== latestValueRef.current) {
+      // Re-apply the latest controlled value once MDXEditor exposes its imperative API.
+      echoIgnoreMarkdownRef.current = valueRef.current;
+      instance.setMarkdown(valueRef.current);
+      latestValueRef.current = valueRef.current;
+    }
+  }, []);
 
   const filteredMentions = useMemo<AutocompleteOption[]>(() => {
     if (!mentionState) return [];
@@ -377,25 +585,61 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     return mentions.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 8);
   }, [mentionState, mentions, slashCommands]);
 
-  const setEditorRef = useCallback((instance: MDXEditorMethods | null) => {
-    ref.current = instance;
-    if (instance) {
-      const v = valueRef.current;
-      echoIgnoreMarkdownRef.current = v;
-      instance.setMarkdown(v);
-      latestValueRef.current = v;
-    }
+  useImperativeHandle(forwardedRef, () => ({
+    focus: () => {
+      if (richEditorError) {
+        fallbackTextareaRef.current?.focus();
+        return;
+      }
+      ref.current?.focus(undefined, { defaultSelection: "rootEnd" });
+    },
+  }), [richEditorError]);
+
+  const autoSizeFallbackTextarea = useCallback((element: HTMLTextAreaElement | null) => {
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${element.scrollHeight}px`;
   }, []);
 
-  useImperativeHandle(
-    forwardedRef,
-    () => ({
-      focus: () => {
-        ref.current?.focus(undefined, { defaultSelection: "rootEnd" });
-      },
-    }),
-    [],
-  );
+  useEffect(() => {
+    if (!richEditorError) return;
+    autoSizeFallbackTextarea(fallbackTextareaRef.current);
+  }, [autoSizeFallbackTextarea, richEditorError, value]);
+
+  useEffect(() => {
+    if (richEditorError || editorValue.trim().length === 0) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    let timeoutId = 0;
+    const scheduleCheck = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        const editable = container.querySelector('[contenteditable="true"]');
+        if (!(editable instanceof HTMLElement)) return;
+        const activeElement = document.activeElement;
+        if (activeElement === editable || editable.contains(activeElement)) return;
+        if (isRichEditorDomEmpty(editable, editorValue, placeholder)) {
+          setRichEditorError("Rich editor failed to load content");
+        }
+      }, 0);
+    };
+
+    scheduleCheck();
+    const observer = new MutationObserver(() => {
+      scheduleCheck();
+    });
+    observer.observe(container, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [editorValue, placeholder, richEditorError]);
 
   // Whether the image plugin should be included (boolean is stable across renders
   // as long as the handler presence doesn't toggle)
@@ -460,15 +704,15 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   }, [hasImageUpload]);
 
   useEffect(() => {
-    if (value !== latestValueRef.current) {
+    if (editorValue !== latestValueRef.current) {
       if (ref.current) {
         // Pair with onChange echo suppression (echoIgnoreMarkdownRef).
-        echoIgnoreMarkdownRef.current = value;
-        ref.current.setMarkdown(value);
-        latestValueRef.current = value;
+        echoIgnoreMarkdownRef.current = editorValue;
+        ref.current.setMarkdown(editorValue);
+        latestValueRef.current = editorValue;
       }
     }
-  }, [value]);
+  }, [editorValue]);
 
   const decorateProjectMentions = useCallback(() => {
     const editable = containerRef.current?.querySelector('[contenteditable="true"]');
@@ -496,6 +740,11 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         continue;
       }
 
+      if (parsed.kind === "user" || parsed.kind === "issue") {
+        applyMentionChipDecoration(link, parsed);
+        continue;
+      }
+
       const option = mentionOptionByKey.get(`agent:${parsed.agentId}`);
       applyMentionChipDecoration(link, {
         ...parsed,
@@ -508,27 +757,39 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   const checkMention = useCallback(() => {
     if (!containerRef.current || isSelectionInsideCodeLikeElement(containerRef.current)) {
       mentionStateRef.current = null;
+      skillEnterArmedRef.current = false;
       setMentionState(null);
       return;
     }
     const result = detectMention(containerRef.current);
-    if (result && result.trigger === "mention" && (!mentions || mentions.length === 0)) {
+    if (
+      result
+      && result.trigger === "mention"
+      && (!mentions || mentions.length === 0)
+    ) {
       mentionStateRef.current = null;
+      skillEnterArmedRef.current = false;
       setMentionState(null);
       return;
     }
-    if (result && result.trigger === "skill" && slashCommands.length === 0) {
+    if (
+      result
+      && result.trigger === "skill"
+      && slashCommands.length === 0
+    ) {
       mentionStateRef.current = null;
+      skillEnterArmedRef.current = false;
       setMentionState(null);
       return;
     }
+    const previous = mentionStateRef.current;
+    const sameSession = isSameAutocompleteSession(previous, result);
     mentionStateRef.current = result;
-    if (result) {
-      setMentionState(result);
+    if (!sameSession) {
+      skillEnterArmedRef.current = false;
       setMentionIndex(0);
-    } else {
-      setMentionState(null);
     }
+    setMentionState(result);
   }, [mentions, slashCommands.length]);
 
   useEffect(() => {
@@ -567,6 +828,11 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   }, [checkMention, mentionActive]);
 
   useEffect(() => {
+    if (mentionActive) return;
+    autocompleteSelectionHandledRef.current = false;
+  }, [mentionActive]);
+
+  useEffect(() => {
     const editable = containerRef.current?.querySelector('[contenteditable="true"]');
     if (!editable) return;
     decorateProjectMentions();
@@ -586,7 +852,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       // Read from ref to avoid stale-closure issues (selectionchange can
       // update state between the last render and this callback firing).
       const state = mentionStateRef.current;
-      if (!state) return;
+      if (!state) return false;
       const current = latestValueRef.current;
       const next = applyMention(current, state, option);
       if (next !== current) {
@@ -596,75 +862,52 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         onChange(next);
       }
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const editable = containerRef.current?.querySelector('[contenteditable="true"]');
-          if (!(editable instanceof HTMLElement)) return;
-          decorateProjectMentions();
-          editable.focus();
+      const restoreSelection = (attemptsRemaining: number) => {
+        const editable = containerRef.current?.querySelector('[contenteditable="true"]');
+        if (!(editable instanceof HTMLElement)) return;
 
-          const mentionHref =
-            option.kind === "skill"
-              ? option.href
-              : option.kind === "project" && option.projectId
-                ? buildProjectMentionHref(option.projectId, option.projectColor ?? null)
-                : buildAgentMentionHref(option.agentId ?? option.id.replace(/^agent:/, ""), option.agentIcon ?? null);
-          const expectedLabel = option.kind === "skill" ? `/${option.slug}` : `@${option.name}`;
-          const matchingMentions = Array.from(editable.querySelectorAll("a"))
-            .filter((node): node is HTMLAnchorElement => node instanceof HTMLAnchorElement)
-            .filter((link) => {
-              const href = link.getAttribute("href") ?? "";
-              return href === mentionHref && link.textContent === expectedLabel;
-            });
-          const containerRect = containerRef.current?.getBoundingClientRect();
-          const target =
-            matchingMentions.sort((a, b) => {
-              const rectA = a.getBoundingClientRect();
-              const rectB = b.getBoundingClientRect();
-              const leftA = containerRect ? rectA.left - containerRect.left : rectA.left;
-              const topA = containerRect ? rectA.top - containerRect.top : rectA.top;
-              const leftB = containerRect ? rectB.left - containerRect.left : rectB.left;
-              const topB = containerRect ? rectB.top - containerRect.top : rectB.top;
-              const distA = Math.hypot(leftA - state.left, topA - state.top);
-              const distB = Math.hypot(leftB - state.left, topB - state.top);
-              return distA - distB;
-            })[0] ?? null;
-          if (!target) return;
+        decorateProjectMentions();
+        editable.focus();
 
-          const selection = window.getSelection();
-          if (!selection) return;
-          const range = document.createRange();
-          const nextSibling = target.nextSibling;
-          if (nextSibling?.nodeType === Node.TEXT_NODE) {
-            const text = nextSibling.textContent ?? "";
-            if (text.startsWith(" ")) {
-              range.setStart(nextSibling, 1);
-              range.collapse(true);
-              selection.removeAllRanges();
-              selection.addRange(range);
-              return;
-            }
+        const target = findClosestAutocompleteAnchor(editable, option, state);
+        if (!target) {
+          if (attemptsRemaining > 0) {
+            requestAnimationFrame(() => restoreSelection(attemptsRemaining - 1));
           }
+          return;
+        }
 
-          range.setStartAfter(target);
-          range.collapse(true);
-          selection.removeAllRanges();
-          selection.addRange(range);
-        });
-      });
+        placeCaretAfterMentionAnchor(target);
+      };
+
+      requestAnimationFrame(() => restoreSelection(4));
 
       mentionStateRef.current = null;
+      skillEnterArmedRef.current = false;
       setMentionState(null);
+      return true;
     },
     [decorateProjectMentions, onChange],
   );
+
+  const handleAutocompletePress = useCallback((
+    event: ReactMouseEvent<HTMLButtonElement> | ReactPointerEvent<HTMLButtonElement> | ReactTouchEvent<HTMLButtonElement>,
+    option: AutocompleteOption,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (autocompleteSelectionHandledRef.current) return;
+    const handled = selectMention(option);
+    if (handled) {
+      autocompleteSelectionHandledRef.current = true;
+    }
+  }, [selectMention]);
 
   function hasFilePayload(evt: DragEvent<HTMLDivElement>) {
     return Array.from(evt.dataTransfer?.types ?? []).includes("Files");
   }
 
-  const canDropImage = Boolean(imageUploadHandler);
-  const canDropFile = Boolean(imageUploadHandler || onDropFile);
+  const canDropFile = fileDropTarget === "editor" && Boolean(imageUploadHandler || onDropFile);
   const handlePasteCapture = useCallback((event: ClipboardEvent<HTMLDivElement>) => {
     const clipboard = event.clipboardData;
     if (!clipboard || !ref.current) return;
@@ -680,8 +923,60 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
   }, []);
 
   const mentionMenuPosition = mentionState
-    ? computeMentionMenuPosition(mentionState, getMentionMenuViewport(), getMentionMenuSize(filteredMentions.length))
+    ? computeMentionMenuPosition(
+        mentionState,
+        getMentionMenuViewport(),
+        getMentionMenuSize(filteredMentions.length),
+      )
     : null;
+
+  if (richEditorError) {
+    return (
+      <div
+        ref={containerRef}
+        className={cn(
+          "relative paperclip-mdxeditor-scope",
+          bordered ? "rounded-md border border-border bg-transparent" : "bg-transparent",
+          className,
+        )}
+      >
+        <div className="flex items-start justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground">
+          <p>Rich editor unavailable for this markdown. Showing raw source instead.</p>
+          <button
+            type="button"
+            className="shrink-0 underline underline-offset-2 hover:text-foreground"
+            onClick={() => {
+              setRichEditorError(null);
+            }}
+          >
+            Retry rich editor
+          </button>
+        </div>
+        <textarea
+          ref={fallbackTextareaRef}
+          value={value}
+          placeholder={placeholder}
+          readOnly={readOnly}
+          onChange={(event) => {
+            if (readOnly) return;
+            onChange(event.target.value);
+            autoSizeFallbackTextarea(event.target);
+          }}
+          onBlur={() => onBlur?.()}
+          onKeyDown={(event) => {
+            if (onSubmit && event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              onSubmit();
+            }
+          }}
+          className={cn(
+            "min-h-[12rem] w-full resize-none bg-transparent px-3 pb-3 pt-2 font-mono text-sm leading-6 outline-none",
+            contentClassName,
+          )}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -693,6 +988,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         className,
       )}
       onKeyDownCapture={(e) => {
+        if (readOnly) return;
         // Cmd/Ctrl+Enter to submit
         if (onSubmit && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
@@ -705,6 +1001,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         if (mentionActive) {
           if (e.key === " " && mentionStateRef.current?.trigger === "skill") {
             mentionStateRef.current = null;
+            skillEnterArmedRef.current = false;
             setMentionState(null);
             return;
           }
@@ -713,6 +1010,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             e.preventDefault();
             e.stopPropagation();
             mentionStateRef.current = null;
+            skillEnterArmedRef.current = false;
             setMentionState(null);
             return;
           }
@@ -721,16 +1019,24 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
             if (e.key === "ArrowDown") {
               e.preventDefault();
               e.stopPropagation();
+              skillEnterArmedRef.current = mentionStateRef.current?.trigger === "skill";
               setMentionIndex((prev) => Math.min(prev + 1, filteredMentions.length - 1));
               return;
             }
             if (e.key === "ArrowUp") {
               e.preventDefault();
               e.stopPropagation();
+              skillEnterArmedRef.current = mentionStateRef.current?.trigger === "skill";
               setMentionIndex((prev) => Math.max(prev - 1, 0));
               return;
             }
-            if (e.key === "Enter" || e.key === "Tab") {
+            if (
+              shouldAcceptAutocompleteKey(
+                e.key,
+                mentionStateRef.current?.trigger ?? null,
+                skillEnterArmedRef.current,
+              )
+            ) {
               e.preventDefault();
               e.stopPropagation();
               selectMention(filteredMentions[mentionIndex]);
@@ -740,28 +1046,34 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
         }
       }}
       onDragEnter={(evt) => {
+        if (readOnly) return;
         if (!canDropFile || !hasFilePayload(evt)) return;
         dragDepthRef.current += 1;
         setIsDragOver(true);
       }}
       onDragOver={(evt) => {
+        if (readOnly) return;
         if (!canDropFile || !hasFilePayload(evt)) return;
         evt.preventDefault();
         evt.dataTransfer.dropEffect = "copy";
       }}
       onDragLeave={() => {
+        if (readOnly) return;
         if (!canDropFile) return;
         dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
         if (dragDepthRef.current === 0) setIsDragOver(false);
       }}
       onDrop={(evt) => {
+        if (readOnly) return;
         dragDepthRef.current = 0;
         setIsDragOver(false);
         if (!onDropFile) return;
         const files = evt.dataTransfer?.files;
         if (!files || files.length === 0) return;
         const allFiles = Array.from(files);
-        const nonImageFiles = allFiles.filter((f) => !f.type.startsWith("image/"));
+        const nonImageFiles = allFiles.filter(
+          (f) => !f.type.startsWith("image/"),
+        );
         if (nonImageFiles.length === 0) return;
         // If all dropped files are non-image, prevent default so MDXEditor
         // doesn't try to handle them. If mixed, let images flow through to
@@ -778,9 +1090,12 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
     >
       <MDXEditor
         ref={setEditorRef}
-        markdown={value}
+        markdown={editorValue}
+        suppressHtmlProcessing
         placeholder={placeholder}
+        readOnly={readOnly}
         onChange={(next) => {
+          if (readOnly) return;
           const echo = echoIgnoreMarkdownRef.current;
           if (echo !== null && next === echo) {
             echoIgnoreMarkdownRef.current = null;
@@ -793,9 +1108,9 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
 
           if (initialChildOnChangeRef.current) {
             initialChildOnChangeRef.current = false;
-            if (next === "" && value !== "") {
-              echoIgnoreMarkdownRef.current = value;
-              ref.current?.setMarkdown(value);
+            if (next === "" && editorValue !== "") {
+              echoIgnoreMarkdownRef.current = editorValue;
+              ref.current?.setMarkdown(editorValue);
               return;
             }
           }
@@ -803,6 +1118,9 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           onChange(next);
         }}
         onBlur={() => onBlur?.()}
+        onError={(payload) => {
+          setRichEditorError(payload.error);
+        }}
         className={cn("paperclip-mdxeditor", !bordered && "paperclip-mdxeditor--borderless")}
         contentEditableClassName={cn(
           "paperclip-mdxeditor-content focus:outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:list-item",
@@ -813,12 +1131,14 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
       />
 
       {/* Mention dropdown — rendered via portal so it isn't clipped by overflow containers */}
-      {mentionActive &&
-        filteredMentions.length > 0 &&
+      {mentionActive && filteredMentions.length > 0 &&
         createPortal(
           <div
             className="fixed z-[9999] min-w-[180px] max-w-[calc(100vw-16px)] max-h-[200px] overflow-y-auto rounded-md border border-border bg-popover shadow-md"
-            style={mentionMenuPosition ?? undefined}
+            style={{
+              top: Math.min(mentionState.viewportTop + 4, window.innerHeight - 208),
+              left: Math.max(8, Math.min(mentionState.viewportLeft, window.innerWidth - 188)),
+            }}
           >
             {filteredMentions.map((option, i) => (
               <button
@@ -828,11 +1148,15 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                   "flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left hover:bg-accent/50 transition-colors",
                   i === mentionIndex && "bg-accent",
                 )}
-                onPointerDown={(e) => {
-                  e.preventDefault(); // prevent blur
-                  selectMention(option);
+                onPointerDown={(e) => handleAutocompletePress(e, option)}
+                onMouseDown={(e) => handleAutocompletePress(e, option)}
+                onTouchStart={(e) => handleAutocompletePress(e, option)}
+                onMouseEnter={() => {
+                  if (mentionStateRef.current?.trigger === "skill") {
+                    skillEnterArmedRef.current = true;
+                  }
+                  setMentionIndex(i);
                 }}
-                onMouseEnter={() => setMentionIndex(i)}
               >
                 {option.kind === "skill" ? (
                   <Boxes className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -841,15 +1165,29 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
                     className="inline-flex h-2 w-2 rounded-full border border-border/50"
                     style={{ backgroundColor: option.projectColor ?? "#64748b" }}
                   />
+                ) : option.kind === "user" ? (
+                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 ) : (
-                  <AgentIcon icon={option.agentIcon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <AgentIcon
+                    icon={option.agentIcon}
+                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                  />
                 )}
                 <span>{option.kind === "skill" ? `/${option.slug}` : option.name}</span>
                 {option.kind === "project" && option.projectId && (
-                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Project</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Project
+                  </span>
+                )}
+                {option.kind === "user" && (
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                    User
+                  </span>
                 )}
                 {option.kind === "skill" && (
-                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">Skill</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                    Skill
+                  </span>
                 )}
               </button>
             ))}
@@ -867,7 +1205,9 @@ export const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>
           Drop {onDropFile ? "file" : "image"} to upload
         </div>
       )}
-      {uploadError && <p className="px-3 pb-2 text-xs text-destructive">{uploadError}</p>}
+      {uploadError && (
+        <p className="px-3 pb-2 text-xs text-destructive">{uploadError}</p>
+      )}
     </div>
   );
 });

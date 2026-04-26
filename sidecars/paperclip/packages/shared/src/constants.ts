@@ -7,6 +7,9 @@ export type DeploymentMode = (typeof DEPLOYMENT_MODES)[number];
 export const DEPLOYMENT_EXPOSURES = ["private", "public"] as const;
 export type DeploymentExposure = (typeof DEPLOYMENT_EXPOSURES)[number];
 
+export const BIND_MODES = ["loopback", "lan", "tailnet", "custom"] as const;
+export type BindMode = (typeof BIND_MODES)[number];
+
 export const AUTH_BASE_URL_MODES = ["auto", "explicit"] as const;
 export type AuthBaseUrlMode = (typeof AUTH_BASE_URL_MODES)[number];
 
@@ -63,6 +66,8 @@ export const AGENT_ROLE_LABELS: Record<AgentRole, string> = {
   general: "General",
 };
 
+export const AGENT_DEFAULT_MAX_CONCURRENT_RUNS = 5;
+export const WORKSPACE_BRANCH_ROUTINE_VARIABLE = "workspaceBranch";
 export const AGENT_ICON_NAMES = [
   "bot",
   "cpu",
@@ -108,20 +113,83 @@ export const AGENT_ICON_NAMES = [
 ] as const;
 export type AgentIconName = (typeof AGENT_ICON_NAMES)[number];
 
-export const ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "done", "blocked", "cancelled"] as const;
+export const ISSUE_STATUSES = [
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "done",
+  "blocked",
+  "cancelled",
+] as const;
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
-export const INBOX_MINE_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked", "done"] as const;
+export const INBOX_MINE_ISSUE_STATUSES = [
+  "backlog",
+  "todo",
+  "in_progress",
+  "in_review",
+  "blocked",
+  "done",
+] as const;
 export const INBOX_MINE_ISSUE_STATUS_FILTER = INBOX_MINE_ISSUE_STATUSES.join(",");
 
 export const ISSUE_PRIORITIES = ["critical", "high", "medium", "low"] as const;
 export type IssuePriority = (typeof ISSUE_PRIORITIES)[number];
 
-export const ISSUE_ORIGIN_KINDS = ["manual", "routine_execution"] as const;
-export type IssueOriginKind = (typeof ISSUE_ORIGIN_KINDS)[number];
+export const ISSUE_THREAD_INTERACTION_KINDS = [
+  "suggest_tasks",
+  "ask_user_questions",
+  "request_confirmation",
+] as const;
+export type IssueThreadInteractionKind = (typeof ISSUE_THREAD_INTERACTION_KINDS)[number];
+
+export const ISSUE_THREAD_INTERACTION_STATUSES = [
+  "pending",
+  "accepted",
+  "rejected",
+  "answered",
+  "expired",
+  "failed",
+] as const;
+export type IssueThreadInteractionStatus = (typeof ISSUE_THREAD_INTERACTION_STATUSES)[number];
+
+export const ISSUE_THREAD_INTERACTION_CONTINUATION_POLICIES = [
+  "none",
+  "wake_assignee",
+  "wake_assignee_on_accept",
+] as const;
+export type IssueThreadInteractionContinuationPolicy =
+  (typeof ISSUE_THREAD_INTERACTION_CONTINUATION_POLICIES)[number];
+
+export const ISSUE_ORIGIN_KINDS = ["manual", "routine_execution", "stale_active_run_evaluation"] as const;
+export type BuiltInIssueOriginKind = (typeof ISSUE_ORIGIN_KINDS)[number];
+export type PluginIssueOriginKind = `plugin:${string}`;
+export type IssueOriginKind = BuiltInIssueOriginKind | PluginIssueOriginKind;
 
 export const ISSUE_RELATION_TYPES = ["blocks"] as const;
 export type IssueRelationType = (typeof ISSUE_RELATION_TYPES)[number];
+
+export const ISSUE_TREE_CONTROL_MODES = ["pause", "resume", "cancel", "restore"] as const;
+export type IssueTreeControlMode = (typeof ISSUE_TREE_CONTROL_MODES)[number];
+
+export const ISSUE_TREE_HOLD_STATUSES = ["active", "released"] as const;
+export type IssueTreeHoldStatus = (typeof ISSUE_TREE_HOLD_STATUSES)[number];
+
+export const ISSUE_TREE_HOLD_RELEASE_POLICY_STRATEGIES = ["manual", "after_active_runs_finish"] as const;
+export type IssueTreeHoldReleasePolicyStrategy = (typeof ISSUE_TREE_HOLD_RELEASE_POLICY_STRATEGIES)[number];
+
+export const ISSUE_CONTINUATION_SUMMARY_DOCUMENT_KEY = "continuation-summary" as const;
+export const SYSTEM_ISSUE_DOCUMENT_KEYS = [ISSUE_CONTINUATION_SUMMARY_DOCUMENT_KEY] as const;
+export type SystemIssueDocumentKey = (typeof SYSTEM_ISSUE_DOCUMENT_KEYS)[number];
+
+const SYSTEM_ISSUE_DOCUMENT_KEY_SET = new Set<string>(SYSTEM_ISSUE_DOCUMENT_KEYS);
+
+export function isSystemIssueDocumentKey(key: string): key is SystemIssueDocumentKey {
+  return SYSTEM_ISSUE_DOCUMENT_KEY_SET.has(key);
+}
+export const ISSUE_REFERENCE_SOURCE_KINDS = ["title", "description", "comment", "document"] as const;
+export type IssueReferenceSourceKind = (typeof ISSUE_REFERENCE_SOURCE_KINDS)[number];
 
 export const ISSUE_EXECUTION_POLICY_MODES = ["normal", "auto"] as const;
 export type IssueExecutionPolicyMode = (typeof ISSUE_EXECUTION_POLICY_MODES)[number];
@@ -141,8 +209,34 @@ export type GoalLevel = (typeof GOAL_LEVELS)[number];
 export const GOAL_STATUSES = ["planned", "active", "achieved", "cancelled"] as const;
 export type GoalStatus = (typeof GOAL_STATUSES)[number];
 
-export const PROJECT_STATUSES = ["backlog", "planned", "in_progress", "completed", "cancelled"] as const;
+export const PROJECT_STATUSES = [
+  "backlog",
+  "planned",
+  "in_progress",
+  "completed",
+  "cancelled",
+] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const ENVIRONMENT_DRIVERS = ["local", "ssh", "sandbox", "plugin"] as const;
+export type EnvironmentDriver = (typeof ENVIRONMENT_DRIVERS)[number];
+
+export const ENVIRONMENT_STATUSES = ["active", "archived"] as const;
+export type EnvironmentStatus = (typeof ENVIRONMENT_STATUSES)[number];
+
+export const ENVIRONMENT_LEASE_STATUSES = ["active", "released", "expired", "failed", "retained"] as const;
+export type EnvironmentLeaseStatus = (typeof ENVIRONMENT_LEASE_STATUSES)[number];
+
+export const ENVIRONMENT_LEASE_POLICIES = [
+  "ephemeral",
+  "reuse_by_environment",
+  "reuse_by_execution_workspace",
+  "retain_on_failure",
+] as const;
+export type EnvironmentLeasePolicy = (typeof ENVIRONMENT_LEASE_POLICIES)[number];
+
+export const ENVIRONMENT_LEASE_CLEANUP_STATUSES = ["pending", "success", "failed"] as const;
+export type EnvironmentLeaseCleanupStatus = (typeof ENVIRONMENT_LEASE_CLEANUP_STATUSES)[number];
 
 export const ROUTINE_STATUSES = ["active", "paused", "archived"] as const;
 export type RoutineStatus = (typeof ROUTINE_STATUSES)[number];
@@ -169,7 +263,7 @@ export const ROUTINE_RUN_STATUSES = [
   "issue_created",
   "completed",
   "failed",
-] as const;
+ ] as const;
 export type RoutineRunStatus = (typeof ROUTINE_RUN_STATUSES)[number];
 
 export const ROUTINE_RUN_SOURCES = ["schedule", "manual", "api", "webhook"] as const;
@@ -199,10 +293,21 @@ export const APPROVAL_TYPES = [
 ] as const;
 export type ApprovalType = (typeof APPROVAL_TYPES)[number];
 
-export const APPROVAL_STATUSES = ["pending", "revision_requested", "approved", "rejected", "cancelled"] as const;
+export const APPROVAL_STATUSES = [
+  "pending",
+  "revision_requested",
+  "approved",
+  "rejected",
+  "cancelled",
+] as const;
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 
-export const SECRET_PROVIDERS = ["local_encrypted", "aws_secrets_manager", "gcp_secret_manager", "vault"] as const;
+export const SECRET_PROVIDERS = [
+  "local_encrypted",
+  "aws_secrets_manager",
+  "gcp_secret_manager",
+  "vault",
+] as const;
 export type SecretProvider = (typeof SECRET_PROVIDERS)[number];
 
 export const STORAGE_PROVIDERS = ["local_disk", "s3"] as const;
@@ -269,10 +374,18 @@ export type BudgetThresholdType = (typeof BUDGET_THRESHOLD_TYPES)[number];
 export const BUDGET_INCIDENT_STATUSES = ["open", "resolved", "dismissed"] as const;
 export type BudgetIncidentStatus = (typeof BUDGET_INCIDENT_STATUSES)[number];
 
-export const BUDGET_INCIDENT_RESOLUTION_ACTIONS = ["keep_paused", "raise_budget_and_resume"] as const;
+export const BUDGET_INCIDENT_RESOLUTION_ACTIONS = [
+  "keep_paused",
+  "raise_budget_and_resume",
+] as const;
 export type BudgetIncidentResolutionAction = (typeof BUDGET_INCIDENT_RESOLUTION_ACTIONS)[number];
 
-export const HEARTBEAT_INVOCATION_SOURCES = ["timer", "assignment", "on_demand", "automation"] as const;
+export const HEARTBEAT_INVOCATION_SOURCES = [
+  "timer",
+  "assignment",
+  "on_demand",
+  "automation",
+] as const;
 export type HeartbeatInvocationSource = (typeof HEARTBEAT_INVOCATION_SOURCES)[number];
 
 export const WAKEUP_TRIGGER_DETAILS = ["manual", "ping", "callback", "system"] as const;
@@ -290,8 +403,27 @@ export const WAKEUP_REQUEST_STATUSES = [
 ] as const;
 export type WakeupRequestStatus = (typeof WAKEUP_REQUEST_STATUSES)[number];
 
-export const HEARTBEAT_RUN_STATUSES = ["queued", "running", "succeeded", "failed", "cancelled", "timed_out"] as const;
+export const HEARTBEAT_RUN_STATUSES = [
+  "queued",
+  "scheduled_retry",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "timed_out",
+] as const;
 export type HeartbeatRunStatus = (typeof HEARTBEAT_RUN_STATUSES)[number];
+
+export const RUN_LIVENESS_STATES = [
+  "completed",
+  "advanced",
+  "plan_only",
+  "empty_response",
+  "blocked",
+  "failed",
+  "needs_followup",
+] as const;
+export type RunLivenessState = (typeof RUN_LIVENESS_STATES)[number];
 
 export const LIVE_EVENT_TYPES = [
   "heartbeat.run.queued",
@@ -309,8 +441,32 @@ export type LiveEventType = (typeof LIVE_EVENT_TYPES)[number];
 export const PRINCIPAL_TYPES = ["user", "agent"] as const;
 export type PrincipalType = (typeof PRINCIPAL_TYPES)[number];
 
-export const MEMBERSHIP_STATUSES = ["pending", "active", "suspended"] as const;
+export const MEMBERSHIP_STATUSES = ["pending", "active", "suspended", "archived"] as const;
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
+
+export const COMPANY_MEMBERSHIP_ROLES = [
+  "owner",
+  "admin",
+  "operator",
+  "viewer",
+  "member",
+] as const;
+export type CompanyMembershipRole = (typeof COMPANY_MEMBERSHIP_ROLES)[number];
+
+export const HUMAN_COMPANY_MEMBERSHIP_ROLES = [
+  "owner",
+  "admin",
+  "operator",
+  "viewer",
+] as const;
+export type HumanCompanyMembershipRole = (typeof HUMAN_COMPANY_MEMBERSHIP_ROLES)[number];
+
+export const HUMAN_COMPANY_MEMBERSHIP_ROLE_LABELS: Record<HumanCompanyMembershipRole, string> = {
+  owner: "Owner",
+  admin: "Admin",
+  operator: "Operator",
+  viewer: "Viewer",
+};
 
 export const INSTANCE_USER_ROLES = ["instance_admin"] as const;
 export type InstanceUserRole = (typeof INSTANCE_USER_ROLES)[number];
@@ -329,52 +485,15 @@ export type JoinRequestStatus = (typeof JOIN_REQUEST_STATUSES)[number];
 
 export const PERMISSION_KEYS = [
   "agents:create",
+  "environments:manage",
   "users:invite",
   "users:manage_permissions",
   "tasks:assign",
   "tasks:assign_scope",
+  "tasks:manage_active_checkouts",
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
-
-/** Role → permission mapping for provision member sync. */
-export const ROLE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
-  owner: [
-    "agents:create",
-    "users:invite",
-    "users:manage_permissions",
-    "tasks:assign",
-    "tasks:assign_scope",
-    "joins:approve",
-  ],
-  admin: [
-    "agents:create",
-    "users:invite",
-    "users:manage_permissions",
-    "tasks:assign",
-    "tasks:assign_scope",
-    "joins:approve",
-  ],
-  member: ["agents:create", "tasks:assign", "tasks:assign_scope"],
-  ceo: [
-    "agents:create",
-    "users:invite",
-    "users:manage_permissions",
-    "tasks:assign",
-    "tasks:assign_scope",
-    "joins:approve",
-  ],
-  cto: ["agents:create", "users:invite", "tasks:assign", "tasks:assign_scope", "joins:approve"],
-  cmo: ["agents:create", "tasks:assign"],
-  cfo: ["agents:create", "tasks:assign"],
-  engineer: ["agents:create", "tasks:assign"],
-  designer: ["tasks:assign"],
-  pm: ["agents:create", "tasks:assign", "tasks:assign_scope"],
-  qa: ["tasks:assign"],
-  devops: ["agents:create", "tasks:assign"],
-  researcher: ["tasks:assign"],
-  general: ["tasks:assign"],
-};
 
 // ---------------------------------------------------------------------------
 // Plugin System — see doc/plugins/PLUGIN_SPEC.md for the full specification
@@ -400,7 +519,14 @@ export const PLUGIN_API_VERSION = 1 as const;
  * @see {@link PluginStatus} — inferred union type
  * @see PLUGIN_SPEC.md §21.3 `plugins.status`
  */
-export const PLUGIN_STATUSES = ["installed", "ready", "disabled", "error", "upgrade_pending", "uninstalled"] as const;
+export const PLUGIN_STATUSES = [
+  "installed",
+  "ready",
+  "disabled",
+  "error",
+  "upgrade_pending",
+  "uninstalled",
+] as const;
 export type PluginStatus = (typeof PLUGIN_STATUSES)[number];
 
 /**
@@ -409,7 +535,12 @@ export type PluginStatus = (typeof PLUGIN_STATUSES)[number];
  *
  * @see PLUGIN_SPEC.md §6.2
  */
-export const PLUGIN_CATEGORIES = ["connector", "workspace", "automation", "ui"] as const;
+export const PLUGIN_CATEGORIES = [
+  "connector",
+  "workspace",
+  "automation",
+  "ui",
+] as const;
 export type PluginCategory = (typeof PLUGIN_CATEGORIES)[number];
 
 /**
@@ -428,6 +559,8 @@ export const PLUGIN_CAPABILITIES = [
   "projects.read",
   "project.workspaces.read",
   "issues.read",
+  "issue.relations.read",
+  "issue.subtree.read",
   "issue.comments.read",
   "issue.documents.read",
   "agents.read",
@@ -436,10 +569,16 @@ export const PLUGIN_CAPABILITIES = [
   "goals.update",
   "activity.read",
   "costs.read",
+  "issues.orchestration.read",
+  "database.namespace.read",
   // Data Write
   "issues.create",
   "issues.update",
+  "issue.relations.write",
+  "issues.checkout",
+  "issues.wakeup",
   "issue.comments.create",
+  "issue.interactions.create",
   "issue.documents.write",
   "agents.pause",
   "agents.resume",
@@ -451,6 +590,8 @@ export const PLUGIN_CAPABILITIES = [
   "activity.log.write",
   "metrics.write",
   "telemetry.track",
+  "database.namespace.migrate",
+  "database.namespace.write",
   // Plugin State
   "plugin.state.read",
   "plugin.state.write",
@@ -459,8 +600,10 @@ export const PLUGIN_CAPABILITIES = [
   "events.emit",
   "jobs.schedule",
   "webhooks.receive",
+  "api.routes.register",
   "http.outbound",
   "secrets.read-ref",
+  "environment.drivers.register",
   // Agent Tools
   "agent.tools.register",
   // UI
@@ -473,6 +616,51 @@ export const PLUGIN_CAPABILITIES = [
   "ui.action.register",
 ] as const;
 export type PluginCapability = (typeof PLUGIN_CAPABILITIES)[number];
+
+export const PLUGIN_DATABASE_NAMESPACE_MODES = ["schema"] as const;
+export type PluginDatabaseNamespaceMode = (typeof PLUGIN_DATABASE_NAMESPACE_MODES)[number];
+
+export const PLUGIN_DATABASE_NAMESPACE_STATUSES = [
+  "active",
+  "migration_failed",
+] as const;
+export type PluginDatabaseNamespaceStatus = (typeof PLUGIN_DATABASE_NAMESPACE_STATUSES)[number];
+
+export const PLUGIN_DATABASE_MIGRATION_STATUSES = [
+  "applied",
+  "failed",
+] as const;
+export type PluginDatabaseMigrationStatus = (typeof PLUGIN_DATABASE_MIGRATION_STATUSES)[number];
+
+export const PLUGIN_DATABASE_CORE_READ_TABLES = [
+  "companies",
+  "projects",
+  "goals",
+  "agents",
+  "issues",
+  "issue_documents",
+  "issue_relations",
+  "issue_comments",
+  "heartbeat_runs",
+  "cost_events",
+  "approvals",
+  "issue_approvals",
+  "budget_incidents",
+] as const;
+export type PluginDatabaseCoreReadTable = (typeof PLUGIN_DATABASE_CORE_READ_TABLES)[number];
+
+export const PLUGIN_API_ROUTE_METHODS = ["GET", "POST", "PATCH", "DELETE"] as const;
+export type PluginApiRouteMethod = (typeof PLUGIN_API_ROUTE_METHODS)[number];
+
+export const PLUGIN_API_ROUTE_AUTH_MODES = ["board", "agent", "board-or-agent", "webhook"] as const;
+export type PluginApiRouteAuthMode = (typeof PLUGIN_API_ROUTE_AUTH_MODES)[number];
+
+export const PLUGIN_API_ROUTE_CHECKOUT_POLICIES = [
+  "none",
+  "required-for-agent-in-progress",
+  "always-for-agent",
+] as const;
+export type PluginApiRouteCheckoutPolicy = (typeof PLUGIN_API_ROUTE_CHECKOUT_POLICIES)[number];
 
 /**
  * UI extension slot types. Each slot type corresponds to a mount point in the
@@ -521,7 +709,8 @@ export const PLUGIN_RESERVED_COMPANY_ROUTE_SEGMENTS = [
   "design-guide",
   "tests",
 ] as const;
-export type PluginReservedCompanyRouteSegment = (typeof PLUGIN_RESERVED_COMPANY_ROUTE_SEGMENTS)[number];
+export type PluginReservedCompanyRouteSegment =
+  (typeof PLUGIN_RESERVED_COMPANY_ROUTE_SEGMENTS)[number];
 
 /**
  * Launcher placement zones describe where a plugin-owned launcher can appear
@@ -563,7 +752,13 @@ export type PluginLauncherAction = (typeof PLUGIN_LAUNCHER_ACTIONS)[number];
  * Optional size hints the host can use when rendering plugin-owned launcher
  * destinations such as overlays, drawers, or full page handoffs.
  */
-export const PLUGIN_LAUNCHER_BOUNDS = ["inline", "compact", "default", "wide", "full"] as const;
+export const PLUGIN_LAUNCHER_BOUNDS = [
+  "inline",
+  "compact",
+  "default",
+  "wide",
+  "full",
+] as const;
 export type PluginLauncherBounds = (typeof PLUGIN_LAUNCHER_BOUNDS)[number];
 
 /**
@@ -577,14 +772,22 @@ export const PLUGIN_LAUNCHER_RENDER_ENVIRONMENTS = [
   "external",
   "iframe",
 ] as const;
-export type PluginLauncherRenderEnvironment = (typeof PLUGIN_LAUNCHER_RENDER_ENVIRONMENTS)[number];
+export type PluginLauncherRenderEnvironment =
+  (typeof PLUGIN_LAUNCHER_RENDER_ENVIRONMENTS)[number];
 
 /**
  * Entity types that a `detailTab` UI slot can attach to.
  *
  * @see PLUGIN_SPEC.md §19.3 — Detail Tabs
  */
-export const PLUGIN_UI_SLOT_ENTITY_TYPES = ["project", "issue", "agent", "goal", "run", "comment"] as const;
+export const PLUGIN_UI_SLOT_ENTITY_TYPES = [
+  "project",
+  "issue",
+  "agent",
+  "goal",
+  "run",
+  "comment",
+] as const;
 export type PluginUiSlotEntityType = (typeof PLUGIN_UI_SLOT_ENTITY_TYPES)[number];
 
 /**
@@ -606,19 +809,38 @@ export const PLUGIN_STATE_SCOPE_KINDS = [
 export type PluginStateScopeKind = (typeof PLUGIN_STATE_SCOPE_KINDS)[number];
 
 /** Statuses for a plugin's scheduled job definition. */
-export const PLUGIN_JOB_STATUSES = ["active", "paused", "failed"] as const;
+export const PLUGIN_JOB_STATUSES = [
+  "active",
+  "paused",
+  "failed",
+] as const;
 export type PluginJobStatus = (typeof PLUGIN_JOB_STATUSES)[number];
 
 /** Statuses for individual job run executions. */
-export const PLUGIN_JOB_RUN_STATUSES = ["pending", "queued", "running", "succeeded", "failed", "cancelled"] as const;
+export const PLUGIN_JOB_RUN_STATUSES = [
+  "pending",
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+] as const;
 export type PluginJobRunStatus = (typeof PLUGIN_JOB_RUN_STATUSES)[number];
 
 /** What triggered a particular job run. */
-export const PLUGIN_JOB_RUN_TRIGGERS = ["schedule", "manual", "retry"] as const;
+export const PLUGIN_JOB_RUN_TRIGGERS = [
+  "schedule",
+  "manual",
+  "retry",
+] as const;
 export type PluginJobRunTrigger = (typeof PLUGIN_JOB_RUN_TRIGGERS)[number];
 
 /** Statuses for inbound webhook deliveries. */
-export const PLUGIN_WEBHOOK_DELIVERY_STATUSES = ["pending", "success", "failed"] as const;
+export const PLUGIN_WEBHOOK_DELIVERY_STATUSES = [
+  "pending",
+  "success",
+  "failed",
+] as const;
 export type PluginWebhookDeliveryStatus = (typeof PLUGIN_WEBHOOK_DELIVERY_STATUSES)[number];
 
 /**
@@ -638,6 +860,13 @@ export const PLUGIN_EVENT_TYPES = [
   "issue.created",
   "issue.updated",
   "issue.comment.created",
+  "issue.document.created",
+  "issue.document.updated",
+  "issue.document.deleted",
+  "issue.relations.updated",
+  "issue.checked_out",
+  "issue.released",
+  "issue.assignment_wakeup_requested",
   "agent.created",
   "agent.updated",
   "agent.status_changed",
@@ -649,6 +878,8 @@ export const PLUGIN_EVENT_TYPES = [
   "goal.updated",
   "approval.created",
   "approval.decided",
+  "budget.incident.opened",
+  "budget.incident.resolved",
   "cost_event.created",
   "activity.logged",
 ] as const;

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { AgentIcon } from "../components/AgentIconPicker";
-import { Download, Network, Upload } from "lucide-react";
+import { Download, Maximize2, Minus, Network, Plus, Upload } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@paperclipai/shared";
 
 // Layout constants
@@ -19,6 +19,9 @@ const CARD_H = 100;
 const GAP_X = 32;
 const GAP_Y = 80;
 const PADDING = 60;
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 2;
+const TOUCH_MOVE_THRESHOLD = 6;
 
 // ── Tree layout types ───────────────────────────────────────────────────
 
@@ -30,6 +33,21 @@ interface LayoutNode {
   x: number;
   y: number;
   children: LayoutNode[];
+}
+
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface TouchGesture {
+  mode: "pan" | "pinch" | null;
+  startPoint: Point;
+  startPan: Point;
+  startZoom: number;
+  startDistance: number;
+  startCenter: Point;
+  moved: boolean;
 }
 
 // ── Layout algorithm ────────────────────────────────────────────────────
@@ -114,6 +132,28 @@ function collectEdges(nodes: LayoutNode[]): Array<{ parent: LayoutNode; child: L
   return edges;
 }
 
+function clampZoom(value: number): number {
+  return Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
+}
+
+function touchPoint(touch: React.Touch): Point {
+  return { x: touch.clientX, y: touch.clientY };
+}
+
+function touchDistance(a: React.Touch, b: React.Touch): number {
+  const dx = a.clientX - b.clientX;
+  const dy = a.clientY - b.clientY;
+  return Math.hypot(dx, dy);
+}
+
+function touchCenter(a: React.Touch, b: React.Touch, container: HTMLDivElement): Point {
+  const rect = container.getBoundingClientRect();
+  return {
+    x: (a.clientX + b.clientX) / 2 - rect.left,
+    y: (a.clientY + b.clientY) / 2 - rect.top,
+  };
+}
+
 // ── Status dot colors (raw hex for SVG) ─────────────────────────────────
 
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
@@ -180,6 +220,25 @@ export function OrgChart() {
   const [zoom, setZoom] = useState(1);
   const [dragging, setDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const touchGesture = useRef<TouchGesture>({
+    mode: null,
+    startPoint: { x: 0, y: 0 },
+    startPan: { x: 0, y: 0 },
+    startZoom: 1,
+    startDistance: 0,
+    startCenter: { x: 0, y: 0 },
+    moved: false,
+  });
+  const suppressNextCardClick = useRef(false);
+  const suppressClickTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (suppressClickTimerRef.current !== null) {
+        window.clearTimeout(suppressClickTimerRef.current);
+      }
+    };
+  }, []);
 
   // Center the chart on first load
   const hasInitialized = useRef(false);
@@ -243,7 +302,7 @@ export function OrgChart() {
       const mouseY = e.clientY - rect.top;
 
       const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      const newZoom = Math.min(Math.max(zoom * factor, 0.2), 2);
+    const newZoom = clampZoom(zoom * factor);
 
       // Zoom toward mouse position
       const scale = newZoom / zoom;
@@ -255,6 +314,129 @@ export function OrgChart() {
     },
     [zoom, pan],
   );
+
+  const zoomTowardPoint = useCallback((newZoom: number, point: Point) => {
+    const clampedZoom = clampZoom(newZoom);
+    const scale = clampedZoom / zoom;
+    setPan({
+      x: point.x - scale * (point.x - pan.x),
+      y: point.y - scale * (point.y - pan.y),
+    });
+    setZoom(clampedZoom);
+  }, [zoom, pan]);
+
+  const fitToScreen = useCallback(() => {
+    if (!containerRef.current) return;
+    const cW = containerRef.current.clientWidth;
+    const cH = containerRef.current.clientHeight;
+    const scaleX = (cW - 40) / bounds.width;
+    const scaleY = (cH - 40) / bounds.height;
+    const fitZoom = Math.min(scaleX, scaleY, 1);
+    const chartW = bounds.width * fitZoom;
+    const chartH = bounds.height * fitZoom;
+    setZoom(fitZoom);
+    setPan({ x: (cW - chartW) / 2, y: (cH - chartH) / 2 });
+  }, [bounds]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length >= 2 && containerRef.current) {
+      const [first, second] = [e.touches[0]!, e.touches[1]!];
+      touchGesture.current = {
+        mode: "pinch",
+        startPoint: { x: 0, y: 0 },
+        startPan: pan,
+        startZoom: zoom,
+        startDistance: touchDistance(first, second),
+        startCenter: touchCenter(first, second, containerRef.current),
+        moved: false,
+      };
+      return;
+    }
+
+    const touch = e.touches[0];
+    if (!touch) return;
+    touchGesture.current = {
+      mode: "pan",
+      startPoint: touchPoint(touch),
+      startPan: pan,
+      startZoom: zoom,
+      startDistance: 0,
+      startCenter: { x: 0, y: 0 },
+      moved: false,
+    };
+  }, [pan, zoom]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const container = containerRef.current;
+    if (!container || !touchGesture.current.mode) return;
+
+    if (e.touches.length >= 2) {
+      const [first, second] = [e.touches[0]!, e.touches[1]!];
+      const distance = touchDistance(first, second);
+      const center = touchCenter(first, second, container);
+
+      if (touchGesture.current.mode !== "pinch" || touchGesture.current.startDistance === 0) {
+        touchGesture.current = {
+          mode: "pinch",
+          startPoint: { x: 0, y: 0 },
+          startPan: pan,
+          startZoom: zoom,
+          startDistance: distance,
+          startCenter: center,
+          moved: false,
+        };
+        return;
+      }
+
+      const gesture = touchGesture.current;
+      const nextZoom = clampZoom(gesture.startZoom * (distance / gesture.startDistance));
+      const scale = nextZoom / gesture.startZoom;
+      const dx = center.x - gesture.startCenter.x;
+      const dy = center.y - gesture.startCenter.y;
+      gesture.moved =
+        gesture.moved ||
+        Math.abs(distance - gesture.startDistance) > TOUCH_MOVE_THRESHOLD ||
+        Math.hypot(dx, dy) > TOUCH_MOVE_THRESHOLD;
+      setZoom(nextZoom);
+      setPan({
+        x: center.x - scale * (gesture.startCenter.x - gesture.startPan.x),
+        y: center.y - scale * (gesture.startCenter.y - gesture.startPan.y),
+      });
+      return;
+    }
+
+    const touch = e.touches[0];
+    if (!touch || touchGesture.current.mode !== "pan") return;
+    const dx = touch.clientX - touchGesture.current.startPoint.x;
+    const dy = touch.clientY - touchGesture.current.startPoint.y;
+    touchGesture.current.moved = touchGesture.current.moved || Math.hypot(dx, dy) > TOUCH_MOVE_THRESHOLD;
+    setPan({
+      x: touchGesture.current.startPan.x + dx,
+      y: touchGesture.current.startPan.y + dy,
+    });
+  }, [pan, zoom]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchGesture.current.moved) {
+      suppressNextCardClick.current = true;
+      if (suppressClickTimerRef.current !== null) {
+        window.clearTimeout(suppressClickTimerRef.current);
+      }
+      suppressClickTimerRef.current = window.setTimeout(() => {
+        suppressNextCardClick.current = false;
+        suppressClickTimerRef.current = null;
+      }, 400);
+    }
+    touchGesture.current = {
+      mode: null,
+      startPoint: { x: 0, y: 0 },
+      startPan: pan,
+      startZoom: zoom,
+      startDistance: 0,
+      startCenter: { x: 0, y: 0 },
+      moved: false,
+    };
+  }, [pan, zoom]);
 
   if (!selectedCompanyId) {
     return <EmptyState icon={Network} message="Select a company to view the org chart." />;
@@ -269,8 +451,8 @@ export function OrgChart() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="mb-2 flex items-center justify-start gap-2 shrink-0">
+    <div className="flex h-[calc(100dvh-9rem)] min-h-[420px] flex-col md:h-full md:min-h-0">
+      <div className="mb-2 flex shrink-0 flex-wrap items-center justify-start gap-2">
         <Link to="/company/import">
           <Button variant="outline" size="sm">
             <Upload className="mr-1.5 h-3.5 w-3.5" />
@@ -286,68 +468,64 @@ export function OrgChart() {
       </div>
       <div
         ref={containerRef}
+        data-testid="org-chart-viewport"
         className="w-full flex-1 min-h-0 overflow-hidden relative bg-muted/20 border border-border rounded-lg"
-        style={{ cursor: dragging ? "grabbing" : "grab" }}
+        style={{
+          cursor: dragging ? "grabbing" : "grab",
+          touchAction: "none",
+          overscrollBehavior: "contain",
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {/* Zoom controls */}
-        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1">
+        <div className="absolute top-3 right-3 z-10 flex flex-col gap-1.5">
           <button
-            className="w-7 h-7 flex items-center justify-center bg-background border border-border rounded text-sm hover:bg-accent transition-colors"
+            className="flex size-9 items-center justify-center rounded border border-border bg-background text-sm transition-colors hover:bg-accent sm:size-7"
             onClick={() => {
-              const newZoom = Math.min(zoom * 1.2, 2);
               const container = containerRef.current;
               if (container) {
-                const cx = container.clientWidth / 2;
-                const cy = container.clientHeight / 2;
-                const scale = newZoom / zoom;
-                setPan({ x: cx - scale * (cx - pan.x), y: cy - scale * (cy - pan.y) });
+                zoomTowardPoint(zoom * 1.2, {
+                  x: container.clientWidth / 2,
+                  y: container.clientHeight / 2,
+                });
               }
-              setZoom(newZoom);
             }}
+            title="Zoom in"
             aria-label="Zoom in"
           >
-            +
+            <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </button>
           <button
-            className="w-7 h-7 flex items-center justify-center bg-background border border-border rounded text-sm hover:bg-accent transition-colors"
+            className="flex size-9 items-center justify-center rounded border border-border bg-background text-sm transition-colors hover:bg-accent sm:size-7"
             onClick={() => {
-              const newZoom = Math.max(zoom * 0.8, 0.2);
               const container = containerRef.current;
               if (container) {
-                const cx = container.clientWidth / 2;
-                const cy = container.clientHeight / 2;
-                const scale = newZoom / zoom;
-                setPan({ x: cx - scale * (cx - pan.x), y: cy - scale * (cy - pan.y) });
+                zoomTowardPoint(zoom * 0.8, {
+                  x: container.clientWidth / 2,
+                  y: container.clientHeight / 2,
+                });
               }
-              setZoom(newZoom);
             }}
+            title="Zoom out"
             aria-label="Zoom out"
           >
-            &minus;
+            <Minus className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </button>
           <button
-            className="w-7 h-7 flex items-center justify-center bg-background border border-border rounded text-[10px] hover:bg-accent transition-colors"
-            onClick={() => {
-              if (!containerRef.current) return;
-              const cW = containerRef.current.clientWidth;
-              const cH = containerRef.current.clientHeight;
-              const scaleX = (cW - 40) / bounds.width;
-              const scaleY = (cH - 40) / bounds.height;
-              const fitZoom = Math.min(scaleX, scaleY, 1);
-              const chartW = bounds.width * fitZoom;
-              const chartH = bounds.height * fitZoom;
-              setZoom(fitZoom);
-              setPan({ x: (cW - chartW) / 2, y: (cH - chartH) / 2 });
-            }}
+            className="flex size-9 items-center justify-center rounded border border-border bg-background text-[10px] transition-colors hover:bg-accent sm:size-7"
+            onClick={fitToScreen}
             title="Fit to screen"
             aria-label="Fit chart to screen"
           >
-            Fit
+            <Maximize2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           </button>
         </div>
 
@@ -382,6 +560,7 @@ export function OrgChart() {
 
         {/* Card layer */}
         <div
+          data-testid="org-chart-card-layer"
           className="absolute inset-0"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
@@ -404,6 +583,12 @@ export function OrgChart() {
                   minHeight: CARD_H,
                 }}
                 onClick={() => navigate(agent ? agentUrl(agent) : `/agents/${node.id}`)}
+                onClickCapture={(e) => {
+                  if (!suppressNextCardClick.current) return;
+                  suppressNextCardClick.current = false;
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
               >
                 <div className="flex items-center px-4 py-3 gap-3">
                   {/* Agent icon + status dot */}

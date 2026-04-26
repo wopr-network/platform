@@ -4,6 +4,7 @@ import type { Db } from "@paperclipai/db";
 import {
   agents,
   companySecrets,
+  executionWorkspaces,
   goals,
   heartbeatRuns,
   issues,
@@ -27,6 +28,9 @@ import type {
   UpdateRoutineTrigger,
 } from "@paperclipai/shared";
 import {
+  WORKSPACE_BRANCH_ROUTINE_VARIABLE,
+  getBuiltinRoutineVariableValues,
+  extractRoutineVariableNames,
   interpolateRoutineTemplate,
   stringifyRoutineVariableValue,
   syncRoutineVariablesWithTemplate,
@@ -41,9 +45,10 @@ import { parseCron, validateCron } from "./cron.js";
 import { heartbeatService } from "./heartbeat.js";
 import { queueIssueAssignmentWakeup, type IssueAssignmentWakeupDeps } from "./issue-assignment-wakeup.js";
 import { logActivity } from "./activity-log.js";
+import type { PluginWorkerManager } from "./plugin-worker-manager.js";
 
 const OPEN_ISSUE_STATUSES = ["backlog", "todo", "in_progress", "in_review", "blocked"];
-const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running"];
+const LIVE_HEARTBEAT_RUN_STATUSES = ["queued", "running", "scheduled_retry"];
 const TERMINAL_ISSUE_STATUSES = new Set(["done", "cancelled"]);
 const MAX_CATCH_UP_RUNS = 25;
 const WEEKDAY_INDEX: Record<string, number> = {
@@ -224,7 +229,26 @@ function assertScheduleCompatibleVariables(variables: RoutineVariable[]) {
     })
     .map((variable) => variable.name);
   if (missingDefaults.length > 0) {
-    throw unprocessable(`Scheduled routines require defaults for required variables: ${missingDefaults.join(", ")}`);
+    throw unprocessable(
+      `Scheduled routines require defaults for required variables: ${missingDefaults.join(", ")}`,
+    );
+  }
+}
+
+function statusRequiresDefaultAgent(status: string) {
+  return status === "active";
+}
+
+function normalizeDraftRoutineStatus(status: string, assigneeAgentId: string | null | undefined) {
+  if (statusRequiresDefaultAgent(status) && !assigneeAgentId) {
+    return "paused";
+  }
+  return status;
+}
+
+function assertRoutineCanEnable(status: string, assigneeAgentId: string | null | undefined) {
+  if (statusRequiresDefaultAgent(status) && !assigneeAgentId) {
+    throw unprocessable("Default agent required");
   }
 }
 
@@ -249,15 +273,23 @@ function resolveRoutineVariableValues(
     source: "schedule" | "manual" | "api" | "webhook";
     payload?: Record<string, unknown> | null;
     variables?: Record<string, unknown> | null;
+    automaticVariables?: Record<string, string | number | boolean>;
   },
 ) {
   if (variables.length === 0) return {} as Record<string, string | number | boolean>;
   const provided = collectProvidedRoutineVariables(input.source, input.payload, input.variables);
+  const automaticVariables = input.automaticVariables ?? {};
   const resolved: Record<string, string | number | boolean> = {};
   const missing: string[] = [];
 
   for (const variable of variables) {
-    const candidate = provided[variable.name] !== undefined ? provided[variable.name] : variable.defaultValue;
+    // Workspace-derived automatic values are authoritative for variables that
+    // Paperclip manages from execution context, so callers cannot override them.
+    const candidate = automaticVariables[variable.name] !== undefined
+      ? automaticVariables[variable.name]
+      : provided[variable.name] !== undefined
+        ? provided[variable.name]
+        : variable.defaultValue;
     const normalized = normalizeRoutineVariableValue(variable, candidate);
     if (normalized == null || (typeof normalized === "string" && normalized.trim().length === 0)) {
       if (variable.required) missing.push(variable.name);
@@ -289,10 +321,54 @@ function mergeRoutineRunPayload(
   };
 }
 
-export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeupDeps } = {}) {
+function normalizeRoutineDispatchFingerprintValue(value: unknown): unknown {
+  if (value === undefined) return null;
+  if (value == null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map((item) => normalizeRoutineDispatchFingerprintValue(item));
+  if (isPlainRecord(value)) {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, normalizeRoutineDispatchFingerprintValue(value[key])]),
+    );
+  }
+  return String(value);
+}
+
+function createRoutineDispatchFingerprint(input: {
+  payload: Record<string, unknown> | null;
+  projectId: string | null;
+  assigneeAgentId: string | null;
+  executionWorkspaceId?: string | null;
+  executionWorkspacePreference?: string | null;
+  executionWorkspaceSettings?: Record<string, unknown> | null;
+  title: string;
+  description: string | null;
+}) {
+  const canonical = JSON.stringify(normalizeRoutineDispatchFingerprintValue(input));
+  return crypto.createHash("sha256").update(canonical).digest("hex");
+}
+
+function routineUsesWorkspaceBranch(routine: typeof routines.$inferSelect) {
+  return (routine.variables ?? []).some((variable) => variable.name === WORKSPACE_BRANCH_ROUTINE_VARIABLE)
+    || extractRoutineVariableNames([routine.title, routine.description]).includes(WORKSPACE_BRANCH_ROUTINE_VARIABLE);
+}
+
+export function routineService(
+  db: Db,
+  deps: {
+    heartbeat?: IssueAssignmentWakeupDeps;
+    pluginWorkerManager?: PluginWorkerManager;
+  } = {},
+) {
   const issueSvc = issueService(db);
   const secretsSvc = secretService(db);
-  const heartbeat = deps.heartbeat ?? heartbeatService(db);
+  const heartbeat = deps.heartbeat ?? heartbeatService(db, {
+    pluginWorkerManager: deps.pluginWorkerManager,
+  });
 
   async function getRoutineById(id: string) {
     return db
@@ -317,7 +393,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     return routine;
   }
 
-  async function assertAssignableAgent(companyId: string, agentId: string) {
+  async function assertAssignableAgent(companyId: string, agentId: string | null | undefined) {
+    if (!agentId) return;
     const agent = await db
       .select({ id: agents.id, companyId: agents.companyId, status: agents.status })
       .from(agents)
@@ -329,7 +406,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     if (agent.status === "terminated") throw conflict("Cannot assign routines to terminated agents");
   }
 
-  async function assertProject(companyId: string, projectId: string) {
+  async function assertProject(companyId: string, projectId: string | null | undefined) {
+    if (!projectId) return;
     const project = await db
       .select({ id: projects.id, companyId: projects.companyId })
       .from(projects)
@@ -388,6 +466,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         triggeredAt: routineRuns.triggeredAt,
         idempotencyKey: routineRuns.idempotencyKey,
         triggerPayload: routineRuns.triggerPayload,
+        dispatchFingerprint: routineRuns.dispatchFingerprint,
         linkedIssueId: routineRuns.linkedIssueId,
         coalescedIntoRunId: routineRuns.coalescedIntoRunId,
         failureReason: routineRuns.failureReason,
@@ -420,6 +499,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         triggeredAt: row.triggeredAt,
         idempotencyKey: row.idempotencyKey,
         triggerPayload: row.triggerPayload as Record<string, unknown> | null,
+        dispatchFingerprint: row.dispatchFingerprint,
         linkedIssueId: row.linkedIssueId,
         coalescedIntoRunId: row.coalescedIntoRunId,
         failureReason: row.failureReason,
@@ -428,20 +508,20 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         updatedAt: row.updatedAt,
         linkedIssue: row.linkedIssueId
           ? {
-              id: row.linkedIssueId,
-              identifier: row.issueIdentifier,
-              title: row.issueTitle ?? "Routine execution",
-              status: row.issueStatus ?? "todo",
-              priority: row.issuePriority ?? "medium",
-              updatedAt: row.issueUpdatedAt ?? row.updatedAt,
-            }
+            id: row.linkedIssueId,
+            identifier: row.issueIdentifier,
+            title: row.issueTitle ?? "Routine execution",
+            status: row.issueStatus ?? "todo",
+            priority: row.issuePriority ?? "medium",
+            updatedAt: row.issueUpdatedAt ?? row.updatedAt,
+          }
           : null,
         trigger: row.triggerId
           ? {
-              id: row.triggerId,
-              kind: row.triggerKind as NonNullable<RoutineRunSummary["trigger"]>["kind"],
-              label: row.triggerLabel,
-            }
+            id: row.triggerId,
+            kind: row.triggerKind as NonNullable<RoutineRunSummary["trigger"]>["kind"],
+            label: row.triggerLabel,
+          }
           : null,
       });
     }
@@ -463,7 +543,10 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .from(issues)
       .innerJoin(
         heartbeatRuns,
-        and(eq(heartbeatRuns.id, issues.executionRunId), inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES)),
+        and(
+          eq(heartbeatRuns.id, issues.executionRunId),
+          inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES),
+        ),
       )
       .where(
         and(
@@ -535,17 +618,14 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     return map;
   }
 
-  async function updateRoutineTouchedState(
-    input: {
-      routineId: string;
-      triggerId?: string | null;
-      triggeredAt: Date;
-      status: string;
-      issueId?: string | null;
-      nextRunAt?: Date | null;
-    },
-    executor: Db = db,
-  ) {
+  async function updateRoutineTouchedState(input: {
+    routineId: string;
+    triggerId?: string | null;
+    triggeredAt: Date;
+    status: string;
+    issueId?: string | null;
+    nextRunAt?: Date | null;
+  }, executor: Db = db) {
     await executor
       .update(routines)
       .set({
@@ -568,13 +648,31 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     }
   }
 
-  async function findLiveExecutionIssue(routine: typeof routines.$inferSelect, executor: Db = db) {
+  function routineExecutionFingerprintCondition(dispatchFingerprint?: string | null) {
+    if (!dispatchFingerprint) return null;
+    // The "default" arm preserves coalescing against pre-migration open issues.
+    // It becomes inert once those legacy routine execution issues drain out.
+    return or(
+      eq(issues.originFingerprint, dispatchFingerprint),
+      eq(issues.originFingerprint, "default"),
+    );
+  }
+
+  async function findLiveExecutionIssue(
+    routine: typeof routines.$inferSelect,
+    executor: Db = db,
+    dispatchFingerprint?: string | null,
+  ) {
+    const fingerprintCondition = routineExecutionFingerprintCondition(dispatchFingerprint);
     const executionBoundIssue = await executor
       .select()
       .from(issues)
       .innerJoin(
         heartbeatRuns,
-        and(eq(heartbeatRuns.id, issues.executionRunId), inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES)),
+        and(
+          eq(heartbeatRuns.id, issues.executionRunId),
+          inArray(heartbeatRuns.status, LIVE_HEARTBEAT_RUN_STATUSES),
+        ),
       )
       .where(
         and(
@@ -583,6 +681,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           eq(issues.originId, routine.id),
           inArray(issues.status, OPEN_ISSUE_STATUSES),
           isNull(issues.hiddenAt),
+          ...(fingerprintCondition ? [fingerprintCondition] : []),
         ),
       )
       .orderBy(desc(issues.updatedAt), desc(issues.createdAt))
@@ -608,6 +707,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           eq(issues.originId, routine.id),
           inArray(issues.status, OPEN_ISSUE_STATUSES),
           isNull(issues.hiddenAt),
+          ...(fingerprintCondition ? [fingerprintCondition] : []),
         ),
       )
       .orderBy(desc(issues.updatedAt), desc(issues.createdAt))
@@ -627,7 +727,11 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       .then((rows) => rows[0] ?? null);
   }
 
-  async function createWebhookSecret(companyId: string, routineId: string, actor: Actor) {
+  async function createWebhookSecret(
+    companyId: string,
+    routineId: string,
+    actor: Actor,
+  ) {
     const secretValue = crypto.randomBytes(24).toString("hex");
     const secret = await secretsSvc.create(
       companyId,
@@ -660,14 +764,56 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     source: "schedule" | "manual" | "api" | "webhook";
     payload?: Record<string, unknown> | null;
     variables?: Record<string, unknown> | null;
+    projectId?: string | null;
+    assigneeAgentId?: string | null;
     idempotencyKey?: string | null;
     executionWorkspaceId?: string | null;
     executionWorkspacePreference?: string | null;
     executionWorkspaceSettings?: Record<string, unknown> | null;
   }) {
-    const resolvedVariables = resolveRoutineVariableValues(input.routine.variables ?? [], input);
-    const description = interpolateRoutineTemplate(input.routine.description, resolvedVariables);
-    const triggerPayload = mergeRoutineRunPayload(input.payload, resolvedVariables);
+    const projectId = input.projectId ?? input.routine.projectId ?? null;
+    const assigneeAgentId = input.assigneeAgentId ?? input.routine.assigneeAgentId ?? null;
+    if (!assigneeAgentId) {
+      throw unprocessable("Default agent required");
+    }
+    const automaticVariables: Record<string, string | number | boolean> = {};
+    if (input.executionWorkspaceId && routineUsesWorkspaceBranch(input.routine)) {
+      const workspace = await db
+        .select({
+          branchName: executionWorkspaces.branchName,
+          mode: executionWorkspaces.mode,
+        })
+        .from(executionWorkspaces)
+        .where(
+          and(
+            eq(executionWorkspaces.id, input.executionWorkspaceId),
+            eq(executionWorkspaces.companyId, input.routine.companyId),
+          ),
+        )
+        .then((rows) => rows[0] ?? null);
+      const branchName = workspace?.branchName?.trim();
+      if (workspace && workspace.mode !== "shared_workspace" && branchName) {
+        automaticVariables[WORKSPACE_BRANCH_ROUTINE_VARIABLE] = branchName;
+      }
+    }
+    const resolvedVariables = resolveRoutineVariableValues(input.routine.variables ?? [], {
+      ...input,
+      automaticVariables,
+    });
+    const allVariables = { ...getBuiltinRoutineVariableValues(), ...automaticVariables, ...resolvedVariables };
+    const title = interpolateRoutineTemplate(input.routine.title, allVariables) ?? input.routine.title;
+    const description = interpolateRoutineTemplate(input.routine.description, allVariables);
+    const triggerPayload = mergeRoutineRunPayload(input.payload, { ...automaticVariables, ...resolvedVariables });
+    const dispatchFingerprint = createRoutineDispatchFingerprint({
+      payload: triggerPayload,
+      projectId,
+      assigneeAgentId,
+      executionWorkspaceId: input.executionWorkspaceId ?? null,
+      executionWorkspacePreference: input.executionWorkspacePreference ?? null,
+      executionWorkspaceSettings: input.executionWorkspaceSettings ?? null,
+      title,
+      description,
+    });
     const run = await db.transaction(async (tx) => {
       const txDb = tx as unknown as Db;
       await tx.execute(
@@ -705,56 +851,50 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           triggeredAt,
           idempotencyKey: input.idempotencyKey ?? null,
           triggerPayload,
+          dispatchFingerprint,
         })
         .returning();
 
-      const nextRunAt =
-        input.trigger?.kind === "schedule" && input.trigger.cronExpression && input.trigger.timezone
-          ? nextCronTickInTimeZone(input.trigger.cronExpression, input.trigger.timezone, triggeredAt)
-          : undefined;
+      const nextRunAt = input.trigger?.kind === "schedule" && input.trigger.cronExpression && input.trigger.timezone
+        ? nextCronTickInTimeZone(input.trigger.cronExpression, input.trigger.timezone, triggeredAt)
+        : undefined;
 
       let createdIssue: Awaited<ReturnType<typeof issueSvc.create>> | null = null;
       try {
-        const activeIssue = await findLiveExecutionIssue(input.routine, txDb);
+        const activeIssue = await findLiveExecutionIssue(input.routine, txDb, dispatchFingerprint);
         if (activeIssue && input.routine.concurrencyPolicy !== "always_enqueue") {
           const status = input.routine.concurrencyPolicy === "skip_if_active" ? "skipped" : "coalesced";
-          const updated = await finalizeRun(
-            createdRun.id,
-            {
-              status,
-              linkedIssueId: activeIssue.id,
-              coalescedIntoRunId: activeIssue.originRunId,
-              completedAt: triggeredAt,
-            },
-            txDb,
-          );
-          await updateRoutineTouchedState(
-            {
-              routineId: input.routine.id,
-              triggerId: input.trigger?.id ?? null,
-              triggeredAt,
-              status,
-              issueId: activeIssue.id,
-              nextRunAt,
-            },
-            txDb,
-          );
+          const updated = await finalizeRun(createdRun.id, {
+            status,
+            linkedIssueId: activeIssue.id,
+            coalescedIntoRunId: activeIssue.originRunId,
+            completedAt: triggeredAt,
+          }, txDb);
+          await updateRoutineTouchedState({
+            routineId: input.routine.id,
+            triggerId: input.trigger?.id ?? null,
+            triggeredAt,
+            status,
+            issueId: activeIssue.id,
+            nextRunAt,
+          }, txDb);
           return updated ?? createdRun;
         }
 
         try {
           createdIssue = await issueSvc.create(input.routine.companyId, {
-            projectId: input.routine.projectId,
+            projectId,
             goalId: input.routine.goalId,
             parentId: input.routine.parentIssueId,
-            title: input.routine.title,
+            title,
             description,
             status: "todo",
             priority: input.routine.priority,
-            assigneeAgentId: input.routine.assigneeAgentId,
+            assigneeAgentId,
             originKind: "routine_execution",
             originId: input.routine.id,
             originRunId: createdRun.id,
+            originFingerprint: dispatchFingerprint,
             executionWorkspaceId: input.executionWorkspaceId ?? null,
             executionWorkspacePreference: input.executionWorkspacePreference ?? null,
             executionWorkspaceSettings: input.executionWorkspaceSettings ?? null,
@@ -771,30 +911,23 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
             throw error;
           }
 
-          const existingIssue = await findLiveExecutionIssue(input.routine, txDb);
+          const existingIssue = await findLiveExecutionIssue(input.routine, txDb, dispatchFingerprint);
           if (!existingIssue) throw error;
           const status = input.routine.concurrencyPolicy === "skip_if_active" ? "skipped" : "coalesced";
-          const updated = await finalizeRun(
-            createdRun.id,
-            {
-              status,
-              linkedIssueId: existingIssue.id,
-              coalescedIntoRunId: existingIssue.originRunId,
-              completedAt: triggeredAt,
-            },
-            txDb,
-          );
-          await updateRoutineTouchedState(
-            {
-              routineId: input.routine.id,
-              triggerId: input.trigger?.id ?? null,
-              triggeredAt,
-              status,
-              issueId: existingIssue.id,
-              nextRunAt,
-            },
-            txDb,
-          );
+          const updated = await finalizeRun(createdRun.id, {
+            status,
+            linkedIssueId: existingIssue.id,
+            coalescedIntoRunId: existingIssue.originRunId,
+            completedAt: triggeredAt,
+          }, txDb);
+          await updateRoutineTouchedState({
+            routineId: input.routine.id,
+            triggerId: input.trigger?.id ?? null,
+            triggeredAt,
+            status,
+            issueId: existingIssue.id,
+            nextRunAt,
+          }, txDb);
           return updated ?? createdRun;
         }
 
@@ -808,50 +941,36 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           requestedByActorType: input.source === "schedule" ? "system" : undefined,
           rethrowOnError: true,
         });
-        const updated = await finalizeRun(
-          createdRun.id,
-          {
-            status: "issue_created",
-            linkedIssueId: createdIssue.id,
-          },
-          txDb,
-        );
-        await updateRoutineTouchedState(
-          {
-            routineId: input.routine.id,
-            triggerId: input.trigger?.id ?? null,
-            triggeredAt,
-            status: "issue_created",
-            issueId: createdIssue.id,
-            nextRunAt,
-          },
-          txDb,
-        );
+        const updated = await finalizeRun(createdRun.id, {
+          status: "issue_created",
+          linkedIssueId: createdIssue.id,
+        }, txDb);
+        await updateRoutineTouchedState({
+          routineId: input.routine.id,
+          triggerId: input.trigger?.id ?? null,
+          triggeredAt,
+          status: "issue_created",
+          issueId: createdIssue.id,
+          nextRunAt,
+        }, txDb);
         return updated ?? createdRun;
       } catch (error) {
         if (createdIssue) {
           await txDb.delete(issues).where(eq(issues.id, createdIssue.id));
         }
         const failureReason = error instanceof Error ? error.message : String(error);
-        const failed = await finalizeRun(
-          createdRun.id,
-          {
-            status: "failed",
-            failureReason,
-            completedAt: new Date(),
-          },
-          txDb,
-        );
-        await updateRoutineTouchedState(
-          {
-            routineId: input.routine.id,
-            triggerId: input.trigger?.id ?? null,
-            triggeredAt,
-            status: "failed",
-            nextRunAt,
-          },
-          txDb,
-        );
+        const failed = await finalizeRun(createdRun.id, {
+          status: "failed",
+          failureReason,
+          completedAt: new Date(),
+        }, txDb);
+        await updateRoutineTouchedState({
+          routineId: input.routine.id,
+          triggerId: input.trigger?.id ?? null,
+          triggeredAt,
+          status: "failed",
+          nextRunAt,
+        }, txDb);
         return failed ?? createdRun;
       }
     });
@@ -912,6 +1031,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           kind: trigger.kind as RoutineListItem["triggers"][number]["kind"],
           label: trigger.label,
           enabled: trigger.enabled,
+          cronExpression: trigger.cronExpression,
+          timezone: trigger.timezone,
           nextRunAt: trigger.nextRunAt,
           lastFiredAt: trigger.lastFiredAt,
           lastResult: trigger.lastResult,
@@ -925,22 +1046,14 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       const row = await getRoutineById(id);
       if (!row) return null;
       const [project, assignee, parentIssue, triggers, recentRuns, activeIssue] = await Promise.all([
-        db
-          .select()
-          .from(projects)
-          .where(eq(projects.id, row.projectId))
-          .then((rows) => rows[0] ?? null),
-        db
-          .select()
-          .from(agents)
-          .where(eq(agents.id, row.assigneeAgentId))
-          .then((rows) => rows[0] ?? null),
+        row.projectId
+          ? db.select().from(projects).where(eq(projects.id, row.projectId)).then((rows) => rows[0] ?? null)
+          : null,
+        row.assigneeAgentId
+          ? db.select().from(agents).where(eq(agents.id, row.assigneeAgentId)).then((rows) => rows[0] ?? null)
+          : null,
         row.parentIssueId ? issueSvc.getById(row.parentIssueId) : null,
-        db
-          .select()
-          .from(routineTriggers)
-          .where(eq(routineTriggers.routineId, row.id))
-          .orderBy(asc(routineTriggers.createdAt)),
+        db.select().from(routineTriggers).where(eq(routineTriggers.routineId, row.id)).orderBy(asc(routineTriggers.createdAt)),
         db
           .select({
             id: routineRuns.id,
@@ -952,6 +1065,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
             triggeredAt: routineRuns.triggeredAt,
             idempotencyKey: routineRuns.idempotencyKey,
             triggerPayload: routineRuns.triggerPayload,
+            dispatchFingerprint: routineRuns.dispatchFingerprint,
             linkedIssueId: routineRuns.linkedIssueId,
             coalescedIntoRunId: routineRuns.coalescedIntoRunId,
             failureReason: routineRuns.failureReason,
@@ -983,6 +1097,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
               triggeredAt: run.triggeredAt,
               idempotencyKey: run.idempotencyKey,
               triggerPayload: run.triggerPayload as Record<string, unknown> | null,
+              dispatchFingerprint: run.dispatchFingerprint,
               linkedIssueId: run.linkedIssueId,
               coalescedIntoRunId: run.coalescedIntoRunId,
               failureReason: run.failureReason,
@@ -991,20 +1106,20 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
               updatedAt: run.updatedAt,
               linkedIssue: run.linkedIssueId
                 ? {
-                    id: run.linkedIssueId,
-                    identifier: run.issueIdentifier,
-                    title: run.issueTitle ?? "Routine execution",
-                    status: run.issueStatus ?? "todo",
-                    priority: run.issuePriority ?? "medium",
-                    updatedAt: run.issueUpdatedAt ?? run.updatedAt,
-                  }
+                  id: run.linkedIssueId,
+                  identifier: run.issueIdentifier,
+                  title: run.issueTitle ?? "Routine execution",
+                  status: run.issueStatus ?? "todo",
+                  priority: run.issuePriority ?? "medium",
+                  updatedAt: run.issueUpdatedAt ?? run.updatedAt,
+                }
                 : null,
               trigger: run.triggerId
                 ? {
-                    id: run.triggerId,
-                    kind: run.triggerKind as NonNullable<RoutineRunSummary["trigger"]>["kind"],
-                    label: run.triggerLabel,
-                  }
+                  id: run.triggerId,
+                  kind: run.triggerKind as NonNullable<RoutineRunSummary["trigger"]>["kind"],
+                  label: run.triggerLabel,
+                }
                 : null,
             })),
           ),
@@ -1023,27 +1138,28 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     },
 
     create: async (companyId: string, input: CreateRoutine, actor: Actor): Promise<Routine> => {
-      await assertProject(companyId, input.projectId);
-      await assertAssignableAgent(companyId, input.assigneeAgentId);
+      await assertProject(companyId, input.projectId ?? null);
+      await assertAssignableAgent(companyId, input.assigneeAgentId ?? null);
       if (input.goalId) await assertGoal(companyId, input.goalId);
       if (input.parentIssueId) await assertParentIssue(companyId, input.parentIssueId);
       const variables = syncRoutineVariablesWithTemplate(
-        input.description,
+        [input.title, input.description],
         sanitizeRoutineVariableInputs(input.variables),
       );
       assertRoutineVariableDefinitions(variables);
+      const status = normalizeDraftRoutineStatus(input.status, input.assigneeAgentId);
       const [created] = await db
         .insert(routines)
         .values({
           companyId,
-          projectId: input.projectId,
+          projectId: input.projectId ?? null,
           goalId: input.goalId ?? null,
           parentIssueId: input.parentIssueId ?? null,
           title: input.title,
           description: input.description ?? null,
-          assigneeAgentId: input.assigneeAgentId,
+          assigneeAgentId: input.assigneeAgentId ?? null,
           priority: input.priority,
-          status: input.status,
+          status,
           concurrencyPolicy: input.concurrencyPolicy,
           catchUpPolicy: input.catchUpPolicy,
           variables,
@@ -1059,15 +1175,23 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
     update: async (id: string, patch: UpdateRoutine, actor: Actor): Promise<Routine | null> => {
       const existing = await getRoutineById(id);
       if (!existing) return null;
-      const nextProjectId = patch.projectId ?? existing.projectId;
-      const nextAssigneeAgentId = patch.assigneeAgentId ?? existing.assigneeAgentId;
+      const nextProjectId = patch.projectId === undefined ? existing.projectId : patch.projectId;
+      const nextAssigneeAgentId = patch.assigneeAgentId === undefined ? existing.assigneeAgentId : patch.assigneeAgentId;
+      const nextTitle = patch.title ?? existing.title;
       const nextDescription = patch.description === undefined ? existing.description : patch.description;
+      const requestedStatus = patch.status ?? existing.status;
+      if (patch.status === "active") {
+        assertRoutineCanEnable(patch.status, nextAssigneeAgentId);
+      }
+      const nextStatus = patch.assigneeAgentId === undefined
+        ? requestedStatus
+        : normalizeDraftRoutineStatus(requestedStatus, nextAssigneeAgentId);
       const nextVariables = syncRoutineVariablesWithTemplate(
-        nextDescription,
+        [nextTitle, nextDescription],
         patch.variables === undefined ? existing.variables : sanitizeRoutineVariableInputs(patch.variables),
       );
-      if (patch.projectId) await assertProject(existing.companyId, nextProjectId);
-      if (patch.assigneeAgentId) await assertAssignableAgent(existing.companyId, nextAssigneeAgentId);
+      if (patch.projectId !== undefined) await assertProject(existing.companyId, nextProjectId);
+      if (patch.assigneeAgentId !== undefined) await assertAssignableAgent(existing.companyId, nextAssigneeAgentId);
       if (patch.goalId) await assertGoal(existing.companyId, patch.goalId);
       if (patch.parentIssueId) await assertParentIssue(existing.companyId, patch.parentIssueId);
       assertRoutineVariableDefinitions(nextVariables);
@@ -1092,11 +1216,11 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           projectId: nextProjectId,
           goalId: patch.goalId === undefined ? existing.goalId : patch.goalId,
           parentIssueId: patch.parentIssueId === undefined ? existing.parentIssueId : patch.parentIssueId,
-          title: patch.title ?? existing.title,
+          title: nextTitle,
           description: nextDescription,
           assigneeAgentId: nextAssigneeAgentId,
           priority: patch.priority ?? existing.priority,
-          status: patch.status ?? existing.status,
+          status: nextStatus,
           concurrencyPolicy: patch.concurrencyPolicy ?? existing.concurrencyPolicy,
           catchUpPolicy: patch.catchUpPolicy ?? existing.catchUpPolicy,
           variables: nextVariables,
@@ -1150,7 +1274,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           label: input.label ?? null,
           enabled: input.enabled ?? true,
           cronExpression: input.kind === "schedule" ? input.cronExpression : null,
-          timezone: input.kind === "schedule" ? input.timezone || "UTC" : null,
+          timezone: input.kind === "schedule" ? (input.timezone || "UTC") : null,
           nextRunAt,
           publicId,
           secretId,
@@ -1263,6 +1387,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       const routine = await getRoutineById(id);
       if (!routine) throw notFound("Routine not found");
       if (routine.status === "archived") throw conflict("Routine is archived");
+      await assertProject(routine.companyId, input.projectId ?? null);
+      await assertAssignableAgent(routine.companyId, input.assigneeAgentId ?? null);
       const trigger = input.triggerId ? await getTriggerById(input.triggerId) : null;
       if (trigger && trigger.routineId !== routine.id) throw forbidden("Trigger does not belong to routine");
       if (trigger && !trigger.enabled) throw conflict("Routine trigger is not active");
@@ -1272,6 +1398,8 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         source: input.source,
         payload: input.payload as Record<string, unknown> | null | undefined,
         variables: input.variables as Record<string, unknown> | null | undefined,
+        projectId: input.projectId ?? null,
+        assigneeAgentId: input.assigneeAgentId ?? null,
         idempotencyKey: input.idempotencyKey,
         executionWorkspaceId: input.executionWorkspaceId ?? null,
         executionWorkspacePreference: input.executionWorkspacePreference ?? null,
@@ -1280,18 +1408,15 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
       });
     },
 
-    firePublicTrigger: async (
-      publicId: string,
-      input: {
-        authorizationHeader?: string | null;
-        signatureHeader?: string | null;
-        hubSignatureHeader?: string | null;
-        timestampHeader?: string | null;
-        idempotencyKey?: string | null;
-        rawBody?: Buffer | null;
-        payload?: Record<string, unknown> | null;
-      },
-    ) => {
+    firePublicTrigger: async (publicId: string, input: {
+      authorizationHeader?: string | null;
+      signatureHeader?: string | null;
+      hubSignatureHeader?: string | null;
+      timestampHeader?: string | null;
+      idempotencyKey?: string | null;
+      rawBody?: Buffer | null;
+      payload?: Record<string, unknown> | null;
+    }) => {
       const trigger = await db
         .select()
         .from(routineTriggers)
@@ -1312,11 +1437,16 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         // mode with either header convention.
         const providedSignature = (input.hubSignatureHeader ?? input.signatureHeader)?.trim() ?? "";
         if (!providedSignature) throw unauthorized();
-        const expectedHmac = crypto.createHmac("sha256", secretValue).update(rawBody).digest("hex");
+        const expectedHmac = crypto
+          .createHmac("sha256", secretValue)
+          .update(rawBody)
+          .digest("hex");
         const normalizedSignature = providedSignature.replace(/^sha256=/, "");
         const normalizedBuf = Buffer.from(normalizedSignature);
         const expectedBuf = Buffer.from(expectedHmac);
-        const valid = normalizedBuf.length === expectedBuf.length && crypto.timingSafeEqual(normalizedBuf, expectedBuf);
+        const valid =
+          normalizedBuf.length === expectedBuf.length &&
+          crypto.timingSafeEqual(normalizedBuf, expectedBuf);
         if (!valid) throw unauthorized();
       } else if (trigger.signingMode === "bearer") {
         const secretValue = await resolveTriggerSecret(trigger, routine.companyId);
@@ -1325,7 +1455,9 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         const expectedBuf = Buffer.from(expected);
         const providedBuf = Buffer.alloc(expectedBuf.length);
         providedBuf.write(provided.slice(0, expectedBuf.length));
-        const valid = provided.length === expected.length && crypto.timingSafeEqual(providedBuf, expectedBuf);
+        const valid =
+          provided.length === expected.length &&
+          crypto.timingSafeEqual(providedBuf, expectedBuf);
         if (!valid) {
           throw unauthorized();
         }
@@ -1358,8 +1490,9 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         trigger,
         source: "webhook",
         payload: input.payload,
-        variables:
-          isPlainRecord(input.payload) && isPlainRecord(input.payload.variables) ? input.payload.variables : null,
+        variables: isPlainRecord(input.payload) && isPlainRecord(input.payload.variables)
+          ? input.payload.variables
+          : null,
         idempotencyKey: input.idempotencyKey,
       });
     },
@@ -1377,6 +1510,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
           triggeredAt: routineRuns.triggeredAt,
           idempotencyKey: routineRuns.idempotencyKey,
           triggerPayload: routineRuns.triggerPayload,
+          dispatchFingerprint: routineRuns.dispatchFingerprint,
           linkedIssueId: routineRuns.linkedIssueId,
           coalescedIntoRunId: routineRuns.coalescedIntoRunId,
           failureReason: routineRuns.failureReason,
@@ -1408,6 +1542,7 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         triggeredAt: row.triggeredAt,
         idempotencyKey: row.idempotencyKey,
         triggerPayload: row.triggerPayload as Record<string, unknown> | null,
+        dispatchFingerprint: row.dispatchFingerprint,
         linkedIssueId: row.linkedIssueId,
         coalescedIntoRunId: row.coalescedIntoRunId,
         failureReason: row.failureReason,
@@ -1416,20 +1551,20 @@ export function routineService(db: Db, deps: { heartbeat?: IssueAssignmentWakeup
         updatedAt: row.updatedAt,
         linkedIssue: row.linkedIssueId
           ? {
-              id: row.linkedIssueId,
-              identifier: row.issueIdentifier,
-              title: row.issueTitle ?? "Routine execution",
-              status: row.issueStatus ?? "todo",
-              priority: row.issuePriority ?? "medium",
-              updatedAt: row.issueUpdatedAt ?? row.updatedAt,
-            }
+            id: row.linkedIssueId,
+            identifier: row.issueIdentifier,
+            title: row.issueTitle ?? "Routine execution",
+            status: row.issueStatus ?? "todo",
+            priority: row.issuePriority ?? "medium",
+            updatedAt: row.issueUpdatedAt ?? row.updatedAt,
+          }
           : null,
         trigger: row.triggerId
           ? {
-              id: row.triggerId,
-              kind: row.triggerKind as NonNullable<RoutineRunSummary["trigger"]>["kind"],
-              label: row.triggerLabel,
-            }
+            id: row.triggerId,
+            kind: row.triggerKind as NonNullable<RoutineRunSummary["trigger"]>["kind"],
+            label: row.triggerLabel,
+          }
           : null,
       }));
     },

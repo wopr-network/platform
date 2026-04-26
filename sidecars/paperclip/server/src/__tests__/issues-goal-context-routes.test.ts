@@ -1,8 +1,8 @@
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { issueRoutes } from "../routes/issues.js";
 import { errorHandler } from "../middleware/index.js";
+import { issueRoutes } from "../routes/issues.js";
 
 const mockIssueService = vi.hoisted(() => ({
   getById: vi.fn(),
@@ -11,6 +11,7 @@ const mockIssueService = vi.hoisted(() => ({
   findMentionedProjectIds: vi.fn(),
   getCommentCursor: vi.fn(),
   getComment: vi.fn(),
+  listBlockerAttention: vi.fn(),
   listAttachments: vi.fn(),
 }));
 
@@ -24,30 +25,35 @@ const mockGoalService = vi.hoisted(() => ({
   getDefaultCompanyGoal: vi.fn(),
 }));
 
-vi.mock("../services/index.js", () => ({
-  accessService: () => ({
+const mockDocumentsService = vi.hoisted(() => ({
+  getIssueDocumentPayload: vi.fn(),
+  getIssueDocumentByKey: vi.fn(),
+}));
+
+const mockExecutionWorkspaceService = vi.hoisted(() => ({
+  getById: vi.fn(),
+}));
+
+const mockAccessService = vi.hoisted(() => ({
     canUser: vi.fn(),
     hasPermission: vi.fn(),
-  }),
-  agentService: () => ({
+}));
+
+const mockAgentService = vi.hoisted(() => ({
     getById: vi.fn(),
-  }),
-  documentService: () => ({
-    getIssueDocumentPayload: vi.fn(async () => ({})),
-  }),
-  executionWorkspaceService: () => ({
-    getById: vi.fn(),
-  }),
-  feedbackService: () => ({
+}));
+
+const mockFeedbackService = vi.hoisted(() => ({
     listIssueVotesForUser: vi.fn(async () => []),
     saveIssueVote: vi.fn(async () => ({ vote: null, consentEnabledNow: false, sharingEnabled: false })),
-  }),
-  goalService: () => mockGoalService,
-  heartbeatService: () => ({
+}));
+
+const mockHeartbeatService = vi.hoisted(() => ({
     wakeup: vi.fn(async () => undefined),
     reportRunActivity: vi.fn(async () => undefined),
-  }),
-  instanceSettingsService: () => ({
+}));
+
+const mockInstanceSettingsService = vi.hoisted(() => ({
     get: vi.fn(async () => ({
       id: "instance-settings-1",
       general: {
@@ -56,17 +62,55 @@ vi.mock("../services/index.js", () => ({
       },
     })),
     listCompanyIds: vi.fn(async () => ["company-1"]),
-  }),
-  issueApprovalService: () => ({}),
-  issueService: () => mockIssueService,
-  logActivity: vi.fn(async () => undefined),
-  projectService: () => mockProjectService,
-  routineService: () => ({
+}));
+
+const mockIssueReferenceService = vi.hoisted(() => ({
+  deleteDocumentSource: vi.fn(async () => undefined),
+  diffIssueReferenceSummary: vi.fn(() => ({
+    addedReferencedIssues: [],
+    removedReferencedIssues: [],
+    currentReferencedIssues: [],
+  })),
+  emptySummary: vi.fn(() => ({ outbound: [], inbound: [] })),
+  listIssueReferenceSummary: vi.fn(async () => ({ outbound: [], inbound: [] })),
+  syncComment: vi.fn(async () => undefined),
+  syncDocument: vi.fn(async () => undefined),
+  syncIssue: vi.fn(async () => undefined),
+}));
+
+const mockLogActivity = vi.hoisted(() => vi.fn(async () => undefined));
+
+const mockRoutineService = vi.hoisted(() => ({
     syncRunStatusForIssue: vi.fn(async () => undefined),
-  }),
-  workProductService: () => ({
+}));
+
+const mockWorkProductService = vi.hoisted(() => ({
     listForIssue: vi.fn(async () => []),
-  }),
+}));
+
+const mockEnvironmentService = vi.hoisted(() => ({}));
+
+vi.mock("../services/index.js", () => ({
+  accessService: () => mockAccessService,
+  agentService: () => mockAgentService,
+  documentService: () => mockDocumentsService,
+  environmentService: () => mockEnvironmentService,
+  executionWorkspaceService: () => mockExecutionWorkspaceService,
+  feedbackService: () => mockFeedbackService,
+  goalService: () => mockGoalService,
+  heartbeatService: () => mockHeartbeatService,
+  instanceSettingsService: () => mockInstanceSettingsService,
+  issueApprovalService: () => ({}),
+  issueReferenceService: () => mockIssueReferenceService,
+  issueService: () => mockIssueService,
+  logActivity: mockLogActivity,
+  projectService: () => mockProjectService,
+  routineService: () => mockRoutineService,
+  workProductService: () => mockWorkProductService,
+}));
+
+vi.mock("../services/execution-workspaces.js", () => ({
+  executionWorkspaceService: () => mockExecutionWorkspaceService,
 }));
 
 function createApp() {
@@ -119,7 +163,7 @@ const projectGoal = {
   updatedAt: new Date("2026-03-20T00:00:00Z"),
 };
 
-describe("issue goal context routes", () => {
+describe.sequential("issue goal context routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIssueService.getById.mockResolvedValue(legacyProjectLinkedIssue);
@@ -132,7 +176,11 @@ describe("issue goal context routes", () => {
       latestCommentAt: null,
     });
     mockIssueService.getComment.mockResolvedValue(null);
+    mockIssueService.listBlockerAttention.mockResolvedValue(new Map());
     mockIssueService.listAttachments.mockResolvedValue([]);
+    mockDocumentsService.getIssueDocumentPayload.mockResolvedValue({});
+    mockDocumentsService.getIssueDocumentByKey.mockResolvedValue(null);
+    mockExecutionWorkspaceService.getById.mockResolvedValue(null);
     mockProjectService.getById.mockResolvedValue({
       id: legacyProjectLinkedIssue.projectId,
       companyId: "company-1",
@@ -182,6 +230,10 @@ describe("issue goal context routes", () => {
         title: projectGoal.title,
       }),
     );
+    expect(mockIssueService.findMentionedProjectIds).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      { includeCommentBodies: false },
+    );
     expect(mockGoalService.getDefaultCompanyGoal).not.toHaveBeenCalled();
   });
 
@@ -198,6 +250,31 @@ describe("issue goal context routes", () => {
     );
     expect(mockGoalService.getDefaultCompanyGoal).not.toHaveBeenCalled();
     expect(res.body.attachments).toEqual([]);
+  });
+
+  it("preserves direct continuation summary lookup in GET /issues/:id/heartbeat-context", async () => {
+    mockDocumentsService.getIssueDocumentByKey.mockResolvedValue({
+      key: "continuation-summary",
+      title: "Continuation Summary",
+      body: "# Handoff",
+      latestRevisionId: "revision-1",
+      latestRevisionNumber: 1,
+      updatedAt: new Date("2026-04-19T12:00:00.000Z"),
+    });
+
+    const res = await request(createApp()).get(
+      "/api/issues/11111111-1111-4111-8111-111111111111/heartbeat-context",
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockDocumentsService.getIssueDocumentByKey).toHaveBeenCalledWith(
+      "11111111-1111-4111-8111-111111111111",
+      "continuation-summary",
+    );
+    expect(res.body.continuationSummary).toEqual(expect.objectContaining({
+      key: "continuation-summary",
+      body: "# Handoff",
+    }));
   });
 
   it("surfaces blocker summaries on GET /issues/:id/heartbeat-context", async () => {
@@ -225,5 +302,45 @@ describe("issue goal context routes", () => {
         identifier: "PAP-580",
       }),
     ]);
+  });
+
+  it("surfaces the current execution workspace from GET /issues/:id/heartbeat-context", async () => {
+    mockIssueService.getById.mockResolvedValue({
+      ...legacyProjectLinkedIssue,
+      executionWorkspaceId: "55555555-5555-4555-8555-555555555555",
+    });
+    mockExecutionWorkspaceService.getById.mockResolvedValue({
+      id: "55555555-5555-4555-8555-555555555555",
+      name: "PAP-581 workspace",
+      mode: "isolated_workspace",
+      status: "active",
+      cwd: "/tmp/pap-581",
+      runtimeServices: [
+        {
+          id: "service-1",
+          serviceName: "web",
+          status: "running",
+          url: "http://127.0.0.1:5173",
+          healthStatus: "healthy",
+        },
+      ],
+    });
+
+    const res = await request(createApp()).get(
+      "/api/issues/11111111-1111-4111-8111-111111111111/heartbeat-context",
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockExecutionWorkspaceService.getById).toHaveBeenCalledWith("55555555-5555-4555-8555-555555555555");
+    expect(res.body.currentExecutionWorkspace).toEqual(expect.objectContaining({
+      id: "55555555-5555-4555-8555-555555555555",
+      mode: "isolated_workspace",
+      runtimeServices: [
+        expect.objectContaining({
+          serviceName: "web",
+          url: "http://127.0.0.1:5173",
+        }),
+      ],
+    }));
   });
 });
