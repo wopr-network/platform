@@ -265,6 +265,8 @@ export type {
   InstanceExperimentalSettings,
   InstanceGeneralSettings,
   InstanceSettings,
+  IssueGraphLivenessAutoRecoveryPreview,
+  IssueGraphLivenessAutoRecoveryPreviewItem,
   BackupRetentionPolicy,
   Agent,
   AgentAccessState,
@@ -549,6 +551,9 @@ export {
   WEEKLY_RETENTION_PRESETS,
   MONTHLY_RETENTION_PRESETS,
   DEFAULT_BACKUP_RETENTION,
+  DEFAULT_ISSUE_GRAPH_LIVENESS_AUTO_RECOVERY_LOOKBACK_HOURS,
+  MIN_ISSUE_GRAPH_LIVENESS_AUTO_RECOVERY_LOOKBACK_HOURS,
+  MAX_ISSUE_GRAPH_LIVENESS_AUTO_RECOVERY_LOOKBACK_HOURS,
 } from "./types/instance.js";
 
 export {
@@ -562,7 +567,9 @@ export {
   type PatchInstanceGeneralSettings,
   instanceExperimentalSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
+  issueGraphLivenessAutoRecoveryRequestSchema,
   type PatchInstanceExperimentalSettings,
+  type IssueGraphLivenessAutoRecoveryRequest,
 } from "./validators/index.js";
 
 export {
