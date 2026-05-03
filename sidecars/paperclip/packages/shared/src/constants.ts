@@ -4,7 +4,7 @@ export type CompanyStatus = (typeof COMPANY_STATUSES)[number];
 export const DEFAULT_COMPANY_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
 export const MAX_COMPANY_ATTACHMENT_MAX_BYTES = 1024 * 1024 * 1024;
 
-export const DEPLOYMENT_MODES = ["local_trusted", "authenticated"] as const;
+export const DEPLOYMENT_MODES = ["local_trusted", "authenticated", "hosted_proxy"] as const;
 export type DeploymentMode = (typeof DEPLOYMENT_MODES)[number];
 
 export const DEPLOYMENT_EXPOSURES = ["private", "public"] as const;
@@ -518,6 +518,24 @@ export const PERMISSION_KEYS = [
   "joins:approve",
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
+
+/** Role → permission mapping for provision member sync. */
+export const ROLE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
+  owner: ["agents:create", "users:invite", "users:manage_permissions", "tasks:assign", "tasks:assign_scope", "joins:approve"],
+  admin: ["agents:create", "users:invite", "users:manage_permissions", "tasks:assign", "tasks:assign_scope", "joins:approve"],
+  member: ["agents:create", "tasks:assign", "tasks:assign_scope"],
+  ceo: ["agents:create", "users:invite", "users:manage_permissions", "tasks:assign", "tasks:assign_scope", "joins:approve"],
+  cto: ["agents:create", "users:invite", "tasks:assign", "tasks:assign_scope", "joins:approve"],
+  cmo: ["agents:create", "tasks:assign"],
+  cfo: ["agents:create", "tasks:assign"],
+  engineer: ["agents:create", "tasks:assign"],
+  designer: ["tasks:assign"],
+  pm: ["agents:create", "tasks:assign", "tasks:assign_scope"],
+  qa: ["tasks:assign"],
+  devops: ["agents:create", "tasks:assign"],
+  researcher: ["tasks:assign"],
+  general: ["tasks:assign"],
+};
 
 // ---------------------------------------------------------------------------
 // Plugin System — see doc/plugins/PLUGIN_SPEC.md for the full specification
