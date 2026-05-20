@@ -663,6 +663,45 @@ export const PERMISSION_KEYS = [
 ] as const;
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
 
+/** Role → permission mapping for provision member sync. Fork-only export. */
+export const ROLE_PERMISSIONS: Record<string, readonly PermissionKey[]> = {
+  owner: [
+    "agents:create",
+    "users:invite",
+    "users:manage_permissions",
+    "tasks:assign",
+    "tasks:assign_scope",
+    "joins:approve",
+  ],
+  admin: [
+    "agents:create",
+    "users:invite",
+    "users:manage_permissions",
+    "tasks:assign",
+    "tasks:assign_scope",
+    "joins:approve",
+  ],
+  member: ["agents:create", "tasks:assign", "tasks:assign_scope"],
+  ceo: [
+    "agents:create",
+    "users:invite",
+    "users:manage_permissions",
+    "tasks:assign",
+    "tasks:assign_scope",
+    "joins:approve",
+  ],
+  cto: ["agents:create", "users:invite", "tasks:assign", "tasks:assign_scope", "joins:approve"],
+  cmo: ["agents:create", "tasks:assign"],
+  cfo: ["agents:create", "tasks:assign"],
+  engineer: ["agents:create", "tasks:assign"],
+  designer: ["tasks:assign"],
+  pm: ["agents:create", "tasks:assign", "tasks:assign_scope"],
+  qa: ["tasks:assign"],
+  devops: ["agents:create", "tasks:assign"],
+  researcher: ["tasks:assign"],
+  general: ["tasks:assign"],
+};
+
 // ---------------------------------------------------------------------------
 // Plugin System — see doc/plugins/PLUGIN_SPEC.md for the full specification
 // ---------------------------------------------------------------------------
