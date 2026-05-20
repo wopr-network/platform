@@ -1,7 +1,12 @@
 import { createHash } from "node:crypto";
 import os from "node:os";
 import type { AdapterModel } from "@paperclipai/adapter-utils";
-import { asString, ensurePathInEnv, runChildProcess } from "@paperclipai/adapter-utils/server-utils";
+import {
+  asString,
+  ensurePathInEnv,
+  runChildProcess,
+} from "@paperclipai/adapter-utils/server-utils";
+import { isValidOpenCodeModelId } from "../index.js";
 
 const MODELS_CACHE_TTL_MS = 60_000;
 const MODELS_DISCOVERY_TIMEOUT_MS = 20_000;
@@ -19,6 +24,14 @@ const discoveryCache = new Map<string, { expiresAt: number; models: AdapterModel
 const VOLATILE_ENV_KEY_PREFIXES = ["PAPERCLIP_", "npm_", "NPM_"] as const;
 const VOLATILE_ENV_KEY_EXACT = new Set(["PWD", "OLDPWD", "SHLVL", "_", "TERM_SESSION_ID", "HOME"]);
 
+export function requireOpenCodeModelId(input: unknown): string {
+  const model = asString(input, "").trim();
+  if (!isValidOpenCodeModelId(model)) {
+    throw new Error("OpenCode requires `adapterConfig.model` in provider/model format.");
+  }
+  return model;
+}
+
 function dedupeModels(models: AdapterModel[]): AdapterModel[] {
   const seen = new Set<string>();
   const deduped: AdapterModel[] = [];
@@ -32,7 +45,9 @@ function dedupeModels(models: AdapterModel[]): AdapterModel[] {
 }
 
 function sortModels(models: AdapterModel[]): AdapterModel[] {
-  return [...models].sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true, sensitivity: "base" }));
+  return [...models].sort((a, b) =>
+    a.id.localeCompare(b.id, "en", { numeric: true, sensitivity: "base" }),
+  );
 }
 
 function firstNonEmptyLine(text: string): string {
@@ -44,7 +59,7 @@ function firstNonEmptyLine(text: string): string {
   );
 }
 
-function parseModelsOutput(stdout: string): AdapterModel[] {
+export function parseOpenCodeModelsOutput(stdout: string): AdapterModel[] {
   const parsed: AdapterModel[] = [];
   for (const raw of stdout.split(/\r?\n/)) {
     const line = raw.trim();
@@ -60,8 +75,9 @@ function parseModelsOutput(stdout: string): AdapterModel[] {
 }
 
 function normalizeEnv(input: unknown): Record<string, string> {
-  const envInput =
-    typeof input === "object" && input !== null && !Array.isArray(input) ? (input as Record<string, unknown>) : {};
+  const envInput = typeof input === "object" && input !== null && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : {};
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(envInput)) {
     if (typeof value === "string") env[key] = value;
@@ -93,9 +109,11 @@ function pruneExpiredDiscoveryCache(now: number) {
   }
 }
 
-export async function discoverOpenCodeModels(
-  input: { command?: unknown; cwd?: unknown; env?: unknown } = {},
-): Promise<AdapterModel[]> {
+export async function discoverOpenCodeModels(input: {
+  command?: unknown;
+  cwd?: unknown;
+  env?: unknown;
+} = {}): Promise<AdapterModel[]> {
   const command = resolveOpenCodeCommand(input.command);
   const cwd = asString(input.cwd, process.cwd());
   const env = normalizeEnv(input.env);
@@ -112,14 +130,7 @@ export async function discoverOpenCodeModels(
     // image). Fall back to process.env.HOME.
   }
   // Prevent OpenCode from writing an opencode.json into the working directory.
-  const runtimeEnv = normalizeEnv(
-    ensurePathInEnv({
-      ...process.env,
-      ...env,
-      ...(resolvedHome ? { HOME: resolvedHome } : {}),
-      OPENCODE_DISABLE_PROJECT_CONFIG: "true",
-    }),
-  );
+  const runtimeEnv = normalizeEnv(ensurePathInEnv({ ...process.env, ...env, ...(resolvedHome ? { HOME: resolvedHome } : {}), OPENCODE_DISABLE_PROJECT_CONFIG: "true" }));
 
   const result = await runChildProcess(
     `opencode-models-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -142,12 +153,14 @@ export async function discoverOpenCodeModels(
     throw new Error(detail ? `\`opencode models\` failed: ${detail}` : "`opencode models` failed.");
   }
 
-  return sortModels(parseModelsOutput(result.stdout));
+  return sortModels(parseOpenCodeModelsOutput(result.stdout));
 }
 
-export async function discoverOpenCodeModelsCached(
-  input: { command?: unknown; cwd?: unknown; env?: unknown } = {},
-): Promise<AdapterModel[]> {
+export async function discoverOpenCodeModelsCached(input: {
+  command?: unknown;
+  cwd?: unknown;
+  env?: unknown;
+} = {}): Promise<AdapterModel[]> {
   const command = resolveOpenCodeCommand(input.command);
   const cwd = asString(input.cwd, process.cwd());
   const env = normalizeEnv(input.env);
@@ -168,10 +181,7 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
   cwd?: unknown;
   env?: unknown;
 }): Promise<AdapterModel[]> {
-  const model = asString(input.model, "").trim();
-  if (!model) {
-    throw new Error("OpenCode requires `adapterConfig.model` in provider/model format.");
-  }
+  const model = requireOpenCodeModelId(input.model);
 
   const models = await discoverOpenCodeModelsCached({
     command: input.command,
@@ -184,10 +194,7 @@ export async function ensureOpenCodeModelConfiguredAndAvailable(input: {
   }
 
   if (!models.some((entry) => entry.id === model)) {
-    const sample = models
-      .slice(0, 12)
-      .map((entry) => entry.id)
-      .join(", ");
+    const sample = models.slice(0, 12).map((entry) => entry.id).join(", ");
     throw new Error(
       `Configured OpenCode model is unavailable: ${model}. Available models: ${sample}${models.length > 12 ? ", ..." : ""}`,
     );
