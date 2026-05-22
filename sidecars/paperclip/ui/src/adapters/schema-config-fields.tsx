@@ -3,7 +3,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { AdapterConfigSchema, ConfigFieldSchema, CreateConfigValues } from "@paperclipai/adapter-utils";
 
 import type { AdapterConfigFieldsProps } from "./types";
-import { Field, DraftInput, DraftNumberInput, DraftTextarea, ToggleField } from "../components/agent-config-primitives";
+import {
+  Field,
+  DraftInput,
+  DraftNumberInput,
+  DraftTextarea,
+  ToggleField,
+} from "../components/agent-config-primitives";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { ChevronDown } from "lucide-react";
 
@@ -23,7 +29,9 @@ function SelectField({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-sm hover:bg-accent/50 transition-colors w-full justify-between">
-          <span className={!value ? "text-muted-foreground" : ""}>{selectedOpt?.label ?? value ?? "Select..."}</span>
+          <span className={!value ? "text-muted-foreground" : ""}>
+            {selectedOpt?.label ?? value ?? "Select..."}
+          </span>
           <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </button>
       </PopoverTrigger>
@@ -47,6 +55,7 @@ function SelectField({
 }
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
+
 
 // ---------------------------------------------------------------------------
 // Combobox: type-to-filter dropdown with free text fallback
@@ -157,7 +166,11 @@ function ComboboxField({
           >
             {Array.from(grouped.entries()).map(([group, opts]) => (
               <div key={group || "_ungrouped"}>
-                {group && <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{group}</div>}
+                {group && (
+                  <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                    {group}
+                  </div>
+                )}
                 {opts.map((opt) => (
                   <button
                     key={opt.value}
@@ -234,7 +247,9 @@ export function invalidateConfigSchemaCache(adapterType: string): void {
 // ---------------------------------------------------------------------------
 
 function useConfigSchema(adapterType: string): AdapterConfigSchema | null {
-  const [schema, setSchema] = useState<AdapterConfigSchema | null>(schemaCache.get(adapterType) ?? null);
+  const [schema, setSchema] = useState<AdapterConfigSchema | null>(
+    schemaCache.get(adapterType) ?? null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -266,6 +281,38 @@ function getDefaultValue(field: ConfigFieldSchema): unknown {
     case "select":
       return field.options?.[0]?.value ?? "";
   }
+}
+
+export function fieldMatchesVisibleWhen(
+  field: ConfigFieldSchema,
+  readValue: (field: ConfigFieldSchema) => unknown,
+  schema: AdapterConfigSchema,
+): boolean {
+  const visibleWhen = field.meta?.visibleWhen;
+  if (!visibleWhen || typeof visibleWhen !== "object" || Array.isArray(visibleWhen)) return true;
+
+  const condition = visibleWhen as {
+    key?: unknown;
+    value?: unknown;
+    values?: unknown;
+    notValues?: unknown;
+  };
+  if (typeof condition.key !== "string" || condition.key.length === 0) return true;
+
+  const sourceField = schema.fields.find((candidate) => candidate.key === condition.key);
+  if (!sourceField) return true;
+
+  const actual = String(readValue(sourceField) ?? "");
+  if (typeof condition.value === "string") return actual === condition.value;
+  if (Array.isArray(condition.values)) {
+    const values = condition.values.filter((value): value is string => typeof value === "string");
+    return values.length > 0 && values.includes(actual);
+  }
+  if (Array.isArray(condition.notValues)) {
+    const values = condition.notValues.filter((value): value is string => typeof value === "string");
+    return !values.includes(actual);
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -354,107 +401,113 @@ export function SchemaConfigFields({
 
   return (
     <>
-      {schema.fields.map((field) => {
-        switch (field.type) {
-          case "select": {
-            const currentVal = String(readValue(field) ?? "");
-            return (
-              <Field key={field.key} label={field.label} hint={field.hint}>
-                <SelectField value={currentVal} options={field.options ?? []} onChange={(v) => writeValue(field, v)} />
-              </Field>
-            );
-          }
+      {schema.fields
+        .filter((field) => fieldMatchesVisibleWhen(field, readValue, schema))
+        .map((field) => {
+          switch (field.type) {
+            case "select": {
+              const currentVal = String(readValue(field) ?? "");
+              return (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <SelectField
+                    value={currentVal}
+                    options={field.options ?? []}
+                    onChange={(v) => writeValue(field, v)}
+                  />
+                </Field>
+              );
+            }
 
-          case "toggle":
-            return (
-              <ToggleField
-                key={field.key}
-                label={field.label}
-                hint={field.hint}
-                checked={readValue(field) === true}
-                onChange={(v) => writeValue(field, v)}
-              />
-            );
-
-          case "number":
-            return (
-              <Field key={field.key} label={field.label} hint={field.hint}>
-                <DraftNumberInput
-                  value={Number(readValue(field) ?? 0)}
-                  onCommit={(v) => writeValue(field, v)}
-                  immediate
-                  className={inputClass}
+            case "toggle":
+              return (
+                <ToggleField
+                  key={field.key}
+                  label={field.label}
+                  hint={field.hint}
+                  checked={readValue(field) === true}
+                  onChange={(v) => writeValue(field, v)}
                 />
-              </Field>
-            );
+              );
 
-          case "textarea":
-            return (
-              <Field key={field.key} label={field.label} hint={field.hint}>
-                <DraftTextarea
-                  value={String(readValue(field) ?? "")}
-                  onCommit={(v) => writeValue(field, v || undefined)}
-                  immediate
-                />
-              </Field>
-            );
+            case "number":
+              return (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <DraftNumberInput
+                    value={Number(readValue(field) ?? 0)}
+                    onCommit={(v) => writeValue(field, v)}
+                    immediate
+                    className={inputClass}
+                  />
+                </Field>
+              );
 
-          case "combobox": {
-            const currentVal = String(readValue(field) ?? "");
-            // Dynamic options: if meta.providerModels exists, compute options
-            // based on the current provider value
-            let comboboxOptions = field.options ?? [];
-            if (field.meta?.providerModels) {
-              const providerVal = String(readValue(schema.fields.find((f) => f.key === "provider")!) ?? "auto");
-              const modelsByProvider = field.meta.providerModels as Record<string, string[]>;
-              if (providerVal === "auto") {
-                // Auto: show all models from all providers, grouped by provider
-                const providerLabel = schema.fields.find((f) => f.key === "provider");
-                const providerOptions = providerLabel?.options ?? [];
-                comboboxOptions = Object.entries(modelsByProvider).flatMap(([prov, models]) =>
-                  models.map((m) => ({
+            case "textarea":
+              return (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <DraftTextarea
+                    value={String(readValue(field) ?? "")}
+                    onCommit={(v) => writeValue(field, v || undefined)}
+                    immediate
+                  />
+                </Field>
+              );
+
+            case "combobox": {
+              const currentVal = String(readValue(field) ?? "");
+              // Dynamic options: if meta.providerModels exists, compute options
+              // based on the current provider value
+              let comboboxOptions = field.options ?? [];
+              if (field.meta?.providerModels) {
+                const providerVal = String(readValue(schema.fields.find((f) => f.key === "provider")!) ?? "auto");
+                const modelsByProvider = field.meta.providerModels as Record<string, string[]>;
+                if (providerVal === "auto") {
+                  // Auto: show all models from all providers, grouped by provider
+                  const providerLabel = schema.fields.find((f) => f.key === "provider");
+                  const providerOptions = providerLabel?.options ?? [];
+                  comboboxOptions = Object.entries(modelsByProvider).flatMap(([prov, models]) =>
+                    models.map((m) => ({
+                      label: m,
+                      value: m,
+                      group: providerOptions.find((p) => p.value === prov)?.label ?? prov,
+                    })),
+                  );
+                } else {
+                  const providerModels = modelsByProvider[providerVal] ?? [];
+                  const providerLabel = schema.fields.find((f) => f.key === "provider");
+                  const provName = providerLabel?.options?.find((p) => p.value === providerVal)?.label ?? providerVal;
+                  comboboxOptions = providerModels.map((m) => ({
                     label: m,
                     value: m,
-                    group: providerOptions.find((p) => p.value === prov)?.label ?? prov,
-                  })),
-                );
-              } else {
-                const providerModels = modelsByProvider[providerVal] ?? [];
-                const providerLabel = schema.fields.find((f) => f.key === "provider");
-                const provName = providerLabel?.options?.find((p) => p.value === providerVal)?.label ?? providerVal;
-                comboboxOptions = providerModels.map((m) => ({
-                  label: m,
-                  value: m,
-                  group: provName,
-                }));
+                    group: provName,
+                  }));
+                }
               }
+              return (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <ComboboxField
+                    value={currentVal}
+                    options={comboboxOptions}
+                    onChange={(v) => writeValue(field, v || undefined)}
+                    placeholder={field.hint}
+                  />
+                </Field>
+              );
             }
-            return (
-              <Field key={field.key} label={field.label} hint={field.hint}>
-                <ComboboxField
-                  value={currentVal}
-                  options={comboboxOptions}
-                  onChange={(v) => writeValue(field, v || undefined)}
-                  placeholder={field.hint}
-                />
-              </Field>
-            );
-          }
 
-          case "text":
-          default:
-            return (
-              <Field key={field.key} label={field.label} hint={field.hint}>
-                <DraftInput
-                  value={String(readValue(field) ?? "")}
-                  onCommit={(v) => writeValue(field, v || undefined)}
-                  immediate
-                  className={inputClass}
-                />
-              </Field>
-            );
-        }
-      })}
+            case "text":
+            default:
+              return (
+                <Field key={field.key} label={field.label} hint={field.hint}>
+                  <DraftInput
+                    value={String(readValue(field) ?? "")}
+                    onCommit={(v) => writeValue(field, v || undefined)}
+                    immediate
+                    className={inputClass}
+                  />
+                </Field>
+              );
+          }
+        })}
     </>
   );
 }
@@ -463,7 +516,9 @@ export function SchemaConfigFields({
 // Build adapter config from schema values + standard CreateConfigValues fields
 // ---------------------------------------------------------------------------
 
-export function buildSchemaAdapterConfig(values: CreateConfigValues): Record<string, unknown> {
+export function buildSchemaAdapterConfig(
+  values: CreateConfigValues,
+): Record<string, unknown> {
   const ac: Record<string, unknown> = {};
 
   if (values.model?.trim()) ac.model = values.model.trim();
@@ -473,7 +528,9 @@ export function buildSchemaAdapterConfig(values: CreateConfigValues): Record<str
   if (values.thinkingEffort) ac.thinkingEffort = values.thinkingEffort;
 
   if (values.extraArgs) {
-    ac.extraArgs = values.extraArgs.split(/\s+/).filter(Boolean);
+    ac.extraArgs = values.extraArgs
+      .split(/\s+/)
+      .filter(Boolean);
   }
 
   if (values.adapterSchemaValues) {

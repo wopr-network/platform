@@ -10,7 +10,6 @@ import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
 import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
 import { healthRoutes } from "./routes/health.js";
-import { provisionRoutes } from "./routes/provision.js";
 import { companyRoutes } from "./routes/companies.js";
 import { companySkillRoutes } from "./routes/company-skills.js";
 import { agentRoutes } from "./routes/agents.js";
@@ -60,6 +59,8 @@ import { pluginRegistryService } from "./services/plugin-registry.js";
 import { createHostClientHandlers } from "@paperclipai/plugin-sdk";
 import type { BetterAuthSessionResult } from "./auth/better-auth.js";
 import { createCachedViteHtmlRenderer } from "./vite-html-renderer.js";
+import { DEFAULT_JSON_BODY_LIMIT, PORTABLE_JSON_BODY_LIMIT } from "./http/body-limits.js";
+import { COMPANY_IMPORT_API_PATH } from "./routes/company-import-paths.js";
 
 type UiMode = "none" | "static" | "vite-dev";
 const FEEDBACK_EXPORT_FLUSH_INTERVAL_MS = 5_000;
@@ -81,6 +82,12 @@ const VITE_DEV_STATIC_PATHS = new Set([
   "/site.webmanifest",
   "/sw.js",
 ]);
+
+export function isDatabaseConnectionUnavailableError(err: unknown): boolean {
+  const error = err as { code?: unknown; message?: unknown; cause?: unknown };
+  if (error?.code === "ECONNREFUSED") return true;
+  return Boolean(error?.cause && isDatabaseConnectionUnavailableError(error.cause));
+}
 
 export function resolveViteHmrPort(serverPort: number): number {
   if (serverPort <= 55_535) {
@@ -137,16 +144,18 @@ export async function createApp(
   },
 ) {
   const app = express();
+  const captureRawBody = (req: express.Request, _res: express.Response, buf: Buffer) => {
+    (req as unknown as { rawBody: Buffer }).rawBody = buf;
+  };
 
-  app.use(
-    express.json({
-      // Company import/export payloads can inline full portable packages.
-      limit: "10mb",
-      verify: (req, _res, buf) => {
-        (req as unknown as { rawBody: Buffer }).rawBody = buf;
-      },
-    }),
-  );
+  app.use(COMPANY_IMPORT_API_PATH, express.json({
+    limit: PORTABLE_JSON_BODY_LIMIT,
+    verify: captureRawBody,
+  }));
+  app.use(express.json({
+    limit: DEFAULT_JSON_BODY_LIMIT,
+    verify: captureRawBody,
+  }));
   app.use(httpLogger);
   const privateHostnameGateEnabled = shouldEnablePrivateHostnameGuard({
     deploymentMode: opts.deploymentMode,
@@ -175,13 +184,6 @@ export async function createApp(
   }
   app.use(llmRoutes(db));
 
-  // Mount provision endpoint (internal, outside board mutation guard).
-  // Only active in hosted_proxy deployments where platform-core fleet
-  // manager calls /internal/provision during instance creation.
-  if (opts.deploymentMode === "hosted_proxy") {
-    app.use("/internal", provisionRoutes(db));
-  }
-
   const hostServicesDisposers = new Map<string, () => void>();
   const workerManager = opts.pluginWorkerManager ?? createPluginWorkerManager();
 
@@ -202,12 +204,10 @@ export async function createApp(
   api.use(agentRoutes(db, { pluginWorkerManager: workerManager }));
   api.use(assetRoutes(db, opts.storageService));
   api.use(projectRoutes(db));
-  api.use(
-    issueRoutes(db, opts.storageService, {
-      feedbackExportService: opts.feedbackExportService,
-      pluginWorkerManager: workerManager,
-    }),
-  );
+  api.use(issueRoutes(db, opts.storageService, {
+    feedbackExportService: opts.feedbackExportService,
+    pluginWorkerManager: workerManager,
+  }));
   api.use(issueTreeControlRoutes(db));
   api.use(routineRoutes(db, { pluginWorkerManager: workerManager }));
   api.use(environmentRoutes(db, { pluginWorkerManager: workerManager }));
@@ -223,7 +223,6 @@ export async function createApp(
   api.use(sidebarPreferenceRoutes(db));
   api.use(inboxDismissalRoutes(db));
   api.use(instanceSettingsRoutes(db));
-  api.use(adapterRoutes());
   if (opts.databaseBackupService) {
     api.use(instanceDatabaseBackupRoutes(opts.databaseBackupService));
   }
@@ -266,6 +265,8 @@ export async function createApp(
       instanceInfo: {
         instanceId: opts.instanceId ?? "default",
         hostVersion: opts.hostVersion ?? "0.0.0",
+        deploymentMode: opts.deploymentMode,
+        deploymentExposure: opts.deploymentExposure,
       },
       buildHostHandlers: (pluginId, manifest) => {
         const notifyWorker = (method: string, params: unknown) => {
@@ -274,6 +275,7 @@ export async function createApp(
         };
         const services = buildHostServices(db, pluginId, manifest.id, eventBus, notifyWorker, {
           pluginWorkerManager: workerManager,
+          manifest,
         });
         hostServicesDisposers.set(pluginId, () => services.dispose());
         return createHostClientHandlers({
@@ -284,7 +286,17 @@ export async function createApp(
       },
     },
   );
-  api.use(pluginRoutes(db, loader, { scheduler, jobStore }, { workerManager }, { toolDispatcher }, { workerManager }));
+  api.use(
+    pluginRoutes(
+      db,
+      loader,
+      { scheduler, jobStore },
+      { workerManager },
+      { toolDispatcher },
+      { workerManager },
+    ),
+  );
+  api.use(adapterRoutes());
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,
@@ -297,16 +309,17 @@ export async function createApp(
   app.use("/api", (_req, res) => {
     res.status(404).json({ error: "API route not found" });
   });
-  app.use(
-    pluginUiStaticRoutes(db, {
-      localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
-    }),
-  );
+  app.use(pluginUiStaticRoutes(db, {
+    localPluginDir: opts.localPluginDir ?? DEFAULT_LOCAL_PLUGIN_DIR,
+  }));
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   if (opts.uiMode === "static") {
     // Try published location first (server/ui-dist/), then monorepo dev location (../../ui/dist)
-    const candidates = [path.resolve(__dirname, "../ui-dist"), path.resolve(__dirname, "../../ui/dist")];
+    const candidates = [
+      path.resolve(__dirname, "../ui-dist"),
+      path.resolve(__dirname, "../../ui/dist"),
+    ];
     const uiDist = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
     if (uiDist) {
       const indexHtml = applyUiBranding(fs.readFileSync(path.join(uiDist, "index.html"), "utf-8"));
@@ -403,49 +416,68 @@ export async function createApp(
 
   jobCoordinator.start();
   scheduler.start();
-  const feedbackExportTimer = opts.feedbackExportService
+  let feedbackExportShuttingDown = false;
+  let feedbackExportTimer: ReturnType<typeof setInterval> | null = null;
+  const disableFeedbackExportFlushes = () => {
+    feedbackExportShuttingDown = true;
+    if (feedbackExportTimer) {
+      clearInterval(feedbackExportTimer);
+      feedbackExportTimer = null;
+    }
+  };
+  const flushPendingFeedbackExports = async () => {
+    if (feedbackExportShuttingDown) return;
+    try {
+      await opts.feedbackExportService?.flushPendingFeedbackTraces();
+    } catch (err) {
+      if (isDatabaseConnectionUnavailableError(err)) {
+        disableFeedbackExportFlushes();
+        logger.warn({ err }, "Disabling pending feedback export flushes because the database is unavailable");
+        return;
+      }
+      logger.error({ err }, "Failed to flush pending feedback exports");
+    }
+  };
+
+  feedbackExportTimer = opts.feedbackExportService
     ? setInterval(() => {
-        void opts.feedbackExportService?.flushPendingFeedbackTraces().catch((err) => {
-          logger.error({ err }, "Failed to flush pending feedback exports");
-        });
-      }, FEEDBACK_EXPORT_FLUSH_INTERVAL_MS)
+      void flushPendingFeedbackExports();
+    }, FEEDBACK_EXPORT_FLUSH_INTERVAL_MS)
     : null;
   feedbackExportTimer?.unref?.();
   if (opts.feedbackExportService) {
-    void opts.feedbackExportService.flushPendingFeedbackTraces().catch((err) => {
-      logger.error({ err }, "Failed to flush pending feedback exports");
-    });
+    void flushPendingFeedbackExports();
   }
   void toolDispatcher.initialize().catch((err) => {
     logger.error({ err }, "Failed to initialize plugin tool dispatcher");
   });
-  const devWatcher =
-    opts.uiMode === "vite-dev"
-      ? createPluginDevWatcher(
-          lifecycle,
-          async (pluginId) => (await pluginRegistry.getById(pluginId))?.packagePath ?? null,
-        )
-      : null;
-  void loader
-    .loadAll()
-    .then((result) => {
-      if (!result) return;
-      for (const loaded of result.results) {
-        if (devWatcher && loaded.success && loaded.plugin.packagePath) {
-          devWatcher.watch(loaded.plugin.id, loaded.plugin.packagePath);
-        }
+  const devWatcher = createPluginDevWatcher(
+    lifecycle,
+    async (pluginId) => (await pluginRegistry.getById(pluginId))?.packagePath ?? null,
+  );
+  void loader.loadAll().then((result) => {
+    if (!result) return;
+    for (const loaded of result.results) {
+      if (devWatcher && loaded.success && loaded.plugin.packagePath) {
+        devWatcher.watch(loaded.plugin.id, loaded.plugin.packagePath);
       }
-    })
-    .catch((err) => {
-      logger.error({ err }, "Failed to load ready plugins on startup");
-    });
-  process.once("exit", () => {
-    if (feedbackExportTimer) clearInterval(feedbackExportTimer);
+    }
+  }).catch((err) => {
+    logger.error({ err }, "Failed to load ready plugins on startup");
+  });
+  let appServicesShutdown = false;
+  const shutdownAppServices = () => {
+    if (appServicesShutdown) return;
+    appServicesShutdown = true;
+    disableFeedbackExportFlushes();
     devWatcher?.close();
     viteHtmlRenderer?.dispose();
     hostServiceCleanup.disposeAll();
     hostServiceCleanup.teardown();
-  });
+  };
+  app.locals.paperclipShutdown = shutdownAppServices;
+
+  process.once("exit", shutdownAppServices);
   process.once("beforeExit", () => {
     void flushPluginLogBuffer();
   });
