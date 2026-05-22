@@ -129,7 +129,6 @@ export {
   PLUGIN_API_ROUTE_CHECKOUT_POLICIES,
   PLUGIN_EVENT_TYPES,
   PLUGIN_BRIDGE_ERROR_CODES,
-  ROLE_PERMISSIONS,
   type CompanyStatus,
   type DeploymentMode,
   type DeploymentExposure,

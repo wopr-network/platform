@@ -41,6 +41,18 @@ function useActiveCompanyPrefix(): string | null {
   return selectedCompany ? normalizeCompanyPrefix(selectedCompany.issuePrefix) : null;
 }
 
+// Re-export everything from react-router-dom with explicit exports for TypeScript
+export {
+  BrowserRouter,
+  Outlet,
+  Route,
+  Routes,
+  useBeforeUnload,
+  useLocation,
+  useNavigationType,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 export * from "react-router-dom";
 
 type CompanyLinkProps = React.ComponentProps<typeof RouterDom.Link> & {
