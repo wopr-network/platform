@@ -1,8 +1,27 @@
-import type { AgentAdapterType, PauseReason, AgentRole, AgentStatus } from "../constants.js";
-import type { CompanyMembership, PrincipalPermissionGrant } from "./access.js";
+import type {
+  AgentAdapterType,
+  ModelProfileKey,
+  PauseReason,
+  AgentRole,
+  AgentStatus,
+} from "../constants.js";
+import type {
+  CompanyMembership,
+  PrincipalPermissionGrant,
+} from "./access.js";
 
 export interface AgentPermissions {
   canCreateAgents: boolean;
+}
+
+export interface AgentModelProfileConfig {
+  enabled?: boolean;
+  label?: string;
+  adapterConfig: Record<string, unknown>;
+}
+
+export interface AgentRuntimeConfig extends Record<string, unknown> {
+  modelProfiles?: Partial<Record<ModelProfileKey, AgentModelProfileConfig>>;
 }
 
 export type AgentInstructionsBundleMode = "managed" | "external";
@@ -39,7 +58,7 @@ export interface AgentInstructionsBundle {
 
 export interface AgentAccessState {
   canAssignTasks: boolean;
-  taskAssignSource: "explicit_grant" | "agent_creator" | "ceo_role" | "none";
+  taskAssignSource: "simple_default" | "explicit_grant" | "agent_creator" | "ceo_role" | "none";
   membership: CompanyMembership | null;
   grants: PrincipalPermissionGrant[];
 }
@@ -64,7 +83,7 @@ export interface Agent {
   capabilities: string | null;
   adapterType: AgentAdapterType;
   adapterConfig: Record<string, unknown>;
-  runtimeConfig: Record<string, unknown>;
+  runtimeConfig: AgentRuntimeConfig;
   defaultEnvironmentId?: string | null;
   budgetMonthlyCents: number;
   spentMonthlyCents: number;

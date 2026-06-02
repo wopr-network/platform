@@ -45,6 +45,7 @@ export function companyService(db: Db) {
     issueCounter: companies.issueCounter,
     budgetMonthlyCents: companies.budgetMonthlyCents,
     spentMonthlyCents: companies.spentMonthlyCents,
+    attachmentMaxBytes: companies.attachmentMaxBytes,
     requireBoardApprovalForNewAgents: companies.requireBoardApprovalForNewAgents,
     feedbackDataSharingEnabled: companies.feedbackDataSharingEnabled,
     feedbackDataSharingConsentAt: companies.feedbackDataSharingConsentAt,
@@ -72,14 +73,17 @@ export function companyService(db: Db) {
     };
   }
 
-  async function getMonthlySpendByCompanyIds(companyIds: string[], database: Pick<Db, "select"> = db) {
+  async function getMonthlySpendByCompanyIds(
+    companyIds: string[],
+    database: Pick<Db, "select"> = db,
+  ) {
     if (companyIds.length === 0) return new Map<string, number>();
     const { start, end } = currentUtcMonthWindow();
     const rows = await database
-      .select({
-        companyId: costEvents.companyId,
+        .select({
+          companyId: costEvents.companyId,
           spentMonthlyCents: sql<number>`coalesce(sum(${costEvents.costCents}), 0)::double precision`,
-      })
+        })
       .from(costEvents)
       .where(
         and(
@@ -96,10 +100,7 @@ export function companyService(db: Db) {
     rows: T[],
     database: Pick<Db, "select"> = db,
   ) {
-    const spendByCompanyId = await getMonthlySpendByCompanyIds(
-      rows.map((row) => row.id),
-      database,
-    );
+    const spendByCompanyId = await getMonthlySpendByCompanyIds(rows.map((row) => row.id), database);
     return rows.map((row) => ({
       ...row,
       spentMonthlyCents: spendByCompanyId.get(row.id) ?? 0,
@@ -124,19 +125,18 @@ export function companyService(db: Db) {
   }
 
   function isIssuePrefixConflict(error: unknown) {
-    const constraint =
-      typeof error === "object" && error !== null && "constraint" in error
-        ? (error as { constraint?: string }).constraint
-        : typeof error === "object" && error !== null && "constraint_name" in error
-          ? (error as { constraint_name?: string }).constraint_name
-          : undefined;
-    return (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: string }).code === "23505" &&
-      constraint === "companies_issue_prefix_idx"
-    );
+    const seen = new Set<unknown>();
+    let current = error;
+    while (typeof current === "object" && current !== null && !seen.has(current)) {
+      seen.add(current);
+      const maybe = current as { code?: string; constraint?: string; constraint_name?: string; cause?: unknown };
+      const constraint = maybe.constraint ?? maybe.constraint_name;
+      if (maybe.code === "23505" && constraint === "companies_issue_prefix_idx") {
+        return true;
+      }
+      current = maybe.cause;
+    }
+    return false;
   }
 
   async function createCompanyWithUniquePrefix(data: typeof companies.$inferInsert) {
@@ -185,7 +185,10 @@ export function companyService(db: Db) {
       return enrichCompany(hydrated);
     },
 
-    update: (id: string, data: Partial<typeof companies.$inferInsert> & { logoAssetId?: string | null }) =>
+    update: (
+      id: string,
+      data: Partial<typeof companies.$inferInsert> & { logoAssetId?: string | null },
+    ) =>
       db.transaction(async (tx) => {
         const existing = await getCompanyQuery(tx)
           .where(eq(companies.id, id))
@@ -236,15 +239,10 @@ export function companyService(db: Db) {
           await tx.delete(assets).where(eq(assets.id, existing.logoAssetId));
         }
 
-        const [hydrated] = await hydrateCompanySpend(
-          [
-            {
-              ...updated,
-              logoAssetId: logoAssetId === undefined ? existing.logoAssetId : logoAssetId,
-            },
-          ],
-          tx,
-        );
+        const [hydrated] = await hydrateCompanySpend([{
+          ...updated,
+          logoAssetId: logoAssetId === undefined ? existing.logoAssetId : logoAssetId,
+        }], tx);
 
         return enrichCompany(hydrated);
       }),
@@ -269,7 +267,17 @@ export function companyService(db: Db) {
     remove: (id: string) =>
       db.transaction(async (tx) => {
         // Delete from child tables in dependency order
+        const companyRunIds = await tx
+          .select({ id: heartbeatRuns.id })
+          .from(heartbeatRuns)
+          .where(eq(heartbeatRuns.companyId, id));
+
         await tx.delete(heartbeatRunEvents).where(eq(heartbeatRunEvents.companyId, id));
+        if (companyRunIds.length > 0) {
+          await tx
+            .delete(heartbeatRunEvents)
+            .where(inArray(heartbeatRunEvents.runId, companyRunIds.map((run) => run.id)));
+        }
         await tx.delete(agentTaskSessions).where(eq(agentTaskSessions.companyId, id));
         await tx.delete(activityLog).where(eq(activityLog.companyId, id));
         await tx.delete(heartbeatRuns).where(eq(heartbeatRuns.companyId, id));
@@ -295,14 +303,23 @@ export function companyService(db: Db) {
         await tx.delete(goals).where(eq(goals.companyId, id));
         await tx.delete(projects).where(eq(projects.companyId, id));
         await tx.delete(agents).where(eq(agents.companyId, id));
-        const rows = await tx.delete(companies).where(eq(companies.id, id)).returning();
+        const rows = await tx
+          .delete(companies)
+          .where(eq(companies.id, id))
+          .returning();
         return rows[0] ?? null;
       }),
 
     stats: () =>
       Promise.all([
-        db.select({ companyId: agents.companyId, count: count() }).from(agents).groupBy(agents.companyId),
-        db.select({ companyId: issues.companyId, count: count() }).from(issues).groupBy(issues.companyId),
+        db
+          .select({ companyId: agents.companyId, count: count() })
+          .from(agents)
+          .groupBy(agents.companyId),
+        db
+          .select({ companyId: issues.companyId, count: count() })
+          .from(issues)
+          .groupBy(issues.companyId),
       ]).then(([agentRows, issueRows]) => {
         const result: Record<string, { agentCount: number; issueCount: number }> = {};
         for (const row of agentRows) {

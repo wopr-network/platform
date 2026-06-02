@@ -14,6 +14,7 @@ import { clearIssueExecutionRun, removeLiveRunById } from "../lib/optimistic-iss
 import { queryKeys } from "../lib/queryKeys";
 import { toCompanyRelativePath } from "../lib/company-routes";
 import { useLocation } from "../lib/router";
+import { buildSameOriginWebSocketUrl } from "../lib/websocket-url";
 
 const TOAST_COOLDOWN_WINDOW_MS = 10_000;
 const TOAST_COOLDOWN_MAX = 3;
@@ -44,7 +45,11 @@ function shortId(value: string) {
   return value.slice(0, 8);
 }
 
-function resolveAgentName(queryClient: QueryClient, companyId: string, agentId: string): string | null {
+function resolveAgentName(
+  queryClient: QueryClient,
+  companyId: string,
+  agentId: string,
+): string | null {
   const agents = queryClient.getQueryData<Agent[]>(queryKeys.agents.list(companyId));
   if (!agents) return null;
   const agent = agents.find((a) => a.id === agentId);
@@ -112,7 +117,9 @@ function resolveIssueQueryRefs(
   const refs = new Set<string>([issueId]);
   const detailIssue = queryClient.getQueryData<Issue>(queryKeys.issues.detail(issueId));
   const listIssues = queryClient.getQueryData<Issue[]>(queryKeys.issues.list(companyId));
-  const detailsIdentifier = readString(details?.identifier) ?? readString(details?.issueIdentifier);
+  const detailsIdentifier =
+    readString(details?.identifier) ??
+    readString(details?.issueIdentifier);
 
   if (detailsIdentifier) refs.add(detailsIdentifier);
 
@@ -150,7 +157,11 @@ function resolveIssueToastContext(
     readString(details?.issueIdentifier) ??
     cachedIssue?.identifier ??
     `Issue ${shortId(issueId)}`;
-  const title = readString(details?.title) ?? readString(details?.issueTitle) ?? cachedIssue?.title ?? null;
+  const title =
+    readString(details?.title) ??
+    readString(details?.issueTitle) ??
+    cachedIssue?.title ??
+    null;
   return {
     ref,
     title,
@@ -269,25 +280,29 @@ function invalidateVisibleIssueRunQueries(
 
   const status = readString(payload.status);
   if (runId && status && TERMINAL_RUN_STATUSES.has(status)) {
-    queryClient.setQueryData(
-      queryKeys.issues.liveRuns(context.routeIssueRef),
-      (current: LiveRunForIssue[] | undefined) => removeLiveRunById(current, runId),
-    );
-    queryClient.setQueryData(
-      queryKeys.issues.activeRun(context.routeIssueRef),
-      (current: ActiveRunForIssue | null | undefined) => (current?.id === runId ? null : current),
-    );
-    queryClient.setQueryData(
-      queryKeys.issues.detail(context.routeIssueRef),
-      (current: Issue | undefined) => clearIssueExecutionRun(current, runId),
-    );
+    for (const issueRef of context.issueRefs) {
+      queryClient.setQueryData(
+        queryKeys.issues.liveRuns(issueRef),
+        (current: LiveRunForIssue[] | undefined) => removeLiveRunById(current, runId),
+      );
+      queryClient.setQueryData(
+        queryKeys.issues.activeRun(issueRef),
+        (current: ActiveRunForIssue | null | undefined) => (current?.id === runId ? null : current),
+      );
+      queryClient.setQueryData(
+        queryKeys.issues.detail(issueRef),
+        (current: Issue | undefined) => clearIssueExecutionRun(current, runId),
+      );
+    }
   }
 
-  queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(context.routeIssueRef) });
-  queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(context.routeIssueRef) });
-  queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(context.routeIssueRef) });
-  queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(context.routeIssueRef) });
-  queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(context.routeIssueRef) });
+  for (const issueRef of context.issueRefs) {
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issueRef) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(issueRef) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.runs(issueRef) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.liveRuns(issueRef) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.issues.activeRun(issueRef) });
+  }
   return true;
 }
 
@@ -394,6 +409,12 @@ async function hydrateVisibleIssueComment(
 }
 
 const ISSUE_TOAST_ACTIONS = new Set(["issue.created", "issue.updated", "issue.comment_added"]);
+const ISSUE_DOCUMENT_ACTIVITY_ACTIONS = new Set([
+  "issue.document_created",
+  "issue.document_updated",
+  "issue.document_restored",
+  "issue.document_deleted",
+]);
 const AGENT_TOAST_STATUSES = new Set(["error"]);
 const RUN_TOAST_STATUSES = new Set(["failed", "timed_out", "cancelled"]);
 
@@ -496,7 +517,7 @@ function buildActivityToast(
       ? issue.title
         ? `${reopenedLabel} - ${issue.title}`
         : reopenedLabel
-      : (issue.title ?? undefined);
+      : issue.title ?? undefined;
   return {
     title,
     body: body ? truncate(body, 96) : undefined,
@@ -506,7 +527,9 @@ function buildActivityToast(
   };
 }
 
-function buildJoinRequestToast(payload: Record<string, unknown>): ToastInput | null {
+function buildJoinRequestToast(
+  payload: Record<string, unknown>,
+): ToastInput | null {
   const entityType = readString(payload.entityType);
   const action = readString(payload.action);
   const entityId = readString(payload.entityId);
@@ -539,7 +562,10 @@ function buildAgentStatusToast(
 
   const tone = status === "error" ? "error" : "info";
   const name = nameOf(agentId) ?? `Agent ${shortId(agentId)}`;
-  const title = status === "running" ? `${name} started` : `${name} errored`;
+  const title =
+    status === "running"
+      ? `${name} started`
+      : `${name} errored`;
 
   const agents = queryClient.getQueryData<Agent[]>(queryKeys.agents.list(companyId));
   const agent = agents?.find((a) => a.id === agentId);
@@ -568,12 +594,9 @@ function buildRunStatusToast(
   const name = nameOf(agentId) ?? `Agent ${shortId(agentId)}`;
   const tone = status === "succeeded" ? "success" : status === "cancelled" ? "warn" : "error";
   const statusLabel =
-    status === "succeeded"
-      ? "succeeded"
-      : status === "failed"
-        ? "failed"
-        : status === "timed_out"
-          ? "timed out"
+    status === "succeeded" ? "succeeded"
+      : status === "failed" ? "failed"
+        : status === "timed_out" ? "timed out"
           : "cancelled";
   const title = `${name} run ${statusLabel}`;
 
@@ -629,6 +652,14 @@ function invalidateActivityQueries(
   const action = readString(payload.action);
   const actorType = readString(payload.actorType);
   const actorId = readString(payload.actorId);
+  const details = readRecord(payload.details);
+
+  if (action?.startsWith("resource_membership.")) {
+    const targetUserId = readString(details?.userId);
+    if (!targetUserId || targetUserId === currentActor.userId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.resourceMemberships.mine(companyId) });
+    }
+  }
 
   if (entityType === "issue") {
     queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId) });
@@ -636,7 +667,6 @@ function invalidateActivityQueries(
     queryClient.invalidateQueries({ queryKey: queryKeys.issues.listTouchedByMe(companyId) });
     queryClient.invalidateQueries({ queryKey: queryKeys.issues.listUnreadTouchedByMe(companyId) });
     if (entityId) {
-      const details = readRecord(payload.details);
       const selfCommentActivity =
         ((action === "issue.comment_added") ||
           (action === "issue.updated" && readString(details?.source) === "comment")) &&
@@ -668,6 +698,17 @@ function invalidateActivityQueries(
         queryClient.invalidateQueries({ queryKey: queryKeys.issues.activity(ref), ...invalidationOptions });
         if (action === "issue.comment_added") {
           queryClient.invalidateQueries({ queryKey: queryKeys.issues.comments(ref), ...invalidationOptions });
+        }
+        if (action && ISSUE_DOCUMENT_ACTIVITY_ACTIONS.has(action)) {
+          const documentKey = readString(details?.key);
+          queryClient.invalidateQueries({ queryKey: queryKeys.issues.documents(ref), ...invalidationOptions });
+          if (documentKey) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.issues.document(ref, documentKey), ...invalidationOptions });
+            queryClient.invalidateQueries({ queryKey: queryKeys.issues.documentRevisions(ref, documentKey), ...invalidationOptions });
+          } else {
+            queryClient.invalidateQueries({ queryKey: ["issues", "document", ref], ...invalidationOptions });
+            queryClient.invalidateQueries({ queryKey: ["issues", "document-revisions", ref], ...invalidationOptions });
+          }
         }
         if (action?.startsWith("issue.thread_interaction_")) {
           queryClient.invalidateQueries({ queryKey: queryKeys.issues.interactions(ref), ...invalidationOptions });
@@ -785,7 +826,10 @@ function handleLiveEvent(
     invalidateVisibleIssueRunQueries(queryClient, pathname, payload);
     if (event.type === "heartbeat.run.status") {
       const toast = buildRunStatusToast(payload, nameOf);
-      if (toast && !shouldSuppressRunStatusToastForVisibleIssue(queryClient, pathname, payload)) {
+      if (
+        toast &&
+        !shouldSuppressRunStatusToastForVisibleIssue(queryClient, pathname, payload)
+      ) {
         gatedPushToast(gate, pushToast, "run-status", toast);
       }
     }
@@ -803,7 +847,10 @@ function handleLiveEvent(
     const agentId = readString(payload.agentId);
     if (agentId) queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentId) });
     const toast = buildAgentStatusToast(payload, nameOf, queryClient, expectedCompanyId);
-    if (toast && !shouldSuppressAgentStatusToastForVisibleIssue(queryClient, pathname, payload)) {
+    if (
+      toast &&
+      !shouldSuppressAgentStatusToastForVisibleIssue(queryClient, pathname, payload)
+    ) {
       gatedPushToast(gate, pushToast, "agent-status", toast);
     }
     return;
@@ -816,15 +863,24 @@ function handleLiveEvent(
     }
     const action = readString(payload.action);
     const toast =
-      buildActivityToast(queryClient, expectedCompanyId, payload, currentActor) ?? buildJoinRequestToast(payload);
-    if (toast && !shouldSuppressActivityToastForVisibleIssue(queryClient, pathname, payload)) {
+      buildActivityToast(queryClient, expectedCompanyId, payload, currentActor) ??
+      buildJoinRequestToast(payload);
+    if (
+      toast &&
+      !shouldSuppressActivityToastForVisibleIssue(queryClient, pathname, payload)
+    ) {
       gatedPushToast(gate, pushToast, `activity:${action ?? "unknown"}`, toast);
     }
   }
 }
 
-function resolveLiveCompanyId(selectedCompanyId: string | null, selectedCompanyLiveId: string | null): string | null {
-  return selectedCompanyId && selectedCompanyId === selectedCompanyLiveId ? selectedCompanyId : null;
+function resolveLiveCompanyId(
+  selectedCompanyId: string | null,
+  selectedCompanyLiveId: string | null,
+): string | null {
+  return selectedCompanyId && selectedCompanyId === selectedCompanyLiveId
+    ? selectedCompanyId
+    : null;
 }
 
 function resetSocketHandlers(target: LiveUpdatesSocketLike) {
@@ -931,9 +987,9 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const base = import.meta.env.BASE_URL.replace(/\/$/, "");
-      const url = `${protocol}://${window.location.host}${base}/api/companies/${encodeURIComponent(liveCompanyId)}/events/ws`;
+      const url = buildSameOriginWebSocketUrl(
+        `/api/companies/${encodeURIComponent(liveCompanyId)}/events/ws`,
+      );
       const nextSocket = new WebSocket(url);
       socket = nextSocket;
 

@@ -152,7 +152,11 @@ export interface ExecutionWorkspaceSummary {
   id: string;
   name: string;
   mode: Exclude<ExecutionWorkspaceMode, "inherit" | "reuse_existing" | "agent_default"> | "adapter_managed" | "cloud_sandbox";
+  status: ExecutionWorkspaceStatus;
+  cwd: string | null;
+  branchName: string | null;
   projectWorkspaceId: string | null;
+  lastUsedAt: Date;
 }
 
 export interface ExecutionWorkspace {

@@ -29,7 +29,7 @@ import { readdir, readFile, rm, stat } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { Db } from "@paperclipai/db";
 import type {
@@ -71,9 +71,44 @@ export const NPM_PLUGIN_PACKAGE_PREFIX = "paperclip-plugin-";
  *
  * @see PLUGIN_SPEC.md §8.1 — On-Disk Layout
  */
-export const DEFAULT_LOCAL_PLUGIN_DIR = path.join(os.homedir(), ".paperclip", "plugins");
+export const DEFAULT_LOCAL_PLUGIN_DIR = path.join(
+  os.homedir(),
+  ".paperclip",
+  "plugins",
+);
 
 const DEV_TSX_LOADER_PATH = path.resolve(__dirname, "../../../cli/node_modules/tsx/dist/loader.mjs");
+
+const ADAPTER_ENV_PASSTHROUGH = [
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "GOOGLE_API_KEY",
+  "GEMINI_API_KEY",
+  "OPENROUTER_API_KEY",
+];
+
+export function buildPluginWorkerEnv(input: {
+  manifest: Pick<PaperclipPluginManifestV1, "capabilities">;
+  instanceInfo: { deploymentMode?: string | null; deploymentExposure?: string | null };
+  processEnv?: NodeJS.ProcessEnv;
+}): Record<string, string> {
+  const processEnv = input.processEnv ?? process.env;
+  const env: Record<string, string> = {
+    PAPERCLIP_DEPLOYMENT_MODE: input.instanceInfo.deploymentMode ?? "",
+    PAPERCLIP_DEPLOYMENT_EXPOSURE: input.instanceInfo.deploymentExposure ?? "",
+  };
+  const canRegisterEnvironmentDrivers = Array.isArray(input.manifest.capabilities)
+    && input.manifest.capabilities.includes("environment.drivers.register");
+  if (!canRegisterEnvironmentDrivers) return env;
+
+  for (const key of ADAPTER_ENV_PASSTHROUGH) {
+    const value = processEnv[key];
+    if (value && value.trim().length > 0) {
+      env[key] = value;
+    }
+  }
+  return env;
+}
 
 // ---------------------------------------------------------------------------
 // Discovery result types
@@ -101,9 +136,9 @@ export interface DiscoveredPlugin {
  * @see PLUGIN_SPEC.md §8.1 — On-Disk Layout
  */
 export type PluginSource =
-  | "local-filesystem" // ~/.paperclip/plugins/ local directory
-  | "npm" // npm packages matching paperclip-plugin-* convention
-  | "registry"; // future: remote plugin registry URL
+  | "local-filesystem"  // ~/.paperclip/plugins/ local directory
+  | "npm"               // npm packages matching paperclip-plugin-* convention
+  | "registry";         // future: remote plugin registry URL
 
 type ParsedSemver = {
   major: number;
@@ -126,10 +161,7 @@ export interface PluginDiscoveryResult {
 
 function getDeclaredPageRoutePaths(manifest: PaperclipPluginManifestV1): string[] {
   return (manifest.ui?.slots ?? [])
-    .filter(
-      (slot): slot is PluginUiSlotDeclaration =>
-        slot.type === "page" && typeof slot.routePath === "string" && slot.routePath.length > 0,
-    )
+    .filter((slot): slot is PluginUiSlotDeclaration => slot.type === "page" && typeof slot.routePath === "string" && slot.routePath.length > 0)
     .map((slot) => slot.routePath!);
 }
 
@@ -247,6 +279,8 @@ export interface PluginRuntimeServices {
   instanceInfo: {
     instanceId: string;
     hostVersion: string;
+    deploymentMode?: "local_trusted" | "authenticated";
+    deploymentExposure?: "private" | "public";
   };
 }
 
@@ -392,10 +426,7 @@ export interface PluginLoader {
    *
    * @see PLUGIN_SPEC.md §25.3 — Upgrade Lifecycle
    */
-  upgradePlugin(
-    pluginId: string,
-    options: Omit<PluginInstallOptions, "installDir">,
-  ): Promise<{
+  upgradePlugin(pluginId: string, options: Omit<PluginInstallOptions, "installDir">): Promise<{
     oldManifest: PaperclipPluginManifestV1;
     newManifest: PaperclipPluginManifestV1;
     discovered: DiscoveredPlugin;
@@ -525,7 +556,9 @@ export function isPluginPackageName(name: string): boolean {
  * Read and parse a package.json from a directory path.
  * Returns null if no package.json exists.
  */
-async function readPackageJson(dir: string): Promise<Record<string, unknown> | null> {
+async function readPackageJson(
+  dir: string,
+): Promise<Record<string, unknown> | null> {
   const pkgPath = path.join(dir, "package.json");
   if (!existsSync(pkgPath)) return null;
 
@@ -545,10 +578,19 @@ async function readPackageJson(dir: string): Promise<Record<string, unknown> | n
  *
  * @see PLUGIN_SPEC.md §10 — Package Contract
  */
-function resolveManifestPath(packageRoot: string, pkgJson: Record<string, unknown>): string | null {
+function resolveManifestPath(
+  packageRoot: string,
+  pkgJson: Record<string, unknown>,
+): string | null {
   const paperclipPlugin = pkgJson["paperclipPlugin"];
-  if (paperclipPlugin !== null && typeof paperclipPlugin === "object" && !Array.isArray(paperclipPlugin)) {
-    const manifestRelPath = (paperclipPlugin as Record<string, unknown>)["manifest"];
+  if (
+    paperclipPlugin !== null &&
+    typeof paperclipPlugin === "object" &&
+    !Array.isArray(paperclipPlugin)
+  ) {
+    const manifestRelPath = (paperclipPlugin as Record<string, unknown>)[
+      "manifest"
+    ];
     if (typeof manifestRelPath === "string") {
       // NOTE: the resolved path is returned as-is even if the file does not yet
       // exist on disk (e.g. the package has not been built).  Callers MUST guard
@@ -573,7 +615,9 @@ function resolveManifestPath(packageRoot: string, pkgJson: Record<string, unknow
 }
 
 function parseSemver(version: string): ParsedSemver | null {
-  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+  const match = version.match(
+    /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/,
+  );
   if (!match) return null;
 
   return {
@@ -605,9 +649,9 @@ function compareSemver(left: string, right: string): number {
     throw new Error(`Invalid semver comparison: '${left}' vs '${right}'`);
   }
 
-  const coreOrder = (["major", "minor", "patch"] as const)
-    .map((key) => leftParsed[key] - rightParsed[key])
-    .find((delta) => delta !== 0);
+  const coreOrder = (
+    ["major", "minor", "patch"] as const
+  ).map((key) => leftParsed[key] - rightParsed[key]).find((delta) => delta !== 0);
   if (coreOrder) {
     return coreOrder;
   }
@@ -647,7 +691,10 @@ export function getPluginUiContributionMetadata(
   manifest: PaperclipPluginManifestV1,
 ): PluginUiContributionMetadata | null {
   const slots = manifest.ui?.slots ?? [];
-  const launchers = [...(manifest.launchers ?? []), ...(manifest.ui?.launchers ?? [])];
+  const launchers = [
+    ...(manifest.launchers ?? []),
+    ...(manifest.ui?.launchers ?? []),
+  ];
 
   if (slots.length === 0 && launchers.length === 0) {
     return null;
@@ -778,7 +825,9 @@ export function pluginLoader(
    * @param installOptions - Options specifying the package to fetch.
    * @returns A `DiscoveredPlugin` object containing the validated manifest.
    */
-  async function fetchAndValidate(installOptions: PluginInstallOptions): Promise<DiscoveredPlugin> {
+  async function fetchAndValidate(
+    installOptions: PluginInstallOptions,
+  ): Promise<DiscoveredPlugin> {
     const { packageName, localPath, version, installDir } = installOptions;
 
     if (!packageName && !localPath) {
@@ -799,7 +848,10 @@ export function pluginLoader(
       }
       resolvedPackagePath = absLocalPath;
       const pkgJson = await readPackageJson(absLocalPath);
-      resolvedPackageName = typeof pkgJson?.["name"] === "string" ? pkgJson["name"] : path.basename(absLocalPath);
+      resolvedPackageName =
+        typeof pkgJson?.["name"] === "string"
+          ? pkgJson["name"]
+          : path.basename(absLocalPath);
 
       log.info(
         { localPath: absLocalPath, packageName: resolvedPackageName },
@@ -809,7 +861,10 @@ export function pluginLoader(
       // npm install
       const spec = version ? `${packageName}@${version}` : packageName!;
 
-      log.info({ spec, installDir: targetInstallDir }, "plugin-loader: fetching plugin from npm");
+      log.info(
+        { spec, installDir: targetInstallDir },
+        "plugin-loader: fetching plugin from npm",
+      );
 
       try {
         // Use execFile (not exec) to avoid shell injection from package name/version.
@@ -837,7 +892,9 @@ export function pluginLoader(
       }
 
       if (!existsSync(resolvedPackagePath)) {
-        throw new Error(`Package directory not found after installation: ${resolvedPackagePath}`);
+        throw new Error(
+          `Package directory not found after installation: ${resolvedPackagePath}`,
+        );
       }
     }
 
@@ -901,26 +958,81 @@ export function pluginLoader(
    * Attempt to load and validate a plugin manifest from a resolved path.
    * Returns the manifest on success or throws with a descriptive error.
    */
-  async function loadManifestFromPath(manifestPath: string): Promise<PaperclipPluginManifestV1> {
+  async function loadManifestFromPath(
+    manifestPath: string,
+  ): Promise<PaperclipPluginManifestV1> {
     let raw: unknown;
 
     try {
       // Dynamic import works for both .js (ESM) and .cjs (CJS) manifests
-      const mod = (await import(manifestPath)) as Record<string, unknown>;
+      const manifestUrl = pathToFileURL(manifestPath);
+      const manifestStat = await stat(manifestPath);
+      manifestUrl.searchParams.set("mtime", String(Math.trunc(manifestStat.mtimeMs)));
+      const mod = await import(manifestUrl.href) as Record<string, unknown>;
       // The manifest may be the default export or the module itself
       raw = mod["default"] ?? mod;
     } catch (err) {
-      throw new Error(`Failed to load manifest module at ${manifestPath}: ${String(err)}`);
+      throw new Error(
+        `Failed to load manifest module at ${manifestPath}: ${String(err)}`,
+      );
     }
 
     return manifestValidator.parseOrThrow(raw);
+  }
+
+  async function loadManifestFromPackageRoot(
+    packageRoot: string,
+  ): Promise<PaperclipPluginManifestV1 | null> {
+    const pkgJson = await readPackageJson(packageRoot);
+    if (!pkgJson) return null;
+
+    const manifestPath = resolveManifestPath(packageRoot, pkgJson);
+    if (!manifestPath || !existsSync(manifestPath)) return null;
+
+    return loadManifestFromPath(manifestPath);
+  }
+
+  async function refreshPluginManifestFromPackage(
+    plugin: PluginRecord,
+    packageRoot: string,
+  ): Promise<PluginRecord> {
+    const manifest = await loadManifestFromPackageRoot(packageRoot);
+    if (!manifest) {
+      throw new Error(`Plugin package ${plugin.packageName} no longer exposes a Paperclip manifest`);
+    }
+    if (manifest.id !== plugin.pluginKey) {
+      throw new Error(
+        `Plugin manifest ID '${manifest.id}' does not match installed plugin '${plugin.pluginKey}'`,
+      );
+    }
+
+    if (JSON.stringify(manifest) === JSON.stringify(plugin.manifestJson)) {
+      return plugin;
+    }
+
+    await registry.update(plugin.id, {
+      packageName: plugin.packageName,
+      version: manifest.version,
+      manifest,
+    });
+
+    return {
+      ...plugin,
+      version: manifest.version,
+      apiVersion: manifest.apiVersion,
+      categories: manifest.categories,
+      manifestJson: manifest,
+    };
   }
 
   /**
    * Build a DiscoveredPlugin from a resolved package directory, or null
    * if the package is not a Paperclip plugin.
    */
-  async function buildDiscoveredPlugin(packagePath: string, source: PluginSource): Promise<DiscoveredPlugin | null> {
+  async function buildDiscoveredPlugin(
+    packagePath: string,
+    source: PluginSource,
+  ): Promise<DiscoveredPlugin | null> {
     const pkgJson = await readPackageJson(packagePath);
     if (!pkgJson) return null;
 
@@ -959,7 +1071,9 @@ export function pluginLoader(
       };
     } catch (err) {
       // Rethrow with context — callers catch and route to the errors array
-      throw new Error(`Plugin ${packageName}: ${String(err)}`);
+      throw new Error(
+        `Plugin ${packageName}: ${String(err)}`,
+      );
     }
   }
 
@@ -1028,7 +1142,10 @@ export function pluginLoader(
       const errors: Array<{ packagePath: string; packageName: string; error: string }> = [];
 
       if (!existsSync(scanDir)) {
-        log.debug({ dir: scanDir }, "plugin-loader: local plugin directory does not exist, skipping");
+        log.debug(
+          { dir: scanDir },
+          "plugin-loader: local plugin directory does not exist, skipping",
+        );
         return { discovered, errors, sources: ["local-filesystem"] };
       }
 
@@ -1083,7 +1200,8 @@ export function pluginLoader(
           if (plugin) discovered.push(plugin);
         } catch (err) {
           const pkgJson = await readPackageJson(entryPath);
-          const packageName = typeof pkgJson?.["name"] === "string" ? pkgJson["name"] : entry;
+          const packageName =
+            typeof pkgJson?.["name"] === "string" ? pkgJson["name"] : entry;
           errors.push({ packagePath: entryPath, packageName, error: String(err) });
         }
       }
@@ -1176,7 +1294,8 @@ export function pluginLoader(
             if (plugin) discovered.push(plugin);
           } catch (err) {
             const pkgJson = await readPackageJson(entryPath);
-            const packageName = typeof pkgJson?.["name"] === "string" ? pkgJson["name"] : entry;
+            const packageName =
+              typeof pkgJson?.["name"] === "string" ? pkgJson["name"] : entry;
             errors.push({ packagePath: entryPath, packageName, error: String(err) });
           }
         }
@@ -1218,22 +1337,43 @@ export function pluginLoader(
 
     async installPlugin(installOptions: PluginInstallOptions): Promise<DiscoveredPlugin> {
       const discovered = await fetchAndValidate(installOptions);
+      const manifest = discovered.manifest!;
 
-      // Step 6: Persist install record in Postgres (include packagePath for local installs so the worker can be resolved)
-      await registry.install(
-        {
-          packageName: discovered.packageName,
-          packagePath: discovered.source === "local-filesystem" ? discovered.packagePath : undefined,
-        },
-        discovered.manifest!,
-      );
+      // Step 6: Persist install record and apply plugin-owned schema migrations
+      // in one database transaction. If migration validation fails, the plugin
+      // row, namespace record, migration ledger, and created schema all roll back.
+      const installDb = manifest.database ? migrationDb : db;
+      await installDb.transaction(async (tx) => {
+        const txDb = tx as unknown as Db;
+        const txRegistry = pluginRegistryService(txDb);
+        const installed = await txRegistry.install(
+          {
+            packageName: discovered.packageName,
+            packagePath: discovered.source === "local-filesystem" ? discovered.packagePath : undefined,
+          },
+          manifest,
+        );
+
+        if (!installed) {
+          throw new Error(`Plugin install did not return a registry row: ${manifest.id}`);
+        }
+
+        if (manifest.database) {
+          await pluginDatabaseService(txDb).applyMigrations(
+            installed.id,
+            manifest,
+            discovered.packagePath,
+            { persistFailure: false },
+          );
+        }
+      });
 
       log.info(
         {
-          pluginId: discovered.manifest!.id,
+          pluginId: manifest.id,
           packageName: discovered.packageName,
           version: discovered.version,
-          capabilities: discovered.manifest!.capabilities,
+          capabilities: manifest.capabilities,
         },
         "plugin-loader: plugin installed successfully",
       );
@@ -1284,7 +1424,10 @@ export function pluginLoader(
         version,
       } = upgradeOptions;
 
-      log.info({ pluginId, packageName, version, localPath }, "plugin-loader: upgrading plugin");
+      log.info(
+        { pluginId, packageName, version, localPath },
+        "plugin-loader: upgrading plugin",
+      );
 
       // 1. Fetch/Install the new version
       const discovered = await fetchAndValidate({
@@ -1434,10 +1577,15 @@ export function pluginLoader(
         return { total: 0, succeeded: 0, failed: 0, results: [] };
       }
 
-      log.info({ count: readyPlugins.length }, "plugin-loader: found ready plugins to load");
+      log.info(
+        { count: readyPlugins.length },
+        "plugin-loader: found ready plugins to load",
+      );
 
       // Load plugins in parallel
-      const results = await Promise.allSettled(readyPlugins.map((plugin) => activatePlugin(plugin)));
+      const results = await Promise.allSettled(
+        readyPlugins.map((plugin) => activatePlugin(plugin))
+      );
 
       const loadResults = results.map((r, i) => {
         if (r.status === "fulfilled") return r.value;
@@ -1514,7 +1662,8 @@ export function pluginLoader(
 
       if (plugin.status !== "ready") {
         throw new Error(
-          `Cannot load plugin in status '${plugin.status}'. ` + `Plugin must be in 'installed' or 'ready' status.`,
+          `Cannot load plugin in status '${plugin.status}'. ` +
+            `Plugin must be in 'installed' or 'ready' status.`,
         );
       }
 
@@ -1527,12 +1676,22 @@ export function pluginLoader(
 
     async unloadSingle(pluginId: string, pluginKey: string): Promise<void> {
       if (!runtimeServices) {
-        throw new Error("Cannot unloadSingle: no PluginRuntimeServices provided.");
+        throw new Error(
+          "Cannot unloadSingle: no PluginRuntimeServices provided.",
+        );
       }
 
-      log.info({ pluginId, pluginKey }, "plugin-loader: unloading single plugin");
+      log.info(
+        { pluginId, pluginKey },
+        "plugin-loader: unloading single plugin",
+      );
 
-      const { workerManager, eventBus, jobScheduler, toolDispatcher } = runtimeServices;
+      const {
+        workerManager,
+        eventBus,
+        jobScheduler,
+        toolDispatcher,
+      } = runtimeServices;
 
       // 1. Unregister from job scheduler (cancels in-flight runs)
       try {
@@ -1562,7 +1721,10 @@ export function pluginLoader(
         );
       }
 
-      log.info({ pluginId, pluginKey }, "plugin-loader: plugin unloaded successfully");
+      log.info(
+        { pluginId, pluginKey },
+        "plugin-loader: plugin unloaded successfully",
+      );
     },
 
     // -----------------------------------------------------------------------
@@ -1571,7 +1733,9 @@ export function pluginLoader(
 
     async shutdownAll(): Promise<void> {
       if (!runtimeServices) {
-        throw new Error("Cannot shutdownAll: no PluginRuntimeServices provided.");
+        throw new Error(
+          "Cannot shutdownAll: no PluginRuntimeServices provided.",
+        );
       }
 
       log.info("plugin-loader: shutting down all plugins");
@@ -1601,9 +1765,10 @@ export function pluginLoader(
    * `error` in the database when activation fails.
    */
   async function activatePlugin(plugin: PluginRecord): Promise<PluginLoadResult> {
-    const manifest = plugin.manifestJson;
     const pluginId = plugin.id;
     const pluginKey = plugin.pluginKey;
+    let activePlugin = plugin;
+    let manifest = activePlugin.manifestJson;
 
     const registered: PluginLoadResult["registered"] = {
       worker: false,
@@ -1635,13 +1800,18 @@ export function pluginLoader(
     } = runtimeServices;
 
     try {
-      log.info({ pluginId, pluginKey, version: plugin.version }, "plugin-loader: activating plugin");
+      log.info(
+        { pluginId, pluginKey, version: plugin.version },
+        "plugin-loader: activating plugin",
+      );
 
       // ------------------------------------------------------------------
       // 1. Resolve worker entrypoint
       // ------------------------------------------------------------------
-      const workerEntrypoint = resolveWorkerEntrypoint(plugin, localPluginDir);
-      const packageRoot = resolvePluginPackageRoot(plugin, localPluginDir);
+      const packageRoot = resolvePluginPackageRoot(activePlugin, localPluginDir);
+      activePlugin = await refreshPluginManifestFromPackage(activePlugin, packageRoot);
+      manifest = activePlugin.manifestJson;
+      const workerEntrypoint = resolveWorkerEntrypoint(activePlugin, localPluginDir);
 
       // ------------------------------------------------------------------
       // 2. Apply restricted database migrations before worker startup
@@ -1681,19 +1851,23 @@ export function pluginLoader(
         databaseNamespace,
         hostHandlers,
         autoRestart: true,
+        env: buildPluginWorkerEnv({ manifest, instanceInfo }),
       };
 
       // Repo-local plugin installs can resolve workspace TS sources at runtime
       // (for example @paperclipai/shared exports). Run those workers through
       // the tsx loader so first-party example plugins work in development.
-      if (plugin.packagePath && existsSync(DEV_TSX_LOADER_PATH)) {
+      if (activePlugin.packagePath && existsSync(DEV_TSX_LOADER_PATH)) {
         workerOptions.execArgv = ["--import", DEV_TSX_LOADER_PATH];
       }
 
       await workerManager.startWorker(pluginId, workerOptions);
       registered.worker = true;
 
-      log.info({ pluginId, pluginKey }, "plugin-loader: worker started");
+      log.info(
+        { pluginId, pluginKey },
+        "plugin-loader: worker started",
+      );
 
       // ------------------------------------------------------------------
       // 6. Sync job declarations and register with scheduler
@@ -1727,7 +1901,10 @@ export function pluginLoader(
       const _scopedBus = eventBus.forPlugin(pluginKey);
       registered.eventSubscriptions = eventBus.subscriptionCount(pluginKey);
 
-      log.debug({ pluginId, pluginKey }, "plugin-loader: event bus scoped handle ready");
+      log.debug(
+        { pluginId, pluginKey },
+        "plugin-loader: event bus scoped handle ready",
+      );
 
       // ------------------------------------------------------------------
       // 7. Register webhook endpoints (manifest-declared)
@@ -1758,7 +1935,10 @@ export function pluginLoader(
         toolDispatcher.registerPluginTools(pluginKey, manifest);
         registered.tools = toolDeclarations.length;
 
-        log.info({ pluginId, pluginKey, tools: toolDeclarations.length }, "plugin-loader: agent tools registered");
+        log.info(
+          { pluginId, pluginKey, tools: toolDeclarations.length },
+          "plugin-loader: agent tools registered",
+        );
       }
 
       // ------------------------------------------------------------------
@@ -1768,17 +1948,20 @@ export function pluginLoader(
         {
           pluginId,
           pluginKey,
-          version: plugin.version,
+          version: activePlugin.version,
           registered,
         },
         "plugin-loader: plugin activated successfully",
       );
 
-      return { plugin, success: true, registered };
+      return { plugin: activePlugin, success: true, registered };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
 
-      log.error({ pluginId, pluginKey, err: errorMessage }, "plugin-loader: failed to activate plugin");
+      log.error(
+        { pluginId, pluginKey, err: errorMessage },
+        "plugin-loader: failed to activate plugin",
+      );
 
       // Mark the plugin as errored in the database so it is not retried
       // automatically on next startup without operator intervention.
@@ -1795,7 +1978,7 @@ export function pluginLoader(
       }
 
       return {
-        plugin,
+        plugin: activePlugin,
         success: false,
         error: errorMessage,
         registered,

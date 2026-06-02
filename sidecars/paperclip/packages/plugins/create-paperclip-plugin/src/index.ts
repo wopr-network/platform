@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -42,9 +41,7 @@ function packageToManifestId(pluginName: string): string {
 
 /** Build a human-readable display name from package name tokens. */
 function makeDisplayName(pluginName: string): string {
-  const raw = packageToDirName(pluginName)
-    .replace(/[._-]+/g, " ")
-    .trim();
+  const raw = packageToDirName(pluginName).replace(/[._-]+/g, " ").trim();
   return raw
     .split(/\s+/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -62,6 +59,11 @@ function quote(value: string): string {
 
 function toPosixPath(value: string): string {
   return value.split(path.sep).join("/");
+}
+
+export function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_/:=.,@%+-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\"'\"'")}'`;
 }
 
 function formatFileDependency(absPath: string): string {
@@ -166,30 +168,30 @@ export function scaffoldPluginProject(options: ScaffoldPluginOptions): string {
       dev: "node ./esbuild.config.mjs --watch",
       "dev:ui": "paperclip-plugin-dev-server --root . --ui-dir dist/ui --port 4177",
       test: "vitest run --config ./vitest.config.ts",
-      typecheck: "tsc --noEmit",
+      typecheck: "tsc --noEmit"
     },
     paperclipPlugin: {
       manifest: "./dist/manifest.js",
       worker: "./dist/worker.js",
-      ui: "./dist/ui/",
+      ui: "./dist/ui/"
     },
     keywords: ["paperclip", "plugin", category],
     author,
     license: "MIT",
     ...(packedSharedTarball
       ? {
-          pnpm: {
-            overrides: {
-              "@paperclipai/shared": `file:${toPosixPath(path.relative(outputDir, packedSharedTarball))}`,
-            },
+        pnpm: {
+          overrides: {
+            "@paperclipai/shared": `file:${toPosixPath(path.relative(outputDir, packedSharedTarball))}`,
           },
-        }
+        },
+      }
       : {}),
     devDependencies: {
       ...(packedSharedTarball
         ? {
-            "@paperclipai/shared": `file:${toPosixPath(path.relative(outputDir, packedSharedTarball))}`,
-          }
+          "@paperclipai/shared": `file:${toPosixPath(path.relative(outputDir, packedSharedTarball))}`,
+        }
         : {}),
       "@paperclipai/plugin-sdk": sdkDependency,
       "@rollup/plugin-node-resolve": "^16.0.1",
@@ -200,11 +202,11 @@ export function scaffoldPluginProject(options: ScaffoldPluginOptions): string {
       rollup: "^4.38.0",
       tslib: "^2.8.1",
       typescript: "^5.7.3",
-      vitest: "^3.0.5",
+      vitest: "^3.0.5"
     },
     peerDependencies: {
-      react: ">=18",
-    },
+      react: ">=18"
+    }
   };
 
   writeFile(path.join(outputDir, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`);
@@ -222,10 +224,10 @@ export function scaffoldPluginProject(options: ScaffoldPluginOptions): string {
       declarationMap: true,
       sourceMap: true,
       outDir: "dist",
-      rootDir: ".",
+      rootDir: "."
     },
     include: ["src", "tests"],
-    exclude: ["dist", "node_modules"],
+    exclude: ["dist", "node_modules"]
   };
 
   writeFile(path.join(outputDir, "tsconfig.json"), `${JSON.stringify(tsconfig, null, 2)}\n`);
@@ -314,7 +316,8 @@ const manifest: PaperclipPluginManifestV1 = {
   capabilities: [
     "environment.drivers.register",
     "plugin.state.read",
-    "plugin.state.write"
+    "plugin.state.write",
+    "ui.dashboardWidget.register"
   ],
   entrypoints: {
     worker: "./dist/worker.js",
@@ -469,6 +472,11 @@ const BASE_PARAMS = {
 };
 
 describe("environment plugin scaffold", () => {
+  it("declares capabilities for its manifest features", () => {
+    expect(manifest.capabilities).toContain("environment.drivers.register");
+    expect(manifest.capabilities).toContain("ui.dashboardWidget.register");
+  });
+
   it("validates config", async () => {
     const driver = createFakeEnvironmentDriver({ driverKey: BASE_PARAMS.driverKey });
     const harness = createEnvironmentTestHarness({ manifest, environmentDriver: driver });
@@ -520,9 +528,9 @@ describe("environment plugin scaffold", () => {
 `,
     );
   } else {
-  writeFile(
-    path.join(outputDir, "src", "manifest.ts"),
-    `import type { PaperclipPluginManifestV1 } from "@paperclipai/plugin-sdk";
+    writeFile(
+      path.join(outputDir, "src", "manifest.ts"),
+      `import type { PaperclipPluginManifestV1 } from "@paperclipai/plugin-sdk";
 
 const manifest: PaperclipPluginManifestV1 = {
   id: ${quote(manifestId)},
@@ -535,7 +543,8 @@ const manifest: PaperclipPluginManifestV1 = {
   capabilities: [
     "events.subscribe",
     "plugin.state.read",
-    "plugin.state.write"
+    "plugin.state.write",
+    "ui.dashboardWidget.register"
   ],
   entrypoints: {
     worker: "./dist/worker.js",
@@ -555,11 +564,11 @@ const manifest: PaperclipPluginManifestV1 = {
 
 export default manifest;
 `,
-  );
+    );
 
-  writeFile(
-    path.join(outputDir, "src", "worker.ts"),
-    `import { definePlugin, runWorker } from "@paperclipai/plugin-sdk";
+    writeFile(
+      path.join(outputDir, "src", "worker.ts"),
+      `import { definePlugin, runWorker } from "@paperclipai/plugin-sdk";
 
 const plugin = definePlugin({
   async setup(ctx) {
@@ -587,11 +596,11 @@ const plugin = definePlugin({
 export default plugin;
 runWorker(plugin, import.meta.url);
 `,
-  );
+    );
 
-  writeFile(
-    path.join(outputDir, "src", "ui", "index.tsx"),
-    `import { usePluginAction, usePluginData, type PluginWidgetProps } from "@paperclipai/plugin-sdk/ui";
+    writeFile(
+      path.join(outputDir, "src", "ui", "index.tsx"),
+      `import { usePluginAction, usePluginData, type PluginWidgetProps } from "@paperclipai/plugin-sdk/ui";
 
 type HealthData = {
   status: "ok" | "degraded" | "error";
@@ -615,16 +624,21 @@ export function DashboardWidget(_props: PluginWidgetProps) {
   );
 }
 `,
-  );
+    );
 
-  writeFile(
-    path.join(outputDir, "tests", "plugin.spec.ts"),
-    `import { describe, expect, it } from "vitest";
+    writeFile(
+      path.join(outputDir, "tests", "plugin.spec.ts"),
+      `import { describe, expect, it } from "vitest";
 import { createTestHarness } from "@paperclipai/plugin-sdk/testing";
 import manifest from "../src/manifest.js";
 import plugin from "../src/worker.js";
 
 describe("plugin scaffold", () => {
+  it("declares capabilities for its manifest features", () => {
+    expect(manifest.capabilities).toContain("events.subscribe");
+    expect(manifest.capabilities).toContain("ui.dashboardWidget.register");
+  });
+
   it("registers data + actions and handles events", async () => {
     const harness = createTestHarness({ manifest, capabilities: [...manifest.capabilities, "events.emit"] });
     await plugin.definition.setup(harness.ctx);
@@ -640,7 +654,7 @@ describe("plugin scaffold", () => {
   });
 });
 `,
-  );
+    );
   }
 
   writeFile(
@@ -658,18 +672,19 @@ pnpm dev:ui         # local dev server with hot-reload events
 pnpm test
 \`\`\`
 
-${
-  sdkDependency.startsWith("file:")
-    ? `This scaffold snapshots \`@paperclipai/plugin-sdk\` and \`@paperclipai/shared\` from a local Paperclip checkout at:\n\n\`${toPosixPath(localSdkPath)}\`\n\nThe packed tarballs live in \`.paperclip-sdk/\` for local development. Before publishing this plugin, switch those dependencies to published package versions once they are available on npm.\n\n`
-    : ""
-}
+\`pnpm dev\` rebuilds the worker, manifest, and UI bundles into \`dist/\`.
+When this package is installed from a local path, Paperclip watches that rebuilt
+output and reloads the plugin worker. Local installs run trusted code from this
+folder on your machine.
+
+${sdkDependency.startsWith("file:")
+  ? `This scaffold snapshots \`@paperclipai/plugin-sdk\` and \`@paperclipai/shared\` from a local Paperclip checkout at:\n\n\`${toPosixPath(localSdkPath)}\`\n\nThe packed tarballs live in \`.paperclip-sdk/\` for local development. Before publishing this plugin, switch those dependencies to published package versions once they are available on npm.\n\n`
+  : ""}
 
 ## Install Into Paperclip
 
 \`\`\`bash
-curl -X POST http://127.0.0.1:3100/api/plugins/install \\
-  -H "Content-Type: application/json" \\
-  -d '{"packageName":"${toPosixPath(outputDir)}","isLocalPath":true}'
+paperclipai plugin install ${shellQuote(toPosixPath(outputDir))}
 \`\`\`
 
 ## Build Options
@@ -682,44 +697,4 @@ curl -X POST http://127.0.0.1:3100/api/plugins/install \\
   writeFile(path.join(outputDir, ".gitignore"), "dist\nnode_modules\n.paperclip-sdk\n");
 
   return outputDir;
-}
-
-function parseArg(name: string): string | undefined {
-  const index = process.argv.indexOf(name);
-  if (index === -1) return undefined;
-  return process.argv[index + 1];
-}
-
-/** CLI wrapper for `scaffoldPluginProject`. */
-function runCli() {
-  const pluginName = process.argv[2];
-  if (!pluginName) {
-    // eslint-disable-next-line no-console
-    console.error(
-      "Usage: create-paperclip-plugin <name> [--template default|connector|workspace] [--output <dir>] [--sdk-path <paperclip-sdk-path>]",
-    );
-    process.exit(1);
-  }
-
-  const template = (parseArg("--template") ?? "default") as PluginTemplate;
-  const outputRoot = parseArg("--output") ?? process.cwd();
-  const targetDir = path.resolve(outputRoot, packageToDirName(pluginName));
-
-  const out = scaffoldPluginProject({
-    pluginName,
-    outputDir: targetDir,
-    template,
-    displayName: parseArg("--display-name"),
-    description: parseArg("--description"),
-    author: parseArg("--author"),
-    category: parseArg("--category") as ScaffoldPluginOptions["category"] | undefined,
-    sdkPath: parseArg("--sdk-path"),
-  });
-
-  // eslint-disable-next-line no-console
-  console.log(`Created plugin scaffold at ${out}`);
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runCli();
 }

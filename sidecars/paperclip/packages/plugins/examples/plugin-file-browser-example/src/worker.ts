@@ -9,10 +9,8 @@ const WINDOWS_DRIVE_PATH_PATTERN = /^[A-Za-z]:[\\/]/;
 
 function looksLikePath(value: string): boolean {
   const normalized = value.trim();
-  return (
-    (PATH_LIKE_PATTERN.test(normalized) || WINDOWS_DRIVE_PATH_PATTERN.test(normalized)) &&
-    !UUID_PATTERN.test(normalized)
-  );
+  return (PATH_LIKE_PATTERN.test(normalized) || WINDOWS_DRIVE_PATH_PATTERN.test(normalized))
+    && !UUID_PATTERN.test(normalized);
 }
 
 function sanitizeWorkspacePath(pathValue: string): string {
@@ -36,8 +34,7 @@ function resolveWorkspace(workspacePath: string, requestedPath?: string): string
  * extensions (e.g. `README.md`).  The file-extension check in
  * `extractFilePaths` filters out non-file matches.
  */
-const FILE_PATH_REGEX =
-  /(?:^|[\s(`"'])([^\s,;)}`"'>\]]*\/[^\s,;)}`"'>\]]+|[.\/~][^\s,;)}`"'>\]]+|[a-zA-Z0-9_-]+\.[a-zA-Z0-9]{1,10}(?:\/[^\s,;)}`"'>\]]+)?)/g;
+const FILE_PATH_REGEX = /(?:^|[\s(`"'])([^\s,;)}`"'>\]]*\/[^\s,;)}`"'>\]]+|[.\/~][^\s,;)}`"'>\]]+|[a-zA-Z0-9_-]+\.[a-zA-Z0-9]{1,10}(?:\/[^\s,;)}`"'>\]]+)?)/g;
 
 /** Common file extensions to recognise path-like tokens as actual file references. */
 const FILE_EXTENSION_REGEX = /\.[a-zA-Z0-9]{1,10}$/;
@@ -109,7 +106,7 @@ const plugin = definePlugin({
       }));
     });
 
-    ctx.data.register("fileList", async (params: Record<string, unknown>) => {
+    async function readFileList(params: Record<string, unknown>) {
       const projectId = params.projectId as string;
       const companyId = typeof params.companyId === "string" ? params.companyId : "";
       const workspaceId = params.workspaceId as string;
@@ -128,89 +125,99 @@ const plugin = definePlugin({
         return { entries: [] };
       }
       const names = fs.readdirSync(dirPath).sort((a, b) => a.localeCompare(b));
-      const entries = names
-        .map((name) => {
-          const full = path.join(dirPath, name);
-          const stat = fs.lstatSync(full);
-          const relativePath = path.relative(workspacePath, full);
-          return {
-            name,
-            path: relativePath,
-            isDirectory: stat.isDirectory(),
-          };
-        })
-        .sort((a, b) => {
-          if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
-          return a.name.localeCompare(b.name);
-        });
+      const entries = names.map((name) => {
+        const full = path.join(dirPath, name);
+        const stat = fs.lstatSync(full);
+        const relativePath = path.relative(workspacePath, full);
+        return {
+          name,
+          path: relativePath,
+          isDirectory: stat.isDirectory(),
+        };
+      }).sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
       return { entries };
-    });
+    }
 
-    ctx.data.register("fileContent", async (params: Record<string, unknown>) => {
-      const projectId = params.projectId as string;
-      const companyId = typeof params.companyId === "string" ? params.companyId : "";
-      const workspaceId = params.workspaceId as string;
-      const filePath = params.filePath as string;
-      if (!projectId || !companyId || !workspaceId || !filePath) {
-        return { content: null, error: "Missing file context" };
-      }
-      const workspaces = await ctx.projects.listWorkspaces(projectId, companyId);
-      const workspace = workspaces.find((w) => w.id === workspaceId);
-      if (!workspace) return { content: null, error: "Workspace not found" };
-      const workspacePath = sanitizeWorkspacePath(workspace.path);
-      if (!workspacePath) return { content: null, error: "Workspace has no path" };
-      const fullPath = resolveWorkspace(workspacePath, filePath);
-      if (!fullPath) {
-        return { content: null, error: "Path outside workspace" };
-      }
-      try {
-        const content = fs.readFileSync(fullPath, "utf-8");
-        return { content };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { content: null, error: message };
-      }
-    });
+    ctx.data.register("fileList", readFileList);
 
-    ctx.actions.register("writeFile", async (params: Record<string, unknown>) => {
-      const projectId = params.projectId as string;
-      const companyId = typeof params.companyId === "string" ? params.companyId : "";
-      const workspaceId = params.workspaceId as string;
-      const filePath = typeof params.filePath === "string" ? params.filePath.trim() : "";
-      if (!filePath) {
-        throw new Error("filePath must be a non-empty string");
-      }
-      const content = typeof params.content === "string" ? params.content : null;
-      if (!projectId || !companyId || !workspaceId) {
-        throw new Error("Missing workspace context");
-      }
-      const workspaces = await ctx.projects.listWorkspaces(projectId, companyId);
-      const workspace = workspaces.find((w) => w.id === workspaceId);
-      if (!workspace) {
-        throw new Error("Workspace not found");
-      }
-      const workspacePath = sanitizeWorkspacePath(workspace.path);
-      if (!workspacePath) {
-        throw new Error("Workspace has no path");
-      }
-      if (content === null) {
-        throw new Error("Missing file content");
-      }
-      const fullPath = resolveWorkspace(workspacePath, filePath);
-      if (!fullPath) {
-        throw new Error("Path outside workspace");
-      }
-      const stat = fs.statSync(fullPath);
-      if (!stat.isFile()) {
-        throw new Error("Selected path is not a file");
-      }
-      fs.writeFileSync(fullPath, content, "utf-8");
-      return {
-        ok: true,
-        path: filePath,
-        bytes: Buffer.byteLength(content, "utf-8"),
-      };
-    });
+    // Mirror `fileList` as an action so the UI can lazily fetch directory
+    // children on tree expand without spawning a usePluginData hook per dir.
+    ctx.actions.register("loadFileList", readFileList);
+
+    ctx.data.register(
+      "fileContent",
+      async (params: Record<string, unknown>) => {
+        const projectId = params.projectId as string;
+        const companyId = typeof params.companyId === "string" ? params.companyId : "";
+        const workspaceId = params.workspaceId as string;
+        const filePath = params.filePath as string;
+        if (!projectId || !companyId || !workspaceId || !filePath) {
+          return { content: null, error: "Missing file context" };
+        }
+        const workspaces = await ctx.projects.listWorkspaces(projectId, companyId);
+        const workspace = workspaces.find((w) => w.id === workspaceId);
+        if (!workspace) return { content: null, error: "Workspace not found" };
+        const workspacePath = sanitizeWorkspacePath(workspace.path);
+        if (!workspacePath) return { content: null, error: "Workspace has no path" };
+        const fullPath = resolveWorkspace(workspacePath, filePath);
+        if (!fullPath) {
+          return { content: null, error: "Path outside workspace" };
+        }
+        try {
+          const content = fs.readFileSync(fullPath, "utf-8");
+          return { content };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          return { content: null, error: message };
+        }
+      },
+    );
+
+    ctx.actions.register(
+      "writeFile",
+      async (params: Record<string, unknown>) => {
+        const projectId = params.projectId as string;
+        const companyId = typeof params.companyId === "string" ? params.companyId : "";
+        const workspaceId = params.workspaceId as string;
+        const filePath = typeof params.filePath === "string" ? params.filePath.trim() : "";
+        if (!filePath) {
+          throw new Error("filePath must be a non-empty string");
+        }
+        const content = typeof params.content === "string" ? params.content : null;
+        if (!projectId || !companyId || !workspaceId) {
+          throw new Error("Missing workspace context");
+        }
+        const workspaces = await ctx.projects.listWorkspaces(projectId, companyId);
+        const workspace = workspaces.find((w) => w.id === workspaceId);
+        if (!workspace) {
+          throw new Error("Workspace not found");
+        }
+        const workspacePath = sanitizeWorkspacePath(workspace.path);
+        if (!workspacePath) {
+          throw new Error("Workspace has no path");
+        }
+        if (content === null) {
+          throw new Error("Missing file content");
+        }
+        const fullPath = resolveWorkspace(workspacePath, filePath);
+        if (!fullPath) {
+          throw new Error("Path outside workspace");
+        }
+        const stat = fs.statSync(fullPath);
+        if (!stat.isFile()) {
+          throw new Error("Selected path is not a file");
+        }
+        fs.writeFileSync(fullPath, content, "utf-8");
+        return {
+          ok: true,
+          path: filePath,
+          bytes: Buffer.byteLength(content, "utf-8"),
+        };
+      },
+    );
   },
 
   async onHealth() {
