@@ -33,7 +33,7 @@ interface CompanySwitcherProps {
 
 export function CompanySwitcher({ open: controlledOpen, onOpenChange }: CompanySwitcherProps = {}) {
   const [internalOpen, setInternalOpen] = useState(false);
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const { companies, selectedCompany, setSelectedCompanyId } = useCompany();
   const sidebarCompanies = companies.filter((company) => company.status !== "archived");
   const open = controlledOpen ?? internalOpen;

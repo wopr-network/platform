@@ -8,9 +8,10 @@ import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 
 export function BoardClaimPage() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to home in hosted mode — board claiming is handled by the platform
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const queryClient = useQueryClient();

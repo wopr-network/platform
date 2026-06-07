@@ -632,9 +632,10 @@ async function readLocalPackageZip(file: File): Promise<{
 // ── Main page ─────────────────────────────────────────────────────────
 
 export function CompanyImport() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to home in hosted mode — company import/export is infrastructure management
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const { selectedCompanyId, selectedCompany, setSelectedCompanyId } = useCompany();

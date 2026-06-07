@@ -354,7 +354,8 @@ export function getAwsManagedPathPreview(input: {
 }
 
 export function Secrets() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const queryClient = useQueryClient();

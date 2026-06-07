@@ -214,7 +214,7 @@ function AwaitingJoinApprovalPanel({
 }
 
 export function InviteLandingPage() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to home in hosted mode — invites are handled by the platform
   if (isHosted) return <Navigate to="/" replace />;

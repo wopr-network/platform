@@ -13,7 +13,8 @@ import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "@/lib/queryKeys";
 
 export function InstanceAccess() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { companies } = useCompany();

@@ -121,7 +121,8 @@ function RecoveryPreviewDialog({
 }
 
 export function InstanceExperimentalSettings() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { setBreadcrumbs } = useBreadcrumbs();

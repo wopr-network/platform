@@ -42,7 +42,8 @@ function isAgentAdapterType(type: string): boolean {
 }
 
 export function NewAgentDialog() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const { newAgentOpen, closeNewAgent, openNewIssue } = useDialog();

@@ -87,7 +87,8 @@ function ExperimentalBadge() {
  * @see doc/plugins/PLUGIN_SPEC.md §3 — Plugin Lifecycle for status semantics.
  */
 export function PluginManager() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { selectedCompany } = useCompany();

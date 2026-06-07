@@ -46,7 +46,7 @@ function isInviteHistoryRow(value: unknown): value is Awaited<ReturnType<typeof 
 }
 
 export function CompanyInvites() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to dashboard in hosted mode — invite management is handled by the platform
   if (isHosted) return <Navigate to="/dashboard" replace />;

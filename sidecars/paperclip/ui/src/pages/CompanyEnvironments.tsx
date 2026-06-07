@@ -161,7 +161,8 @@ function SupportMark({ supported }: { supported: boolean }) {
 }
 
 export function CompanyEnvironments() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const { selectedCompany, selectedCompanyId } = useCompany();

@@ -172,7 +172,8 @@ const defaultDotColor = "#a3a3a3";
 // ── Main component ──────────────────────────────────────────────────────
 
 export function OrgChart() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { selectedCompanyId } = useCompany();

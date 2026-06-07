@@ -233,7 +233,7 @@ export function ProjectProperties({
   onArchive,
   archivePending,
 }: ProjectPropertiesProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [goalOpen, setGoalOpen] = useState(false);

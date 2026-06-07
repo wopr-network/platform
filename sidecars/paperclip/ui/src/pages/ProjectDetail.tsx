@@ -350,7 +350,7 @@ export function ProjectDetail() {
   const { closePanel } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToastActions();
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();

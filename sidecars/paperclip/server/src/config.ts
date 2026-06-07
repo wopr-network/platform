@@ -297,21 +297,34 @@ export function loadConfig(): Config {
   // company lifecycle through the provision protocol.
   const companyDeletionEnabled =
     hostedMode ? false : (companyDeletionEnvRaw !== undefined ? companyDeletionEnvRaw === "true" : deploymentMode === "local_trusted");
+  // In hosted mode, database backups must be disabled as the platform manages
+  // infrastructure backups centrally through the provision protocol.
   const databaseBackupEnabled =
-    process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
-      ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
-      : (fileDatabaseBackup?.enabled ?? true);
-  const databaseBackupIntervalMinutes = Math.max(
-    1,
-    Number(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) || fileDatabaseBackup?.intervalMinutes || 60,
-  );
-  const databaseBackupRetentionDays = Math.max(
-    1,
-    Number(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) || fileDatabaseBackup?.retentionDays || 30,
-  );
-  const databaseBackupDir = resolveHomeAwarePath(
-    process.env.PAPERCLIP_DB_BACKUP_DIR ?? fileDatabaseBackup?.dir ?? resolveDefaultBackupDir(),
-  );
+    hostedMode
+      ? false
+      : (process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
+          ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
+          : (fileDatabaseBackup?.enabled ?? true));
+  // In hosted mode, backup interval configuration is ignored.
+  const databaseBackupIntervalMinutes = hostedMode
+    ? 60
+    : Math.max(
+        1,
+        Number(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) || fileDatabaseBackup?.intervalMinutes || 60,
+      );
+  // In hosted mode, backup retention configuration is ignored.
+  const databaseBackupRetentionDays = hostedMode
+    ? 30
+    : Math.max(
+        1,
+        Number(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) || fileDatabaseBackup?.retentionDays || 30,
+      );
+  // In hosted mode, use a default backup directory (not actively used since backups are disabled).
+  const databaseBackupDir = hostedMode
+    ? resolveHomeAwarePath(resolveDefaultBackupDir())
+    : resolveHomeAwarePath(
+        process.env.PAPERCLIP_DB_BACKUP_DIR ?? fileDatabaseBackup?.dir ?? resolveDefaultBackupDir(),
+      );
   const bindValidationErrors = validateConfiguredBindMode({
     deploymentMode,
     deploymentExposure,
@@ -382,7 +395,10 @@ export function loadConfig(): Config {
     storageS3ForcePathStyle,
     feedbackExportBackendUrl,
     feedbackExportBackendToken,
-    heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false",
+    // In hosted mode, heartbeat scheduling must be disabled as the platform coordinates
+    // scheduling through its central scheduler. Hosted instances should not maintain
+    // independent agent scheduling.
+    heartbeatSchedulerEnabled: hostedMode ? false : (process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false"),
     heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
     companyDeletionEnabled,
     telemetryEnabled: fileConfig?.telemetry?.enabled ?? true,

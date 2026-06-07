@@ -407,7 +407,7 @@ function issueExecutionWorkspaceModeForExistingWorkspace(mode: string | null | u
 export function NewIssueDialog() {
   const { newIssueOpen, newIssueDefaults, closeNewIssue } = useDialog();
   const { companies, selectedCompanyId, selectedCompany } = useCompany();
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const queryClient = useQueryClient();
   const { pushToast } = useToastActions();
   const [title, setTitle] = useState("");

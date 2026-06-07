@@ -31,7 +31,8 @@ const reassignmentIssueStatuses = "backlog,todo,in_progress,in_review,blocked,fa
 type EditableMemberStatus = "pending" | "active" | "suspended";
 
 export function CompanyAccess() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { selectedCompany, selectedCompanyId } = useCompany();

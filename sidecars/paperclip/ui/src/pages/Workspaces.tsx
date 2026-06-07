@@ -73,7 +73,8 @@ function buildProjectWorkspaceGroups(input: {
 }
 
 export function Workspaces() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { selectedCompanyId } = useCompany();

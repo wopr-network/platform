@@ -71,7 +71,8 @@ const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the
 - break the roadmap into concrete tasks and start delegating work`;
 
 export function OnboardingWizard() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();

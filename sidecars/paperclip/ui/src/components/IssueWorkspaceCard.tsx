@@ -203,7 +203,7 @@ export function IssueWorkspaceCard({
   livePreview = false,
   onDraftChange,
 }: IssueWorkspaceCardProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const companyId = issue.companyId ?? selectedCompanyId;
   const [editing, setEditing] = useState(initialEditing);

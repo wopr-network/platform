@@ -383,7 +383,7 @@ export function IssueProperties({
   onUpdate,
   inline,
 }: IssuePropertiesProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;

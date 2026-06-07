@@ -2168,7 +2168,8 @@ function matchesSearch(team: CatalogTeam, q: string): boolean {
 }
 
 export function TeamCatalog() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { "*": routePath } = useParams<{ "*": string }>();

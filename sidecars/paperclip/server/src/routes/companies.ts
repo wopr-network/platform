@@ -476,17 +476,21 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(company);
   });
 
-  router.post("/:companyId/archive", async (req, res) => {
-    assertBoard(req);
-    const companyId = req.params.companyId as string;
-    assertCompanyAccess(req, companyId);
-    const company = await svc.archive(companyId, getActorInfo(req));
-    if (!company) {
-      res.status(404).json({ error: "Company not found" });
-      return;
-    }
-    res.json(company);
-  });
+  router.post(
+    "/:companyId/archive",
+    hostedModeGuard({ operation: "Company archival" }),
+    async (req, res) => {
+      assertBoard(req);
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const company = await svc.archive(companyId, getActorInfo(req));
+      if (!company) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      res.json(company);
+    },
+  );
 
   router.delete(
     "/:companyId",

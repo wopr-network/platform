@@ -109,7 +109,7 @@ export function SidebarAccountMenu({
   onOpenChange,
   version,
 }: SidebarAccountMenuProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const [internalOpen, setInternalOpen] = useState(false);
   const queryClient = useQueryClient();
   const { isMobile, setSidebarOpen } = useSidebar();

@@ -66,7 +66,8 @@ const ACTIVATION_CATEGORIES: Array<{
 ];
 
 export function CloudUpstream() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { selectedCompany, selectedCompanyId } = useCompany();

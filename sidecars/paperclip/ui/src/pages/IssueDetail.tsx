@@ -1243,7 +1243,7 @@ export function IssueDetail() {
   const { openNewIssue } = useDialogActions();
   const { openPanel, closePanel, panelVisible, setPanelVisible } = usePanel();
   const { setBreadcrumbs, setMobileToolbar } = useBreadcrumbs();
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const navigationType = useNavigationType();

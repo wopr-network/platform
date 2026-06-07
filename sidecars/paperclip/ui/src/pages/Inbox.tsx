@@ -666,7 +666,7 @@ export function Inbox() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const { openNewIssue } = useDialogActions();
   const { isMobile } = useSidebar();
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
