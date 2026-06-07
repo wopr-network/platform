@@ -111,6 +111,9 @@ export function ToggleField({
   onChange: (v: boolean) => void;
   toggleTestId?: string;
 }) {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1.5">

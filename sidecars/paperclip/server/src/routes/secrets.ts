@@ -399,7 +399,11 @@ export function secretRoutes(db: Db) {
     },
   );
 
-  router.post("/secrets/:id/rotate", validate(rotateSecretSchema), async (req, res) => {
+  router.post(
+    "/secrets/:id/rotate",
+    hostedModeGuard({ operation: "Secret rotation" }),
+    validate(rotateSecretSchema),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -437,7 +441,11 @@ export function secretRoutes(db: Db) {
     res.json(rotated);
   });
 
-  router.patch("/secrets/:id", validate(updateSecretSchema), async (req, res) => {
+  router.patch(
+    "/secrets/:id",
+    hostedModeGuard({ operation: "Secret modification" }),
+    validate(updateSecretSchema),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -505,7 +513,10 @@ export function secretRoutes(db: Db) {
     res.json(events);
   });
 
-  router.delete("/secrets/:id", async (req, res) => {
+  router.delete(
+    "/secrets/:id",
+    hostedModeGuard({ operation: "Secret deletion" }),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);

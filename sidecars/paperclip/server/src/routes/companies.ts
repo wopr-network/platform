@@ -181,12 +181,17 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(traces);
   });
 
-  router.post("/:companyId/export", validate(companyPortabilityExportSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
-    await assertCanManagePortability(req, companyId, "exports");
-    const result = await portability.exportBundle(companyId, req.body);
-    res.json(result);
-  });
+  router.post(
+    "/:companyId/export",
+    hostedModeGuard({ operation: "Company export" }),
+    validate(companyPortabilityExportSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      await assertCanManagePortability(req, companyId, "exports");
+      const result = await portability.exportBundle(companyId, req.body);
+      res.json(result);
+    }
+  );
 
   router.post("/import/preview", validate(companyPortabilityPreviewSchema), async (req, res) => {
     assertBoard(req);

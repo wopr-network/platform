@@ -34,6 +34,7 @@ import {
 } from "@paperclipai/adapter-utils/server-utils";
 import { trackAgentCreated } from "@paperclipai/shared/telemetry";
 import { validate } from "../middleware/validate.js";
+import { hostedModeGuard } from "../middleware/hosted-mode-guard.js";
 import {
   agentService,
   agentInstructionsService,
@@ -131,7 +132,7 @@ function readRunIssueId(context: Record<string, unknown> | null) {
 
 export function agentRoutes(
   db: Db,
-  options: { pluginWorkerManager?: PluginWorkerManager; deploymentMode?: DeploymentMode } = {},
+  options: { pluginWorkerManager?: PluginWorkerManager } = {},
 ) {
   // Legacy hardcoded maps — used as fallback when adapter module does not
   // declare capability flags explicitly.
@@ -2967,33 +2968,33 @@ export function agentRoutes(
     res.json(agent);
   });
 
-  router.delete("/agents/:id", async (req, res) => {
-    assertBoard(req);
-    // hostedMode guard: agent deletion not allowed in hosted mode
-    if (options.deploymentMode === "hosted_proxy") {
-      throw forbidden("Agent deletion is not allowed in hosted mode");
-    }
-    const id = req.params.id as string;
-    if (!(await getAccessibleAgent(req, res, id))) {
-      return;
-    }
-    const agent = await svc.remove(id);
-    if (!agent) {
-      res.status(404).json({ error: "Agent not found" });
-      return;
-    }
+  router.delete(
+    "/agents/:id",
+    hostedModeGuard({ operation: "Agent deletion" }),
+    async (req, res) => {
+      assertBoard(req);
+      const id = req.params.id as string;
+      if (!(await getAccessibleAgent(req, res, id))) {
+        return;
+      }
+      const agent = await svc.remove(id);
+      if (!agent) {
+        res.status(404).json({ error: "Agent not found" });
+        return;
+      }
 
-    await logActivity(db, {
-      companyId: agent.companyId,
-      actorType: "user",
-      actorId: req.actor.userId ?? "board",
-      action: "agent.deleted",
-      entityType: "agent",
-      entityId: agent.id,
-    });
+      await logActivity(db, {
+        companyId: agent.companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "agent.deleted",
+        entityType: "agent",
+        entityId: agent.id,
+      });
 
-    res.json({ ok: true });
-  });
+      res.json({ ok: true });
+    },
+  );
 
   router.get("/agents/:id/keys", async (req, res) => {
     assertBoard(req);

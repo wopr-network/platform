@@ -481,6 +481,7 @@ export function pluginRoutes(
   webhookDeps?: PluginRouteWebhookDeps,
   toolDeps?: PluginRouteToolDeps,
   bridgeDeps?: PluginRouteBridgeDeps,
+  opts?: { deploymentMode?: DeploymentMode },
 ) {
   const router = Router();
   const registry = pluginRegistryService(db);
@@ -1893,7 +1894,7 @@ export function pluginRoutes(
    * Response: PluginRecord
    * Errors: 404 if plugin not found, 400 for lifecycle errors
    */
-  router.post("/plugins/:pluginId/disable", async (req, res) => {
+  router.post("/plugins/:pluginId/disable", hostedModeGuard({ operation: "Plugin disable" }), async (req, res) => {
     assertInstanceAdmin(req);
     const { pluginId } = req.params;
     const body = req.body as { reason?: string } | undefined;
@@ -2055,7 +2056,7 @@ export function pluginRoutes(
    * Response: PluginRecord
    * Errors: 404 if plugin not found, 400 for lifecycle errors
    */
-  router.post("/plugins/:pluginId/upgrade", async (req, res) => {
+  router.post("/plugins/:pluginId/upgrade", hostedModeGuard({ operation: "Plugin upgrade" }), async (req, res) => {
     assertInstanceAdmin(req);
     const { pluginId } = req.params;
     const body = req.body as { version?: string } | undefined;
@@ -2134,7 +2135,7 @@ export function pluginRoutes(
    * - 400 if request validation fails
    * - 404 if plugin not found
    */
-  router.post("/plugins/:pluginId/config", async (req, res) => {
+  router.post("/plugins/:pluginId/config", hostedModeGuard({ operation: "Plugin configuration" }), async (req, res) => {
     assertInstanceAdmin(req);
     const { pluginId } = req.params;
 

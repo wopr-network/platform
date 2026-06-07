@@ -17,6 +17,7 @@ import {
 } from "@wopr-network/provision-server";
 import { ROLE_PERMISSIONS } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
+import { hostedModeGuard } from "../middleware/hosted-mode-guard.js";
 import {
   companyService,
   agentService,
