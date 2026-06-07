@@ -314,6 +314,9 @@ function scanForHostedModeGaps() {
       "api.*key.*input",
       "endpoint.*config",
       "instance.*settings",
+      "showProjects",
+      "modeKnown",
+      "hosted_proxy",
     ];
 
     const grepPattern = infraPatterns.join("\\|");
@@ -322,8 +325,8 @@ function scanForHostedModeGaps() {
     if (!filesWithInfra.ok || !filesWithInfra.output.trim()) continue;
 
     for (const file of filesWithInfra.output.split("\n").filter(Boolean)) {
-      // Check if file has hostedMode guard
-      const hasGuard = tryRun(`grep -l 'hostedMode\\|isHosted' ${file}`);
+      // Check if file has hostedMode guard — look for useHostedMode import or isHosted usage
+      const hasGuard = tryRun(`grep -l 'useHostedMode\\|isHosted\\|hostedMode' ${file}`);
       if (!hasGuard.ok) {
         gaps.push(file);
       }
@@ -362,13 +365,24 @@ const { isHosted } = useHostedMode();
 if (isHosted) return <Navigate to="/" replace />;
 \`\`\`
 
+Guard keywords to check for and wrap:
+- adapter selections
+- model/provider selections
+- API key inputs
+- inference endpoint configs
+- instance/deployment settings
+- showProjects / modeKnown / hosted_proxy references
+- manual agent creation UI ("new agent" buttons)
+
 For each file:
 1. Read the file
-2. Identify which elements expose infra to the user (adapter pickers, model selectors, settings controls, "new agent" buttons, etc.)
-3. Add the hostedMode guard following the exact pattern shown above
-4. If the file is a page that should be entirely hidden in hosted mode, add a redirect
-5. If the file has buttons/links that let users create agents manually, hide them in hosted mode
-6. If the file is a component that only renders inside an already-guarded parent, note it and SKIP
+2. Identify which elements expose infra to the user (adapter pickers, model selectors, settings controls, API key inputs, "new agent" buttons, etc.)
+3. Add useHostedMode hook import if needed
+4. Add the hostedMode guard following the exact pattern shown above
+5. If the file is a page that should be entirely hidden in hosted mode, add a redirect
+6. If the file has buttons/links that let users create agents manually, hide them in hosted mode
+7. If the file is a component that only renders inside an already-guarded parent, note it and SKIP
+8. Wrap infra UI elements with {!isHosted && ...} or similar patterns
 
 After fixing, run: git add -A && git commit -m "fix: add hostedMode guards for new upstream UI"`,
     { model: "claude-haiku-4-5-20251001", phase: "hostedmode-fix", maxTurns: 90 },
