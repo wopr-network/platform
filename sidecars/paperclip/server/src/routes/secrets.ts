@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
+import type { DeploymentMode } from "@paperclipai/shared";
 import {
   createSecretProviderConfigSchema,
   createSecretSchema,
@@ -15,7 +16,7 @@ import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { logActivity, secretService } from "../services/index.js";
 import { getConfiguredSecretProvider } from "../secrets/configured-provider.js";
 
-export function secretRoutes(db: Db) {
+export function secretRoutes(db: Db, opts?: { deploymentMode?: DeploymentMode }) {
   const router = Router();
   const svc = secretService(db);
   const defaultProvider = getConfiguredSecretProvider();

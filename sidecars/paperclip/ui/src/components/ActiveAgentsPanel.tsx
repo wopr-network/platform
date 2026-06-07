@@ -76,7 +76,8 @@ export function ActiveAgentsPanel({
   queryScope = "dashboard",
   showMoreLink = true,
 }: ActiveAgentsPanelProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return null;
 
   const { data: liveRuns } = useQuery({

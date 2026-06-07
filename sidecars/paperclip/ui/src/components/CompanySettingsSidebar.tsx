@@ -12,7 +12,8 @@ import { usePluginSlots } from "@/plugins/slots";
 import { SidebarNavItem } from "./SidebarNavItem";
 
 export function CompanySettingsSidebar() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return null;
 
   const { selectedCompany, selectedCompanyId } = useCompany();

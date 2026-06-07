@@ -248,35 +248,50 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(result);
   });
 
-  router.post("/:companyId/exports/preview", validate(companyPortabilityExportSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
-    await assertCanManagePortability(req, companyId, "exports");
-    const preview = await portability.previewExport(companyId, req.body);
-    res.json(preview);
-  });
-
-  router.post("/:companyId/exports", validate(companyPortabilityExportSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
-    await assertCanManagePortability(req, companyId, "exports");
-    const result = await portability.exportBundle(companyId, req.body);
-    res.json(result);
-  });
-
-  router.post("/:companyId/imports/preview", validate(companyPortabilityPreviewSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
-    await assertCanManagePortability(req, companyId, "imports");
-    if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {
-      throw forbidden("Safe import route can only target the route company");
+  router.post(
+    "/:companyId/exports/preview",
+    hostedModeGuard({ operation: "Company export preview" }),
+    validate(companyPortabilityExportSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      await assertCanManagePortability(req, companyId, "exports");
+      const preview = await portability.previewExport(companyId, req.body);
+      res.json(preview);
     }
-    if (req.body.collisionStrategy === "replace") {
-      throw forbidden("Safe import route does not allow replace collision strategy");
+  );
+
+  router.post(
+    "/:companyId/exports",
+    hostedModeGuard({ operation: "Company export" }),
+    validate(companyPortabilityExportSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      await assertCanManagePortability(req, companyId, "exports");
+      const result = await portability.exportBundle(companyId, req.body);
+      res.json(result);
     }
-    const preview = await portability.previewImport(req.body, {
-      mode: "agent_safe",
-      sourceCompanyId: companyId,
-    });
-    res.json(preview);
-  });
+  );
+
+  router.post(
+    "/:companyId/imports/preview",
+    hostedModeGuard({ operation: "Company import preview" }),
+    validate(companyPortabilityPreviewSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      await assertCanManagePortability(req, companyId, "imports");
+      if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {
+        throw forbidden("Safe import route can only target the route company");
+      }
+      if (req.body.collisionStrategy === "replace") {
+        throw forbidden("Safe import route does not allow replace collision strategy");
+      }
+      const preview = await portability.previewImport(req.body, {
+        mode: "agent_safe",
+        sourceCompanyId: companyId,
+      });
+      res.json(preview);
+    }
+  );
 
   router.post("/:companyId/imports/apply", validate(companyPortabilityImportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;

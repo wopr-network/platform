@@ -199,7 +199,8 @@ function clampDelayMsFromSeconds(value: number) {
 /* ---- Form ---- */
 
 export function AgentConfigForm(props: AgentConfigFormProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return null;
 
   const { mode, adapterModels: externalModels } = props;

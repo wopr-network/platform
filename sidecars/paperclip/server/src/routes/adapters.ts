@@ -514,12 +514,8 @@ export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
    *
    * Cannot be used on built-in adapter types.
    */
-  router.post("/adapters/:type/reload", async (req, res) => {
+  router.post("/adapters/:type/reload", hostedModeGuard({ operation: "Adapter reload" }), async (req, res) => {
     assertInstanceAdmin(req);
-    // hostedMode guard: adapter reload not allowed in hosted mode
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Adapter reload is not allowed in hosted mode");
-    }
 
     const type = req.params.type;
 
@@ -570,12 +566,8 @@ export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
   //
   // This is a convenience shortcut for remove + install with the same
   // package name, but without the risk of losing the store record.
-  router.post("/adapters/:type/reinstall", async (req, res) => {
+  router.post("/adapters/:type/reinstall", hostedModeGuard({ operation: "Adapter reinstall" }), async (req, res) => {
     assertInstanceAdmin(req);
-    // hostedMode guard: adapter reinstall not allowed in hosted mode
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Adapter reinstall is not allowed in hosted mode");
-    }
 
     const type = req.params.type;
 
