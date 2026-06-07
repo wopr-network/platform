@@ -91,7 +91,10 @@ export interface StartedServer {
 
 export async function startServer(): Promise<StartedServer> {
   let config = loadConfig();
-  initTelemetry({ enabled: config.telemetryEnabled });
+  // In hosted mode, telemetry must be enabled and routed to platform analytics
+  // for monitoring and billing purposes.
+  const telemetryEnabled = config.hostedMode ? true : config.telemetryEnabled;
+  initTelemetry({ enabled: telemetryEnabled });
   if (process.env.PAPERCLIP_SECRETS_PROVIDER === undefined) {
     process.env.PAPERCLIP_SECRETS_PROVIDER = config.secretsProvider;
   }
@@ -717,7 +720,10 @@ export async function startServer(): Promise<StartedServer> {
       logger.error({ err }, "startup reconciliation of cloud upstream runs failed");
     });
   
-  if (config.heartbeatSchedulerEnabled) {
+  // In hosted mode, heartbeat scheduling must be disabled or routed through the
+  // platform's central scheduler. Hosted instances should not maintain independent
+  // agent scheduling.
+  if (config.heartbeatSchedulerEnabled && !config.hostedMode) {
     const heartbeat = heartbeatService(db as any, { pluginWorkerManager });
     const routines = routineService(db as any, { pluginWorkerManager });
   
@@ -833,7 +839,9 @@ export async function startServer(): Promise<StartedServer> {
     }, config.heartbeatSchedulerIntervalMs);
   }
   
-  if (config.databaseBackupEnabled) {
+  // In hosted mode, automatic database backups are disabled as the platform
+  // manages infrastructure backups centrally.
+  if (config.databaseBackupEnabled && !config.hostedMode) {
     const backupIntervalMs = config.databaseBackupIntervalMinutes * 60 * 1000;
 
     logger.info(

@@ -4,23 +4,24 @@ import { forbidden } from "../errors.js";
 /**
  * Middleware to prevent infrastructure/admin operations in hostedMode.
  *
- * In hosted_proxy mode, certain operations should only be allowed through
+ * In hosted mode (hostedMode=true), certain operations should only be allowed through
  * the platform's provision protocol, not through direct API access. This includes:
  * - Company deletion
  * - Instance settings changes
  * - Plugin management
  * - Secrets management (creation/deletion)
+ * - Company import/export
  *
- * The deploymentMode is passed via the createApp options and is available
+ * The hostedMode flag is passed via the createApp options and is available
  * in the request locals (set by the app initialization).
  */
 export function hostedModeGuard(opts?: { operation?: string }): RequestHandler {
   return (req, res, next) => {
-    // deploymentMode is injected by app.ts during initialization
-    const deploymentMode = req.app.locals?.deploymentMode;
+    // hostedMode is injected by app.ts during initialization
+    const hostedMode = req.app.locals?.hostedMode;
 
-    // Guard only applies to hosted_proxy mode
-    if (deploymentMode !== "hosted_proxy") {
+    // Guard only applies to hosted mode
+    if (!hostedMode) {
       next();
       return;
     }

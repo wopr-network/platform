@@ -208,6 +208,10 @@ export function loadConfig(): Config {
       ? (instanceConfig.deploymentMode as DeploymentMode)
       : null;
   const deploymentModeFromEnvRaw = process.env.PAPERCLIP_DEPLOYMENT_MODE;
+  const deploymentModeFromEnv =
+    deploymentModeFromEnvRaw && DEPLOYMENT_MODES.includes(deploymentModeFromEnvRaw as DeploymentMode)
+      ? (deploymentModeFromEnvRaw as DeploymentMode)
+      : null;
   const deploymentMode: DeploymentMode = hostedMode
     ? "hosted_proxy"
     : (deploymentModeFromInstance ?? fileConfig?.server.deploymentMode ?? deploymentModeFromEnv ?? "local_trusted");
@@ -289,8 +293,10 @@ export function loadConfig(): Config {
     ),
   );
   const companyDeletionEnvRaw = process.env.PAPERCLIP_ENABLE_COMPANY_DELETION;
+  // In hosted mode, company deletion should be disabled as the platform manages
+  // company lifecycle through the provision protocol.
   const companyDeletionEnabled =
-    companyDeletionEnvRaw !== undefined ? companyDeletionEnvRaw === "true" : deploymentMode === "local_trusted";
+    hostedMode ? false : (companyDeletionEnvRaw !== undefined ? companyDeletionEnvRaw === "true" : deploymentMode === "local_trusted");
   const databaseBackupEnabled =
     process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
       ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
@@ -324,6 +330,14 @@ export function loadConfig(): Config {
   });
   if (resolvedBind.errors.length > 0) {
     throw new Error(resolvedBind.errors[0]);
+  }
+
+  // Validate hosted mode configuration constraints
+  if (hostedMode && deploymentMode !== "hosted_proxy") {
+    throw new Error(
+      `When hostedMode=true, deploymentMode MUST be 'hosted_proxy' (got '${deploymentMode}'). ` +
+        "Hosted instances must use proxy deployment for platform routing and authentication."
+    );
   }
 
   return {

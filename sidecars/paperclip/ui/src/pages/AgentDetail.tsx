@@ -638,7 +638,8 @@ function WorkspaceOperationsSection({
 }
 
 export function AgentDetail() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { companyPrefix, agentId, tab: urlTab, runId: urlRunId } = useParams<{

@@ -253,8 +253,9 @@ function ReinstallDialog({
 }
 
 export function AdapterManager() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const { selectedCompany } = useCompany();

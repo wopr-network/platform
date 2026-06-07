@@ -23,9 +23,10 @@ import { cn } from "../lib/utils";
 const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
 
 export function InstanceGeneralSettings() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to home in hosted mode — instance settings are infrastructure
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const { setBreadcrumbs } = useBreadcrumbs();

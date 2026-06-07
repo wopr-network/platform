@@ -31,9 +31,10 @@ import {
 } from "lucide-react";
 
 export function Companies() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to home in hosted mode — company management is self-hosted only
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const {

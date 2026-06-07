@@ -26,7 +26,7 @@ function isRunActive(status: string): boolean {
 }
 
 export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const queryClient = useQueryClient();
   const [cancellingRunIds, setCancellingRunIds] = useState(new Set<string>());
 
@@ -71,6 +71,7 @@ export function LiveRunWidget({ issueId, companyId }: LiveRunWidgetProps) {
 
   const { transcriptByRun, hasOutputForRun } = useLiveRunTranscripts({ runs, companyId });
 
+  if (!modeKnown) return null;
   if (isHosted) return null;
 
   const handleCancelRun = async (runId: string) => {
