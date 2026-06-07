@@ -229,12 +229,8 @@ export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
    * - isLocalPath?: boolean (default false)
    * - version?: string — target version for npm packages
    */
-  router.post("/adapters/install", async (req, res) => {
+  router.post("/adapters/install", hostedModeGuard({ operation: "Adapter installation" }), async (req, res) => {
     assertInstanceAdmin(req);
-    // hostedMode guard: adapter installation not allowed in hosted mode
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Adapter installation is not allowed in hosted mode");
-    }
 
     const { packageName, isLocalPath = false, version } = req.body as AdapterInstallRequest;
 
@@ -380,12 +376,8 @@ export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
    *
    * Request body: { "disabled": boolean }
    */
-  router.patch("/adapters/:type", async (req, res) => {
+  router.patch("/adapters/:type", hostedModeGuard({ operation: "Adapter configuration" }), async (req, res) => {
     assertInstanceAdmin(req);
-    // hostedMode guard: adapter disable not allowed in hosted mode
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Adapter configuration is not allowed in hosted mode");
-    }
 
     const adapterType = req.params.type;
     const { disabled } = req.body as { disabled?: boolean };
@@ -419,12 +411,8 @@ export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
    * (execute, listModels, config schema, etc.).  Already-running sessions
    * keep the adapter they started with.
    */
-  router.patch("/adapters/:type/override", async (req, res) => {
+  router.patch("/adapters/:type/override", hostedModeGuard({ operation: "Adapter override control" }), async (req, res) => {
     assertInstanceAdmin(req);
-    // hostedMode guard: adapter override control not allowed in hosted mode
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Adapter override control is not allowed in hosted mode");
-    }
 
     const adapterType = req.params.type;
     const { paused } = req.body as { paused?: boolean };
@@ -451,12 +439,8 @@ export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
    *
    * Unregister an external adapter. Built-in adapters cannot be removed.
    */
-  router.delete("/adapters/:type", async (req, res) => {
+  router.delete("/adapters/:type", hostedModeGuard({ operation: "Adapter deletion" }), async (req, res) => {
     assertInstanceAdmin(req);
-    // hostedMode guard: adapter deletion not allowed in hosted mode
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Adapter deletion is not allowed in hosted mode");
-    }
 
     const adapterType = req.params.type;
 

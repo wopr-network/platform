@@ -6,7 +6,8 @@ import {
   patchInstanceGeneralSettingsSchema,
 } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
-import { validate, hostedModeGuard } from "../middleware/index.js";
+import { validate } from "../middleware/validate.js";
+import { hostedModeGuard } from "../middleware/hosted-mode-guard.js";
 import { heartbeatService, instanceSettingsService, logActivity } from "../services/index.js";
 import { assertBoardOrgAccess, getActorInfo } from "./authz.js";
 

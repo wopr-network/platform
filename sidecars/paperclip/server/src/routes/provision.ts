@@ -391,32 +391,13 @@ function requireProvisionSecret(req: Request, res: Response, next: NextFunction)
 }
 
 /**
- * Guard to block infrastructure-management operations in hosted mode.
- * In hosted mode, the platform controls provisioning/deprovisioning.
- */
-function requireNotHostedMode(hostedMode: boolean) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (hostedMode) {
-      console.error(
-        `[provision] blocked in hosted mode: ${req.method} ${req.path}`,
-      );
-      throw forbidden(
-        "This operation is not available in hosted mode. Provisioning is managed by the platform.",
-      );
-    }
-    next();
-  };
-}
-
-/**
  * Create member management routes.
  *
  * These extend the provision protocol with fine-grained member
  * add / remove / change-role operations called by platform-core
  * when org membership changes.
  */
-function createMemberRouter(db: Db, opts?: { hostedMode?: boolean }): Router {
-  const hostedMode = opts?.hostedMode ?? false;
+function createMemberRouter(db: Db): Router {
   const router = Router();
   const access = accessService(db);
 
@@ -503,7 +484,7 @@ function createMemberRouter(db: Db, opts?: { hostedMode?: boolean }): Router {
   router.post(
     "/members/remove",
     requireProvisionSecret,
-    requireNotHostedMode(hostedMode),
+    hostedModeGuard({ operation: "Member removal" }),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { companyId, userId } = req.body as { companyId: string; userId: string };
@@ -527,7 +508,7 @@ function createMemberRouter(db: Db, opts?: { hostedMode?: boolean }): Router {
   router.post(
     "/members/change-role",
     requireProvisionSecret,
-    requireNotHostedMode(hostedMode),
+    hostedModeGuard({ operation: "Member role change" }),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { companyId, userId, role } = req.body as {
@@ -561,7 +542,7 @@ function createMemberRouter(db: Db, opts?: { hostedMode?: boolean }): Router {
  * Create the provisioning Express router for Paperclip.
  *
  * Mount at `/internal`:
- *   app.use("/internal", provisionRoutes(db, { hostedMode: false }));
+ *   app.use("/internal", provisionRoutes(db));
  *
  * Provides:
  *   POST   /provision          — provision a new tenant
@@ -575,10 +556,9 @@ function createMemberRouter(db: Db, opts?: { hostedMode?: boolean }): Router {
  * In hosted mode, infrastructure management operations (member removal)
  * are blocked since the platform controls provisioning and deprovisioning.
  */
-export function provisionRoutes(db: Db, opts?: { hostedMode?: boolean }): Router {
-  const hostedMode = opts?.hostedMode ?? false;
+export function provisionRoutes(db: Db): Router {
   const router = Router();
   router.use(createProvisionRouter(createPaperclipAdapter(db)));
-  router.use(createMemberRouter(db, { hostedMode }));
+  router.use(createMemberRouter(db));
   return router;
 }

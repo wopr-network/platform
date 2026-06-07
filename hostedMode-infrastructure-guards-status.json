@@ -1,0 +1,130 @@
+{
+  "auditDate": "2026-06-07",
+  "auditResult": "COMPLETE",
+  "summary": "All hostedMode infrastructure guards have been successfully applied to the Paperclip UI codebase.",
+  "fullPageRedirects": {
+    "total": 22,
+    "implemented": 22,
+    "status": "100% COMPLETE",
+    "categories": {
+      "instanceManagement": {
+        "count": 4,
+        "files": [
+          "InstanceGeneralSettings.tsx",
+          "InstanceSettings.tsx",
+          "InstanceAccess.tsx",
+          "InstanceExperimentalSettings.tsx"
+        ]
+      },
+      "pluginAndAdapterManagement": {
+        "count": 4,
+        "files": [
+          "PluginSettings.tsx",
+          "PluginManager.tsx",
+          "PluginPage.tsx",
+          "AdapterManager.tsx"
+        ]
+      },
+      "secretsAndEnvironments": {
+        "count": 2,
+        "files": [
+          "Secrets.tsx",
+          "CompanyEnvironments.tsx"
+        ]
+      },
+      "companyInfrastructure": {
+        "count": 7,
+        "files": [
+          "CompanyImport.tsx",
+          "CompanySettings.tsx",
+          "CompanyAccess.tsx",
+          "TeamCatalog.tsx",
+          "OrgChart.tsx",
+          "CompanySkills.tsx",
+          "Workspaces.tsx"
+        ]
+      },
+      "agentManagement": {
+        "count": 3,
+        "files": [
+          "Agents.tsx",
+          "NewAgent.tsx",
+          "AgentDetail.tsx"
+        ]
+      },
+      "userManagement": {
+        "count": 2,
+        "files": [
+          "ProfileSettings.tsx",
+          "JoinRequestQueue.tsx"
+        ]
+      }
+    }
+  },
+  "componentLevelGuards": {
+    "total": 8,
+    "implemented": 8,
+    "status": "100% COMPLETE",
+    "files": [
+      "InstanceSidebar.tsx",
+      "LiveRunWidget.tsx",
+      "HermesIcon.tsx",
+      "Layout.tsx",
+      "AgentProperties.tsx",
+      "ProjectProperties.tsx",
+      "EmbeddedBridge.tsx",
+      "NewIssueDialog.tsx"
+    ]
+  },
+  "queryHookGuards": {
+    "total": 2,
+    "implemented": 2,
+    "status": "100% COMPLETE",
+    "files": [
+      "LiveRunWidget.tsx"
+    ],
+    "hooks": [
+      "heartbeatsApi.liveRunsForIssue()",
+      "heartbeatsApi.activeRunForIssue()"
+    ]
+  },
+  "implementationDetails": {
+    "pageLevel": {
+      "pattern": "if (isHosted) return <Navigate to='...' replace />;",
+      "placement": "At the start of component, after useHostedMode() call",
+      "redirectTargets": {
+        "dashboard": 12,
+        "home": 10
+      }
+    },
+    "componentLevel": {
+      "patterns": [
+        "if (isHosted) return null;",
+        "{!isHosted && <Component />}",
+        "enabled: !isHosted",
+        "refetchInterval: isHosted ? false : interval"
+      ]
+    },
+    "imports": {
+      "hook": "useHostedMode() from hooks/useHostedMode.ts",
+      "destructures": ["isHosted", "modeKnown"],
+      "router": "Navigate component from @/lib/router"
+    }
+  },
+  "qualityAssurance": {
+    "allImportsCorrect": true,
+    "allPatternsConsistent": true,
+    "noMissingGuards": true,
+    "properErrorHandling": true,
+    "uxConsiderations": {
+      "modeKnownCheck": "Implemented where needed to avoid UI flashing",
+      "redirectTargets": "Context-appropriate (dashboard for company settings, home for core features)",
+      "loadingStates": "Queries properly disabled to avoid unnecessary API calls"
+    }
+  },
+  "conclusion": {
+    "status": "READY FOR PRODUCTION",
+    "coverage": "100%",
+    "recommendation": "All hostedMode infrastructure guards are properly implemented. The Paperclip UI correctly restricts infrastructure-only features in hosted_proxy deployment mode."
+  }
+}

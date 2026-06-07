@@ -390,6 +390,9 @@ export function DraftNumberInput({
  * type the path due to browser security limitations.
  */
 export function ChoosePathButton() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
+
   const [open, setOpen] = useState(false);
   return (
     <>

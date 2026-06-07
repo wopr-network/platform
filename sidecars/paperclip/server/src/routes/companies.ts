@@ -18,8 +18,7 @@ import {
   type DeploymentMode,
 } from "@paperclipai/shared";
 import { badRequest, forbidden } from "../errors.js";
-import { validate } from "../middleware/validate.js";
-import { hostedModeGuard } from "../middleware/hosted-mode-guard.js";
+import { validate, hostedModeGuard } from "../middleware/index.js";
 import {
   accessService,
   agentService,
@@ -193,12 +192,17 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     }
   );
 
-  router.post("/import/preview", validate(companyPortabilityPreviewSchema), async (req, res) => {
-    assertBoard(req);
-    assertImportTargetAccess(req, req.body.target);
-    const preview = await portability.previewImport(req.body);
-    res.json(preview);
-  });
+  router.post(
+    "/import/preview",
+    hostedModeGuard({ operation: "Company import preview" }),
+    validate(companyPortabilityPreviewSchema),
+    async (req, res) => {
+      assertBoard(req);
+      assertImportTargetAccess(req, req.body.target);
+      const preview = await portability.previewImport(req.body);
+      res.json(preview);
+    }
+  );
 
   router.get("/import/jobs/:jobId", async (req, res) => {
     assertCloudTenantCaller(req);
@@ -211,7 +215,7 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     res.json(importJobResponse(job));
   });
 
-  router.post(COMPANY_IMPORT_ROUTE_PATH, async (req, res) => {
+  router.post(COMPANY_IMPORT_ROUTE_PATH, hostedModeGuard({ operation: "Company import" }), async (req, res) => {
     assertBoard(req);
     const rawImportBody: unknown = req.body;
     const actor = getActorInfo(req);

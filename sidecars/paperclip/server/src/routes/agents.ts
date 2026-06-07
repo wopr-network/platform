@@ -3029,43 +3029,43 @@ export function agentRoutes(
     res.status(201).json(key);
   });
 
-  router.delete("/agents/:id/keys/:keyId", async (req, res) => {
-    assertBoard(req);
-    // hostedMode guard: API key revocation not allowed in hosted mode
-    if (options.deploymentMode === "hosted_proxy") {
-      throw forbidden("API key revocation is not allowed in hosted mode");
-    }
-    const id = req.params.id as string;
-    const keyId = req.params.keyId as string;
-    const agent = await getAccessibleAgent(req, res, id);
-    if (!agent) {
-      return;
-    }
+  router.delete(
+    "/agents/:id/keys/:keyId",
+    hostedModeGuard({ operation: "Agent API key revocation" }),
+    async (req, res) => {
+      assertBoard(req);
+      const id = req.params.id as string;
+      const keyId = req.params.keyId as string;
+      const agent = await getAccessibleAgent(req, res, id);
+      if (!agent) {
+        return;
+      }
 
-    const key = await svc.getKeyById(keyId);
-    if (!key || key.agentId !== agent.id) {
-      res.status(404).json({ error: "Key not found" });
-      return;
-    }
+      const key = await svc.getKeyById(keyId);
+      if (!key || key.agentId !== agent.id) {
+        res.status(404).json({ error: "Key not found" });
+        return;
+      }
 
-    const revoked = await svc.revokeKey(agent.id, keyId);
-    if (!revoked) {
-      res.status(404).json({ error: "Key not found" });
-      return;
-    }
+      const revoked = await svc.revokeKey(agent.id, keyId);
+      if (!revoked) {
+        res.status(404).json({ error: "Key not found" });
+        return;
+      }
 
-    await logActivity(db, {
-      companyId: agent.companyId,
-      actorType: "user",
-      actorId: req.actor.userId ?? "board",
-      action: "agent.key_revoked",
-      entityType: "agent",
-      entityId: agent.id,
-      details: { keyId: key.id, name: key.name },
-    });
+      await logActivity(db, {
+        companyId: agent.companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "agent.key_revoked",
+        entityType: "agent",
+        entityId: agent.id,
+        details: { keyId: key.id, name: key.name },
+      });
 
-    res.json({ ok: true });
-  });
+      res.json({ ok: true });
+    },
+  );
 
   // Shared handler body for the wakeup-style endpoints. The two routes differ
   // only in:
