@@ -26,6 +26,7 @@ import {
   updateAgentSchema,
   supportedEnvironmentDriversForAdapter,
   LOW_TRUST_REVIEW_PRESET,
+  type DeploymentMode,
 } from "@paperclipai/shared";
 import {
   readPaperclipSkillSyncPreference,
@@ -130,7 +131,7 @@ function readRunIssueId(context: Record<string, unknown> | null) {
 
 export function agentRoutes(
   db: Db,
-  options: { pluginWorkerManager?: PluginWorkerManager } = {},
+  options: { pluginWorkerManager?: PluginWorkerManager; deploymentMode?: DeploymentMode } = {},
 ) {
   // Legacy hardcoded maps — used as fallback when adapter module does not
   // declare capability flags explicitly.
@@ -2968,6 +2969,10 @@ export function agentRoutes(
 
   router.delete("/agents/:id", async (req, res) => {
     assertBoard(req);
+    // hostedMode guard: agent deletion not allowed in hosted mode
+    if (options.deploymentMode === "hosted_proxy") {
+      throw forbidden("Agent deletion is not allowed in hosted mode");
+    }
     const id = req.params.id as string;
     if (!(await getAccessibleAgent(req, res, id))) {
       return;
@@ -3025,6 +3030,10 @@ export function agentRoutes(
 
   router.delete("/agents/:id/keys/:keyId", async (req, res) => {
     assertBoard(req);
+    // hostedMode guard: API key revocation not allowed in hosted mode
+    if (options.deploymentMode === "hosted_proxy") {
+      throw forbidden("API key revocation is not allowed in hosted mode");
+    }
     const id = req.params.id as string;
     const keyId = req.params.keyId as string;
     const agent = await getAccessibleAgent(req, res, id);

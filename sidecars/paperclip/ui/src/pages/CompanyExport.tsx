@@ -8,7 +8,8 @@ import type {
   CompanyPortabilityManifest,
   Project,
 } from "@paperclipai/shared";
-import { useNavigate, useLocation } from "@/lib/router";
+import { Navigate, useNavigate, useLocation } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToastActions } from "../context/ToastContext";
@@ -578,6 +579,9 @@ function expandAncestors(filePath: string): string[] {
 }
 
 export function CompanyExport() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/" replace />;
+
   const { selectedCompanyId, selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToastActions();

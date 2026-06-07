@@ -10,7 +10,7 @@ import {
   updateSecretProviderConfigSchema,
   updateSecretSchema,
 } from "@paperclipai/shared";
-import { validate } from "../middleware/validate.js";
+import { validate, hostedModeGuard } from "../middleware/index.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { logActivity, secretService } from "../services/index.js";
 import { getConfiguredSecretProvider } from "../secrets/configured-provider.js";
@@ -77,7 +77,11 @@ export function secretRoutes(db: Db) {
     },
   );
 
-  router.post("/companies/:companyId/secret-provider-configs", validate(createSecretProviderConfigSchema), async (req, res) => {
+  router.post(
+    "/companies/:companyId/secret-provider-configs",
+    hostedModeGuard({ operation: "Secret provider config creation" }),
+    validate(createSecretProviderConfigSchema),
+    async (req, res) => {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
@@ -110,7 +114,8 @@ export function secretRoutes(db: Db) {
     });
 
     res.status(201).json(created);
-  });
+  }
+  );
 
   router.get("/secret-provider-configs/:id", async (req, res) => {
     assertBoard(req);

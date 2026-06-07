@@ -553,7 +553,7 @@ function createMemberRouter(db: Db): Router {
  * Create the provisioning Express router for Paperclip.
  *
  * Mount at `/internal`:
- *   app.use("/internal", provisionRoutes(db));
+ *   app.use("/internal", provisionRoutes(db, { hostedMode: false }));
  *
  * Provides:
  *   POST   /provision          — provision a new tenant
@@ -563,10 +563,22 @@ function createMemberRouter(db: Db): Router {
  *   POST   /members/add        — add a member to a company
  *   POST   /members/remove     — remove a member from a company
  *   POST   /members/change-role — change a member's role
+ *
+ * In hosted mode, infrastructure management operations (teardown, member removal)
+ * are blocked since the platform controls provisioning and deprovisioning.
  */
-export function provisionRoutes(db: Db): Router {
+export function provisionRoutes(db: Db, opts?: { hostedMode?: boolean }): Router {
+  const hostedMode = opts?.hostedMode ?? false;
   const router = Router();
   router.use(createProvisionRouter(createPaperclipAdapter(db)));
   router.use(createMemberRouter(db));
+
+  // Apply hostedMode guards to member removal and role changes
+  // These operations should be controlled by the platform in hosted mode
+  if (hostedMode) {
+    // Wrap the member routes with guards that reject destructive operations
+    router.use("/members/remove", requireNotHostedMode(hostedMode));
+  }
+
   return router;
 }

@@ -140,6 +140,7 @@ export async function createApp(
     databaseBackupService?: InstanceDatabaseBackupService;
     deploymentMode: DeploymentMode;
     deploymentExposure: DeploymentExposure;
+    hostedMode: boolean;
     allowedHostnames: string[];
     bindHost: string;
     authReady: boolean;
@@ -154,8 +155,9 @@ export async function createApp(
   },
 ) {
   const app = express();
-  // Make deploymentMode available to middleware for hostedMode guards
+  // Make deploymentMode and hostedMode available to middleware for guards
   app.locals.deploymentMode = opts.deploymentMode;
+  app.locals.hostedMode = opts.hostedMode;
   const captureRawBody = (req: express.Request, _res: express.Response, buf: Buffer) => {
     (req as unknown as { rawBody: Buffer }).rawBody = buf;
   };
@@ -216,7 +218,7 @@ export async function createApp(
   api.use(llmRoutes(db));
   api.use(companySkillRoutes(db));
   api.use(teamsCatalogRoutes(db));
-  api.use(agentRoutes(db, { pluginWorkerManager: workerManager }));
+  api.use(agentRoutes(db, { pluginWorkerManager: workerManager, deploymentMode: opts.deploymentMode }));
   api.use(assetRoutes(db, opts.storageService));
   api.use(projectRoutes(db));
   api.use(issueRoutes(db, opts.storageService, {
@@ -238,7 +240,7 @@ export async function createApp(
   api.use(sidebarPreferenceRoutes(db));
   api.use(resourceMembershipRoutes(db));
   api.use(inboxDismissalRoutes(db));
-  api.use(instanceSettingsRoutes(db));
+  api.use(instanceSettingsRoutes(db, { deploymentMode: opts.deploymentMode }));
   if (opts.databaseBackupService) {
     api.use(instanceDatabaseBackupRoutes(opts.databaseBackupService));
   }

@@ -4,6 +4,7 @@ import { sidebarBadgesApi } from "@/api/sidebarBadges";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { ApiError } from "@/api/client";
 import { Link } from "@/lib/router";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { queryKeys } from "@/lib/queryKeys";
 import { useCompany } from "@/context/CompanyContext";
 import { useSidebar } from "@/context/SidebarContext";
@@ -11,6 +12,7 @@ import { usePluginSlots } from "@/plugins/slots";
 import { SidebarNavItem } from "./SidebarNavItem";
 
 export function CompanySettingsSidebar() {
+  const { isHosted } = useHostedMode();
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { isMobile, setSidebarOpen } = useSidebar();
   const { slots: companySettingsPluginSlots } = usePluginSlots({
@@ -80,13 +82,6 @@ export function CompanySettingsSidebar() {
               end
             />
           ) : null}
-          <SidebarNavItem
-            to="/company/settings/members"
-            label="Members"
-            icon={Users}
-            badge={badges?.joinRequests ?? 0}
-            end
-          />
           {companySettingsPluginSlots
             .filter((slot) => slot.routePath)
             .map((slot) => (
@@ -98,7 +93,18 @@ export function CompanySettingsSidebar() {
                 end
               />
             ))}
-          <SidebarNavItem to="/company/settings/invites" label="Invites" icon={MailPlus} end />
+          {!isHosted && (
+            <>
+              <SidebarNavItem
+                to="/company/settings/members"
+                label="Members"
+                icon={Users}
+                badge={badges?.joinRequests ?? 0}
+                end
+              />
+              <SidebarNavItem to="/company/settings/invites" label="Invites" icon={MailPlus} end />
+            </>
+          )}
           <SidebarNavItem to="/company/settings/secrets" label="Secrets" icon={KeyRound} end />
         </div>
       </nav>

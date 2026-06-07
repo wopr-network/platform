@@ -19,6 +19,7 @@ import {
 } from "@paperclipai/shared";
 import { badRequest, forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
+import { hostedModeGuard } from "../middleware/hosted-mode-guard.js";
 import {
   accessService,
   agentService,

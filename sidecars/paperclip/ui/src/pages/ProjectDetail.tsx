@@ -864,7 +864,7 @@ export function ProjectDetail() {
         />
       )}
 
-      {activeTab === "workspaces" ? (
+      {!isHosted && activeTab === "workspaces" ? (
         workspaceTabDecisionLoaded ? (
           workspaceTabError ? (
             <p className="text-sm text-destructive">{workspaceTabError.message}</p>
@@ -881,7 +881,7 @@ export function ProjectDetail() {
         )
       ) : null}
 
-      {activeTab === "configuration" && (
+      {!isHosted && activeTab === "configuration" && (
         <div className="max-w-4xl">
           <ProjectProperties
             project={project}
@@ -894,7 +894,7 @@ export function ProjectDetail() {
         </div>
       )}
 
-      {activeTab === "budget" && resolvedCompanyId ? (
+      {!isHosted && activeTab === "budget" && resolvedCompanyId ? (
         <div className="max-w-3xl">
           <BudgetPolicyCard
             summary={projectBudgetSummary}

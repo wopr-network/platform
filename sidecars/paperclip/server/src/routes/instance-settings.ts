@@ -6,7 +6,7 @@ import {
   patchInstanceGeneralSettingsSchema,
 } from "@paperclipai/shared";
 import { forbidden } from "../errors.js";
-import { validate } from "../middleware/validate.js";
+import { validate, hostedModeGuard } from "../middleware/index.js";
 import { heartbeatService, instanceSettingsService, logActivity } from "../services/index.js";
 import { assertBoardOrgAccess, getActorInfo } from "./authz.js";
 
@@ -32,7 +32,11 @@ export function instanceSettingsRoutes(db: Db) {
     res.json(await svc.getGeneral());
   });
 
-  router.patch("/instance/settings/general", validate(patchInstanceGeneralSettingsSchema), async (req, res) => {
+  router.patch(
+    "/instance/settings/general",
+    hostedModeGuard({ operation: "Instance general settings modification" }),
+    validate(patchInstanceGeneralSettingsSchema),
+    async (req, res) => {
     assertCanManageInstanceSettings(req);
     const updated = await svc.updateGeneral(req.body);
     const actor = getActorInfo(req);
@@ -56,7 +60,8 @@ export function instanceSettingsRoutes(db: Db) {
       ),
     );
     res.json(updated.general);
-  });
+  }
+  );
 
   router.get("/instance/settings/experimental", async (req, res) => {
     // Experimental settings are readable by any authenticated org member
@@ -67,6 +72,7 @@ export function instanceSettingsRoutes(db: Db) {
 
   router.patch(
     "/instance/settings/experimental",
+    hostedModeGuard({ operation: "Instance experimental settings modification" }),
     validate(patchInstanceExperimentalSettingsSchema),
     async (req, res) => {
       assertCanManageInstanceSettings(req);
@@ -97,6 +103,7 @@ export function instanceSettingsRoutes(db: Db) {
 
   router.post(
     "/instance/settings/experimental/issue-graph-liveness-auto-recovery/preview",
+    hostedModeGuard({ operation: "Issue graph liveness auto-recovery preview" }),
     validate(issueGraphLivenessAutoRecoveryRequestSchema),
     async (req, res) => {
       assertCanManageInstanceSettings(req);
@@ -108,6 +115,7 @@ export function instanceSettingsRoutes(db: Db) {
 
   router.post(
     "/instance/settings/experimental/issue-graph-liveness-auto-recovery/run",
+    hostedModeGuard({ operation: "Issue graph liveness auto-recovery run" }),
     validate(issueGraphLivenessAutoRecoveryRequestSchema),
     async (req, res) => {
       assertCanManageInstanceSettings(req);

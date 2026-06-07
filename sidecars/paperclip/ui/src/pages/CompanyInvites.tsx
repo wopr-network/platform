@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/ToastContext";
-import { Link } from "@/lib/router";
+import { Link, Navigate } from "@/lib/router";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { queryKeys } from "@/lib/queryKeys";
 
 const inviteRoleOptions = [
@@ -45,6 +46,11 @@ function isInviteHistoryRow(value: unknown): value is Awaited<ReturnType<typeof 
 }
 
 export function CompanyInvites() {
+  const { isHosted } = useHostedMode();
+
+  // Redirect to dashboard in hosted mode — invite management is handled by the platform
+  if (isHosted) return <Navigate to="/dashboard" replace />;
+
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
