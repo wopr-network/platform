@@ -219,10 +219,13 @@ export function loadConfig(): Config {
     : (deploymentModeFromInstance ?? fileConfig?.server.deploymentMode ?? deploymentModeFromEnv ?? "local_trusted");
 
   const strictModeFromEnv = process.env.PAPERCLIP_SECRETS_STRICT_MODE;
-  const secretsStrictMode =
-    strictModeFromEnv !== undefined
+  // HOSTED MODE GUARD: In hosted mode, enforce strict mode for secrets to ensure all secret access
+  // goes through the platform's managed secret provider. This prevents accidental exposure of unmanaged secrets.
+  const secretsStrictMode = hostedMode
+    ? true
+    : (strictModeFromEnv !== undefined
       ? strictModeFromEnv === "true"
-      : (fileSecrets?.strictMode ?? deploymentMode === "authenticated");
+      : (fileSecrets?.strictMode ?? deploymentMode === "authenticated"));
 
   const deploymentExposureFromInstance =
     instanceConfig.deploymentExposure &&
@@ -234,10 +237,13 @@ export function loadConfig(): Config {
     deploymentExposureFromEnvRaw && DEPLOYMENT_EXPOSURES.includes(deploymentExposureFromEnvRaw as DeploymentExposure)
       ? (deploymentExposureFromEnvRaw as DeploymentExposure)
       : null;
-  const deploymentExposure: DeploymentExposure =
-    deploymentMode === "local_trusted"
+  // HOSTED MODE GUARD: In hosted mode, force deploymentExposure to 'private' to ensure the proxy layer
+  // manages all external access and authentication. Hosted instances should never expose services directly.
+  const deploymentExposure: DeploymentExposure = hostedMode
+    ? "private"
+    : (deploymentMode === "local_trusted"
       ? "private"
-      : (deploymentExposureFromInstance ?? fileConfig?.server.exposure ?? deploymentExposureFromEnv ?? "private");
+      : (deploymentExposureFromInstance ?? fileConfig?.server.exposure ?? deploymentExposureFromEnv ?? "private"));
   const bindFromEnvRaw = process.env.PAPERCLIP_BIND;
   const bindFromEnv =
     bindFromEnvRaw && BIND_MODES.includes(bindFromEnvRaw as BindMode)
@@ -263,11 +269,18 @@ export function loadConfig(): Config {
     publicUrlFromEnv ??
     fileConfig?.auth?.publicBaseUrl;
   const authPublicBaseUrl = authPublicBaseUrlRaw?.trim() || undefined;
-  const authBaseUrlMode: AuthBaseUrlMode =
-    authBaseUrlModeFromEnv ?? fileConfig?.auth?.baseUrlMode ?? (authPublicBaseUrl ? "explicit" : "auto");
+  // HOSTED MODE GUARD: In hosted mode, force authBaseUrlMode to 'auto' to allow the platform's proxy
+  // to dynamically determine the public base URL from request headers. This ensures auth URLs are
+  // correctly routed through the platform's proxy layer.
+  const authBaseUrlMode: AuthBaseUrlMode = hostedMode
+    ? "auto"
+    : (authBaseUrlModeFromEnv ?? fileConfig?.auth?.baseUrlMode ?? (authPublicBaseUrl ? "explicit" : "auto"));
   const disableSignUpFromEnv = process.env.PAPERCLIP_AUTH_DISABLE_SIGN_UP;
-  const authDisableSignUp: boolean =
-    disableSignUpFromEnv !== undefined ? disableSignUpFromEnv === "true" : (fileConfig?.auth?.disableSignUp ?? false);
+  // HOSTED MODE GUARD: In hosted mode, sign-up is managed by the platform's provision endpoint
+  // and should respect the hosted configuration. Force disable sign-up to prevent self-registration.
+  const authDisableSignUp: boolean = hostedMode
+    ? true
+    : (disableSignUpFromEnv !== undefined ? disableSignUpFromEnv === "true" : (fileConfig?.auth?.disableSignUp ?? false));
   const allowedHostnamesFromEnvRaw = process.env.PAPERCLIP_ALLOWED_HOSTNAMES;
   const allowedHostnamesFromEnv = allowedHostnamesFromEnvRaw
     ? allowedHostnamesFromEnvRaw

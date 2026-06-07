@@ -9,7 +9,7 @@ import {
   workspaceRuntimeControlTargetSchema,
 } from "@paperclipai/shared";
 import type { WorkspaceRuntimeDesiredState, WorkspaceRuntimeServiceStateMap } from "@paperclipai/shared";
-import { validate } from "../middleware/validate.js";
+import { validate, hostedModeGuard } from "../middleware/index.js";
 import { accessService, executionWorkspaceService, logActivity, workspaceOperationService } from "../services/index.js";
 import { mergeExecutionWorkspaceConfig, readExecutionWorkspaceConfig } from "../services/execution-workspaces.js";
 import { parseProjectExecutionWorkspacePolicy } from "../services/execution-workspace-policy.js";
@@ -464,10 +464,10 @@ export function executionWorkspaceRoutes(db: Db) {
     });
   }
 
-  router.post("/execution-workspaces/:id/runtime-services/:action", validate(workspaceRuntimeControlTargetSchema), handleExecutionWorkspaceRuntimeCommand);
-  router.post("/execution-workspaces/:id/runtime-commands/:action", validate(workspaceRuntimeControlTargetSchema), handleExecutionWorkspaceRuntimeCommand);
+  router.post("/execution-workspaces/:id/runtime-services/:action", hostedModeGuard({ operation: "Execution workspace runtime service control" }), validate(workspaceRuntimeControlTargetSchema), handleExecutionWorkspaceRuntimeCommand);
+  router.post("/execution-workspaces/:id/runtime-commands/:action", hostedModeGuard({ operation: "Execution workspace runtime command execution" }), validate(workspaceRuntimeControlTargetSchema), handleExecutionWorkspaceRuntimeCommand);
 
-  router.patch("/execution-workspaces/:id", validate(updateExecutionWorkspaceSchema), async (req, res) => {
+  router.patch("/execution-workspaces/:id", hostedModeGuard({ operation: "Execution workspace update" }), validate(updateExecutionWorkspaceSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {

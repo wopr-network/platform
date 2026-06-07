@@ -12,7 +12,7 @@ import {
 } from "@paperclipai/shared";
 import type { WorkspaceRuntimeDesiredState, WorkspaceRuntimeServiceStateMap } from "@paperclipai/shared";
 import { trackProjectCreated } from "@paperclipai/shared/telemetry";
-import { validate } from "../middleware/validate.js";
+import { validate, hostedModeGuard } from "../middleware/index.js";
 import { accessService, projectService, logActivity, workspaceOperationService } from "../services/index.js";
 import { conflict, forbidden } from "../errors.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
@@ -139,7 +139,7 @@ export function projectRoutes(db: Db) {
     res.json(project);
   });
 
-  router.post("/companies/:companyId/projects", validate(createProjectSchema), async (req, res) => {
+  router.post("/companies/:companyId/projects", hostedModeGuard({ operation: "Project creation" }), validate(createProjectSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     type CreateProjectPayload = Parameters<typeof svc.create>[1] & {
@@ -207,7 +207,7 @@ export function projectRoutes(db: Db) {
     res.status(201).json(hydratedProject ?? project);
   });
 
-  router.patch("/projects/:id", validate(updateProjectSchema), async (req, res) => {
+  router.patch("/projects/:id", hostedModeGuard({ operation: "Project update" }), validate(updateProjectSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -279,7 +279,7 @@ export function projectRoutes(db: Db) {
     res.json(workspaces);
   });
 
-  router.post("/projects/:id/workspaces", validate(createProjectWorkspaceSchema), async (req, res) => {
+  router.post("/projects/:id/workspaces", hostedModeGuard({ operation: "Project workspace creation" }), validate(createProjectWorkspaceSchema), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {
@@ -319,6 +319,7 @@ export function projectRoutes(db: Db) {
 
   router.patch(
     "/projects/:id/workspaces/:workspaceId",
+    hostedModeGuard({ operation: "Project workspace update" }),
     validate(updateProjectWorkspaceSchema),
     async (req, res) => {
       const id = req.params.id as string;
@@ -638,10 +639,10 @@ export function projectRoutes(db: Db) {
     });
   }
 
-  router.post("/projects/:id/workspaces/:workspaceId/runtime-services/:action", validate(workspaceRuntimeControlTargetSchema), handleProjectWorkspaceRuntimeCommand);
-  router.post("/projects/:id/workspaces/:workspaceId/runtime-commands/:action", validate(workspaceRuntimeControlTargetSchema), handleProjectWorkspaceRuntimeCommand);
+  router.post("/projects/:id/workspaces/:workspaceId/runtime-services/:action", hostedModeGuard({ operation: "Workspace runtime service control" }), validate(workspaceRuntimeControlTargetSchema), handleProjectWorkspaceRuntimeCommand);
+  router.post("/projects/:id/workspaces/:workspaceId/runtime-commands/:action", hostedModeGuard({ operation: "Workspace runtime command execution" }), validate(workspaceRuntimeControlTargetSchema), handleProjectWorkspaceRuntimeCommand);
 
-  router.delete("/projects/:id/workspaces/:workspaceId", async (req, res) => {
+  router.delete("/projects/:id/workspaces/:workspaceId", hostedModeGuard({ operation: "Project workspace deletion" }), async (req, res) => {
     const id = req.params.id as string;
     const workspaceId = req.params.workspaceId as string;
     const existing = await svc.getById(id);
@@ -674,7 +675,7 @@ export function projectRoutes(db: Db) {
     res.json(workspace);
   });
 
-  router.delete("/projects/:id", async (req, res) => {
+  router.delete("/projects/:id", hostedModeGuard({ operation: "Project deletion" }), async (req, res) => {
     const id = req.params.id as string;
     const existing = await svc.getById(id);
     if (!existing) {

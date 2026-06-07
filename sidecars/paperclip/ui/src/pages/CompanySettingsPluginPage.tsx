@@ -1,11 +1,18 @@
 import { useEffect, useMemo } from "react";
-import { useParams } from "@/lib/router";
+import { Navigate, useParams } from "@/lib/router";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { PluginSlotMount, usePluginSlots } from "@/plugins/slots";
 import { NotFoundPage } from "./NotFound";
 
 export function CompanySettingsPluginPage() {
+  const { isHosted, modeKnown } = useHostedMode();
+
+  // Redirect to dashboard in hosted mode — company settings are self-hosted only
+  if (!modeKnown) return null;
+  if (isHosted) return <Navigate to="/dashboard" replace />;
+
   const params = useParams<{
     companyPrefix?: string;
     settingsRoutePath?: string;

@@ -321,7 +321,7 @@ export function companySkillRoutes(db: Db) {
     },
   );
 
-  router.delete("/companies/:companyId/skills/:skillId", async (req, res) => {
+  router.delete("/companies/:companyId/skills/:skillId", hostedModeGuard({ operation: "Skill deletion" }), async (req, res) => {
     const companyId = req.params.companyId as string;
     const skillId = req.params.skillId as string;
     await assertCanMutateCompanySkills(req, companyId);
@@ -352,6 +352,7 @@ export function companySkillRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/skills/:skillId/audit",
+    hostedModeGuard({ operation: "Skill audit" }),
     async (req, res) => {
       const companyId = req.params.companyId as string;
       const skillId = req.params.skillId as string;
@@ -387,6 +388,7 @@ export function companySkillRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/skills/:skillId/install-update",
+    hostedModeGuard({ operation: "Skill update installation" }),
     validate(companySkillInstallUpdateSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -427,6 +429,7 @@ export function companySkillRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/skills/:skillId/reset",
+    hostedModeGuard({ operation: "Skill reset" }),
     validate(companySkillResetSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
