@@ -1,4 +1,5 @@
 import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { formatCents } from "../lib/utils";
 
 export const typeLabel: Record<string, string> = {

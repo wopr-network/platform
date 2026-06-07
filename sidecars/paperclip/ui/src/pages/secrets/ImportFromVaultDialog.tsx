@@ -23,6 +23,8 @@ import type {
   RemoteSecretImportResult,
   RemoteSecretImportRowResult,
 } from "@paperclipai/shared";
+import { Navigate } from "../../lib/router";
+import { useHostedMode } from "../../hooks/useHostedMode";
 import { ApiError } from "../../api/client";
 import {
   secretsApi,
@@ -330,6 +332,10 @@ export function ImportFromVaultDialog({
   onImportComplete,
   onManageVaults,
 }: ImportFromVaultDialogProps) {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
+  if (isHosted) return <Navigate to="/" replace />;
+
   const queryClient = useQueryClient();
   const toast = useToastActions();
   const awsVaults = useMemo(() => awsVaultOptions(providerConfigs), [providerConfigs]);

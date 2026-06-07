@@ -492,7 +492,7 @@ export function IssueRunLedgerContent({
   watchdogDecisionError,
   onWatchdogDecision,
 }: IssueRunLedgerContentProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const ledgerRuns = useMemo(() => mergeRuns(runs, liveRuns, activeRun), [activeRun, liveRuns, runs]);
   const latestRun = ledgerRuns[0] ?? null;
   const latestSilentRun = useMemo(
@@ -758,7 +758,7 @@ export function IssueRunLedgerContent({
                       {RUN_OUTPUT_SILENCE_COPY[run.outputSilence.level]?.label}
                     </span>
                   ) : null}
-                  {!isHosted && (() => {
+                  {modeKnown && !isHosted && (() => {
                     const profile = modelProfileForRun(run);
                     if (!profile) return null;
                     const label = profile.applied === profile.requested
@@ -815,7 +815,7 @@ export function IssueRunLedgerContent({
                   </div>
                 ) : null}
 
-                {!isHosted && (() => {
+                {modeKnown && !isHosted && (() => {
                   const profile = modelProfileForRun(run);
                   if (!profile?.fallbackReason || profile.applied === profile.requested) return null;
                   return (

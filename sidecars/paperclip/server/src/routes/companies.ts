@@ -462,28 +462,33 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     },
   );
 
-  router.patch("/:companyId/branding", validate(updateCompanyBrandingSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
-    await assertCanUpdateBranding(req, companyId);
-    const company = await svc.update(companyId, req.body);
-    if (!company) {
-      res.status(404).json({ error: "Company not found" });
-      return;
-    }
-    const actor = getActorInfo(req);
-    await logActivity(db, {
-      companyId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      agentId: actor.agentId,
-      runId: actor.runId,
-      action: "company.branding_updated",
-      entityType: "company",
-      entityId: companyId,
-      details: req.body,
-    });
-    res.json(company);
-  });
+  router.patch(
+    "/:companyId/branding",
+    hostedModeGuard({ operation: "Company branding update" }),
+    validate(updateCompanyBrandingSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      await assertCanUpdateBranding(req, companyId);
+      const company = await svc.update(companyId, req.body);
+      if (!company) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      const actor = getActorInfo(req);
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "company.branding_updated",
+        entityType: "company",
+        entityId: companyId,
+        details: req.body,
+      });
+      res.json(company);
+    },
+  );
 
   router.post(
     "/:companyId/archive",

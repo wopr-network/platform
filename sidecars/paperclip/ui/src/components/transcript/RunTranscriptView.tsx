@@ -1483,7 +1483,7 @@ export function RunTranscriptView({
   className,
   thinkingClassName,
 }: RunTranscriptViewProps) {
-  const isHosted = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const blocks = useMemo(
     () => (mode === "raw" ? [] : normalizeTranscript(entries, streaming)),
     [entries, mode, streaming],

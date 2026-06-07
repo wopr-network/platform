@@ -409,7 +409,7 @@ export function environmentRoutes(
     res.json(removed);
   });
 
-  router.post("/environments/:id/probe", async (req, res) => {
+  router.post("/environments/:id/probe", hostedModeGuard({ operation: "Environment probing" }), async (req, res) => {
     const environment = await svc.getById(req.params.id as string);
     if (!environment) {
       res.status(404).json({ error: "Environment not found" });
@@ -440,6 +440,7 @@ export function environmentRoutes(
 
   router.post(
     "/companies/:companyId/environments/probe-config",
+    hostedModeGuard({ operation: "Environment probe configuration" }),
     validate(probeEnvironmentConfigSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;

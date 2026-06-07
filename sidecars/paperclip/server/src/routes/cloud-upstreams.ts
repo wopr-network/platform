@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
 import { badRequest, notFound } from "../errors.js";
+import { hostedModeGuard } from "../middleware/hosted-mode-guard.js";
 import { assertBoardOrgAccess } from "./authz.js";
 import { cloudUpstreamService, instanceSettingsService } from "../services/index.js";
 
@@ -23,40 +24,56 @@ export function cloudUpstreamRoutes(db: Db, options: { instanceId?: string } = {
     res.json(await service.list(companyId));
   });
 
-  router.post("/cloud-upstreams/connect/start", async (req, res) => {
-    assertBoardOrgAccess(req);
-    await assertEnabled();
-    const companyId = stringBody(req.body, "companyId");
-    const remoteUrl = stringBody(req.body, "remoteUrl");
-    const redirectUri = stringBody(req.body, "redirectUri");
-    res.json(await service.startConnect({ companyId, remoteUrl, redirectUri }));
-  });
+  router.post(
+    "/cloud-upstreams/connect/start",
+    hostedModeGuard({ operation: "Cloud upstream connection" }),
+    async (req, res) => {
+      assertBoardOrgAccess(req);
+      await assertEnabled();
+      const companyId = stringBody(req.body, "companyId");
+      const remoteUrl = stringBody(req.body, "remoteUrl");
+      const redirectUri = stringBody(req.body, "redirectUri");
+      res.json(await service.startConnect({ companyId, remoteUrl, redirectUri }));
+    },
+  );
 
-  router.post("/cloud-upstreams/connect/finish", async (req, res) => {
-    assertBoardOrgAccess(req);
-    await assertEnabled();
-    res.json(await service.finishConnect({
-      pendingConnectionId: stringBody(req.body, "pendingConnectionId"),
-      code: stringBody(req.body, "code"),
-      state: stringBody(req.body, "state"),
-    }));
-  });
+  router.post(
+    "/cloud-upstreams/connect/finish",
+    hostedModeGuard({ operation: "Cloud upstream connection" }),
+    async (req, res) => {
+      assertBoardOrgAccess(req);
+      await assertEnabled();
+      res.json(await service.finishConnect({
+        pendingConnectionId: stringBody(req.body, "pendingConnectionId"),
+        code: stringBody(req.body, "code"),
+        state: stringBody(req.body, "state"),
+      }));
+    },
+  );
 
-  router.post("/cloud-upstreams/:connectionId/push-runs/preview", async (req, res) => {
-    assertBoardOrgAccess(req);
-    await assertEnabled();
-    res.json(await service.preview(req.params.connectionId, stringBody(req.body, "companyId")));
-  });
+  router.post(
+    "/cloud-upstreams/:connectionId/push-runs/preview",
+    hostedModeGuard({ operation: "Cloud upstream operation" }),
+    async (req, res) => {
+      assertBoardOrgAccess(req);
+      await assertEnabled();
+      res.json(await service.preview(req.params.connectionId, stringBody(req.body, "companyId")));
+    },
+  );
 
-  router.post("/cloud-upstreams/:connectionId/push-runs", async (req, res) => {
-    assertBoardOrgAccess(req);
-    await assertEnabled();
-    res.json(await service.createRun({
-      connectionId: req.params.connectionId,
-      companyId: stringBody(req.body, "companyId"),
-      retryOfRunId: optionalString(req.body?.retryOfRunId),
-    }));
-  });
+  router.post(
+    "/cloud-upstreams/:connectionId/push-runs",
+    hostedModeGuard({ operation: "Cloud upstream operation" }),
+    async (req, res) => {
+      assertBoardOrgAccess(req);
+      await assertEnabled();
+      res.json(await service.createRun({
+        connectionId: req.params.connectionId,
+        companyId: stringBody(req.body, "companyId"),
+        retryOfRunId: optionalString(req.body?.retryOfRunId),
+      }));
+    },
+  );
 
   router.get("/cloud-upstreams/:connectionId/push-runs/:runId", async (req, res) => {
     assertBoardOrgAccess(req);
