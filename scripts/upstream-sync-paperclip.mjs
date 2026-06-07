@@ -305,29 +305,51 @@ function scanForHostedModeGaps() {
   for (const dir of [componentsDir, pagesDir]) {
     if (!existsSync(dir)) continue;
 
-    // Find .tsx files that reference infra concepts but lack hostedMode guards
-    const infraPatterns = [
-      "adapter",
-      "model.*select",
-      "provider.*config",
-      "inference.*url",
-      "api.*key.*input",
-      "endpoint.*config",
-      "instance.*settings",
-      "showProjects",
-      "modeKnown",
-      "hosted_proxy",
-    ];
+    // Find all .tsx files, excluding test files
+    let allFiles = [];
+    try {
+      const files = readdirSync(dir, { recursive: true });
+      allFiles = files
+        .filter((f) => f.endsWith(".tsx") && !f.includes(".test.") && !f.includes(".render."))
+        .map((f) => `${dir}/${f}`);
+    } catch {
+      /* skip */
+    }
 
-    const grepPattern = infraPatterns.join("\\|");
-    const filesWithInfra = tryRun(`grep -rli '${grepPattern}' ${dir} --include='*.tsx' 2>/dev/null`);
-
-    if (!filesWithInfra.ok || !filesWithInfra.output.trim()) continue;
-
-    for (const file of filesWithInfra.output.split("\n").filter(Boolean)) {
-      // Check if file has hostedMode guard — look for useHostedMode import or isHosted usage
+    for (const file of allFiles) {
+      // Skip if already has hostedMode guard
       const hasGuard = tryRun(`grep -l 'useHostedMode\\|isHosted\\|hostedMode' ${file}`);
-      if (!hasGuard.ok) {
+      if (hasGuard.ok) continue;
+
+      // Look for actual UI infra exposure patterns (not just imports/types):
+      // - listUIAdapters() calls (adapter selection UI)
+      // - getUIAdapter( calls (adapter config form rendering)
+      // - Model selection UI elements
+      // - Provider/endpoint configuration forms
+      // - API key input fields
+      // - showProjects/modeKnown conditionals (fork-specific)
+      const infraUIPatterns = [
+        "listUIAdapters",         // Adapter picker UI
+        "getUIAdapter",           // Adapter config rendering
+        "AdapterConfigForm",      // Adapter form component
+        "model.*Picker",          // Model selection
+        "EndpointConfig",         // Endpoint UI
+        "ApiKeyInput",            // Credentials
+        "showProjects",           // Fork-specific visibility
+        "modeKnown",              // Fork-specific checks
+        "hosted_proxy",           // Infra reference
+      ];
+
+      let hasInfraUI = false;
+      for (const pattern of infraUIPatterns) {
+        const matches = tryRun(`grep '${pattern}' ${file}`);
+        if (matches.ok && matches.output.trim()) {
+          hasInfraUI = true;
+          break;
+        }
+      }
+
+      if (hasInfraUI) {
         gaps.push(file);
       }
     }
@@ -354,37 +376,63 @@ Files missing hostedMode guards:
 ${fileList}
 \`\`\`
 
-The hostedMode pattern used in this codebase:
+hostedMode context:
+- In hosted mode (isHosted=true): users cannot configure adapters, plugins, instance settings,
+  or any infrastructure details. They run pre-configured agents against Anthropic's infrastructure.
+- In self-hosted mode (isHosted=false): full admin/developer UX for configuration is visible.
+
+The hostedMode guard pattern used in this codebase:
 \`\`\`tsx
+import { Navigate } from "@/lib/router";
 import { useHostedMode } from "../hooks/useHostedMode";
-// ...
-const { isHosted } = useHostedMode();
-// Then conditionally render:
-{!isHosted && <InfraComponent />}
-// Or for entire pages:
-if (isHosted) return <Navigate to="/" replace />;
+
+export function SomeInfraPage() {
+  const { isHosted, modeKnown } = useHostedMode();
+
+  // If mode isn't yet known, return null (loading state)
+  if (!modeKnown) return null;
+
+  // If hosted, redirect to home (infrastructure pages don't exist in hosted mode)
+  if (isHosted) return <Navigate to="/" replace />;
+
+  // Rest of component only renders in self-hosted mode
+  return <div>Infrastructure UI here...</div>;
+}
 \`\`\`
 
-Guard keywords to check for and wrap:
-- adapter selections
-- model/provider selections
-- API key inputs
-- inference endpoint configs
-- instance/deployment settings
-- showProjects / modeKnown / hosted_proxy references
-- manual agent creation UI ("new agent" buttons)
+For components that render WITHIN a page (not whole pages):
+\`\`\`tsx
+const { isHosted } = useHostedMode();
+return (
+  <div>
+    {!isHosted && <AdapterPicker />}  {/* Only show adapter UI in self-hosted mode */}
+    <CommonUI />
+  </div>
+);
+\`\`\`
+
+Files that need guards:
+- Pages that let users configure adapters, models, endpoints, API keys, instance settings
+- Components that render adapter/model picker UIs
+- Components with showProjects or modeKnown or hosted_proxy conditionals
+- Components calling listUIAdapters() or getUIAdapter()
+- Components rendering AdapterConfigForm
 
 For each file:
-1. Read the file
-2. Identify which elements expose infra to the user (adapter pickers, model selectors, settings controls, API key inputs, "new agent" buttons, etc.)
-3. Add useHostedMode hook import if needed
-4. Add the hostedMode guard following the exact pattern shown above
-5. If the file is a page that should be entirely hidden in hosted mode, add a redirect
-6. If the file has buttons/links that let users create agents manually, hide them in hosted mode
-7. If the file is a component that only renders inside an already-guarded parent, note it and SKIP
-8. Wrap infra UI elements with {!isHosted && ...} or similar patterns
+1. Read the file and identify if it's a page or component
+2. Check if it renders UI for: adapter selection, model selection, API key input, endpoint config, instance settings, plugin management
+3. If it's a page: add full-page guard (check isHosted at top, return Navigate if hosted)
+4. If it's a component: add conditional rendering {!isHosted && <UI />}
+5. If file only contains helpers/types with no UI, SKIP it
+6. Ensure Navigate import is present for page redirects
 
-After fixing, run: git add -A && git commit -m "fix: add hostedMode guards for new upstream UI"`,
+Common exclusions (SKIP these):
+- Pure type/utility files
+- Components that are children of already-guarded parents (e.g., form fields inside AdapterConfigForm)
+- Test files
+- Files that reference adapters only in import statements or type annotations
+
+After fixing all files, run: git add -A && git commit -m "fix: add hostedMode guards for infrastructure UI"`,
     { model: "claude-haiku-4-5-20251001", phase: "hostedmode-fix", maxTurns: 90 },
   );
 }
