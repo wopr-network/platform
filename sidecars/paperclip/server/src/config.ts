@@ -158,9 +158,6 @@ export function loadConfig(): Config {
   const fileDatabaseBackup = fileConfig?.database.backup;
   const fileSecrets = fileConfig?.secrets;
   const fileStorage = fileConfig?.storage;
-  const strictModeFromEnv = process.env.PAPERCLIP_SECRETS_STRICT_MODE;
-  const secretsStrictMode =
-    strictModeFromEnv !== undefined ? strictModeFromEnv === "true" : (fileSecrets?.strictMode ?? false);
 
   const providerFromEnvRaw = process.env.PAPERCLIP_SECRETS_PROVIDER;
   const providerFromEnv =
@@ -210,13 +207,15 @@ export function loadConfig(): Config {
       ? (instanceConfig.deploymentMode as DeploymentMode)
       : null;
   const deploymentModeFromEnvRaw = process.env.PAPERCLIP_DEPLOYMENT_MODE;
-  const deploymentModeFromEnv =
-    deploymentModeFromEnvRaw && DEPLOYMENT_MODES.includes(deploymentModeFromEnvRaw as DeploymentMode)
-      ? (deploymentModeFromEnvRaw as DeploymentMode)
-      : null;
   const deploymentMode: DeploymentMode = hostedMode
     ? "hosted_proxy"
     : (deploymentModeFromInstance ?? fileConfig?.server.deploymentMode ?? deploymentModeFromEnv ?? "local_trusted");
+
+  const strictModeFromEnv = process.env.PAPERCLIP_SECRETS_STRICT_MODE;
+  const secretsStrictMode =
+    strictModeFromEnv !== undefined
+      ? strictModeFromEnv === "true"
+      : (fileSecrets?.strictMode ?? deploymentMode === "authenticated");
 
   const deploymentExposureFromInstance =
     instanceConfig.deploymentExposure &&

@@ -6,7 +6,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useHostedMode } from "../hooks/useHostedMode";
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
 import { queryKeys } from "../lib/queryKeys";
-import { StatusBadge } from "./StatusBadge";
+import { AgentStatusBadge } from "./StatusBadge";
 import { Identity } from "./Identity";
 import { formatDate, agentUrl } from "../lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -43,7 +43,7 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
     <div className="space-y-4">
       <div className="space-y-1">
         <PropertyRow label="Status">
-          <StatusBadge status={agent.status} />
+          <AgentStatusBadge status={agent.status} />
         </PropertyRow>
         <PropertyRow label="Role">
           <span className="text-sm">{roleLabels[agent.role] ?? agent.role}</span>
