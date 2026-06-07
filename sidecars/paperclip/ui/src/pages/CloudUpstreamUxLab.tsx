@@ -94,6 +94,10 @@ const PARSE_ORDER: FixtureStateKey[] = [
 ];
 
 export function CloudUpstreamUxLab() {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
+  if (isHosted) return <Navigate to="/" replace />;
+
   const location = useLocation();
   const { state, showChrome } = useMemo(() => {
     const params = new URLSearchParams(location.search);
