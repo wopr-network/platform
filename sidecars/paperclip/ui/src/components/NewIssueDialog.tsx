@@ -806,10 +806,10 @@ export function NewIssueDialog() {
           ? (newIssueDefaults.projectWorkspaceId ?? "")
           : (draft.projectWorkspaceId ?? defaultProjectWorkspaceIdForProject(restoredProject)),
       );
-      setAssigneeModelLane(isHosted ? "primary" : (draft.assigneeModelLane ?? "primary"));
-      setAssigneeModelOverride(isHosted ? "" : (draft.assigneeModelOverride ?? ""));
-      setAssigneeThinkingEffort(isHosted ? "" : (draft.assigneeThinkingEffort ?? ""));
-      setAssigneeChrome(isHosted ? false : (draft.assigneeChrome ?? false));
+      setAssigneeModelLane(isHosted || !modeKnown ? "primary" : (draft.assigneeModelLane ?? "primary"));
+      setAssigneeModelOverride(isHosted || !modeKnown ? "" : (draft.assigneeModelOverride ?? ""));
+      setAssigneeThinkingEffort(isHosted || !modeKnown ? "" : (draft.assigneeThinkingEffort ?? ""));
+      setAssigneeChrome(isHosted || !modeKnown ? false : (draft.assigneeChrome ?? false));
       setExecutionWorkspaceMode(
         hasExplicitExecutionWorkspaceId || hasExplicitExecutionWorkspaceMode
           ? defaultExecutionWorkspaceModeForIssueDefaults(newIssueDefaults, restoredProject)
@@ -854,7 +854,7 @@ export function NewIssueDialog() {
   }, [newIssueOpen, newIssueDefaults, orderedProjects, selectedCompanyId, setIssueText, isHosted]);
 
   useEffect(() => {
-    if (!supportsAssigneeOverrides || isHosted) {
+    if (!supportsAssigneeOverrides || isHosted || !modeKnown) {
       setAssigneeOptionsOpen(false);
       setAssigneeModelLane("primary");
       setAssigneeModelOverride("");
@@ -1594,7 +1594,7 @@ export function NewIssueDialog() {
             </div>
           ) : null}
 
-          {!isHosted && currentProject && currentProjectSupportsExecutionWorkspace && (
+          {!isHosted && modeKnown && currentProject && currentProjectSupportsExecutionWorkspace && (
             <div className="px-4 py-3 space-y-2">
             <div className="space-y-1.5">
               <div className="text-xs font-medium">Execution workspace</div>
@@ -1645,7 +1645,7 @@ export function NewIssueDialog() {
             </div>
           )}
 
-          {supportsAssigneeOverrides && !isHosted && (
+          {supportsAssigneeOverrides && !isHosted && modeKnown && (
             <div className="px-4 pb-2">
             <button
               className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"

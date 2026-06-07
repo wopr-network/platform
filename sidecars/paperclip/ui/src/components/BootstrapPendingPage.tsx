@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Loader2, ShieldCheck, Terminal, TriangleAlert } from "lucide-react";
-import { Link } from "@/lib/router";
+import { Link, Navigate } from "@/lib/router";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { Button } from "@/components/ui/button";
 import { BOOTSTRAP_FALLBACK_COMMAND } from "@/bootstrapSetup";
 import type { AuthSession } from "@paperclipai/shared";
@@ -72,6 +73,10 @@ export function BootstrapPendingPage({
   claimError,
   onClaim,
 }: BootstrapPendingPageProps) {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
+  if (isHosted) return <Navigate to="/" replace />;
+
   if (!claimAvailable) {
     return (
       <StateChrome>
