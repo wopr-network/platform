@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { Camera, LoaderCircle, Save, Trash2, UserRoundPen } from "lucide-react";
 import type { AuthSession, CurrentUserProfile, UpdateCurrentUserProfile } from "@paperclipai/shared";
 import { authApi } from "@/api/auth";
@@ -19,6 +21,9 @@ function deriveInitials(name: string) {
 }
 
 export function ProfileSettings() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/dashboard" replace />;
+
   const { setBreadcrumbs } = useBreadcrumbs();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const queryClient = useQueryClient();

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link, useNavigate, useLocation } from "@/lib/router";
+import { Link, useNavigate, useLocation, Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -77,6 +78,9 @@ function filterOrgTree(nodes: OrgNode[], tab: FilterTab): OrgNode[] {
 }
 
 export function Agents() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/" replace />;
+
   const { selectedCompanyId } = useCompany();
   const { openNewAgent } = useDialogActions();
   const { setBreadcrumbs } = useBreadcrumbs();

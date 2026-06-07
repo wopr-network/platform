@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   agentsApi,
   type AgentKey,
@@ -637,6 +638,9 @@ function WorkspaceOperationsSection({
 }
 
 export function AgentDetail() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/dashboard" replace />;
+
   const { companyPrefix, agentId, tab: urlTab, runId: urlRunId } = useParams<{
     companyPrefix?: string;
     agentId: string;

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { pluginsApi } from "@/api/plugins";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   PluginSlotMount,
@@ -23,6 +24,9 @@ import { NotFoundPage } from "./NotFound";
  * @see doc/plugins/PLUGIN_SPEC.md §24.4 — Company-Context Plugin Page
  */
 export function PluginPage() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/dashboard" replace />;
+
   const params = useParams<{
     companyPrefix?: string;
     pluginId?: string;

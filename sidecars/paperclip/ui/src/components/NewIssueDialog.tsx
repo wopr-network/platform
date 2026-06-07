@@ -854,7 +854,7 @@ export function NewIssueDialog() {
   }, [newIssueOpen, newIssueDefaults, orderedProjects, selectedCompanyId, setIssueText]);
 
   useEffect(() => {
-    if (!supportsAssigneeOverrides) {
+    if (!supportsAssigneeOverrides || isHosted) {
       setAssigneeOptionsOpen(false);
       setAssigneeModelLane("primary");
       setAssigneeModelOverride("");
@@ -877,6 +877,7 @@ export function NewIssueDialog() {
     }
   }, [
     supportsAssigneeOverrides,
+    isHosted,
     assigneeAdapterType,
     assigneeThinkingEffort,
     assigneeSupportsCheapLane,
@@ -1593,7 +1594,7 @@ export function NewIssueDialog() {
             </div>
           ) : null}
 
-          {currentProject && currentProjectSupportsExecutionWorkspace && (
+          {!isHosted && currentProject && currentProjectSupportsExecutionWorkspace && (
             <div className="px-4 py-3 space-y-2">
             <div className="space-y-1.5">
               <div className="text-xs font-medium">Execution workspace</div>

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   AlertCircle,
   AlertTriangle,
@@ -352,6 +354,9 @@ export function getAwsManagedPathPreview(input: {
 }
 
 export function Secrets() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/dashboard" replace />;
+
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();

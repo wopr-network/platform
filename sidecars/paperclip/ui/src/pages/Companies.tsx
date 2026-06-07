@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate } from "@/lib/router";
 import { useCompany } from "../context/CompanyContext";
 import { useDialogActions } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { companiesApi } from "../api/companies";
 import { queryKeys } from "../lib/queryKeys";
 import { formatCents, relativeTime } from "../lib/utils";
@@ -29,6 +31,11 @@ import {
 } from "lucide-react";
 
 export function Companies() {
+  const { isHosted } = useHostedMode();
+
+  // Redirect to home in hosted mode — company management is self-hosted only
+  if (isHosted) return <Navigate to="/" replace />;
+
   const {
     companies,
     selectedCompanyId,

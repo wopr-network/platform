@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate } from "@/lib/router";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import {
   AGENT_ADAPTER_TYPES,
   getAdapterEnvironmentSupport,
@@ -159,6 +161,9 @@ function SupportMark({ supported }: { supported: boolean }) {
 }
 
 export function CompanyEnvironments() {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return <Navigate to="/" replace />;
+
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();

@@ -25,6 +25,7 @@ import { useGeneralSettings } from "../context/GeneralSettingsContext";
 import { useSidebar } from "../context/SidebarContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useDialogActions } from "../context/DialogContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   applyIssueFilters,
   countActiveIssueFilters,
@@ -665,6 +666,7 @@ export function Inbox() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const { openNewIssue } = useDialogActions();
   const { isMobile } = useSidebar();
+  const { isHosted } = useHostedMode();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -2714,7 +2716,7 @@ export function Inbox() {
               Alerts
             </h3>
             <div className="divide-y divide-border border border-border">
-              {showAggregateAgentError && (
+              {!isHosted && showAggregateAgentError && (
                 <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
                   <Link
                     to="/agents"
