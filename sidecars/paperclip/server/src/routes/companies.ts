@@ -34,7 +34,7 @@ import type { StorageService } from "../storage/types.js";
 import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo } from "./authz.js";
 import { COMPANY_IMPORT_ROUTE_PATH } from "./company-import-paths.js";
 
-export function companyRoutes(db: Db, storage?: StorageService, opts?: { deploymentMode?: DeploymentMode }) {
+export function companyRoutes(db: Db, storage?: StorageService) {
   const router = Router();
   const svc = companyService(db);
   const agents = agentService(db);
@@ -303,47 +303,48 @@ export function companyRoutes(db: Db, storage?: StorageService, opts?: { deploym
     res.json(result);
   });
 
-  router.post("/", validate(createCompanySchema), async (req, res) => {
-    assertBoard(req);
-    if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
-      throw forbidden("Instance admin required");
-    }
-    // hostedMode guard: company creation not allowed in hosted mode (except via provision endpoint)
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Company creation is not allowed in hosted mode");
-    }
-    const company = await svc.create(req.body);
-    const ownerPrincipalId = req.actor.userId ?? "local-board";
-    await access.ensureMembership(company.id, "user", ownerPrincipalId, "owner", "active");
-    await access.ensureRoleDefaultGrants(
-      company.id,
-      ownerPrincipalId,
-      "owner",
-      req.actor.userId ?? null,
-    );
-    await logActivity(db, {
-      companyId: company.id,
-      actorType: "user",
-      actorId: req.actor.userId ?? "board",
-      action: "company.created",
-      entityType: "company",
-      entityId: company.id,
-      details: { name: company.name },
-    });
-    if (company.budgetMonthlyCents > 0) {
-      await budgets.upsertPolicy(
+  router.post(
+    "/",
+    hostedModeGuard({ operation: "Company creation" }),
+    validate(createCompanySchema),
+    async (req, res) => {
+      assertBoard(req);
+      if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
+        throw forbidden("Instance admin required");
+      }
+      const company = await svc.create(req.body);
+      const ownerPrincipalId = req.actor.userId ?? "local-board";
+      await access.ensureMembership(company.id, "user", ownerPrincipalId, "owner", "active");
+      await access.ensureRoleDefaultGrants(
         company.id,
-        {
-          scopeType: "company",
-          scopeId: company.id,
-          amount: company.budgetMonthlyCents,
-          windowKind: "calendar_month_utc",
-        },
-        req.actor.userId ?? "board",
+        ownerPrincipalId,
+        "owner",
+        req.actor.userId ?? null,
       );
-    }
-    res.status(201).json(company);
-  });
+      await logActivity(db, {
+        companyId: company.id,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "company.created",
+        entityType: "company",
+        entityId: company.id,
+        details: { name: company.name },
+      });
+      if (company.budgetMonthlyCents > 0) {
+        await budgets.upsertPolicy(
+          company.id,
+          {
+            scopeType: "company",
+            scopeId: company.id,
+            amount: company.budgetMonthlyCents,
+            windowKind: "calendar_month_utc",
+          },
+          req.actor.userId ?? "board",
+        );
+      }
+      res.status(201).json(company);
+    },
+  );
 
   router.patch("/:companyId", async (req, res) => {
     const companyId = req.params.companyId as string;
@@ -463,21 +464,21 @@ export function companyRoutes(db: Db, storage?: StorageService, opts?: { deploym
     res.json(company);
   });
 
-  router.delete("/:companyId", async (req, res) => {
-    assertBoard(req);
-    // hostedMode guard: company deletion not allowed in hosted mode
-    if (opts?.deploymentMode === "hosted_proxy") {
-      throw forbidden("Company deletion is not allowed in hosted mode");
-    }
-    const companyId = req.params.companyId as string;
-    assertCompanyAccess(req, companyId);
-    const company = await svc.remove(companyId);
-    if (!company) {
-      res.status(404).json({ error: "Company not found" });
-      return;
-    }
-    res.json({ ok: true });
-  });
+  router.delete(
+    "/:companyId",
+    hostedModeGuard({ operation: "Company deletion" }),
+    async (req, res) => {
+      assertBoard(req);
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+      const company = await svc.remove(companyId);
+      if (!company) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      res.json({ ok: true });
+    },
+  );
 
   return router;
 }

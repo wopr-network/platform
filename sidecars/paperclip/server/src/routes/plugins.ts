@@ -67,6 +67,7 @@ import {
   assertInstanceAdmin,
   getActorInfo,
 } from "./authz.js";
+import { hostedModeGuard } from "../middleware/index.js";
 import { validateInstanceConfig } from "../services/plugin-config-validator.js";
 import {
   findLocalFolderDeclaration,
@@ -1005,7 +1006,7 @@ export function pluginRoutes(
    * - `400` — validation failure or install error (package not found, bad manifest, etc.)
    * - `500` — installation succeeded but manifest is missing (indicates a loader bug)
    */
-  router.post("/plugins/install", async (req, res) => {
+  router.post("/plugins/install", hostedModeGuard({ operation: "Plugin installation" }), async (req, res) => {
     assertInstanceAdmin(req);
     const { packageName, version, isLocalPath } = req.body as PluginInstallRequest;
 
@@ -1818,7 +1819,7 @@ export function pluginRoutes(
    * Response: PluginRecord (the deleted record)
    * Errors: 404 if plugin not found, 400 for lifecycle errors
    */
-  router.delete("/plugins/:pluginId", async (req, res) => {
+  router.delete("/plugins/:pluginId", hostedModeGuard({ operation: "Plugin uninstallation" }), async (req, res) => {
     assertInstanceAdmin(req);
     const { pluginId } = req.params;
     const purge = req.query.purge === "true";
@@ -1854,7 +1855,7 @@ export function pluginRoutes(
    * Response: PluginRecord
    * Errors: 404 if plugin not found, 400 for lifecycle errors
    */
-  router.post("/plugins/:pluginId/enable", async (req, res) => {
+  router.post("/plugins/:pluginId/enable", hostedModeGuard({ operation: "Plugin enable" }), async (req, res) => {
     assertInstanceAdmin(req);
     const { pluginId } = req.params;
 

@@ -18,7 +18,9 @@ import fs from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { Router } from "express";
+import { Router, type Express } from "express";
+import type { DeploymentMode } from "@paperclipai/shared";
+import { forbidden } from "../errors.js";
 import {
   listServerAdapters,
   findServerAdapter,
@@ -187,7 +189,7 @@ function registerWithSessionManagement(adapter: ServerAdapterModule): void {
 // Router
 // ---------------------------------------------------------------------------
 
-export function adapterRoutes() {
+export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
   const router = Router();
 
   /**
@@ -228,6 +230,10 @@ export function adapterRoutes() {
    */
   router.post("/adapters/install", async (req, res) => {
     assertInstanceAdmin(req);
+    // hostedMode guard: adapter installation not allowed in hosted mode
+    if (opts?.deploymentMode === "hosted_proxy") {
+      throw forbidden("Adapter installation is not allowed in hosted mode");
+    }
 
     const { packageName, isLocalPath = false, version } = req.body as AdapterInstallRequest;
 
@@ -375,6 +381,10 @@ export function adapterRoutes() {
    */
   router.patch("/adapters/:type", async (req, res) => {
     assertInstanceAdmin(req);
+    // hostedMode guard: adapter disable not allowed in hosted mode
+    if (opts?.deploymentMode === "hosted_proxy") {
+      throw forbidden("Adapter configuration is not allowed in hosted mode");
+    }
 
     const adapterType = req.params.type;
     const { disabled } = req.body as { disabled?: boolean };
@@ -410,6 +420,10 @@ export function adapterRoutes() {
    */
   router.patch("/adapters/:type/override", async (req, res) => {
     assertInstanceAdmin(req);
+    // hostedMode guard: adapter override control not allowed in hosted mode
+    if (opts?.deploymentMode === "hosted_proxy") {
+      throw forbidden("Adapter override control is not allowed in hosted mode");
+    }
 
     const adapterType = req.params.type;
     const { paused } = req.body as { paused?: boolean };

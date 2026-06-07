@@ -7,6 +7,7 @@ import type {
   EnvBinding,
   Environment,
 } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { AGENT_DEFAULT_MAX_CONCURRENT_RUNS, supportedEnvironmentDriversForAdapter } from "@paperclipai/shared";
 import type { AdapterModel } from "../api/agents";
 import { agentsApi } from "../api/agents";
@@ -198,6 +199,9 @@ function clampDelayMsFromSeconds(value: number) {
 /* ---- Form ---- */
 
 export function AgentConfigForm(props: AgentConfigFormProps) {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
+
   const { mode, adapterModels: externalModels } = props;
   const isCreate = mode === "create";
   const cards = props.sectionLayout === "cards";

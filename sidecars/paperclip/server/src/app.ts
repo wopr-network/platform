@@ -227,11 +227,11 @@ export async function createApp(
   }));
   api.use(issueTreeControlRoutes(db));
   api.use(routineRoutes(db, { pluginWorkerManager: workerManager }));
-  api.use(environmentRoutes(db, { pluginWorkerManager: workerManager }));
+  api.use(environmentRoutes(db, { pluginWorkerManager: workerManager, deploymentMode: opts.deploymentMode }));
   api.use(executionWorkspaceRoutes(db));
   api.use(goalRoutes(db));
   api.use(approvalRoutes(db, { pluginWorkerManager: workerManager }));
-  api.use(secretRoutes(db));
+  api.use(secretRoutes(db, { deploymentMode: opts.deploymentMode }));
   api.use(costRoutes(db, { pluginWorkerManager: workerManager }));
   api.use(activityRoutes(db));
   api.use(dashboardRoutes(db));
@@ -312,9 +312,10 @@ export async function createApp(
       { workerManager },
       { toolDispatcher },
       { workerManager },
+      { deploymentMode: opts.deploymentMode },
     ),
   );
-  api.use(adapterRoutes());
+  api.use(adapterRoutes({ deploymentMode: opts.deploymentMode }));
   api.use(
     accessRoutes(db, {
       deploymentMode: opts.deploymentMode,

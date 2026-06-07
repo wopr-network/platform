@@ -128,7 +128,11 @@ export function secretRoutes(db: Db) {
     res.json(existing);
   });
 
-  router.patch("/secret-provider-configs/:id", validate(updateSecretProviderConfigSchema), async (req, res) => {
+  router.patch(
+    "/secret-provider-configs/:id",
+    hostedModeGuard({ operation: "Secret provider config modification" }),
+    validate(updateSecretProviderConfigSchema),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getProviderConfigById(id);
@@ -165,9 +169,13 @@ export function secretRoutes(db: Db) {
     });
 
     res.json(updated);
-  });
+  }
+  );
 
-  router.delete("/secret-provider-configs/:id", async (req, res) => {
+  router.delete(
+    "/secret-provider-configs/:id",
+    hostedModeGuard({ operation: "Secret provider config deletion" }),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getProviderConfigById(id);
@@ -198,9 +206,13 @@ export function secretRoutes(db: Db) {
     });
 
     res.json(removed);
-  });
+  }
+  );
 
-  router.post("/secret-provider-configs/:id/default", async (req, res) => {
+  router.post(
+    "/secret-provider-configs/:id/default",
+    hostedModeGuard({ operation: "Secret provider config default assignment" }),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getProviderConfigById(id);
@@ -274,7 +286,11 @@ export function secretRoutes(db: Db) {
     res.json(secrets);
   });
 
-  router.post("/companies/:companyId/secrets", validate(createSecretSchema), async (req, res) => {
+  router.post(
+    "/companies/:companyId/secrets",
+    hostedModeGuard({ operation: "Secret creation" }),
+    validate(createSecretSchema),
+    async (req, res) => {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
@@ -307,10 +323,12 @@ export function secretRoutes(db: Db) {
     });
 
     res.status(201).json(created);
-  });
+  }
+  );
 
   router.post(
     "/companies/:companyId/secrets/remote-import/preview",
+    hostedModeGuard({ operation: "Remote secret import preview" }),
     validate(remoteSecretImportPreviewSchema),
     async (req, res) => {
       assertBoard(req);
@@ -346,6 +364,7 @@ export function secretRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/secrets/remote-import",
+    hostedModeGuard({ operation: "Remote secret import" }),
     validate(remoteSecretImportSchema),
     async (req, res) => {
       assertBoard(req);

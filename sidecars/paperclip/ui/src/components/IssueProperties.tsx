@@ -383,6 +383,7 @@ export function IssueProperties({
   onUpdate,
   inline,
 }: IssuePropertiesProps) {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;
@@ -1806,7 +1807,7 @@ export function IssueProperties({
           {assigneeContent}
         </PropertyPicker>
 
-        {showAssigneeAdapterOptions ? (
+        {!isHosted && showAssigneeAdapterOptions ? (
           <PropertyPicker
             inline={inline}
             label="Model"

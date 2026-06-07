@@ -2,9 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate } from "@/lib/router";
 import { useHostedMode } from "../hooks/useHostedMode";
-
-// Guard: In hosted mode, secrets management is centrally managed by the platform
-const HOSTED_MODE_REDIRECT = <Navigate to="/dashboard" replace />;
 import {
   AlertCircle,
   AlertTriangle,

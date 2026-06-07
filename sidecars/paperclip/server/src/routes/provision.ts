@@ -414,7 +414,8 @@ function requireNotHostedMode(hostedMode: boolean) {
  * add / remove / change-role operations called by platform-core
  * when org membership changes.
  */
-function createMemberRouter(db: Db): Router {
+function createMemberRouter(db: Db, opts?: { hostedMode?: boolean }): Router {
+  const hostedMode = opts?.hostedMode ?? false;
   const router = Router();
   const access = accessService(db);
 
@@ -498,28 +499,34 @@ function createMemberRouter(db: Db): Router {
   });
 
   // POST /members/remove
-  router.post("/members/remove", requireProvisionSecret, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { companyId, userId } = req.body as { companyId: string; userId: string };
+  router.post(
+    "/members/remove",
+    requireProvisionSecret,
+    requireNotHostedMode(hostedMode),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { companyId, userId } = req.body as { companyId: string; userId: string };
 
-      await access.ensureMembership(companyId, "user", userId, "member", "suspended");
+        await access.ensureMembership(companyId, "user", userId, "member", "suspended");
 
-      // Demote from instance_admin if user has no remaining company memberships
-      const remaining = await access.listUserCompanyAccess(userId);
-      if (remaining.length === 0) {
-        await access.demoteInstanceAdmin(userId);
+        // Demote from instance_admin if user has no remaining company memberships
+        const remaining = await access.listUserCompanyAccess(userId);
+        if (remaining.length === 0) {
+          await access.demoteInstanceAdmin(userId);
+        }
+
+        res.json({ ok: true });
+      } catch (err) {
+        next(err);
       }
-
-      res.json({ ok: true });
-    } catch (err) {
-      next(err);
-    }
-  });
+    },
+  );
 
   // POST /members/change-role
   router.post(
     "/members/change-role",
     requireProvisionSecret,
+    requireNotHostedMode(hostedMode),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { companyId, userId, role } = req.body as {
@@ -564,21 +571,13 @@ function createMemberRouter(db: Db): Router {
  *   POST   /members/remove     — remove a member from a company
  *   POST   /members/change-role — change a member's role
  *
- * In hosted mode, infrastructure management operations (teardown, member removal)
+ * In hosted mode, infrastructure management operations (member removal)
  * are blocked since the platform controls provisioning and deprovisioning.
  */
 export function provisionRoutes(db: Db, opts?: { hostedMode?: boolean }): Router {
   const hostedMode = opts?.hostedMode ?? false;
   const router = Router();
   router.use(createProvisionRouter(createPaperclipAdapter(db)));
-  router.use(createMemberRouter(db));
-
-  // Apply hostedMode guards to member removal and role changes
-  // These operations should be controlled by the platform in hosted mode
-  if (hostedMode) {
-    // Wrap the member routes with guards that reject destructive operations
-    router.use("/members/remove", requireNotHostedMode(hostedMode));
-  }
-
+  router.use(createMemberRouter(db, { hostedMode }));
   return router;
 }

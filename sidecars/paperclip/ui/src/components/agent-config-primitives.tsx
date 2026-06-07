@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import { AGENT_ROLE_LABELS } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 /* ---- Help text for (?) tooltips ---- */
 export const help: Record<string, string> = {

@@ -13,6 +13,8 @@ import { SidebarNavItem } from "./SidebarNavItem";
 
 export function CompanySettingsSidebar() {
   const { isHosted } = useHostedMode();
+  if (isHosted) return null;
+
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { isMobile, setSidebarOpen } = useSidebar();
   const { slots: companySettingsPluginSlots } = usePluginSlots({
