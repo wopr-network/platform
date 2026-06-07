@@ -101,9 +101,8 @@ function HireAgentPayloadContent({ payload }: { payload: Record<string, unknown>
 }
 
 export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
-  const { isHosted, modeKnown } = useHostedMode();
-  // Hide adapter selection and infrastructure details in hosted mode
-  if (!modeKnown) return null;
+  const { isHosted } = useHostedMode();
+  // Hide adapter type in hosted mode
   if (isHosted) {
     return (
       <div className="mt-3 space-y-1.5 text-sm">

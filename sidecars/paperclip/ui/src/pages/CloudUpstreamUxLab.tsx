@@ -23,7 +23,8 @@ import type {
 } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useLocation } from "@/lib/router";
+import { Navigate, useLocation } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 type FixtureStateKey =
   | "settings-pane"

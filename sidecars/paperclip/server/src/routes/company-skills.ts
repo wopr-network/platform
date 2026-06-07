@@ -289,6 +289,7 @@ export function companySkillRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/skills/scan-projects",
+    hostedModeGuard({ operation: "Skill project scan" }),
     validate(companySkillProjectScanRequestSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
