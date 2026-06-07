@@ -101,7 +101,9 @@ function HireAgentPayloadContent({ payload }: { payload: Record<string, unknown>
 }
 
 export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
+  // Don't render until deployment mode is known to prevent UI flashing
+  if (!modeKnown) return null;
   // Hide adapter type in hosted mode
   if (isHosted) {
     return (
