@@ -2738,7 +2738,7 @@ export function Inbox() {
                   </button>
                 </div>
               )}
-              {showBudgetAlert && (
+              {!isHosted && showBudgetAlert && (
                 <div className="group/alert relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/50">
                   <Link
                     to="/costs"

@@ -16,6 +16,7 @@ import {
   type CreatedAgent,
 } from "@wopr-network/provision-server";
 import { ROLE_PERMISSIONS } from "@paperclipai/shared";
+import { forbidden } from "../errors.js";
 import {
   companyService,
   agentService,
@@ -386,6 +387,24 @@ function requireProvisionSecret(req: Request, res: Response, next: NextFunction)
   }
   console.log("[provision] auth OK");
   next();
+}
+
+/**
+ * Guard to block infrastructure-management operations in hosted mode.
+ * In hosted mode, the platform controls provisioning/deprovisioning.
+ */
+function requireNotHostedMode(hostedMode: boolean) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (hostedMode) {
+      console.error(
+        `[provision] blocked in hosted mode: ${req.method} ${req.path}`,
+      );
+      throw forbidden(
+        "This operation is not available in hosted mode. Provisioning is managed by the platform.",
+      );
+    }
+    next();
+  };
 }
 
 /**

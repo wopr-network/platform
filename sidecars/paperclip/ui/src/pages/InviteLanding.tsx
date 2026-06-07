@@ -5,7 +5,8 @@ import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
 import { CompanyPatternIcon } from "@/components/CompanyPatternIcon";
 import { useCompany } from "@/context/CompanyContext";
-import { Link, useNavigate, useParams } from "@/lib/router";
+import { Link, useNavigate, useParams, Navigate } from "@/lib/router";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { accessApi } from "../api/access";
 import { authApi } from "../api/auth";
 import { companiesListQueryOptions } from "../api/companies-query";
@@ -213,6 +214,11 @@ function AwaitingJoinApprovalPanel({
 }
 
 export function InviteLandingPage() {
+  const { isHosted } = useHostedMode();
+
+  // Redirect to home in hosted mode — invites are handled by the platform
+  if (isHosted) return <Navigate to="/" replace />;
+
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { setSelectedCompanyId } = useCompany();

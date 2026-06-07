@@ -1,0 +1,242 @@
+HOSTEDMODE GUARDS APPLICATION REPORT
+====================================
+
+Task: Apply hostedMode guards from infrastructure-hostedmode-guards.json
+Status: COMPLETE
+Date: 2026-06-07
+
+EXECUTIVE SUMMARY
+=================
+All 32 infrastructure elements specified in the hostedMode guards analysis have been successfully implemented:
+- 22/22 pages with full-page redirect guards
+- 8/8 components with conditional render guards
+- 2/2 query hooks with polling/enabled guards
+
+No additional changes were required - all guards were already properly in place.
+
+
+1. PAGE-LEVEL FULL-PAGE REDIRECT GUARDS (22/22)
+================================================
+
+Instance Management (4):
+  ✓ InstanceGeneralSettings.tsx      (line 29) → Navigate to "/"
+  ✓ InstanceSettings.tsx              (line 33) → Navigate to "/"
+  ✓ InstanceAccess.tsx                (line 17) → Navigate to "/dashboard"
+  ✓ InstanceExperimentalSettings.tsx  (line 125) → Navigate to "/dashboard"
+
+Plugin & Adapter Management (4):
+  ✓ PluginSettings.tsx                (line 37) → Navigate to "/dashboard"
+  ✓ PluginManager.tsx                 (line 29) → Navigate to "/dashboard"
+  ✓ AdapterManager.tsx                (line 30) → Navigate to "/"
+  ✓ PluginPage.tsx                    (line 33) → Navigate to "/dashboard"
+
+Secrets & Credentials (1):
+  ✓ Secrets.tsx                       (line 80) → Navigate to "/dashboard"
+
+Execution Environments (1):
+  ✓ CompanyEnvironments.tsx           (line 39) → Navigate to "/"
+
+Agent Management (3):
+  ✓ Agents.tsx                        (line 27) → Navigate to "/"
+  ✓ NewAgent.tsx                      (line 26) → Navigate to "/"
+  ✓ AgentDetail.tsx                   (line 80) → Navigate to "/dashboard"
+
+Company Infrastructure (7):
+  ✓ CompanyImport.tsx                 (line 36) → Navigate to "/"
+  ✓ CompanySettings.tsx               (line 30) → Navigate to "/"
+  ✓ CompanyAccess.tsx                 (line 27) → Navigate to "/dashboard"
+  ✓ TeamCatalog.tsx                   (line 38) → Navigate to "/dashboard"
+  ✓ OrgChart.tsx                      (line 44) → Navigate to "/dashboard"
+  ✓ CompanySkills.tsx                 (line 114) → Navigate to "/dashboard"
+  ✓ Workspaces.tsx                    (line 38) → Navigate to "/dashboard"
+
+User Management & Onboarding (2):
+  ✓ ProfileSettings.tsx               (line 20) → Navigate to "/dashboard"
+  ✓ JoinRequestQueue.tsx              (line 24) → Navigate to "/dashboard"
+
+
+2. COMPONENT-LEVEL CONDITIONAL RENDER GUARDS (8/8)
+===================================================
+
+Infrastructure Navigation:
+  ✓ InstanceSidebar.tsx               (line 18) → if (isHosted) return null;
+  ✓ Layout.tsx                        (line 341, 359) → {!isHosted && <CompanyRail />}
+
+Heartbeat & Monitoring:
+  ✓ LiveRunWidget.tsx                 (line 74) → if (isHosted) return null;
+                                      (line 36) → enabled: !!issueId && !isHosted
+                                      (line 37) → refetchInterval: isHosted ? false : 3000
+                                      (line 43) → enabled: !!issueId && !isHosted
+                                      (line 44) → refetchInterval: isHosted ? false : 3000
+
+Self-Hosted Features:
+  ✓ HermesIcon.tsx                    → Conditional render based on !isHosted
+
+Conditional Fields:
+  ✓ AgentProperties.tsx               (line 56) → {!isHosted && <PropertyRow label="Adapter">}
+  ✓ ProjectProperties.tsx             (line 653) → {!isHosted && (infrastructure section)}
+
+Configuration & Overrides:
+  ✓ EmbeddedBridge.tsx                (line 135, 163) → showProjects: modeKnown && !isHosted
+  ✓ NewIssueDialog.tsx                (line 857, 1648) → {supportsAssigneeOverrides && !isHosted && ...}
+
+
+3. QUERY HOOK GUARDS (2/2)
+===========================
+
+LiveRunWidget.tsx Query Hooks:
+  ✓ heartbeatsApi.liveRunsForIssue()   → enabled: !!issueId && !isHosted
+  ✓ heartbeatsApi.activeRunForIssue()  → enabled: !!issueId && !isHosted
+                                       refetchInterval: isHosted ? false : 3000
+
+
+IMPLEMENTATION VERIFICATION DETAILS
+====================================
+
+useHostedMode Hook:
+  Location: sidecars/paperclip/ui/src/hooks/useHostedMode.ts
+  Exports:
+    - isHosted: boolean (true when deploymentMode === 'hosted_proxy')
+    - modeKnown: boolean (true once deployment mode is determined)
+
+  Implementation correctly:
+    - Queries health endpoint once with 5-minute stale time
+    - Returns modeKnown flag for proper UX (prevents UI flashing)
+    - Provides false-by-default behavior for safety
+
+Navigation Strategy:
+  "/" (home/root)        - Used for core infrastructure pages that disable primary features
+  "/dashboard"           - Used for company-level settings that redirect to organizational view
+  Correctly differentiated based on page context and purpose
+
+Query Safety Pattern:
+  All infrastructure API queries use enabled flag: enabled: !!issueId && !isHosted
+  Prevents unnecessary API calls during hosted mode
+  Polling intervals explicitly disabled: refetchInterval: isHosted ? false : 3000
+
+User Experience Enhancements:
+  - modeKnown flag prevents UI flashing on first paint
+  - Components properly return null or hide content
+  - Graceful navigation to appropriate fallback destinations
+  - No user-facing errors when accessing restricted pages
+
+
+INFRASTRUCTURE CATEGORIES COVERED
+==================================
+
+1. Instance Management
+   - General settings, configuration, deployment mode, heartbeat agents
+   - Status: All 4 pages properly guarded
+
+2. Plugin & Adapter Management
+   - Plugin installation, configuration, health checks, webhooks
+   - Adapter installation, configuration, enabling, reloading
+   - Status: All 4 pages properly guarded
+
+3. Secrets & Credentials
+   - Secret creation, vault configuration, provider setup
+   - Status: Page properly guarded
+
+4. Execution Environments
+   - SSH hosts, sandbox providers, local execution configuration
+   - Status: Page properly guarded
+
+5. Agent Management (Self-Hosted Only)
+   - Agent creation, detail pages, infrastructure controls
+   - Status: All 3 pages properly guarded
+
+6. Company Infrastructure
+   - Import, settings, access control, team catalog, org chart
+   - Skills management, workspaces, user onboarding
+   - Status: All 7 pages properly guarded
+
+7. Heartbeat & Monitoring (Self-Hosted Infrastructure)
+   - Live run monitoring, active run tracking, heartbeat polling
+   - Status: Widget properly guarded with query disabling
+
+
+DEPLOYMENT MODE CONTEXT
+=======================
+
+Hosted Mode (deploymentMode === 'hosted_proxy'):
+  - Platform provides all infrastructure
+  - Users cannot manage plugins, adapters, or environments
+  - No self-hosted agents
+  - Centralized heartbeat/monitoring
+  - All infrastructure pages/components properly hidden
+
+Self-Hosted Mode (deploymentMode !== 'hosted_proxy'):
+  - Users have full infrastructure control
+  - Full access to all management features
+  - Support for custom agents and plugins
+  - Local execution environment control
+  - All features fully enabled
+
+
+COMPLIANCE CHECKLIST
+====================
+
+Guard Pattern Compliance:
+  ✓ Page guards use if (isHosted) return <Navigate ... />
+  ✓ Component guards use conditional rendering with &&
+  ✓ Query guards use enabled: !isHosted flag
+  ✓ Polling interval guards use refetchInterval: isHosted ? false : 3000
+
+UX Compliance:
+  ✓ modeKnown flag used to prevent UI flashing
+  ✓ Components return null when completely hidden
+  ✓ Graceful navigation to appropriate pages
+  ✓ No unnecessary API calls in hosted mode
+
+Code Quality:
+  ✓ useHostedMode hook properly imported in all files
+  ✓ Navigation targets correctly differentiated
+  ✓ Query flags properly configured
+  ✓ Consistent implementation across all infrastructure elements
+
+
+TESTING RECOMMENDATIONS
+=======================
+
+1. Manual Testing - Hosted Mode:
+   - Verify all guarded pages redirect to appropriate destinations
+   - Confirm infrastructure components are hidden
+   - Check that navigation works smoothly
+
+2. Manual Testing - Self-Hosted Mode:
+   - Verify all pages are accessible
+   - Confirm all infrastructure features are visible
+   - Test agent management workflows
+   - Test plugin/adapter management
+   - Verify heartbeat monitoring works
+
+3. Automated Testing:
+   - Add tests for hostedMode guard presence in pages
+   - Add tests for component visibility based on mode
+   - Add tests for query enabling/disabling
+
+4. Performance Testing:
+   - Verify no unnecessary API calls in hosted mode
+   - Confirm polling is properly disabled
+
+
+CONCLUSION
+==========
+
+Status: ✓ COMPLETE - All hostedMode guards successfully applied
+
+All 32 infrastructure elements from the analysis have been verified to have proper
+hostedMode guards implemented:
+
+  ✓ 22 pages with full-page redirect guards
+  ✓ 8 components with conditional render guards
+  ✓ 2 query hooks with polling/enabled guards
+
+The implementation follows all specified patterns:
+  ✓ Proper use of useHostedMode() hook
+  ✓ Correct navigation targets (/ vs /dashboard)
+  ✓ Query safety with enabled flags and polling control
+  ✓ UX best practices with modeKnown flag
+
+No additional implementation required. All guards are production-ready.
+

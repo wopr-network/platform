@@ -154,6 +154,8 @@ export async function createApp(
   },
 ) {
   const app = express();
+  // Make deploymentMode available to middleware for hostedMode guards
+  app.locals.deploymentMode = opts.deploymentMode;
   const captureRawBody = (req: express.Request, _res: express.Response, buf: Buffer) => {
     (req as unknown as { rawBody: Buffer }).rawBody = buf;
   };
@@ -210,7 +212,7 @@ export async function createApp(
     }),
   );
   api.use(openApiRoutes());
-  api.use("/companies", companyRoutes(db, opts.storageService));
+  api.use("/companies", companyRoutes(db, opts.storageService, { deploymentMode: opts.deploymentMode }));
   api.use(llmRoutes(db));
   api.use(companySkillRoutes(db));
   api.use(teamsCatalogRoutes(db));

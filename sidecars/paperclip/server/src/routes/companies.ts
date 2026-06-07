@@ -15,6 +15,7 @@ import {
   feedbackVoteValueSchema,
   updateCompanyBrandingSchema,
   updateCompanySchema,
+  type DeploymentMode,
 } from "@paperclipai/shared";
 import { badRequest, forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
@@ -32,7 +33,7 @@ import type { StorageService } from "../storage/types.js";
 import { assertBoard, assertCompanyAccess, assertInstanceAdmin, getActorInfo } from "./authz.js";
 import { COMPANY_IMPORT_ROUTE_PATH } from "./company-import-paths.js";
 
-export function companyRoutes(db: Db, storage?: StorageService) {
+export function companyRoutes(db: Db, storage?: StorageService, opts?: { deploymentMode?: DeploymentMode }) {
   const router = Router();
   const svc = companyService(db);
   const agents = agentService(db);
@@ -306,6 +307,10 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     if (!(req.actor.source === "local_implicit" || req.actor.isInstanceAdmin)) {
       throw forbidden("Instance admin required");
     }
+    // hostedMode guard: company creation not allowed in hosted mode (except via provision endpoint)
+    if (opts?.deploymentMode === "hosted_proxy") {
+      throw forbidden("Company creation is not allowed in hosted mode");
+    }
     const company = await svc.create(req.body);
     const ownerPrincipalId = req.actor.userId ?? "local-board";
     await access.ensureMembership(company.id, "user", ownerPrincipalId, "owner", "active");
@@ -459,6 +464,10 @@ export function companyRoutes(db: Db, storage?: StorageService) {
 
   router.delete("/:companyId", async (req, res) => {
     assertBoard(req);
+    // hostedMode guard: company deletion not allowed in hosted mode
+    if (opts?.deploymentMode === "hosted_proxy") {
+      throw forbidden("Company deletion is not allowed in hosted mode");
+    }
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     const company = await svc.remove(companyId);
