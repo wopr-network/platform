@@ -49,6 +49,7 @@ export function CompanyInvites() {
   const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to dashboard in hosted mode — invite management is handled by the platform
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/dashboard" replace />;
 
   const { selectedCompany, selectedCompanyId } = useCompany();

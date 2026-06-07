@@ -399,7 +399,8 @@ export function loadConfig(): Config {
     // scheduling through its central scheduler. Hosted instances should not maintain
     // independent agent scheduling.
     heartbeatSchedulerEnabled: hostedMode ? false : (process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false"),
-    heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
+    // In hosted mode, use a safe default interval (not actively used since scheduling is disabled).
+    heartbeatSchedulerIntervalMs: hostedMode ? 30000 : Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
     companyDeletionEnabled,
     telemetryEnabled: fileConfig?.telemetry?.enabled ?? true,
   };

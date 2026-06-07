@@ -293,39 +293,44 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     }
   );
 
-  router.post("/:companyId/imports/apply", validate(companyPortabilityImportSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
-    await assertCanManagePortability(req, companyId, "imports");
-    if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {
-      throw forbidden("Safe import route can only target the route company");
-    }
-    if (req.body.collisionStrategy === "replace") {
-      throw forbidden("Safe import route does not allow replace collision strategy");
-    }
-    const actor = getActorInfo(req);
-    const result = await portability.importBundle(req.body, req.actor.type === "board" ? req.actor.userId : null, {
-      mode: "agent_safe",
-      sourceCompanyId: companyId,
-    });
-    await logActivity(db, {
-      companyId: result.company.id,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      entityType: "company",
-      entityId: result.company.id,
-      agentId: actor.agentId,
-      runId: actor.runId,
-      action: "company.imported",
-      details: {
-        include: req.body.include ?? null,
-        agentCount: result.agents.length,
-        warningCount: result.warnings.length,
-        companyAction: result.company.action,
-        importMode: "agent_safe",
-      },
-    });
-    res.json(result);
-  });
+  router.post(
+    "/:companyId/imports/apply",
+    hostedModeGuard({ operation: "Company import" }),
+    validate(companyPortabilityImportSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      await assertCanManagePortability(req, companyId, "imports");
+      if (req.body.target.mode === "existing_company" && req.body.target.companyId !== companyId) {
+        throw forbidden("Safe import route can only target the route company");
+      }
+      if (req.body.collisionStrategy === "replace") {
+        throw forbidden("Safe import route does not allow replace collision strategy");
+      }
+      const actor = getActorInfo(req);
+      const result = await portability.importBundle(req.body, req.actor.type === "board" ? req.actor.userId : null, {
+        mode: "agent_safe",
+        sourceCompanyId: companyId,
+      });
+      await logActivity(db, {
+        companyId: result.company.id,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        entityType: "company",
+        entityId: result.company.id,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "company.imported",
+        details: {
+          include: req.body.include ?? null,
+          agentCount: result.agents.length,
+          warningCount: result.warnings.length,
+          companyAction: result.company.action,
+          importMode: "agent_safe",
+        },
+      });
+      res.json(result);
+    },
+  );
 
   router.post(
     "/",
@@ -370,9 +375,12 @@ export function companyRoutes(db: Db, storage?: StorageService) {
     },
   );
 
-  router.patch("/:companyId", async (req, res) => {
-    const companyId = req.params.companyId as string;
-    assertCompanyAccess(req, companyId);
+  router.patch(
+    "/:companyId",
+    hostedModeGuard({ operation: "Company settings modification" }),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
 
     const actor = getActorInfo(req);
     const existingCompany = await svc.getById(companyId);
@@ -451,7 +459,8 @@ export function companyRoutes(db: Db, storage?: StorageService) {
       });
     }
     res.json(company);
-  });
+    },
+  );
 
   router.patch("/:companyId/branding", validate(updateCompanyBrandingSchema), async (req, res) => {
     const companyId = req.params.companyId as string;

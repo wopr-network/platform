@@ -806,10 +806,10 @@ export function NewIssueDialog() {
           ? (newIssueDefaults.projectWorkspaceId ?? "")
           : (draft.projectWorkspaceId ?? defaultProjectWorkspaceIdForProject(restoredProject)),
       );
-      setAssigneeModelLane(draft.assigneeModelLane ?? "primary");
-      setAssigneeModelOverride(draft.assigneeModelOverride ?? "");
-      setAssigneeThinkingEffort(draft.assigneeThinkingEffort ?? "");
-      setAssigneeChrome(draft.assigneeChrome ?? false);
+      setAssigneeModelLane(isHosted ? "primary" : (draft.assigneeModelLane ?? "primary"));
+      setAssigneeModelOverride(isHosted ? "" : (draft.assigneeModelOverride ?? ""));
+      setAssigneeThinkingEffort(isHosted ? "" : (draft.assigneeThinkingEffort ?? ""));
+      setAssigneeChrome(isHosted ? false : (draft.assigneeChrome ?? false));
       setExecutionWorkspaceMode(
         hasExplicitExecutionWorkspaceId || hasExplicitExecutionWorkspaceMode
           ? defaultExecutionWorkspaceModeForIssueDefaults(newIssueDefaults, restoredProject)
@@ -851,7 +851,7 @@ export function NewIssueDialog() {
         ? defaultProjectId || null
         : null;
     }
-  }, [newIssueOpen, newIssueDefaults, orderedProjects, selectedCompanyId, setIssueText]);
+  }, [newIssueOpen, newIssueDefaults, orderedProjects, selectedCompanyId, setIssueText, isHosted]);
 
   useEffect(() => {
     if (!supportsAssigneeOverrides || isHosted) {

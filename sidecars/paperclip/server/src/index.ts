@@ -694,31 +694,35 @@ export async function startServer(): Promise<StartedServer> {
     resolveSessionFromHeaders,
   });
 
-  void reconcilePersistedRuntimeServicesOnStartup(db as any)
-    .then((result) => {
-      if (result.reconciled > 0) {
-        logger.warn(
-          { reconciled: result.reconciled },
-          "reconciled persisted runtime services from a previous server process",
-        );
-      }
-    })
-    .catch((err) => {
-      logger.error({ err }, "startup reconciliation of persisted runtime services failed");
-    });
+  // In hosted mode, runtime service reconciliation is managed by the platform's
+  // central control plane. Disable local reconciliation to prevent state conflicts.
+  if (!config.hostedMode) {
+    void reconcilePersistedRuntimeServicesOnStartup(db as any)
+      .then((result) => {
+        if (result.reconciled > 0) {
+          logger.warn(
+            { reconciled: result.reconciled },
+            "reconciled persisted runtime services from a previous server process",
+          );
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "startup reconciliation of persisted runtime services failed");
+      });
 
-  void reconcileCloudUpstreamRunsOnStartup(db as any)
-    .then((result) => {
-      if (result.reconciled > 0) {
-        logger.warn(
-          { reconciled: result.reconciled },
-          "reconciled cloud upstream runs from a previous server process",
-        );
-      }
-    })
-    .catch((err) => {
-      logger.error({ err }, "startup reconciliation of cloud upstream runs failed");
-    });
+    void reconcileCloudUpstreamRunsOnStartup(db as any)
+      .then((result) => {
+        if (result.reconciled > 0) {
+          logger.warn(
+            { reconciled: result.reconciled },
+            "reconciled cloud upstream runs from a previous server process",
+          );
+        }
+      })
+      .catch((err) => {
+        logger.error({ err }, "startup reconciliation of cloud upstream runs failed");
+      });
+  }
   
   // In hosted mode, heartbeat scheduling must be disabled or routed through the
   // platform's central scheduler. Hosted instances should not maintain independent

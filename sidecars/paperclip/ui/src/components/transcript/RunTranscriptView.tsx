@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranscriptEntry } from "../../adapters";
+import { useHostedMode } from "../../hooks/useHostedMode";
 import { MarkdownBody } from "../MarkdownBody";
 import { cn, formatTokens } from "../../lib/utils";
 import {
@@ -496,6 +497,7 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
     }
 
     if (entry.kind === "init") {
+      // Note: model info is stripped in hosted mode by RunTranscriptView
       blocks.push({
         type: "event",
         ts: entry.ts,
@@ -1090,9 +1092,11 @@ function TranscriptActivityRow({
 function TranscriptEventRow({
   block,
   density,
+  isHosted = false,
 }: {
   block: Extract<TranscriptBlock, { type: "event" }>;
   density: TranscriptDensity;
+  isHosted?: boolean;
 }) {
   const compact = density === "compact";
   const toneClasses =
@@ -1103,6 +1107,11 @@ function TranscriptEventRow({
         : block.tone === "info"
           ? "text-sky-700 dark:text-sky-300"
           : "text-foreground/75";
+
+  // Hide init event (which contains model info) in hosted mode
+  if (isHosted && block.label === "init") {
+    return null;
+  }
 
   return (
     <div className={toneClasses}>
@@ -1474,6 +1483,7 @@ export function RunTranscriptView({
   className,
   thinkingClassName,
 }: RunTranscriptViewProps) {
+  const isHosted = useHostedMode();
   const blocks = useMemo(
     () => (mode === "raw" ? [] : normalizeTranscript(entries, streaming)),
     [entries, mode, streaming],
@@ -1518,7 +1528,7 @@ export function RunTranscriptView({
             <TranscriptStdoutRow block={block} density={density} collapseByDefault={collapseStdout} />
           )}
           {block.type === "activity" && <TranscriptActivityRow block={block} density={density} />}
-          {block.type === "event" && <TranscriptEventRow block={block} density={density} />}
+          {block.type === "event" && <TranscriptEventRow block={block} density={density} isHosted={isHosted} />}
         </div>
       ))}
     </div>

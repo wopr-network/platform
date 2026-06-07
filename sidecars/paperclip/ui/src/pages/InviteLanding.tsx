@@ -217,6 +217,7 @@ export function InviteLandingPage() {
   const { isHosted, modeKnown } = useHostedMode();
 
   // Redirect to home in hosted mode — invites are handled by the platform
+  if (!modeKnown) return null;
   if (isHosted) return <Navigate to="/" replace />;
 
   const queryClient = useQueryClient();

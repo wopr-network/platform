@@ -2247,125 +2247,130 @@ export function agentRoutes(
     res.status(201).json({ agent, approval });
   });
 
-  router.post("/companies/:companyId/agents", validate(createAgentSchema), async (req, res) => {
-    const companyId = req.params.companyId as string;
-    await assertCanCreateAgentsForCompany(req, companyId);
+  router.post(
+    "/companies/:companyId/agents",
+    hostedModeGuard({ operation: "Agent creation" }),
+    validate(createAgentSchema),
+    async (req, res) => {
+      const companyId = req.params.companyId as string;
+      await assertCanCreateAgentsForCompany(req, companyId);
 
-    const company = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, companyId))
-      .then((rows) => rows[0] ?? null);
-    if (!company) {
-      res.status(404).json({ error: "Company not found" });
-      return;
-    }
-    if (company.requireBoardApprovalForNewAgents) {
-      throw conflict(
-        "Direct agent creation requires board approval. Use POST /api/companies/:companyId/agent-hires to create a pending hire approval.",
+      const company = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, companyId))
+        .then((rows) => rows[0] ?? null);
+      if (!company) {
+        res.status(404).json({ error: "Company not found" });
+        return;
+      }
+      if (company.requireBoardApprovalForNewAgents) {
+        throw conflict(
+          "Direct agent creation requires board approval. Use POST /api/companies/:companyId/agent-hires to create a pending hire approval.",
+        );
+      }
+
+      const {
+        desiredSkills: requestedDesiredSkills,
+        instructionsBundle,
+        ...createInput
+      } = req.body;
+      createInput.adapterType = assertKnownAdapterType(createInput.adapterType);
+      const rawCreateAdapterConfig = (createInput.adapterConfig ?? {}) as Record<string, unknown>;
+      assertNoNewAgentLegacyPromptTemplate(
+        createInput.adapterType,
+        rawCreateAdapterConfig,
       );
-    }
-
-    const {
-      desiredSkills: requestedDesiredSkills,
-      instructionsBundle,
-      ...createInput
-    } = req.body;
-    createInput.adapterType = assertKnownAdapterType(createInput.adapterType);
-    const rawCreateAdapterConfig = (createInput.adapterConfig ?? {}) as Record<string, unknown>;
-    assertNoNewAgentLegacyPromptTemplate(
-      createInput.adapterType,
-      rawCreateAdapterConfig,
-    );
-    assertNoAgentAdapterConfigMutation(req, rawCreateAdapterConfig);
-    assertNoAgentRuntimeConfigAdapterConfigMutation(req, createInput.runtimeConfig);
-    const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
-      createInput.adapterType,
-      rawCreateAdapterConfig,
-    );
-    const desiredSkillAssignment = await resolveDesiredSkillAssignment(
-      companyId,
-      createInput.adapterType,
-      requestedAdapterConfig,
-      Array.isArray(requestedDesiredSkills) ? requestedDesiredSkills : undefined,
-    );
-    const normalizedAdapterConfig = await normalizeMediatedAdapterConfigForPersistence({
-      companyId,
-      adapterType: createInput.adapterType,
-      adapterConfig: desiredSkillAssignment.adapterConfig,
-    });
-    const normalizedRuntimeConfig = await normalizeRuntimeConfigAdapterConfigsForPersistence(
-      companyId,
-      createInput.adapterType,
-      normalizeNewAgentRuntimeConfig(createInput.runtimeConfig),
-      normalizedAdapterConfig,
-    );
-    await assertAgentEnvironmentSelection(companyId, createInput.adapterType, createInput.defaultEnvironmentId);
-    await assertAgentDefaultEnvironmentSelection(companyId, createInput.defaultEnvironmentId, {
-      allowedDrivers: allowedEnvironmentDriversForAgent(createInput.adapterType),
-      allowedSandboxProviders: allowedSandboxProvidersForAgent(createInput.adapterType),
-    });
-
-    const createdAgent = await svc.create(companyId, {
-      ...createInput,
-      adapterConfig: normalizedAdapterConfig,
-      runtimeConfig: normalizedRuntimeConfig,
-      status: "idle",
-      spentMonthlyCents: 0,
-      lastHeartbeatAt: null,
-    });
-    const agent = await materializeDefaultInstructionsBundleForNewAgent(createdAgent, instructionsBundle);
-    const agentEnv = asRecord(agent.adapterConfig)?.env;
-    if (agentEnv) {
-      await secretsSvc.syncEnvBindingsForTarget?.(
-        companyId,
-        { targetType: "agent", targetId: agent.id },
-        agentEnv,
+      assertNoAgentAdapterConfigMutation(req, rawCreateAdapterConfig);
+      assertNoAgentRuntimeConfigAdapterConfigMutation(req, createInput.runtimeConfig);
+      const requestedAdapterConfig = applyCreateDefaultsByAdapterType(
+        createInput.adapterType,
+        rawCreateAdapterConfig,
       );
-    }
-
-    const actor = getActorInfo(req);
-    await logActivity(db, {
-      companyId,
-      actorType: actor.actorType,
-      actorId: actor.actorId,
-      agentId: actor.agentId,
-      runId: actor.runId,
-      action: "agent.created",
-      entityType: "agent",
-      entityId: agent.id,
-      details: {
-        name: agent.name,
-        role: agent.role,
-        desiredSkills: desiredSkillAssignment.desiredSkills,
-      },
-    });
-    const telemetryClient = getTelemetryClient();
-    if (telemetryClient) {
-      trackAgentCreated(telemetryClient, { agentRole: agent.role, agentId: agent.id });
-    }
-
-    await applyDefaultAgentTaskAssignGrant(
-      companyId,
-      agent.id,
-      req.actor.type === "board" ? (req.actor.userId ?? null) : null,
-    );
-
-    if (agent.budgetMonthlyCents > 0) {
-      await budgets.upsertPolicy(
+      const desiredSkillAssignment = await resolveDesiredSkillAssignment(
         companyId,
-        {
-          scopeType: "agent",
-          scopeId: agent.id,
-          amount: agent.budgetMonthlyCents,
-          windowKind: "calendar_month_utc",
+        createInput.adapterType,
+        requestedAdapterConfig,
+        Array.isArray(requestedDesiredSkills) ? requestedDesiredSkills : undefined,
+      );
+      const normalizedAdapterConfig = await normalizeMediatedAdapterConfigForPersistence({
+        companyId,
+        adapterType: createInput.adapterType,
+        adapterConfig: desiredSkillAssignment.adapterConfig,
+      });
+      const normalizedRuntimeConfig = await normalizeRuntimeConfigAdapterConfigsForPersistence(
+        companyId,
+        createInput.adapterType,
+        normalizeNewAgentRuntimeConfig(createInput.runtimeConfig),
+        normalizedAdapterConfig,
+      );
+      await assertAgentEnvironmentSelection(companyId, createInput.adapterType, createInput.defaultEnvironmentId);
+      await assertAgentDefaultEnvironmentSelection(companyId, createInput.defaultEnvironmentId, {
+        allowedDrivers: allowedEnvironmentDriversForAgent(createInput.adapterType),
+        allowedSandboxProviders: allowedSandboxProvidersForAgent(createInput.adapterType),
+      });
+
+      const createdAgent = await svc.create(companyId, {
+        ...createInput,
+        adapterConfig: normalizedAdapterConfig,
+        runtimeConfig: normalizedRuntimeConfig,
+        status: "idle",
+        spentMonthlyCents: 0,
+        lastHeartbeatAt: null,
+      });
+      const agent = await materializeDefaultInstructionsBundleForNewAgent(createdAgent, instructionsBundle);
+      const agentEnv = asRecord(agent.adapterConfig)?.env;
+      if (agentEnv) {
+        await secretsSvc.syncEnvBindingsForTarget?.(
+          companyId,
+          { targetType: "agent", targetId: agent.id },
+          agentEnv,
+        );
+      }
+
+      const actor = getActorInfo(req);
+      await logActivity(db, {
+        companyId,
+        actorType: actor.actorType,
+        actorId: actor.actorId,
+        agentId: actor.agentId,
+        runId: actor.runId,
+        action: "agent.created",
+        entityType: "agent",
+        entityId: agent.id,
+        details: {
+          name: agent.name,
+          role: agent.role,
+          desiredSkills: desiredSkillAssignment.desiredSkills,
         },
-        actor.actorType === "user" ? actor.actorId : null,
-      );
-    }
+      });
+      const telemetryClient = getTelemetryClient();
+      if (telemetryClient) {
+        trackAgentCreated(telemetryClient, { agentRole: agent.role, agentId: agent.id });
+      }
 
-    res.status(201).json(agent);
-  });
+      await applyDefaultAgentTaskAssignGrant(
+        companyId,
+        agent.id,
+        req.actor.type === "board" ? (req.actor.userId ?? null) : null,
+      );
+
+      if (agent.budgetMonthlyCents > 0) {
+        await budgets.upsertPolicy(
+          companyId,
+          {
+            scopeType: "agent",
+            scopeId: agent.id,
+            amount: agent.budgetMonthlyCents,
+            windowKind: "calendar_month_utc",
+          },
+          actor.actorType === "user" ? actor.actorId : null,
+        );
+      }
+
+      res.status(201).json(agent);
+    }
+  );
 
   router.patch("/agents/:id/permissions", validate(updateAgentPermissionsSchema), async (req, res) => {
     const id = req.params.id as string;

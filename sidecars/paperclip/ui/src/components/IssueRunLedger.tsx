@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { ActivityEvent, Issue, Agent } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { accessApi, type CurrentBoardAccess } from "../api/access";
 import { activityApi, type RunForIssue, type RunLivenessState } from "../api/activity";
 import { ApiError } from "../api/client";
@@ -491,6 +492,7 @@ export function IssueRunLedgerContent({
   watchdogDecisionError,
   onWatchdogDecision,
 }: IssueRunLedgerContentProps) {
+  const { isHosted } = useHostedMode();
   const ledgerRuns = useMemo(() => mergeRuns(runs, liveRuns, activeRun), [activeRun, liveRuns, runs]);
   const latestRun = ledgerRuns[0] ?? null;
   const latestSilentRun = useMemo(
@@ -756,7 +758,7 @@ export function IssueRunLedgerContent({
                       {RUN_OUTPUT_SILENCE_COPY[run.outputSilence.level]?.label}
                     </span>
                   ) : null}
-                  {(() => {
+                  {!isHosted && (() => {
                     const profile = modelProfileForRun(run);
                     if (!profile) return null;
                     const label = profile.applied === profile.requested
@@ -813,7 +815,7 @@ export function IssueRunLedgerContent({
                   </div>
                 ) : null}
 
-                {(() => {
+                {!isHosted && (() => {
                   const profile = modelProfileForRun(run);
                   if (!profile?.fallbackReason || profile.applied === profile.requested) return null;
                   return (
