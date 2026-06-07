@@ -73,7 +73,7 @@ function SkillList({ values }: { values: unknown }) {
   );
 }
 
-export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
+function HireAgentPayloadContent({ payload }: { payload: Record<string, unknown> }) {
   return (
     <div className="mt-3 space-y-1.5 text-sm">
       <div className="flex items-center gap-2">
@@ -98,6 +98,33 @@ export function HireAgentPayload({ payload }: { payload: Record<string, unknown>
       <SkillList values={payload.desiredSkills} />
     </div>
   );
+}
+
+export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
+  const { isHosted, modeKnown } = useHostedMode();
+  // Hide adapter selection and infrastructure details in hosted mode
+  if (!modeKnown) return null;
+  if (isHosted) {
+    return (
+      <div className="mt-3 space-y-1.5 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs">Name</span>
+          <span className="font-medium">{String(payload.name ?? "—")}</span>
+        </div>
+        <PayloadField label="Role" value={payload.role} />
+        <PayloadField label="Title" value={payload.title} />
+        <PayloadField label="Icon" value={payload.icon} />
+        {!!payload.capabilities && (
+          <div className="flex items-start gap-2">
+            <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs pt-0.5">Capabilities</span>
+            <span className="text-muted-foreground">{String(payload.capabilities)}</span>
+          </div>
+        )}
+        <SkillList values={payload.desiredSkills} />
+      </div>
+    );
+  }
+  return <HireAgentPayloadContent payload={payload} />;
 }
 
 export function CeoStrategyPayload({ payload }: { payload: Record<string, unknown> }) {

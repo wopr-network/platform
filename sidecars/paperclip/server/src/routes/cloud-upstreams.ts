@@ -81,22 +81,30 @@ export function cloudUpstreamRoutes(db: Db, options: { instanceId?: string } = {
     res.json(await service.readRun(req.params.connectionId, req.params.runId, stringQuery(req.query.companyId, "companyId")));
   });
 
-  router.post("/cloud-upstreams/:connectionId/push-runs/:runId/cancel", async (req, res) => {
-    assertBoardOrgAccess(req);
-    await assertEnabled();
-    res.json(await service.cancelRun(req.params.connectionId, req.params.runId, stringBody(req.body, "companyId")));
-  });
+  router.post(
+    "/cloud-upstreams/:connectionId/push-runs/:runId/cancel",
+    hostedModeGuard({ operation: "Cloud upstream operation" }),
+    async (req, res) => {
+      assertBoardOrgAccess(req);
+      await assertEnabled();
+      res.json(await service.cancelRun(req.params.connectionId, req.params.runId, stringBody(req.body, "companyId")));
+    },
+  );
 
-  router.post("/cloud-upstreams/:connectionId/push-runs/:runId/activation", async (req, res) => {
-    assertBoardOrgAccess(req);
-    await assertEnabled();
-    res.json(await service.activateRunEntities({
-      connectionId: req.params.connectionId,
-      runId: req.params.runId,
-      companyId: stringBody(req.body, "companyId"),
-      entityType: activationEntityTypeBody(req.body),
-    }));
-  });
+  router.post(
+    "/cloud-upstreams/:connectionId/push-runs/:runId/activation",
+    hostedModeGuard({ operation: "Cloud upstream operation" }),
+    async (req, res) => {
+      assertBoardOrgAccess(req);
+      await assertEnabled();
+      res.json(await service.activateRunEntities({
+        connectionId: req.params.connectionId,
+        runId: req.params.runId,
+        companyId: stringBody(req.body, "companyId"),
+        entityType: activationEntityTypeBody(req.body),
+      }));
+    },
+  );
 
   return router;
 }

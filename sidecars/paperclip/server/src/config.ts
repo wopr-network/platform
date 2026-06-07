@@ -212,6 +212,8 @@ export function loadConfig(): Config {
     deploymentModeFromEnvRaw && DEPLOYMENT_MODES.includes(deploymentModeFromEnvRaw as DeploymentMode)
       ? (deploymentModeFromEnvRaw as DeploymentMode)
       : null;
+  // HOSTED MODE GUARD: In hosted mode, force deploymentMode to 'hosted_proxy' to ensure all traffic
+  // routes through the platform's proxy layer for authentication and request coordination.
   const deploymentMode: DeploymentMode = hostedMode
     ? "hosted_proxy"
     : (deploymentModeFromInstance ?? fileConfig?.server.deploymentMode ?? deploymentModeFromEnv ?? "local_trusted");
@@ -293,33 +295,38 @@ export function loadConfig(): Config {
     ),
   );
   const companyDeletionEnvRaw = process.env.PAPERCLIP_ENABLE_COMPANY_DELETION;
-  // In hosted mode, company deletion should be disabled as the platform manages
-  // company lifecycle through the provision protocol.
+  // HOSTED MODE GUARD: In hosted mode, company deletion should be disabled as the platform manages
+  // company lifecycle through the provision protocol. This operation is restricted to the
+  // provision endpoint (see routes/provision.ts).
   const companyDeletionEnabled =
     hostedMode ? false : (companyDeletionEnvRaw !== undefined ? companyDeletionEnvRaw === "true" : deploymentMode === "local_trusted");
-  // In hosted mode, database backups must be disabled as the platform manages
-  // infrastructure backups centrally through the provision protocol.
+  // HOSTED MODE GUARD: In hosted mode, database backups must be disabled as the platform manages
+  // infrastructure backups centrally through the provision protocol. This operation is restricted to the
+  // provision endpoint (see routes/provision.ts).
   const databaseBackupEnabled =
     hostedMode
       ? false
       : (process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
           ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
           : (fileDatabaseBackup?.enabled ?? true));
-  // In hosted mode, backup interval configuration is ignored.
+  // HOSTED MODE GUARD: In hosted mode, backup interval configuration is ignored and forced to a
+  // safe default. The platform's central scheduler manages backup timing.
   const databaseBackupIntervalMinutes = hostedMode
     ? 60
     : Math.max(
         1,
         Number(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) || fileDatabaseBackup?.intervalMinutes || 60,
       );
-  // In hosted mode, backup retention configuration is ignored.
+  // HOSTED MODE GUARD: In hosted mode, backup retention configuration is ignored and forced to a
+  // safe default. The platform manages backup retention centrally.
   const databaseBackupRetentionDays = hostedMode
     ? 30
     : Math.max(
         1,
         Number(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) || fileDatabaseBackup?.retentionDays || 30,
       );
-  // In hosted mode, use a default backup directory (not actively used since backups are disabled).
+  // HOSTED MODE GUARD: In hosted mode, a default backup directory is used. Backups are disabled
+  // and this is not actively used, but a valid path is required.
   const databaseBackupDir = hostedMode
     ? resolveHomeAwarePath(resolveDefaultBackupDir())
     : resolveHomeAwarePath(
@@ -395,11 +402,12 @@ export function loadConfig(): Config {
     storageS3ForcePathStyle,
     feedbackExportBackendUrl,
     feedbackExportBackendToken,
-    // In hosted mode, heartbeat scheduling must be disabled as the platform coordinates
+    // HOSTED MODE GUARD: In hosted mode, heartbeat scheduling must be disabled as the platform coordinates
     // scheduling through its central scheduler. Hosted instances should not maintain
-    // independent agent scheduling.
+    // independent agent scheduling. This prevents duplicate/conflicting task scheduling.
     heartbeatSchedulerEnabled: hostedMode ? false : (process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false"),
-    // In hosted mode, use a safe default interval (not actively used since scheduling is disabled).
+    // HOSTED MODE GUARD: In hosted mode, a safe default interval is enforced (not actively used since scheduling is disabled).
+    // The platform's central scheduler manages heartbeat timing.
     heartbeatSchedulerIntervalMs: hostedMode ? 30000 : Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
     companyDeletionEnabled,
     telemetryEnabled: fileConfig?.telemetry?.enabled ?? true,

@@ -159,7 +159,7 @@ export function companySkillRoutes(db: Db) {
     res.json(result);
   });
 
-  router.post("/companies/:companyId/skills", validate(companySkillCreateSchema), async (req, res) => {
+  router.post("/companies/:companyId/skills", hostedModeGuard({ operation: "Skill creation" }), validate(companySkillCreateSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanMutateCompanySkills(req, companyId);
     const result = await svc.createLocalSkill(companyId, req.body);
@@ -185,6 +185,7 @@ export function companySkillRoutes(db: Db) {
 
   router.patch(
     "/companies/:companyId/skills/:skillId/files",
+    hostedModeGuard({ operation: "Skill file update" }),
     validate(companySkillFileUpdateSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
@@ -217,7 +218,7 @@ export function companySkillRoutes(db: Db) {
     },
   );
 
-  router.post("/companies/:companyId/skills/import", validate(companySkillImportSchema), async (req, res) => {
+  router.post("/companies/:companyId/skills/import", hostedModeGuard({ operation: "Skill import" }), validate(companySkillImportSchema), async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanMutateCompanySkills(req, companyId);
     const source = String(req.body.source ?? "");
@@ -255,6 +256,7 @@ export function companySkillRoutes(db: Db) {
 
   router.post(
     "/companies/:companyId/skills/install-catalog",
+    hostedModeGuard({ operation: "Skill catalog installation" }),
     validate(companySkillInstallCatalogSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;
