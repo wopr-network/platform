@@ -1,5 +1,5 @@
 import type { AdapterConfigFieldsProps } from "./types";
-import { useHostedMode } from "../../hooks/useHostedMode";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 export function LocalWorkspaceRuntimeFields(_props: AdapterConfigFieldsProps) {
   const { isHosted } = useHostedMode();
