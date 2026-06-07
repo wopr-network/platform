@@ -3,6 +3,7 @@ import { Eye, EyeOff } from "lucide-react";
 import type { AdapterConfigFieldsProps } from "../types";
 import { Field, DraftInput, help } from "../../components/agent-config-primitives";
 import { PayloadTemplateJsonField, RuntimeServicesJsonField } from "../runtime-json-fields";
+import { useHostedMode } from "../../hooks/useHostedMode";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
@@ -50,6 +51,8 @@ function parseScopes(value: unknown): string {
 }
 
 export function OpenClawGatewayConfigFields({ isCreate, values, set, config, eff, mark }: AdapterConfigFieldsProps) {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
   const configuredHeaders =
     config.headers && typeof config.headers === "object" && !Array.isArray(config.headers)
       ? (config.headers as Record<string, unknown>)

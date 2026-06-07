@@ -1,4 +1,5 @@
 import type { AdapterConfigFieldsProps } from "../types";
+import { useHostedMode } from "../../hooks/useHostedMode";
 import {
   DraftInput,
   Field,
@@ -19,6 +20,8 @@ export function GrokLocalConfigFields({
   mark,
   hideInstructionsFile,
 }: AdapterConfigFieldsProps) {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
   if (hideInstructionsFile) return null;
   return (
     <>

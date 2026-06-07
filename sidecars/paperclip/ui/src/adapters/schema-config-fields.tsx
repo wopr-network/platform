@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+import { useHostedMode } from "../hooks/useHostedMode";
+
 import type { AdapterConfigSchema, ConfigFieldSchema, CreateConfigValues } from "@paperclipai/adapter-utils";
 
 import type { AdapterConfigFieldsProps } from "./types";
@@ -328,6 +330,7 @@ export function SchemaConfigFields({
   eff,
   mark,
 }: AdapterConfigFieldsProps) {
+  const { isHosted } = useHostedMode();
   const schema = useConfigSchema(adapterType);
 
   const [defaultsApplied, setDefaultsApplied] = useState(false);
@@ -349,6 +352,7 @@ export function SchemaConfigFields({
   }, [schema, isCreate, defaultsApplied, set, values?.adapterSchemaValues]);
 
   if (!schema || schema.fields.length === 0) return null;
+  if (isHosted) return null;
 
   function readValue(field: ConfigFieldSchema): unknown {
     if (isCreate) {
