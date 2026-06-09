@@ -2,7 +2,7 @@ import { PageTabBar } from "@/components/PageTabBar";
 import { Tabs } from "@/components/ui/tabs";
 import { INSTANCE_SETTINGS_PATH_PREFIX } from "@/lib/instance-settings";
 import { useLocation, useNavigate } from "@/lib/router";
-import { useHostedMode } from "../hooks/useHostedMode";
+import { useHostedMode } from "../../hooks/useHostedMode";
 
 const items = [
   { value: "general", label: "General", href: "/company/settings" },

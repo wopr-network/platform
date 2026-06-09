@@ -559,6 +559,7 @@ function JoinRequestInboxRow({
   selected?: boolean;
   className?: string;
 }) {
+  const { isHosted } = useHostedMode();
   const label = formatJoinRequestInboxLabel(joinRequest);
   const showUnreadSlot = unreadState !== null;
   const showUnreadDot = unreadState === "visible" || unreadState === "fading";

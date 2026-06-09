@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranscriptEntry } from "../../adapters";
 import { MarkdownBody } from "../MarkdownBody";
 import { cn, formatTokens } from "../../lib/utils";
-import { useHostedMode } from "../hooks/useHostedMode";
+import { useHostedMode } from "../../hooks/useHostedMode";
 import {
   Check,
   ChevronDown,
