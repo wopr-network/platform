@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { accessApi } from "../api/access";
 import { agentsApi } from "../api/agents";
 import { adaptersApi } from "../api/adapters";
@@ -46,6 +47,7 @@ export function NewAgentDialog() {
   const { pushToast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isHosted } = useHostedMode();
   const [mode, setMode] = useState<NewAgentDialogMode>("choices");
   const [agentMessage, setAgentMessage] = useState("");
   const [latestAgentPrompt, setLatestAgentPrompt] = useState<string | null>(null);
@@ -266,22 +268,26 @@ export function NewAgentDialog() {
               </Button>
 
               <div className="grid gap-2">
-                <Button variant="outline" className="w-full" onClick={handleAdvancedConfig}>
-                  <Settings2 className="h-4 w-4 mr-2" />
-                  Configure a runtime manually
-                </Button>
-                <div className="space-y-1">
-                  <Button variant="outline" className="w-full" onClick={handleInviteExternalAgent}>
-                    <MailPlus className="h-4 w-4 mr-2" />
-                    Invite an external agent
+                {!isHosted && (
+                  <Button variant="outline" className="w-full" onClick={handleAdvancedConfig}>
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Configure a runtime manually
                   </Button>
-                  <p className="text-xs text-muted-foreground text-center">
-                    (OpenClaw, Hermes, or any agent that can call the invite API.)
-                  </p>
-                </div>
+                )}
+                {!isHosted && (
+                  <div className="space-y-1">
+                    <Button variant="outline" className="w-full" onClick={handleInviteExternalAgent}>
+                      <MailPlus className="h-4 w-4 mr-2" />
+                      Invite an external agent
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      (OpenClaw, Hermes, or any agent that can call the invite API.)
+                    </p>
+                  </div>
+                )}
               </div>
             </>
-          ) : mode === "runtime" ? (
+          ) : !isHosted && mode === "runtime" ? (
             <>
               <div className="space-y-2">
                 <button
@@ -324,7 +330,7 @@ export function NewAgentDialog() {
                 ))}
               </div>
             </>
-          ) : mode === "invite" ? (
+          ) : !isHosted && mode === "invite" ? (
             <div className="space-y-5">
               <div className="space-y-2">
                 <button
@@ -366,7 +372,7 @@ export function NewAgentDialog() {
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : !isHosted && mode === "prompt" ? (
             <div className="space-y-5">
               <div className="space-y-2">
                 <button
@@ -410,7 +416,7 @@ export function NewAgentDialog() {
                 {latestAgentPromptCopied ? "Copied prompt" : "Copy prompt"}
               </Button>
             </div>
-          )}
+          ) : null}
         </div>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   agentsApi,
   type AgentKey,
@@ -637,6 +638,7 @@ function WorkspaceOperationsSection({
 }
 
 export function AgentDetail() {
+  const { isHosted } = useHostedMode();
   const { companyPrefix, agentId, tab: urlTab, runId: urlRunId } = useParams<{
     companyPrefix?: string;
     agentId: string;
@@ -988,14 +990,20 @@ export function AgentDetail() {
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <AgentIconPicker
-            value={agent.icon}
-            onChange={(icon) => updateIcon.mutate(icon)}
-          >
-            <button className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent hover:bg-accent/80 transition-colors">
+          {!isHosted ? (
+            <AgentIconPicker
+              value={agent.icon}
+              onChange={(icon) => updateIcon.mutate(icon)}
+            >
+              <button className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent hover:bg-accent/80 transition-colors">
+                <AgentIcon icon={agent.icon} className="h-6 w-6" />
+              </button>
+            </AgentIconPicker>
+          ) : (
+            <div className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent">
               <AgentIcon icon={agent.icon} className="h-6 w-6" />
-            </button>
-          </AgentIconPicker>
+            </div>
+          )}
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate">{agent.name}</h2>
             <p className="text-sm text-muted-foreground truncate">
@@ -1004,29 +1012,31 @@ export function AgentDetail() {
             </p>
           </div>
         </div>
-        <AgentActionButtons
-          agent={agent}
-          companyId={resolvedCompanyId}
-          assignLabel="Assign Task"
-          runLabel="Run Heartbeat"
-          actionsDisabled={agentAction.isPending}
-          workActionsDisabled={hasInvalidOrgChain}
-          workActionsDisabledReason="Repair this agent's reporting chain before assigning tasks or starting runs"
-          onActionError={setActionError}
-        >
-          {mobileLiveRun && (
-            <Link
-              to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
-              className="sm:hidden flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors no-underline"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-              </span>
-              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
-            </Link>
-          )}
-        </AgentActionButtons>
+        {!isHosted && (
+          <AgentActionButtons
+            agent={agent}
+            companyId={resolvedCompanyId}
+            assignLabel="Assign Task"
+            runLabel="Run Heartbeat"
+            actionsDisabled={agentAction.isPending}
+            workActionsDisabled={hasInvalidOrgChain}
+            workActionsDisabledReason="Repair this agent's reporting chain before assigning tasks or starting runs"
+            onActionError={setActionError}
+          >
+            {mobileLiveRun && (
+              <Link
+                to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
+                className="sm:hidden flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors no-underline"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                </span>
+                <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
+              </Link>
+            )}
+          </AgentActionButtons>
+        )}
       </div>
 
       {!urlRunId && (
@@ -1038,10 +1048,12 @@ export function AgentDetail() {
             items={[
               { value: "dashboard", label: "Dashboard" },
               { value: "instructions", label: "Instructions" },
-              { value: "skills", label: "Skills" },
-              { value: "configuration", label: "Configuration" },
+              ...(!isHosted ? [
+                { value: "skills", label: "Skills" },
+                { value: "configuration", label: "Configuration" },
+              ] : []),
               { value: "runs", label: "Runs" },
-              { value: "budget", label: "Budget" },
+              ...(!isHosted ? [{ value: "budget", label: "Budget" }] : []),
             ]}
             value={activeView}
             onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
@@ -1050,7 +1062,7 @@ export function AgentDetail() {
       )}
 
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
-      {isPendingApproval && (
+      {!isHosted && isPendingApproval && (
         <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/40 dark:bg-amber-950/30 dark:text-amber-200">
           <span>This agent is pending board approval and cannot be invoked yet.</span>
           <Button
@@ -1137,7 +1149,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "configuration" && (
+      {!isHosted && activeView === "configuration" && (
         <AgentConfigurePage
           agent={agent}
           agentId={agent.id}
@@ -1150,7 +1162,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "skills" && (
+      {!isHosted && activeView === "skills" && (
         <AgentSkillsTab
           agent={agent}
           companyId={resolvedCompanyId ?? undefined}
@@ -1169,7 +1181,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "budget" && resolvedCompanyId ? (
+      {!isHosted && activeView === "budget" && resolvedCompanyId ? (
         <div className="max-w-3xl">
           <BudgetPolicyCard
             summary={agentBudgetSummary}
@@ -1668,70 +1680,6 @@ function ConfigurationTab({
         hideInstructionsFile={hideInstructionsFile}
         sectionLayout="cards"
       />
-
-      <TrustPresetSection
-        permissions={agent.permissions}
-        disabled={updatePermissions.isPending}
-        companyId={companyId}
-        projectCandidates={(boundaryProjects ?? []).map((project) => ({
-          id: project.id,
-          label: project.name,
-        }))}
-        issueCandidates={(boundaryIssues ?? []).map((issue) => ({
-          id: issue.id,
-          label: `${issue.identifier ?? issue.id.slice(0, 8)} · ${issue.title}`,
-        }))}
-        candidatesLoading={boundaryProjectsLoading || boundaryIssuesLoading}
-        onChange={(nextPermissions) =>
-          updatePermissions.mutate({
-            canCreateAgents,
-            canAssignTasks,
-            ...buildPermissionsForTrustPreset(nextPermissions, nextPermissions.trustPreset === "low_trust_review" ? "low_trust_review" : "standard"),
-          })
-        }
-      />
-
-      <div>
-        <h3 className="text-sm font-medium mb-3">Permissions</h3>
-        <div className="border border-border rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <div className="space-y-1">
-              <div>Can create new agents</div>
-              <p className="text-xs text-muted-foreground">
-                Lets this agent create or hire agents and implicitly assign tasks.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={canCreateAgents}
-              onCheckedChange={() =>
-                updatePermissions.mutate({
-                  canCreateAgents: !canCreateAgents,
-                  canAssignTasks: !canCreateAgents ? true : canAssignTasks,
-                })
-              }
-              disabled={updatePermissions.isPending}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <div className="space-y-1">
-              <div>Can assign tasks</div>
-              <p className="text-xs text-muted-foreground">
-                {taskAssignHint}
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={canAssignTasks}
-              onCheckedChange={() =>
-                updatePermissions.mutate({
-                  canCreateAgents,
-                  canAssignTasks: !canAssignTasks,
-                })
-              }
-              disabled={updatePermissions.isPending || taskAssignLocked}
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

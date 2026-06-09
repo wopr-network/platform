@@ -10,6 +10,7 @@ import { ProjectWorkspacesContent } from "../components/ProjectWorkspacesContent
 import { PageSkeleton } from "../components/PageSkeleton";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { buildProjectWorkspaceSummaries, type ProjectWorkspaceSummary } from "../lib/project-workspaces-tab";
 import { queryKeys } from "../lib/queryKeys";
 import { projectRouteRef } from "../lib/utils";
@@ -74,6 +75,10 @@ function buildProjectWorkspaceGroups(input: {
 export function Workspaces() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) return <Navigate to="/issues" replace />;
+
   const experimentalSettingsQuery = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
     queryFn: () => instanceSettingsApi.getExperimental(),

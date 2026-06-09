@@ -21,9 +21,11 @@ import type {
   CloudUpstreamSummaryCount,
   CloudUpstreamWarning,
 } from "@paperclipai/shared";
+import { Navigate } from "@/lib/router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocation } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 type FixtureStateKey =
   | "settings-pane"
@@ -93,6 +95,10 @@ const PARSE_ORDER: FixtureStateKey[] = [
 ];
 
 export function CloudUpstreamUxLab() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) return <Navigate to="/" replace />;
+
   const location = useLocation();
   const { state, showChrome } = useMemo(() => {
     const params = new URLSearchParams(location.search);

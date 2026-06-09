@@ -30,6 +30,7 @@ export function CompanySettings() {
     setSelectedCompanyId
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const { data: experimentalSettings } = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
@@ -298,30 +299,32 @@ export function CompanySettings() {
                   )}
                 </div>
               </Field>
-              <Field
-                label="Attachment size limit"
-                hint={`Accepted range: 1-${MAX_COMPANY_ATTACHMENT_MAX_MIB} MiB.`}
-              >
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={MAX_COMPANY_ATTACHMENT_MAX_MIB}
-                      step={1}
-                      value={attachmentMaxMiB}
-                      onChange={(e) => setAttachmentMaxMiB(e.target.value)}
-                      className="w-28 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
-                    />
-                    <span className="text-xs text-muted-foreground">MiB</span>
+              {!isHosted && (
+                <Field
+                  label="Attachment size limit"
+                  hint={`Accepted range: 1-${MAX_COMPANY_ATTACHMENT_MAX_MIB} MiB.`}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={MAX_COMPANY_ATTACHMENT_MAX_MIB}
+                        step={1}
+                        value={attachmentMaxMiB}
+                        onChange={(e) => setAttachmentMaxMiB(e.target.value)}
+                        className="w-28 rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                      />
+                      <span className="text-xs text-muted-foreground">MiB</span>
+                    </div>
+                    {!attachmentMaxValid && (
+                      <span className="text-xs text-destructive">
+                        Enter a whole number from 1 to {MAX_COMPANY_ATTACHMENT_MAX_MIB}.
+                      </span>
+                    )}
                   </div>
-                  {!attachmentMaxValid && (
-                    <span className="text-xs text-destructive">
-                      Enter a whole number from 1 to {MAX_COMPANY_ATTACHMENT_MAX_MIB}.
-                    </span>
-                  )}
-                </div>
-              </Field>
+                </Field>
+              )}
             </div>
           </div>
         </div>
@@ -351,108 +354,114 @@ export function CompanySettings() {
       )}
 
       {/* Hiring */}
-      <div className="space-y-4" data-testid="company-settings-team-section">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Hiring
+      {!isHosted && (
+        <div className="space-y-4" data-testid="company-settings-team-section">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Hiring
+          </div>
+          <div className="rounded-md border border-border px-4 py-3">
+            <ToggleField
+              label="Require board approval for new hires"
+              hint="New agent hires stay pending until approved by board."
+              checked={!!selectedCompany.requireBoardApprovalForNewAgents}
+              onChange={(v) => settingsMutation.mutate(v)}
+              toggleTestId="company-settings-team-approval-toggle"
+            />
+          </div>
         </div>
-        <div className="rounded-md border border-border px-4 py-3">
-          <ToggleField
-            label="Require board approval for new hires"
-            hint="New agent hires stay pending until approved by board."
-            checked={!!selectedCompany.requireBoardApprovalForNewAgents}
-            onChange={(v) => settingsMutation.mutate(v)}
-            toggleTestId="company-settings-team-approval-toggle"
-          />
-        </div>
-      </div>
+      )}
 
       {/* Import / Export */}
-      <div className="space-y-4">
-        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          Company Packages
-        </div>
-        <div className="rounded-md border border-border px-4 py-4">
-          <p className="text-sm text-muted-foreground">
-            Import and export have moved to dedicated pages accessible from the{" "}
-            <a href="/org" className="underline hover:text-foreground">Org Chart</a> header.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            {cloudSyncEnabled ? (
-              <Button size="sm" asChild>
-                <a href="/company/settings/cloud-upstream">
-                  <CloudUpload className="mr-1.5 h-3.5 w-3.5" />
-                  Send to Paperclip Cloud
+      {!isHosted && (
+        <div className="space-y-4">
+          <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Company Packages
+          </div>
+          <div className="rounded-md border border-border px-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Import and export have moved to dedicated pages accessible from the{" "}
+              <a href="/org" className="underline hover:text-foreground">Org Chart</a> header.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {cloudSyncEnabled ? (
+                <Button size="sm" asChild>
+                  <a href="/company/settings/cloud-upstream">
+                    <CloudUpload className="mr-1.5 h-3.5 w-3.5" />
+                    Send to Paperclip Cloud
+                  </a>
+                </Button>
+              ) : null}
+              <Button size="sm" variant="outline" asChild>
+                <a href="/company/export">
+                  <Download className="mr-1.5 h-3.5 w-3.5" />
+                  Export
                 </a>
               </Button>
-            ) : null}
-            <Button size="sm" variant="outline" asChild>
-              <a href="/company/export">
-                <Download className="mr-1.5 h-3.5 w-3.5" />
-                Export
-              </a>
-            </Button>
-            <Button size="sm" variant="outline" asChild>
-              <a href="/company/import">
-                <Upload className="mr-1.5 h-3.5 w-3.5" />
-                Import
-              </a>
-            </Button>
+              <Button size="sm" variant="outline" asChild>
+                <a href="/company/import">
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  Import
+                </a>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Danger Zone */}
-      <div className="space-y-4">
-        <div className="text-xs font-medium text-destructive uppercase tracking-wide">
-          Danger Zone
-        </div>
-        <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
-          <p className="text-sm text-muted-foreground">
-            Archive this company to hide it from the sidebar. This persists in
-            the database.
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="destructive"
-              disabled={
-                archiveMutation.isPending ||
-                selectedCompany.status === "archived"
-              }
-              onClick={() => {
-                if (!selectedCompanyId) return;
-                const confirmed = window.confirm(
-                  `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`
-                );
-                if (!confirmed) return;
-                const nextCompanyId =
-                  companies.find(
-                    (company) =>
-                      company.id !== selectedCompanyId &&
-                      company.status !== "archived"
-                  )?.id ?? null;
-                archiveMutation.mutate({
-                  companyId: selectedCompanyId,
-                  nextCompanyId
-                });
-              }}
-            >
-              {archiveMutation.isPending
-                ? "Archiving..."
-                : selectedCompany.status === "archived"
-                ? "Already archived"
-                : "Archive company"}
-            </Button>
-            {archiveMutation.isError && (
-              <span className="text-xs text-destructive">
-                {archiveMutation.error instanceof Error
-                  ? archiveMutation.error.message
-                  : "Failed to archive company"}
-              </span>
-            )}
+      {!isHosted && (
+        <div className="space-y-4">
+          <div className="text-xs font-medium text-destructive uppercase tracking-wide">
+            Danger Zone
+          </div>
+          <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/5 px-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Archive this company to hide it from the sidebar. This persists in
+              the database.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                disabled={
+                  archiveMutation.isPending ||
+                  selectedCompany.status === "archived"
+                }
+                onClick={() => {
+                  if (!selectedCompanyId) return;
+                  const confirmed = window.confirm(
+                    `Archive company "${selectedCompany.name}"? It will be hidden from the sidebar.`
+                  );
+                  if (!confirmed) return;
+                  const nextCompanyId =
+                    companies.find(
+                      (company) =>
+                        company.id !== selectedCompanyId &&
+                        company.status !== "archived"
+                    )?.id ?? null;
+                  archiveMutation.mutate({
+                    companyId: selectedCompanyId,
+                    nextCompanyId
+                  });
+                }}
+              >
+                {archiveMutation.isPending
+                  ? "Archiving..."
+                  : selectedCompany.status === "archived"
+                  ? "Already archived"
+                  : "Archive company"}
+              </Button>
+              {archiveMutation.isError && (
+                <span className="text-xs text-destructive">
+                  {archiveMutation.error instanceof Error
+                    ? archiveMutation.error.message
+                    : "Failed to archive company"}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

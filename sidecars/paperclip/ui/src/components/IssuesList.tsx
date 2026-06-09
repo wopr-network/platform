@@ -3,6 +3,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { accessApi } from "../api/access";
 import { useDialogActions } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { Link } from "@/lib/router";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { issuesApi } from "../api/issues";
@@ -626,6 +627,7 @@ export function IssuesList({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialogActions();
+  const { isHosted } = useHostedMode();
   const { data: session } = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: () => authApi.getSession(),
@@ -1456,28 +1458,32 @@ export function IssuesList({
             </>
           )}
 
-          <IssueColumnPicker
-            availableColumns={availableIssueColumns}
-            visibleColumnSet={visibleIssueColumnSet}
-            onToggleColumn={toggleIssueColumn}
-            onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
-            title="Choose which task columns stay visible"
-            iconOnly
-          />
+          {!isHosted && (
+            <IssueColumnPicker
+              availableColumns={availableIssueColumns}
+              visibleColumnSet={visibleIssueColumnSet}
+              onToggleColumn={toggleIssueColumn}
+              onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
+              title="Choose which task columns stay visible"
+              iconOnly
+            />
+          )}
 
-          <IssueFiltersPopover
-            state={viewState}
-            onChange={updateView}
-            activeFilterCount={activeFilterCount}
-            agents={agents}
-            creators={creatorOptions}
-            projects={projects?.map((project) => ({ id: project.id, name: project.name }))}
-            labels={labels?.map((label) => ({ id: label.id, name: label.name, color: label.color }))}
-            currentUserId={currentUserId}
-            enableRoutineVisibilityFilter={enableRoutineVisibilityFilter}
-            iconOnly
-            workspaces={isolatedWorkspacesEnabled ? workspaceOptions : undefined}
-          />
+          {!isHosted && (
+            <IssueFiltersPopover
+              state={viewState}
+              onChange={updateView}
+              activeFilterCount={activeFilterCount}
+              agents={agents}
+              creators={creatorOptions}
+              projects={projects?.map((project) => ({ id: project.id, name: project.name }))}
+              labels={labels?.map((label) => ({ id: label.id, name: label.name, color: label.color }))}
+              currentUserId={currentUserId}
+              enableRoutineVisibilityFilter={enableRoutineVisibilityFilter}
+              iconOnly
+              workspaces={isolatedWorkspacesEnabled ? workspaceOptions : undefined}
+            />
+          )}
 
           {/* Sort (list view only) */}
           {viewState.viewMode === "list" && (
@@ -1915,7 +1921,7 @@ export function IssuesList({
                                           <span>Me</span>
                                         </button>
                                       )}
-                                      {(agents ?? [])
+                                      {!isHosted && (agents ?? [])
                                         .filter((agent) => {
                                           if (!assigneeSearch.trim()) return true;
                                           return agent.name.toLowerCase().includes(assigneeSearch.toLowerCase());

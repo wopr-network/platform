@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { INBOX_MINE_ISSUE_STATUS_FILTER } from "@paperclipai/shared";
 import { approvalsApi } from "../api/approvals";
@@ -613,7 +614,7 @@ function JoinRequestInboxRow({
             </span>
             <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
               <span>requested {timeAgo(joinRequest.createdAt)} from IP {joinRequest.requestIp}</span>
-              {joinRequest.adapterType && <span>adapter: {joinRequest.adapterType}</span>}
+              {!isHosted && joinRequest.adapterType && <span>adapter: {joinRequest.adapterType}</span>}
             </span>
           </span>
         </div>
@@ -661,6 +662,7 @@ function JoinRequestInboxRow({
 }
 
 export function Inbox() {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { openNewIssue } = useDialogActions();
@@ -1870,7 +1872,7 @@ export function Inbox() {
   }
 
   const hasRunFailures = failedRuns.length > 0;
-  const showCompanyAlerts = shouldShowCompanyAlerts(tab) && showAlertsCategory;
+  const showCompanyAlerts = !isHosted && shouldShowCompanyAlerts(tab) && showAlertsCategory;
   const showAggregateAgentError =
     showCompanyAlerts &&
     !!dashboard &&
@@ -1883,7 +1885,7 @@ export function Inbox() {
     dashboard.costs.monthBudgetCents > 0 &&
     dashboard.costs.monthUtilizationPercent >= 80 &&
     !dismissedAlerts.has("alert:budget");
-  const hasAlerts = showAggregateAgentError || showBudgetAlert;
+  const hasAlerts = !isHosted && (showAggregateAgentError || showBudgetAlert);
   const showWorkItemsSection = totalVisibleWorkItems > 0;
   const showAlertsSection = shouldShowInboxSection({
     tab,
@@ -1961,7 +1963,7 @@ export function Inbox() {
                 label: "Recent",
               },
               { value: "unread", label: "Unread" },
-              { value: "blocked", label: "Blocked" },
+              ...(isHosted ? [] : [{ value: "blocked", label: "Blocked" }]),
               { value: "all", label: "All" },
             ]}
           />
@@ -1996,7 +1998,7 @@ export function Inbox() {
               data-page-search-target="true"
             />
           </div>
-          {tab === "blocked" ? (
+          {!isHosted && tab === "blocked" ? (
             <>
               <IssueFiltersPopover
                 state={issueFilters}
@@ -2012,37 +2014,39 @@ export function Inbox() {
                 iconOnly
                 workspaces={isolatedWorkspacesEnabled ? executionWorkspaces.filter((w) => w.mode === "isolated_workspace").map((w) => ({ id: w.id, name: w.name })) : undefined}
               />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className={cn("h-8 w-8 shrink-0", blockedGroupBy !== "none" && "bg-accent")}
-                    title="Group"
-                  >
-                    <Layers className="h-3.5 w-3.5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-44 p-0">
-                  <div className="space-y-0.5 p-2">
-                    {BLOCKED_GROUP_OPTIONS.map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm",
-                          blockedGroupBy === value ? "bg-accent/50 text-foreground" : "text-muted-foreground hover:bg-accent/50",
-                        )}
-                        onClick={() => setBlockedGroupBy(value)}
-                      >
-                        <span>{label}</span>
-                        {blockedGroupBy === value ? <Check className="h-3.5 w-3.5" /> : null}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {!isHosted && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className={cn("h-8 w-8 shrink-0", blockedGroupBy !== "none" && "bg-accent")}
+                      title="Group"
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-44 p-0">
+                    <div className="space-y-0.5 p-2">
+                      {BLOCKED_GROUP_OPTIONS.map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm",
+                            blockedGroupBy === value ? "bg-accent/50 text-foreground" : "text-muted-foreground hover:bg-accent/50",
+                          )}
+                          onClick={() => setBlockedGroupBy(value)}
+                        >
+                          <span>{label}</span>
+                          {blockedGroupBy === value ? <Check className="h-3.5 w-3.5" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               <IssueColumnPicker
                 availableColumns={availableIssueColumns}
                 visibleColumnSet={visibleIssueColumnSet}
@@ -2095,57 +2099,61 @@ export function Inbox() {
               >
                 <ListTree className="h-3.5 w-3.5" />
               </Button>
-              <IssueFiltersPopover
-                state={issueFilters}
-                onChange={updateIssueFilters}
-                activeFilterCount={activeIssueFilterCount}
-                agents={agents}
-                creators={creatorOptions}
-                projects={projects?.map((project) => ({ id: project.id, name: project.name }))}
-                labels={labels?.map((label) => ({ id: label.id, name: label.name, color: label.color }))}
-                currentUserId={currentUserId}
-                enableRoutineVisibilityFilter
-                buttonVariant="outline"
-                iconOnly
-                workspaces={isolatedWorkspacesEnabled ? executionWorkspaces.filter((w) => w.mode === "isolated_workspace").map((w) => ({ id: w.id, name: w.name })) : undefined}
-              />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className={cn("h-8 w-8 shrink-0", groupBy !== "none" && "bg-accent")}
-                    title="Group"
-                  >
-                    <Layers className="h-3.5 w-3.5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-40 p-2">
-                  <div className="space-y-0.5">
-                    {([
-                      ["none", "None"],
-                      ["type", "Type"],
-                      ["assignee", "Assignee"],
-                      ["project", "Project"],
-                      ...(isolatedWorkspacesEnabled ? ([["workspace", "Workspace"]] as const) : []),
-                    ] as const).map(([value, label]) => (
-                      <button
-                        key={value}
-                        type="button"
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm",
-                          groupBy === value ? "bg-accent/50 text-foreground" : "text-muted-foreground hover:bg-accent/50",
-                        )}
-                        onClick={() => updateGroupBy(value)}
-                      >
-                        <span>{label}</span>
-                        {groupBy === value ? <Check className="h-3.5 w-3.5" /> : null}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              {!isHosted && (
+                <IssueFiltersPopover
+                  state={issueFilters}
+                  onChange={updateIssueFilters}
+                  activeFilterCount={activeIssueFilterCount}
+                  agents={agents}
+                  creators={creatorOptions}
+                  projects={projects?.map((project) => ({ id: project.id, name: project.name }))}
+                  labels={labels?.map((label) => ({ id: label.id, name: label.name, color: label.color }))}
+                  currentUserId={currentUserId}
+                  enableRoutineVisibilityFilter
+                  buttonVariant="outline"
+                  iconOnly
+                  workspaces={isolatedWorkspacesEnabled ? executionWorkspaces.filter((w) => w.mode === "isolated_workspace").map((w) => ({ id: w.id, name: w.name })) : undefined}
+                />
+              )}
+              {!isHosted && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className={cn("h-8 w-8 shrink-0", groupBy !== "none" && "bg-accent")}
+                      title="Group"
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-40 p-2">
+                    <div className="space-y-0.5">
+                      {([
+                        ["none", "None"],
+                        ["type", "Type"],
+                        ["assignee", "Assignee"],
+                        ["project", "Project"],
+                        ...(isolatedWorkspacesEnabled ? ([["workspace", "Workspace"]] as const) : []),
+                      ] as const).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm",
+                            groupBy === value ? "bg-accent/50 text-foreground" : "text-muted-foreground hover:bg-accent/50",
+                          )}
+                          onClick={() => updateGroupBy(value)}
+                        >
+                          <span>{label}</span>
+                          {groupBy === value ? <Check className="h-3.5 w-3.5" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
               <IssueColumnPicker
                 availableColumns={availableIssueColumns}
                 visibleColumnSet={visibleIssueColumnSet}
@@ -2449,7 +2457,7 @@ export function Inbox() {
                           collapsible
                           collapsed={isGroupCollapsed}
                           onToggle={() => toggleGroupCollapse(group.key)}
-                          trailing={canCreateIssueInGroup ? (
+                          trailing={canCreateIssueInGroup && !isHosted ? (
                             <Button
                               variant="ghost"
                               size="icon-xs"

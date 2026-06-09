@@ -2,6 +2,7 @@ import { PageTabBar } from "@/components/PageTabBar";
 import { Tabs } from "@/components/ui/tabs";
 import { INSTANCE_SETTINGS_PATH_PREFIX } from "@/lib/instance-settings";
 import { useLocation, useNavigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 const items = [
   { value: "general", label: "General", href: "/company/settings" },
@@ -76,7 +77,23 @@ export function getCompanySettingsTab(pathname: string): CompanySettingsTab {
 export function CompanySettingsNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isHosted } = useHostedMode();
   const activeTab = getCompanySettingsTab(location.pathname);
+
+  const hiddenInHosted = new Set([
+    "instance-profile",
+    "instance-general",
+    "instance-access",
+    "instance-heartbeats",
+    "instance-experimental",
+    "instance-plugins",
+    "instance-adapters",
+    "cloud-upstream",
+    "environments",
+    "secrets",
+  ]);
+
+  const visibleItems = items.filter((item) => !isHosted || !hiddenInHosted.has(item.value));
 
   function handleTabChange(value: string) {
     const nextTab = items.find((item) => item.value === value);
@@ -87,7 +104,7 @@ export function CompanySettingsNav() {
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange}>
       <PageTabBar
-        items={items.map(({ value, label }) => ({ value, label }))}
+        items={visibleItems.map(({ value, label }) => ({ value, label }))}
         value={activeTab}
         onValueChange={handleTabChange}
         align="start"

@@ -7,7 +7,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { PluginRecord } from "@paperclipai/shared";
-import { Link } from "@/lib/router";
+import { Link, Navigate } from "@/lib/router";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { AlertTriangle, FlaskConical, Plus, Power, Puzzle, Settings, Trash } from "lucide-react";
 import { useCompany } from "@/context/CompanyContext";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
@@ -86,6 +87,10 @@ function ExperimentalBadge() {
  * @see doc/plugins/PLUGIN_SPEC.md §3 — Plugin Lifecycle for status semantics.
  */
 export function PluginManager() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) return <Navigate to="/" replace />;
+
   const { selectedCompany } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();

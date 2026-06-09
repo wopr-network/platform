@@ -25,6 +25,7 @@ import {
   useResourceMembershipMutation,
   useResourceMemberships,
 } from "../hooks/useResourceMemberships";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
 
@@ -83,6 +84,7 @@ export function Agents() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile } = useSidebar();
+  const { isHosted } = useHostedMode();
   const pathSegment = location.pathname.split("/").pop() ?? "all";
   const tab: FilterTab = (pathSegment === "all" || pathSegment === "active" || pathSegment === "paused" || pathSegment === "error") ? pathSegment : "all";
   const [view, setView] = useState<"list" | "org">("org");
@@ -185,10 +187,12 @@ export function Agents() {
               </button>
             </div>
           )}
-          <Button size="sm" variant="outline" onClick={openNewAgent}>
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Agent
-          </Button>
+          {!isHosted && (
+            <Button size="sm" variant="outline" onClick={openNewAgent}>
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New Agent
+            </Button>
+          )}
         </div>
       </div>
 
@@ -235,7 +239,7 @@ export function Agents() {
                 )}
                 meta={
                   <div className="hidden xl:flex items-center gap-3">
-                    <AgentMetaColumns agent={agent} />
+                    <AgentMetaColumns agent={agent} isHosted={isHosted} />
                   </div>
                 }
                 trailing={
@@ -333,6 +337,7 @@ export function Agents() {
               tab={tab}
               memberships={membershipsQuery.data}
               membershipMutation={membershipMutation}
+              isHosted={isHosted}
             />
           ))}
         </div>
@@ -361,6 +366,7 @@ function OrgTreeNode({
   tab,
   memberships,
   membershipMutation,
+  isHosted,
 }: {
   node: OrgNode;
   depth: number;
@@ -369,6 +375,7 @@ function OrgTreeNode({
   tab: FilterTab;
   memberships: ReturnType<typeof useResourceMemberships>["data"];
   membershipMutation: ReturnType<typeof useResourceMembershipMutation>;
+  isHosted: boolean;
 }) {
   const agent = agentMap.get(node.id);
   const hasInvalidOrgChain = Boolean(agent && agent.orgChainHealth?.status === "invalid_org_chain");
@@ -421,7 +428,7 @@ function OrgTreeNode({
             )}
             {agent && (
               <div className="hidden xl:flex items-center gap-3">
-                <AgentMetaColumns agent={agent} />
+                <AgentMetaColumns agent={agent} isHosted={isHosted} />
               </div>
             )}
             <span className="w-20 flex justify-end">
@@ -460,6 +467,7 @@ function OrgTreeNode({
               tab={tab}
               memberships={memberships}
               membershipMutation={membershipMutation}
+              isHosted={isHosted}
             />
           ))}
         </div>
@@ -475,9 +483,19 @@ function OrgTreeNode({
  * heartbeat is single-line (`whitespace-nowrap`) and wide enough for a full
  * date like "Apr 30, 2026".
  */
-function AgentMetaColumns({ agent }: { agent: Agent }) {
+function AgentMetaColumns({ agent, isHosted }: { agent: Agent; isHosted: boolean }) {
   const model = getConfiguredModel(agent);
   const adapterLabel = getAdapterLabel(agent.adapterType);
+
+  // Hide model and adapter info in hosted mode
+  if (isHosted) {
+    return (
+      <span className="w-24 whitespace-nowrap text-right text-xs text-muted-foreground">
+        {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "—"}
+      </span>
+    );
+  }
+
   return (
     <>
       <div className="w-44 min-w-0 leading-tight">

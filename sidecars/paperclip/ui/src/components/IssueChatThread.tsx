@@ -2,6 +2,7 @@ import {
   AssistantRuntimeProvider,
   useAui,
 } from "@assistant-ui/react";
+import { useHostedMode } from "../hooks/useHostedMode";
 import type {
   ReasoningMessagePart,
   TextMessagePart,
@@ -1515,6 +1516,7 @@ function IssueChatAssistantMessage({
   isRunActive: boolean;
   isStoppingRun: boolean;
 }) {
+  const { isHosted } = useHostedMode();
   const {
     feedbackDataSharingPreference,
     feedbackTermsUrl,
@@ -1723,7 +1725,7 @@ function IssueChatAssistantMessage({
                       <Copy className="mr-2 h-3.5 w-3.5" />
                       Copy message
                     </DropdownMenuItem>
-                    {canStopRun && onStopRun && runId ? (
+                    {!isHosted && canStopRun && onStopRun && runId ? (
                       <DropdownMenuItem
                         disabled={isStoppingRun}
                         className={cn(
@@ -1743,7 +1745,7 @@ function IssueChatAssistantMessage({
                         {isStoppingRun ? stoppingRunLabel : stopRunLabel}
                       </DropdownMenuItem>
                     ) : null}
-                    {canStopRun && runId
+                    {!isHosted && canStopRun && runId
                       ? runFinalizationActions.map((action) => (
                         <DropdownMenuItem
                           key={action.id}
@@ -1766,7 +1768,7 @@ function IssueChatAssistantMessage({
                         </DropdownMenuItem>
                       ))
                       : null}
-                    {runHref ? (
+                    {!isHosted && runHref ? (
                       <DropdownMenuItem asChild>
                         <Link to={runHref} target="_blank" rel="noreferrer noopener">
                           <Search className="mr-2 h-3.5 w-3.5" />
@@ -1796,6 +1798,7 @@ function IssueChatFeedbackButtons({
   termsUrl: string | null;
   onVote: (vote: FeedbackVoteValue, options?: { allowSharing?: boolean; reason?: string }) => Promise<void>;
 }) {
+  const { isHosted } = useHostedMode();
   const [isSaving, setIsSaving] = useState(false);
   const [optimisticVote, setOptimisticVote] = useState<FeedbackVoteValue | null>(null);
   const [reasonOpen, setReasonOpen] = useState(false);
@@ -1958,7 +1961,7 @@ function IssueChatFeedbackButtons({
               <span className="font-medium text-foreground">Don't allow</span> to keep this vote
               and future votes local.
             </p>
-            <p>You can change this later in Instance Settings &gt; General.</p>
+            {!isHosted && <p>You can change this later in Instance Settings &gt; General.</p>}
             {termsUrl ? (
               <a
                 href={termsUrl}
@@ -3279,6 +3282,7 @@ const IssueChatComposer = forwardRef<IssueChatComposerHandle, IssueChatComposerP
   issueWorkMode,
   onWorkModeChange,
 }, forwardedRef) {
+  const { isHosted } = useHostedMode();
   const api = useAui();
   const toastActions = useOptionalToastActions();
   const [body, setBody] = useState("");
@@ -3676,7 +3680,7 @@ const IssueChatComposer = forwardRef<IssueChatComposerHandle, IssueChatComposerP
               </Button>
             </>
           ) : null}
-          {canToggleWorkMode ? (
+          {!isHosted && canToggleWorkMode ? (
             <Popover open={workModeMenuOpen} onOpenChange={setWorkModeMenuOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -3712,7 +3716,7 @@ const IssueChatComposer = forwardRef<IssueChatComposerHandle, IssueChatComposerP
               </PopoverContent>
             </Popover>
           ) : null}
-          {canToggleWorkMode && isPlanning ? (
+          {!isHosted && canToggleWorkMode && isPlanning ? (
             <button
               type="button"
               data-testid="issue-chat-composer-work-mode-toggle"
@@ -3728,7 +3732,7 @@ const IssueChatComposer = forwardRef<IssueChatComposerHandle, IssueChatComposerP
           ) : null}
         </div>
 
-        {enableReassign && reassignOptions.length > 0 ? (
+        {!isHosted && enableReassign && reassignOptions.length > 0 ? (
           <InlineEntitySelector
             value={reassignTarget}
             options={reassignOptions}

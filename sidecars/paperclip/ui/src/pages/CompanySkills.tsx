@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type SVGProps } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "@/lib/router";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Agent,
@@ -1683,6 +1684,12 @@ function SkillPane({
 }
 
 export function CompanySkills() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
+
   const { "*": routePath } = useParams<{ "*": string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();

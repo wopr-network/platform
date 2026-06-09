@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "@/lib/router";
+import { Navigate, useNavigate, useParams, useSearchParams } from "@/lib/router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import type {
   Agent,
   CatalogTeam,
@@ -655,6 +656,7 @@ export function TeamDetailPane({
   fileContent: string | null;
   installed?: InstalledCatalogTeam | null;
 }) {
+  const { isHosted } = useHostedMode();
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
   const tree = useMemo(() => buildTree(team.files), [team.files]);
   const invalid = team.compatibility === "invalid";
@@ -672,7 +674,7 @@ export function TeamDetailPane({
 
   // Installed teams default to update/re-install semantics; out-of-date teams
   // get the primary amber affordance (design §5 / PAP-10256).
-  const installButton = (
+  const installButton = !isHosted ? (
     <Button
       onClick={onInstall}
       disabled={invalid || !canInstall}
@@ -687,7 +689,7 @@ export function TeamDetailPane({
       )}
       {isInstalled ? "Re-install latest" : "Install team"}
     </Button>
-  );
+  ) : null;
 
   return (
     <div className="flex-1 overflow-auto">
@@ -1047,6 +1049,14 @@ function TeamInstallerDialog({
   onClose: () => void;
   onInstalled: () => void;
 }) {
+  const { isHosted } = useHostedMode();
+
+  // In hosted mode, the installer dialog should never be shown; if it is, close it immediately
+  if (isHosted && open) {
+    onClose();
+    return null;
+  }
+
   const steps = useMemo(() => computeSteps(team), [team]);
   const [stepIndex, setStepIndex] = useState(0);
   const [phase, setPhase] = useState<ApplyPhase>("form");
@@ -1718,6 +1728,8 @@ export function StepPreview({
   onToggleSecretVisibility?: (key: string) => void;
   onRetry: () => void;
 }) {
+  const { isHosted } = useHostedMode();
+
   if (loading && !result) {
     return (
       <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
@@ -1835,7 +1847,8 @@ export function StepPreview({
       )}
 
       {/* Adapter selection — install schema accepts adapterOverrides (design §4.4) */}
-      {manifestAgents.length > 0 && (
+      {/* Hidden in hosted mode: adapter selection is infrastructure-level control */}
+      {!isHosted && manifestAgents.length > 0 && (
         <PreviewSection title={`Adapter selection · ${manifestAgents.length}`}>
           {manifestAgents.map((agent) => {
             const selected = adapterOverrides[agent.slug] ?? agent.adapterType;
@@ -1865,7 +1878,8 @@ export function StepPreview({
       )}
 
       {/* Env inputs */}
-      {envInputs.length > 0 && (
+      {/* Hidden in hosted mode: secret/env input configuration is infrastructure-level control */}
+      {!isHosted && envInputs.length > 0 && (
         <PreviewSection title={`Secrets & env inputs · ${envInputs.length}`}>
           {envInputs.map((input) => {
             const formKey = envInputFormKey(input);
@@ -2174,6 +2188,18 @@ export function TeamCatalog() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToastActions();
   const queryClient = useQueryClient();
+  const { isHosted } = useHostedMode();
+
+  // Hosted deployments should not expose team installation infrastructure
+  useEffect(() => {
+    if (isHosted) {
+      navigate("/", { replace: true });
+    }
+  }, [isHosted, navigate]);
+
+  if (isHosted) {
+    return null;
+  }
 
   const parsedRoute = useMemo(() => parseTeamRoute(routePath), [routePath]);
   const selectedRef = parsedRoute.catalogRef;

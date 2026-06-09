@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useSearchParams } from "@/lib/router";
+import { Link, Navigate, useNavigate, useSearchParams } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { ArrowUpDown, Check, ChevronDown, ChevronRight, Layers, Plus, Repeat } from "lucide-react";
 import { routinesApi } from "../api/routines";
 import { agentsApi } from "../api/agents";
@@ -200,12 +201,15 @@ function buildRoutinesTabHref(tab: RoutinesTab) {
 }
 
 export function Routines() {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { pushToast } = useToastActions();
+
+  if (isHosted) return <Navigate to="/" replace />;
   const descriptionEditorRef = useRef<MarkdownEditorRef>(null);
   const titleInputRef = useRef<HTMLTextAreaElement | null>(null);
   const assigneeSelectorRef = useRef<HTMLButtonElement | null>(null);
@@ -501,10 +505,12 @@ export function Routines() {
             Recurring work definitions that materialize into auditable execution tasks.
           </p>
         </div>
-        <Button onClick={() => setComposerOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create routine
-        </Button>
+        {!isHosted && (
+          <Button onClick={() => setComposerOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create routine
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
@@ -791,55 +797,57 @@ export function Routines() {
               />
             </div>
 
-            <div className="border-t border-border/60 px-5 py-3">
-              <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-                <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
-                  <div>
-                    <p className="text-sm font-medium">Advanced delivery settings</p>
-                    <p className="text-sm text-muted-foreground">Keep policy controls secondary to the work definition.</p>
-                  </div>
-                  {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Concurrency</p>
-                      <Select
-                        value={draft.concurrencyPolicy}
-                        onValueChange={(concurrencyPolicy) => setDraft((current) => ({ ...current, concurrencyPolicy }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {concurrencyPolicies.map((value) => (
-                            <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">{concurrencyPolicyDescriptions[draft.concurrencyPolicy]}</p>
+            {!isHosted && (
+              <div className="border-t border-border/60 px-5 py-3">
+                <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+                  <CollapsibleTrigger className="flex w-full items-center justify-between text-left">
+                    <div>
+                      <p className="text-sm font-medium">Advanced delivery settings</p>
+                      <p className="text-sm text-muted-foreground">Keep policy controls secondary to the work definition.</p>
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Catch-up</p>
-                      <Select
-                        value={draft.catchUpPolicy}
-                        onValueChange={(catchUpPolicy) => setDraft((current) => ({ ...current, catchUpPolicy }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {catchUpPolicies.map((value) => (
-                            <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">{catchUpPolicyDescriptions[draft.catchUpPolicy]}</p>
+                    {advancedOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Concurrency</p>
+                        <Select
+                          value={draft.concurrencyPolicy}
+                          onValueChange={(concurrencyPolicy) => setDraft((current) => ({ ...current, concurrencyPolicy }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {concurrencyPolicies.map((value) => (
+                              <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">{concurrencyPolicyDescriptions[draft.concurrencyPolicy]}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Catch-up</p>
+                        <Select
+                          value={draft.catchUpPolicy}
+                          onValueChange={(catchUpPolicy) => setDraft((current) => ({ ...current, catchUpPolicy }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {catchUpPolicies.map((value) => (
+                              <SelectItem key={value} value={value}>{value.replaceAll("_", " ")}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">{catchUpPolicyDescriptions[draft.catchUpPolicy]}</p>
+                      </div>
                     </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+            )}
           </div>
 
           <div className="shrink-0 flex flex-col gap-3 border-t border-border/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">

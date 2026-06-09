@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate } from "react-router-dom";
 import { Shield, ShieldCheck } from "lucide-react";
 import { accessApi } from "@/api/access";
 import { ApiError } from "@/api/client";
@@ -8,9 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/ToastContext";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { queryKeys } from "@/lib/queryKeys";
 
 export function InstanceAccess() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) return <Navigate to="/" replace />;
   const { companies } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();

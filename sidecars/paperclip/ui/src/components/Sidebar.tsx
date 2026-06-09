@@ -31,8 +31,10 @@ import { Button } from "@/components/ui/button";
 import { PluginSlotOutlet } from "@/plugins/slots";
 import { PluginLauncherOutlet } from "@/plugins/launchers";
 import { SidebarCompanyMenu } from "./SidebarCompanyMenu";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 export function Sidebar() {
+  const { isHosted } = useHostedMode();
   const { openNewIssue } = useDialogActions();
   const { selectedCompanyId, selectedCompany } = useCompany();
   const inboxBadge = useInboxBadge(selectedCompanyId);
@@ -105,7 +107,7 @@ export function Sidebar() {
           <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
           <SidebarNavItem to="/goals" label="Goals" icon={Target} />
           <SidebarNavItem to="/artifacts" label="Artifacts" icon={Package} />
-          {showWorkspacesLink ? (
+          {!isHosted && showWorkspacesLink ? (
             <SidebarNavItem to="/workspaces" label="Workspaces" icon={GitBranch} />
           ) : null}
           {streamlined ? (
@@ -131,13 +133,15 @@ export function Sidebar() {
 
         <SidebarAgents streamlined={streamlined} />
 
-        <SidebarSection label="Company">
-          <SidebarNavItem to="/org" label="Org" icon={Network} />
-          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
-          <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
-          <SidebarNavItem to="/activity" label="Activity" icon={History} />
-          <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
-        </SidebarSection>
+        {!isHosted && (
+          <SidebarSection label="Company">
+            <SidebarNavItem to="/org" label="Org" icon={Network} />
+            <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
+            <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />
+            <SidebarNavItem to="/activity" label="Activity" icon={History} />
+            <SidebarNavItem to="/company/settings" label="Settings" icon={Settings} />
+          </SidebarSection>
+        )}
 
         <PluginSlotOutlet
           slotTypes={["sidebarPanel"]}

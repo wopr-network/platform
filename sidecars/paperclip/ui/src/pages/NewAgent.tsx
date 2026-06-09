@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "@/lib/router";
+import { useNavigate, useSearchParams, Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { agentsApi } from "../api/agents";
@@ -60,6 +61,11 @@ function createValuesForAdapterType(
 }
 
 export function NewAgent() {
+  const { isHosted } = useHostedMode();
+
+  // Redirect to home in hosted mode — agent creation exposes infrastructure-level controls
+  if (isHosted) return <Navigate to="/" replace />;
+
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();

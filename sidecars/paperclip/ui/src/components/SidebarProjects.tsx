@@ -15,6 +15,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useCompany } from "../context/CompanyContext";
 import { useDialogActions } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { authApi } from "../api/auth";
 import { projectsApi } from "../api/projects";
 import { SIDEBAR_SCROLL_RESET_STATE } from "../lib/navigation-scroll";
@@ -230,6 +231,7 @@ export function SidebarProjects() {
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { openNewProject } = useDialogActions();
   const { isMobile, setSidebarOpen } = useSidebar();
+  const { isHosted } = useHostedMode();
   const fineReorderPointer = useFineReorderPointer();
   const location = useLocation();
 
@@ -279,7 +281,7 @@ export function SidebarProjects() {
     [orderedProjects, sortMode],
   );
   const isTopMode = sortMode === "top";
-  const canReorderProjects = isTopMode && !isMobile && fineReorderPointer;
+  const canReorderProjects = !isHosted && isTopMode && !isMobile && fineReorderPointer;
 
   const projectMatch = location.pathname.match(/^\/(?:[^/]+\/)?projects\/([^/]+)/);
   const activeProjectRef = projectMatch?.[1] ?? null;
@@ -383,14 +385,14 @@ export function SidebarProjects() {
     <SidebarSection
       label="Projects"
       collapsible={{ open, onOpenChange: setOpen }}
-      headerAction={{
+      headerAction={!isHosted ? {
         ariaLabel: "New project",
         icon: Plus,
         onClick: openNewProject,
-      }}
+      } : undefined}
       menu={{
         ariaLabel: "Projects section actions",
-        actions: [
+        actions: isHosted ? [] : [
           { type: "item", label: "Browse projects", icon: FolderOpen, href: "/projects" },
           { type: "separator" },
         ],

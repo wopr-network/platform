@@ -15,6 +15,7 @@ import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
 import { RunChatSurface } from "./RunChatSurface";
 import { useLiveRunTranscripts } from "./transcript/useLiveRunTranscripts";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 function RunCardRecoveryChip({ action }: { action: IssueRecoveryAction }) {
   const state = deriveActiveRecoveryDisplayState(action);
@@ -168,6 +169,8 @@ const AgentRunCard = memo(function AgentRunCard({
   isActive: boolean;
   className?: string;
 }) {
+  const { isHosted } = useHostedMode();
+
   return (
     <div className={cn(
       "flex h-[320px] flex-col overflow-hidden rounded-xl border shadow-sm",
@@ -195,27 +198,41 @@ const AgentRunCard = memo(function AgentRunCard({
             </div>
           </div>
 
-          <Link
-            to={`/agents/${run.agentId}/runs/${run.id}`}
-            className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ExternalLink className="h-2.5 w-2.5" />
-          </Link>
+          {!isHosted && (
+            <Link
+              to={`/agents/${run.agentId}/runs/${run.id}`}
+              className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ExternalLink className="h-2.5 w-2.5" />
+            </Link>
+          )}
         </div>
 
         {run.issueId && (
           <div className="mt-3 rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
-            <Link
-              to={`/issues/${issue?.identifier ?? run.issueId}`}
-              className={cn(
-                "line-clamp-2 hover:underline",
-                isActive ? "text-cyan-700 dark:text-cyan-300" : "text-muted-foreground hover:text-foreground",
-              )}
-              title={issue?.title ? `${issue?.identifier ?? run.issueId.slice(0, 8)} - ${issue.title}` : issue?.identifier ?? run.issueId.slice(0, 8)}
-            >
-              {issue?.identifier ?? run.issueId.slice(0, 8)}
-              {issue?.title ? ` - ${issue.title}` : ""}
-            </Link>
+            {!isHosted ? (
+              <Link
+                to={`/issues/${issue?.identifier ?? run.issueId}`}
+                className={cn(
+                  "line-clamp-2 hover:underline",
+                  isActive ? "text-cyan-700 dark:text-cyan-300" : "text-muted-foreground hover:text-foreground",
+                )}
+                title={issue?.title ? `${issue?.identifier ?? run.issueId.slice(0, 8)} - ${issue.title}` : issue?.identifier ?? run.issueId.slice(0, 8)}
+              >
+                {issue?.identifier ?? run.issueId.slice(0, 8)}
+                {issue?.title ? ` - ${issue.title}` : ""}
+              </Link>
+            ) : (
+              <span
+                className={cn(
+                  "line-clamp-2",
+                  isActive ? "text-cyan-700 dark:text-cyan-300" : "text-muted-foreground",
+                )}
+              >
+                {issue?.identifier ?? run.issueId.slice(0, 8)}
+                {issue?.title ? ` - ${issue.title}` : ""}
+              </span>
+            )}
             {issue?.activeRecoveryAction ? (
               <div className="mt-1.5">
                 <RunCardRecoveryChip action={issue.activeRecoveryAction} />

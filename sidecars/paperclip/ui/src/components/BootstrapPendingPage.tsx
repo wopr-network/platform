@@ -4,6 +4,7 @@ import { Link } from "@/lib/router";
 import { Button } from "@/components/ui/button";
 import { BOOTSTRAP_FALLBACK_COMMAND } from "@/bootstrapSetup";
 import type { AuthSession } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 type BootstrapPendingPageProps = {
   claimAvailable: boolean;
@@ -72,6 +73,8 @@ export function BootstrapPendingPage({
   claimError,
   onClaim,
 }: BootstrapPendingPageProps) {
+  const { isHosted } = useHostedMode();
+
   if (!claimAvailable) {
     return (
       <StateChrome>
@@ -80,11 +83,13 @@ export function BootstrapPendingPage({
           This instance runs in invite-only mode. The operator must generate a one-time first-admin invite URL
           from the host. Once you have the link, open it from this browser to finish setup.
         </p>
-        <CliFallback hasActiveInvite={hasActiveInvite} />
-        <p className="mt-4 text-xs text-muted-foreground">
-          Browser-based claim is intentionally disabled in public mode so anyone on the network can't promote
-          themselves.
-        </p>
+        {!isHosted && <CliFallback hasActiveInvite={hasActiveInvite} />}
+        {!isHosted && (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Browser-based claim is intentionally disabled in public mode so anyone on the network can't promote
+            themselves.
+          </p>
+        )}
       </StateChrome>
     );
   }
@@ -129,7 +134,7 @@ export function BootstrapPendingPage({
             <Link to="/auth?next=/">Sign in / Create account</Link>
           </Button>
         </div>
-        <CliFallback hasActiveInvite={hasActiveInvite} />
+        {!isHosted && <CliFallback hasActiveInvite={hasActiveInvite} />}
       </StateChrome>
     );
   }
@@ -142,35 +147,39 @@ export function BootstrapPendingPage({
       <p className="mt-2 text-sm text-muted-foreground">
         No admin has claimed this instance yet. Claim it now to become the first admin and start onboarding.
       </p>
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Button onClick={onClaim} disabled={isClaiming}>
-          {isClaiming && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />}
-          {isClaiming ? "Claiming..." : "Claim this instance"}
-        </Button>
-        <span className="text-sm text-muted-foreground">
-          Signed in as <span className="font-medium text-foreground">{displayIdentity(session)}</span>
-        </span>
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        Wrong account?{" "}
-        <Link to="/auth?next=/" className="underline underline-offset-2">
-          Switch account
-        </Link>
-        .
-      </p>
-      {claimError && (
-        <div
-          role="alert"
-          className="mt-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-        >
-          <TriangleAlert className="mt-0.5 size-4 flex-shrink-0" aria-hidden />
-          <div>
-            <p className="font-medium">{errorCopy.title}</p>
-            {errorCopy.body && <p className="mt-1 text-destructive/90">{errorCopy.body}</p>}
+      {!isHosted && (
+        <>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <Button onClick={onClaim} disabled={isClaiming}>
+              {isClaiming && <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />}
+              {isClaiming ? "Claiming..." : "Claim this instance"}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Signed in as <span className="font-medium text-foreground">{displayIdentity(session)}</span>
+            </span>
           </div>
-        </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Wrong account?{" "}
+            <Link to="/auth?next=/" className="underline underline-offset-2">
+              Switch account
+            </Link>
+            .
+          </p>
+          {claimError && (
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+            >
+              <TriangleAlert className="mt-0.5 size-4 flex-shrink-0" aria-hidden />
+              <div>
+                <p className="font-medium">{errorCopy.title}</p>
+                {errorCopy.body && <p className="mt-1 text-destructive/90">{errorCopy.body}</p>}
+              </div>
+            </div>
+          )}
+          <CliFallback hasActiveInvite={hasActiveInvite} />
+        </>
       )}
-      <CliFallback hasActiveInvite={hasActiveInvite} />
     </StateChrome>
   );
 }

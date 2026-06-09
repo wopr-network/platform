@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate } from "react-router-dom";
 import {
   AGENT_ADAPTER_TYPES,
   getAdapterEnvironmentSupport,
@@ -17,6 +18,7 @@ import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/ToastContext";
 import { queryKeys } from "@/lib/queryKeys";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   Field,
   ToggleField,
@@ -159,6 +161,12 @@ function SupportMark({ supported }: { supported: boolean }) {
 }
 
 export function CompanyEnvironments() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
+
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();

@@ -17,6 +17,7 @@ import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { cn } from "../lib/utils";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
 
@@ -24,6 +25,7 @@ export function InstanceGeneralSettings() {
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const { isHosted } = useHostedMode();
 
   const signOutMutation = useMutation({
     mutationFn: () => authApi.signOut(),
@@ -102,38 +104,40 @@ export function InstanceGeneralSettings() {
         </div>
       )}
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold">Deployment and auth</h2>
-            <ModeBadge
-              deploymentMode={healthQuery.data?.deploymentMode}
-              deploymentExposure={healthQuery.data?.deploymentExposure}
-            />
+      {!isHosted && (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold">Deployment and auth</h2>
+              <ModeBadge
+                deploymentMode={healthQuery.data?.deploymentMode}
+                deploymentExposure={healthQuery.data?.deploymentExposure}
+              />
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {healthQuery.data?.deploymentMode === "local_trusted"
+                ? "Local trusted mode is optimized for a local operator. Browser requests run as local board context and no sign-in is required."
+                : healthQuery.data?.deploymentExposure === "public"
+                  ? "Authenticated public mode requires sign-in for board access and is intended for public URLs."
+                  : "Authenticated private mode requires sign-in and is intended for LAN, VPN, or other private-network deployments."}
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              <StatusBox
+                label="Auth readiness"
+                value={healthQuery.data?.authReady ? "Ready" : "Not ready"}
+              />
+              <StatusBox
+                label="Bootstrap status"
+                value={healthQuery.data?.bootstrapStatus === "bootstrap_pending" ? "Setup required" : "Ready"}
+              />
+              <StatusBox
+                label="Bootstrap invite"
+                value={healthQuery.data?.bootstrapInviteActive ? "Active" : "None"}
+              />
+            </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            {healthQuery.data?.deploymentMode === "local_trusted"
-              ? "Local trusted mode is optimized for a local operator. Browser requests run as local board context and no sign-in is required."
-              : healthQuery.data?.deploymentExposure === "public"
-                ? "Authenticated public mode requires sign-in for board access and is intended for public URLs."
-                : "Authenticated private mode requires sign-in and is intended for LAN, VPN, or other private-network deployments."}
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <StatusBox
-              label="Auth readiness"
-              value={healthQuery.data?.authReady ? "Ready" : "Not ready"}
-            />
-            <StatusBox
-              label="Bootstrap status"
-              value={healthQuery.data?.bootstrapStatus === "bootstrap_pending" ? "Setup required" : "Ready"}
-            />
-            <StatusBox
-              label="Bootstrap invite"
-              value={healthQuery.data?.bootstrapInviteActive ? "Active" : "None"}
-            />
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-start justify-between gap-4">
@@ -172,107 +176,109 @@ export function InstanceGeneralSettings() {
         </div>
       </section>
 
-      <section className="rounded-xl border border-border bg-card p-5">
-        <div className="space-y-5">
-          <div className="space-y-1.5">
-            <h2 className="text-sm font-semibold">Backup retention</h2>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Configure how long automatic database backups are retained. Backups run roughly
-              every hour and are compressed with gzip. Within the daily window all backups are
-              kept; beyond that, one backup per week and one per month are preserved.
-            </p>
-          </div>
+      {!isHosted && (
+        <section className="rounded-xl border border-border bg-card p-5">
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <h2 className="text-sm font-semibold">Backup retention</h2>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Configure how long automatic database backups are retained. Backups run roughly
+                every hour and are compressed with gzip. Within the daily window all backups are
+                kept; beyond that, one backup per week and one per month are preserved.
+              </p>
+            </div>
 
-          <div className="space-y-1.5">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Daily</h3>
-            <div className="flex flex-wrap gap-2">
-              {DAILY_RETENTION_PRESETS.map((days) => {
-                const active = backupRetention.dailyDays === days;
-                return (
-                  <button
-                    key={days}
-                    type="button"
-                    disabled={updateGeneralMutation.isPending}
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                      active
-                        ? "border-foreground bg-accent text-foreground"
-                        : "border-border bg-background hover:bg-accent/50",
-                    )}
-                    onClick={() =>
-                      updateGeneralMutation.mutate({
-                        backupRetention: { ...backupRetention, dailyDays: days },
-                      })
-                    }
-                  >
-                    <div className="text-sm font-medium">{days} days</div>
-                  </button>
-                );
-              })}
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Daily</h3>
+              <div className="flex flex-wrap gap-2">
+                {DAILY_RETENTION_PRESETS.map((days) => {
+                  const active = backupRetention.dailyDays === days;
+                  return (
+                    <button
+                      key={days}
+                      type="button"
+                      disabled={updateGeneralMutation.isPending}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                        active
+                          ? "border-foreground bg-accent text-foreground"
+                          : "border-border bg-background hover:bg-accent/50",
+                      )}
+                      onClick={() =>
+                        updateGeneralMutation.mutate({
+                          backupRetention: { ...backupRetention, dailyDays: days },
+                        })
+                      }
+                    >
+                      <div className="text-sm font-medium">{days} days</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Weekly</h3>
+              <div className="flex flex-wrap gap-2">
+                {WEEKLY_RETENTION_PRESETS.map((weeks) => {
+                  const active = backupRetention.weeklyWeeks === weeks;
+                  const label = weeks === 1 ? "1 week" : `${weeks} weeks`;
+                  return (
+                    <button
+                      key={weeks}
+                      type="button"
+                      disabled={updateGeneralMutation.isPending}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                        active
+                          ? "border-foreground bg-accent text-foreground"
+                          : "border-border bg-background hover:bg-accent/50",
+                      )}
+                      onClick={() =>
+                        updateGeneralMutation.mutate({
+                          backupRetention: { ...backupRetention, weeklyWeeks: weeks },
+                        })
+                      }
+                    >
+                      <div className="text-sm font-medium">{label}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Monthly</h3>
+              <div className="flex flex-wrap gap-2">
+                {MONTHLY_RETENTION_PRESETS.map((months) => {
+                  const active = backupRetention.monthlyMonths === months;
+                  const label = months === 1 ? "1 month" : `${months} months`;
+                  return (
+                    <button
+                      key={months}
+                      type="button"
+                      disabled={updateGeneralMutation.isPending}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                        active
+                          ? "border-foreground bg-accent text-foreground"
+                          : "border-border bg-background hover:bg-accent/50",
+                      )}
+                      onClick={() =>
+                        updateGeneralMutation.mutate({
+                          backupRetention: { ...backupRetention, monthlyMonths: months },
+                        })
+                      }
+                    >
+                      <div className="text-sm font-medium">{label}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
-
-          <div className="space-y-1.5">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Weekly</h3>
-            <div className="flex flex-wrap gap-2">
-              {WEEKLY_RETENTION_PRESETS.map((weeks) => {
-                const active = backupRetention.weeklyWeeks === weeks;
-                const label = weeks === 1 ? "1 week" : `${weeks} weeks`;
-                return (
-                  <button
-                    key={weeks}
-                    type="button"
-                    disabled={updateGeneralMutation.isPending}
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                      active
-                        ? "border-foreground bg-accent text-foreground"
-                        : "border-border bg-background hover:bg-accent/50",
-                    )}
-                    onClick={() =>
-                      updateGeneralMutation.mutate({
-                        backupRetention: { ...backupRetention, weeklyWeeks: weeks },
-                      })
-                    }
-                  >
-                    <div className="text-sm font-medium">{label}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Monthly</h3>
-            <div className="flex flex-wrap gap-2">
-              {MONTHLY_RETENTION_PRESETS.map((months) => {
-                const active = backupRetention.monthlyMonths === months;
-                const label = months === 1 ? "1 month" : `${months} months`;
-                return (
-                  <button
-                    key={months}
-                    type="button"
-                    disabled={updateGeneralMutation.isPending}
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                      active
-                        ? "border-foreground bg-accent text-foreground"
-                        : "border-border bg-background hover:bg-accent/50",
-                    )}
-                    onClick={() =>
-                      updateGeneralMutation.mutate({
-                        backupRetention: { ...backupRetention, monthlyMonths: months },
-                      })
-                    }
-                  >
-                    <div className="text-sm font-medium">{label}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="rounded-xl border border-border bg-card p-5">
         <div className="space-y-4">

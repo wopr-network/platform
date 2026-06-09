@@ -11,6 +11,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { queryKeys } from "../lib/queryKeys";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { IssueWorkspaceCard } from "./IssueWorkspaceCard";
 import { AgentIcon } from "./AgentIconPicker";
 import { InlineEntitySelector, type InlineEntityOption } from "./InlineEntitySelector";
@@ -205,6 +206,7 @@ export function RoutineRunVariablesDialog({
   isPending: boolean;
   onSubmit: (data: RoutineRunDialogSubmitData) => void;
 }) {
+  const { isHosted } = useHostedMode();
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [selection, setSelection] = useState(() => buildInitialRunSelection({
     defaultAssigneeAgentId,
@@ -348,100 +350,104 @@ export function RoutineRunVariablesDialog({
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Agent *</Label>
-              <InlineEntitySelector
-                value={selection.assigneeAgentId}
-                options={assigneeOptions}
-                recentOptionIds={recentAssigneeIds}
-                placeholder="Agent"
-                noneLabel="Select an agent"
-                searchPlaceholder="Search agents..."
-                emptyMessage="No agents found."
-                disablePortal
-                openOnFocus={false}
-                onChange={(assigneeAgentId) => {
-                  if (assigneeAgentId) trackRecentAssignee(assigneeAgentId);
-                  setSelection((current) => ({ ...current, assigneeAgentId }));
-                }}
-                renderTriggerValue={(option) =>
-                  option ? (
-                    currentAssignee ? (
+            {!isHosted && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Agent *</Label>
+                <InlineEntitySelector
+                  value={selection.assigneeAgentId}
+                  options={assigneeOptions}
+                  recentOptionIds={recentAssigneeIds}
+                  placeholder="Agent"
+                  noneLabel="Select an agent"
+                  searchPlaceholder="Search agents..."
+                  emptyMessage="No agents found."
+                  disablePortal
+                  openOnFocus={false}
+                  onChange={(assigneeAgentId) => {
+                    if (assigneeAgentId) trackRecentAssignee(assigneeAgentId);
+                    setSelection((current) => ({ ...current, assigneeAgentId }));
+                  }}
+                  renderTriggerValue={(option) =>
+                    option ? (
+                      currentAssignee ? (
+                        <>
+                          <AgentIcon icon={currentAssignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{option.label}</span>
+                        </>
+                      ) : (
+                        <span className="truncate">{option.label}</span>
+                      )
+                    ) : (
+                      <span className="text-muted-foreground">Select an agent</span>
+                    )
+                  }
+                  renderOption={(option) => {
+                    if (!option.id) return <span className="truncate">{option.label}</span>;
+                    const assignee = agents.find((agent) => agent.id === option.id);
+                    return (
                       <>
-                        <AgentIcon icon={currentAssignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        {assignee ? <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+                        <span className="truncate">{option.label}</span>
+                      </>
+                    );
+                  }}
+                />
+              </div>
+            )}
+            {!isHosted && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Project</Label>
+                <InlineEntitySelector
+                  value={selection.projectId}
+                  options={projectOptions}
+                  recentOptionIds={recentProjectIds}
+                  placeholder="Project"
+                  noneLabel="No project"
+                  searchPlaceholder="Search projects..."
+                  emptyMessage="No projects found."
+                  disablePortal
+                  openOnFocus={false}
+                  onChange={(projectId) => {
+                    const project = projects.find((entry) => entry.id === projectId) ?? null;
+                    if (projectId) trackRecentProject(projectId);
+                    setSelection((current) => ({ ...current, projectId }));
+                    setWorkspaceConfig(buildInitialWorkspaceConfig(project, defaultExecutionWorkspace));
+                    setWorkspaceConfigValid(true);
+                    setWorkspaceBranchName(
+                      defaultExecutionWorkspace && defaultExecutionWorkspace.projectId === project?.id
+                        ? defaultExecutionWorkspace.branchName
+                        : null,
+                    );
+                  }}
+                  renderTriggerValue={(option) =>
+                    option && selectedProject ? (
+                      <>
+                        <span
+                          className="h-3.5 w-3.5 shrink-0 rounded-sm"
+                          style={{ backgroundColor: selectedProject.color ?? "#64748b" }}
+                        />
                         <span className="truncate">{option.label}</span>
                       </>
                     ) : (
-                      <span className="truncate">{option.label}</span>
+                      <span className="text-muted-foreground">No project</span>
                     )
-                  ) : (
-                    <span className="text-muted-foreground">Select an agent</span>
-                  )
-                }
-                renderOption={(option) => {
-                  if (!option.id) return <span className="truncate">{option.label}</span>;
-                  const assignee = agents.find((agent) => agent.id === option.id);
-                  return (
-                    <>
-                      {assignee ? <AgentIcon icon={assignee.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
-                      <span className="truncate">{option.label}</span>
-                    </>
-                  );
-                }}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Project</Label>
-              <InlineEntitySelector
-                value={selection.projectId}
-                options={projectOptions}
-                recentOptionIds={recentProjectIds}
-                placeholder="Project"
-                noneLabel="No project"
-                searchPlaceholder="Search projects..."
-                emptyMessage="No projects found."
-                disablePortal
-                openOnFocus={false}
-                onChange={(projectId) => {
-                  const project = projects.find((entry) => entry.id === projectId) ?? null;
-                  if (projectId) trackRecentProject(projectId);
-                  setSelection((current) => ({ ...current, projectId }));
-                  setWorkspaceConfig(buildInitialWorkspaceConfig(project, defaultExecutionWorkspace));
-                  setWorkspaceConfigValid(true);
-                  setWorkspaceBranchName(
-                    defaultExecutionWorkspace && defaultExecutionWorkspace.projectId === project?.id
-                      ? defaultExecutionWorkspace.branchName
-                      : null,
-                  );
-                }}
-                renderTriggerValue={(option) =>
-                  option && selectedProject ? (
-                    <>
-                      <span
-                        className="h-3.5 w-3.5 shrink-0 rounded-sm"
-                        style={{ backgroundColor: selectedProject.color ?? "#64748b" }}
-                      />
-                      <span className="truncate">{option.label}</span>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">No project</span>
-                  )
-                }
-                renderOption={(option) => {
-                  if (!option.id) return <span className="truncate">{option.label}</span>;
-                  const project = projects.find((entry) => entry.id === option.id);
-                  return (
-                    <>
-                      <span
-                        className="h-3.5 w-3.5 shrink-0 rounded-sm"
-                        style={{ backgroundColor: project?.color ?? "#64748b" }}
-                      />
-                      <span className="truncate">{option.label}</span>
-                    </>
-                  );
-                }}
-              />
-            </div>
+                  }
+                  renderOption={(option) => {
+                    if (!option.id) return <span className="truncate">{option.label}</span>;
+                    const project = projects.find((entry) => entry.id === option.id);
+                    return (
+                      <>
+                        <span
+                          className="h-3.5 w-3.5 shrink-0 rounded-sm"
+                          style={{ backgroundColor: project?.color ?? "#64748b" }}
+                        />
+                        <span className="truncate">{option.label}</span>
+                      </>
+                    );
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {variables.map((variable) => (
@@ -507,7 +513,7 @@ export function RoutineRunVariablesDialog({
             </div>
           ))}
 
-          {workspaceSelectionEnabled && selectedProject && companyId ? (
+          {!isHosted && workspaceSelectionEnabled && selectedProject && companyId ? (
             <IssueWorkspaceCard
               key={`${open ? "open" : "closed"}:${selectedProject.id}`}
               issue={workspaceIssue}

@@ -32,6 +32,7 @@ import { asBoolean, asFiniteNumber, asObject, cn } from "../lib/utils";
 import { extractModelName, extractProviderId } from "../lib/model-utils";
 import { queryKeys } from "../lib/queryKeys";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   Field,
   ToggleField,
@@ -201,12 +202,13 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const { mode, adapterModels: externalModels } = props;
   const isCreate = mode === "create";
   const cards = props.sectionLayout === "cards";
-  const showAdapterTypeField = props.showAdapterTypeField ?? true;
-  const showAdapterTestEnvironmentButton = props.showAdapterTestEnvironmentButton ?? true;
+  const { isHosted } = useHostedMode();
+  const showAdapterTypeField = !isHosted && (props.showAdapterTypeField ?? true);
+  const showAdapterTestEnvironmentButton = !isHosted && (props.showAdapterTestEnvironmentButton ?? true);
   const showInlineAdapterTestEnvironmentButton =
     showAdapterTestEnvironmentButton && !props.onTestActionChange;
   const showInlineAdapterTestEnvironmentFeedback = !props.onTestFeedbackChange;
-  const showCreateRunPolicySection = props.showCreateRunPolicySection ?? true;
+  const showCreateRunPolicySection = !isHosted && (props.showCreateRunPolicySection ?? true);
   const hideInstructionsFile = props.hideInstructionsFile ?? false;
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
@@ -785,7 +787,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       )}
 
       {/* ---- Execution ---- */}
-      {environmentsEnabled ? (
+      {environmentsEnabled && !isHosted ? (
         <div className={cn(!cards && (isCreate ? "border-t border-border" : "border-b border-border"))}>
           {cards
             ? <h3 className="text-sm font-medium mb-3">Execution</h3>
@@ -942,7 +944,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       </div>
 
       {/* ---- Permissions & Configuration ---- */}
-      {isLocal && (
+      {isLocal && !isHosted && (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
             ? <h3 className="text-sm font-medium mb-3">Permissions &amp; Configuration</h3>
@@ -1048,7 +1050,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 />
               )}
 
-              {showThinkingEffort && (
+              {showThinkingEffort && !isHosted && (
                 <>
                   <ThinkingEffortDropdown
                     value={currentThinkingEffort}
@@ -1101,47 +1103,51 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
               )}
               <uiAdapter.ConfigFields {...adapterFieldProps} />
 
-              <Field label="Extra args (comma-separated)" hint={help.extraArgs}>
-                <DraftInput
-                  value={
-                    isCreate
-                      ? val!.extraArgs
-                      : eff("adapterConfig", "extraArgs", formatArgList(config.extraArgs))
-                  }
-                  onCommit={(v) =>
-                    isCreate
-                      ? set!({ extraArgs: v })
-                      : mark("adapterConfig", "extraArgs", v?.trim() ? parseCommaArgs(v) : null)
-                  }
-                  immediate
-                  className={inputClass}
-                  placeholder="e.g. --verbose, --foo=bar"
-                />
-              </Field>
+              {!isHosted && (
+                <Field label="Extra args (comma-separated)" hint={help.extraArgs}>
+                  <DraftInput
+                    value={
+                      isCreate
+                        ? val!.extraArgs
+                        : eff("adapterConfig", "extraArgs", formatArgList(config.extraArgs))
+                    }
+                    onCommit={(v) =>
+                      isCreate
+                        ? set!({ extraArgs: v })
+                        : mark("adapterConfig", "extraArgs", v?.trim() ? parseCommaArgs(v) : null)
+                    }
+                    immediate
+                    className={inputClass}
+                    placeholder="e.g. --verbose, --foo=bar"
+                  />
+                </Field>
+              )}
 
-              <Field label="Environment variables" hint={help.envVars}>
-                <EnvVarEditor
-                  value={
-                    isCreate
-                      ? ((val!.envBindings ?? EMPTY_ENV) as Record<string, EnvBinding>)
-                      : ((eff("adapterConfig", "env", (config.env ?? EMPTY_ENV) as Record<string, EnvBinding>))
-                      )
-                  }
-                  secrets={availableSecrets}
-                  onCreateSecret={async (name, value) => {
-                    const created = await createSecret.mutateAsync({ name, value });
-                    return created;
-                  }}
-                  onChange={(env) =>
-                    isCreate
-                      ? set!({ envBindings: env ?? {}, envVars: "" })
-                      : mark("adapterConfig", "env", env)
-                  }
-                />
-              </Field>
+              {!isHosted && (
+                <Field label="Environment variables" hint={help.envVars}>
+                  <EnvVarEditor
+                    value={
+                      isCreate
+                        ? ((val!.envBindings ?? EMPTY_ENV) as Record<string, EnvBinding>)
+                        : ((eff("adapterConfig", "env", (config.env ?? EMPTY_ENV) as Record<string, EnvBinding>))
+                        )
+                    }
+                    secrets={availableSecrets}
+                    onCreateSecret={async (name, value) => {
+                      const created = await createSecret.mutateAsync({ name, value });
+                      return created;
+                    }}
+                    onChange={(env) =>
+                      isCreate
+                        ? set!({ envBindings: env ?? {}, envVars: "" })
+                        : mark("adapterConfig", "env", env)
+                    }
+                  />
+                </Field>
+              )}
 
               {/* Edit-only: timeout + grace period */}
-              {!isCreate && (
+              {!isCreate && !isHosted && (
                 <>
                   <Field label="Timeout (sec)" hint={help.timeoutSec}>
                     <DraftNumberInput
@@ -1174,7 +1180,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
       )}
 
       {/* ---- Run Policy ---- */}
-      {isCreate && showCreateRunPolicySection ? (
+      {isCreate && showCreateRunPolicySection && !isHosted ? (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
             ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> Run Policy</h3>
@@ -1195,7 +1201,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
             />
           </div>
         </div>
-      ) : !isCreate ? (
+      ) : !isCreate && !isHosted ? (
         <div className={cn(!cards && "border-b border-border")}>
           {cards
             ? <h3 className="text-sm font-medium flex items-center gap-2 mb-3"><Heart className="h-3 w-3" /> Run Policy</h3>

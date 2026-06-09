@@ -7,6 +7,7 @@ import { INSTANCE_SETTINGS_PATH_PREFIX } from "@/lib/instance-settings";
 import { queryKeys } from "@/lib/queryKeys";
 import { SIDEBAR_SCROLL_RESET_STATE } from "@/lib/navigation-scroll";
 import { SidebarNavItem } from "./SidebarNavItem";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 /**
  * Sandbox-provider-only plugins (e.g. E2B, exe.dev, Modal) have no per-plugin
@@ -21,6 +22,7 @@ function isSandboxProviderOnly(plugin: PluginRecord): boolean {
 }
 
 export function InstanceSidebar() {
+  const { isHosted } = useHostedMode();
   const { data: plugins } = useQuery({
     queryKey: queryKeys.plugins.all,
     queryFn: () => pluginsApi.list(),
@@ -41,11 +43,11 @@ export function InstanceSidebar() {
         <div className="flex flex-col gap-0.5">
           <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/profile`} label="Profile" icon={UserRoundPen} end />
           <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/general`} label="General" icon={SlidersHorizontal} end />
-          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/access`} label="Access" icon={Shield} end />
+          {!isHosted && <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/access`} label="Access" icon={Shield} end />}
           <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/heartbeats`} label="Heartbeats" icon={Clock3} end />
-          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/experimental`} label="Experimental" icon={FlaskConical} />
-          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/plugins`} label="Plugins" icon={Puzzle} />
-          {sidebarPlugins.length > 0 ? (
+          {!isHosted && <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/experimental`} label="Experimental" icon={FlaskConical} />}
+          {!isHosted && <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/plugins`} label="Plugins" icon={Puzzle} />}
+          {!isHosted && sidebarPlugins.length > 0 ? (
             <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border/70 pl-3">
               {sidebarPlugins.map((plugin) => (
                 <NavLink
@@ -66,7 +68,7 @@ export function InstanceSidebar() {
               ))}
             </div>
           ) : null}
-          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/adapters`} label="Adapters" icon={Cpu} />
+          {!isHosted && <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/adapters`} label="Adapters" icon={Cpu} />}
         </div>
       </nav>
     </aside>

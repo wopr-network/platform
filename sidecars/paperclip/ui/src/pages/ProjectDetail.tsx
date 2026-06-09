@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Link, useParams, useNavigate, useLocation, Navigate } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PROJECT_COLORS, PROJECT_ICON_NAMES, isUuidLike, type BudgetPolicySummary } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { budgetsApi } from "../api/budgets";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
 import { instanceSettingsApi } from "../api/instanceSettings";
@@ -72,23 +73,31 @@ function OverviewContent({
   project,
   onUpdate,
   imageUploadHandler,
+  isHosted,
 }: {
   project: { description: string | null; status: string; targetDate: string | null };
   onUpdate: (data: Record<string, unknown>) => void;
   imageUploadHandler?: (file: File) => Promise<string>;
+  isHosted: boolean;
 }) {
   return (
     <div className="space-y-6">
-      <InlineEditor
-        value={project.description ?? ""}
-        onSave={(description) => onUpdate({ description })}
-        nullable
-        as="p"
-        className="text-sm text-muted-foreground"
-        placeholder="Add a description..."
-        multiline
-        imageUploadHandler={imageUploadHandler}
-      />
+      {!isHosted ? (
+        <InlineEditor
+          value={project.description ?? ""}
+          onSave={(description) => onUpdate({ description })}
+          nullable
+          as="p"
+          className="text-sm text-muted-foreground"
+          placeholder="Add a description..."
+          multiline
+          imageUploadHandler={imageUploadHandler}
+        />
+      ) : (
+        project.description && (
+          <p className="text-sm text-muted-foreground">{project.description}</p>
+        )
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
         <div>
@@ -345,6 +354,7 @@ export function ProjectDetail() {
     projectId: string;
     filter?: string;
   }>();
+  const { isHosted } = useHostedMode();
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { closePanel } = usePanel();
   const { setBreadcrumbs } = useBreadcrumbs();
@@ -723,7 +733,7 @@ export function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      {showLeftProjectNotice ? (
+      {showLeftProjectNotice && !isHosted ? (
         <div className="flex items-center gap-3 border border-yellow-300/35 bg-yellow-300/10 px-3 py-2 text-sm text-yellow-100">
           <p className="min-w-0 flex-1">
             You left this project. It no longer appears in your sidebar.
@@ -758,21 +768,27 @@ export function ProjectDetail() {
         </div>
       ) : null}
       <div className="flex items-start gap-3">
-        <div className="h-7 flex items-center">
-          <ProjectTilePicker
-            color={project.color ?? null}
-            icon={project.icon ?? null}
-            onSelectIcon={(icon) => updateProject.mutate({ icon })}
-            onSelectColor={(color) => updateProject.mutate({ color })}
-          />
-        </div>
+        {!isHosted && (
+          <div className="h-7 flex items-center">
+            <ProjectTilePicker
+              color={project.color ?? null}
+              icon={project.icon ?? null}
+              onSelectIcon={(icon) => updateProject.mutate({ icon })}
+              onSelectColor={(color) => updateProject.mutate({ color })}
+            />
+          </div>
+        )}
         <div className="min-w-0 space-y-2">
-          <InlineEditor
-            value={project.name}
-            onSave={(name) => updateProject.mutate({ name })}
-            as="h2"
-            className="text-xl font-bold"
-          />
+          {!isHosted ? (
+            <InlineEditor
+              value={project.name}
+              onSave={(name) => updateProject.mutate({ name })}
+              as="h2"
+              className="text-xl font-bold"
+            />
+          ) : (
+            <h2 className="text-xl font-bold">{project.name}</h2>
+          )}
           {project.pauseReason === "budget" ? (
             <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-red-200">
               <span className="h-2 w-2 rounded-full bg-red-400" />
@@ -788,36 +804,40 @@ export function ProjectDetail() {
         </div>
       </div>
 
-      <PluginSlotOutlet
-        slotTypes={["toolbarButton", "contextMenuItem"]}
-        entityType="project"
-        context={{
-          companyId: resolvedCompanyId ?? null,
-          companyPrefix: companyPrefix ?? null,
-          projectId: project.id,
-          projectRef: canonicalProjectRef,
-          entityId: project.id,
-          entityType: "project",
-        }}
-        className="flex flex-wrap gap-2"
-        itemClassName="inline-flex"
-        missingBehavior="placeholder"
-      />
+      {!isHosted && (
+        <>
+          <PluginSlotOutlet
+            slotTypes={["toolbarButton", "contextMenuItem"]}
+            entityType="project"
+            context={{
+              companyId: resolvedCompanyId ?? null,
+              companyPrefix: companyPrefix ?? null,
+              projectId: project.id,
+              projectRef: canonicalProjectRef,
+              entityId: project.id,
+              entityType: "project",
+            }}
+            className="flex flex-wrap gap-2"
+            itemClassName="inline-flex"
+            missingBehavior="placeholder"
+          />
 
-      <PluginLauncherOutlet
-        placementZones={["toolbarButton"]}
-        entityType="project"
-        context={{
-          companyId: resolvedCompanyId ?? null,
-          companyPrefix: companyPrefix ?? null,
-          projectId: project.id,
-          projectRef: canonicalProjectRef,
-          entityId: project.id,
-          entityType: "project",
-        }}
-        className="flex flex-wrap gap-2"
-        itemClassName="inline-flex"
-      />
+          <PluginLauncherOutlet
+            placementZones={["toolbarButton"]}
+            entityType="project"
+            context={{
+              companyId: resolvedCompanyId ?? null,
+              companyPrefix: companyPrefix ?? null,
+              projectId: project.id,
+              projectRef: canonicalProjectRef,
+              entityId: project.id,
+              entityType: "project",
+            }}
+            className="flex flex-wrap gap-2"
+            itemClassName="inline-flex"
+          />
+        </>
+      )}
 
       <Tabs value={activeTab ?? "list"} onValueChange={(value) => handleTabChange(value as ProjectTab)}>
         <PageTabBar
@@ -826,8 +846,8 @@ export function ProjectDetail() {
             { value: "overview", label: "Overview" },
             ...(project.managedByPlugin ? [{ value: "plugin-operations", label: "Plugin operations" }] : []),
             ...(showWorkspacesTab ? [{ value: "workspaces", label: "Workspaces" }] : []),
-            { value: "configuration", label: "Configuration" },
-            { value: "budget", label: "Budget" },
+            ...(!isHosted ? [{ value: "configuration", label: "Configuration" }] : []),
+            ...(!isHosted ? [{ value: "budget", label: "Budget" }] : []),
             ...pluginTabItems.map((item) => ({
               value: item.value,
               label: item.label,
@@ -847,6 +867,7 @@ export function ProjectDetail() {
             const asset = await uploadImage.mutateAsync(file);
             return asset.contentPath;
           }}
+          isHosted={isHosted}
         />
       )}
 
@@ -879,7 +900,7 @@ export function ProjectDetail() {
         )
       ) : null}
 
-      {activeTab === "configuration" && (
+      {activeTab === "configuration" && !isHosted && (
         <div className="max-w-4xl">
           <ProjectProperties
             project={project}
@@ -892,7 +913,7 @@ export function ProjectDetail() {
         </div>
       )}
 
-      {activeTab === "budget" && resolvedCompanyId ? (
+      {activeTab === "budget" && !isHosted && resolvedCompanyId ? (
         <div className="max-w-3xl">
           <BudgetPolicyCard
             summary={projectBudgetSummary}

@@ -26,6 +26,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useCompanyPageMemory } from "../hooks/useCompanyPageMemory";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { healthApi } from "../api/health";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { shouldSyncCompanySelectionFromRoute } from "../lib/company-selection";
@@ -48,6 +49,7 @@ function getCompanyRouteSegment(pathname: string, companyPrefix: string | undefi
 }
 
 export function Layout() {
+  const { isHosted } = useHostedMode();
   const { sidebarOpen, setSidebarOpen, toggleSidebar, isMobile } = useSidebar();
   const { openNewIssue, openOnboarding } = useDialogActions();
   const { togglePanelVisible } = usePanel();
@@ -357,10 +359,12 @@ export function Layout() {
                 )}
               </div>
             </div>
-            <SidebarAccountMenu
-              deploymentMode={health?.deploymentMode}
-              version={health?.version}
-            />
+            {!isHosted && (
+              <SidebarAccountMenu
+                deploymentMode={health?.deploymentMode}
+                version={health?.version}
+              />
+            )}
           </div>
         ) : (
           <div className="flex h-full flex-col shrink-0">
@@ -373,10 +377,12 @@ export function Layout() {
                 )}
               </ResizableSidebarPane>
             </div>
-            <SidebarAccountMenu
-              deploymentMode={health?.deploymentMode}
-              version={health?.version}
-            />
+            {!isHosted && (
+              <SidebarAccountMenu
+                deploymentMode={health?.deploymentMode}
+                version={health?.version}
+              />
+            )}
           </div>
         )}
 
@@ -417,12 +423,12 @@ export function Layout() {
           </div>
         </div>
       </div>
-      {isMobile && <MobileBottomNav visible={mobileNavVisible} />}
-      <CommandPalette />
+      {isMobile && !isHosted && <MobileBottomNav visible={mobileNavVisible} />}
+      <CommandPalette isHosted={isHosted} />
       <NewIssueDialog />
       <NewProjectDialog />
       <NewGoalDialog />
-      <NewAgentDialog />
+      {!isHosted && <NewAgentDialog />}
       <KeyboardShortcutsCheatsheet open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <ToastViewport />
       </div>

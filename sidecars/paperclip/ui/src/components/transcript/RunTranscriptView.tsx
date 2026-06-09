@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TranscriptEntry } from "../../adapters";
 import { MarkdownBody } from "../MarkdownBody";
 import { cn, formatTokens } from "../../lib/utils";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   Check,
   ChevronDown,
@@ -116,6 +117,8 @@ type TranscriptBlock =
       tone: "info" | "warn" | "error" | "neutral";
       text: string;
       detail?: string;
+      _hideInHosted?: boolean;
+      _hideDetailInHosted?: boolean;
     }
   | {
       type: "diff_group";
@@ -501,7 +504,9 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
         ts: entry.ts,
         label: "init",
         tone: "info",
-        text: `model ${entry.model}${entry.sessionId ? ` • session ${entry.sessionId}` : ""}`,
+        text: "Session initialized",
+        // In hosted mode, hide model name and session ID for security
+        _hideInHosted: true,
       });
       continue;
     }
@@ -517,6 +522,8 @@ export function normalizeTranscript(entries: TranscriptEntry[], streaming: boole
           !entry.isError && entry.text.trim().length > 0
             ? `${formatTokens(entry.inputTokens)} / ${formatTokens(entry.outputTokens)} / $${entry.costUsd.toFixed(6)}`
             : undefined,
+        // In hosted mode, hide token counts and cost metrics
+        _hideDetailInHosted: true,
       });
       continue;
     }
@@ -701,6 +708,7 @@ function TranscriptToolCard({
   block: Extract<TranscriptBlock, { type: "tool" }>;
   density: TranscriptDensity;
 }) {
+  const { isHosted } = useHostedMode();
   const [open, setOpen] = useState(block.status === "error");
   const compact = density === "compact";
   const parsedResult = parseStructuredToolResult(block.result);
@@ -766,7 +774,7 @@ function TranscriptToolCard({
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
       </div>
-      {open && (
+      {open && !isHosted && (
         <div className="mt-3">
           <div className={detailsClass}>
             <div className={cn("grid gap-3", compact ? "grid-cols-1" : "lg:grid-cols-2")}>
@@ -934,6 +942,7 @@ function TranscriptToolGroup({
   block: Extract<TranscriptBlock, { type: "tool_group" }>;
   density: TranscriptDensity;
 }) {
+  const { isHosted } = useHostedMode();
   const [open, setOpen] = useState(false);
   const compact = density === "compact";
   const runningItem = [...block.items].reverse().find((item) => item.status === "running");
@@ -1007,7 +1016,7 @@ function TranscriptToolGroup({
           {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
       </div>
-      {open && (
+      {open && !isHosted && (
         <div className={cn("space-y-2 border-t border-border/30 px-3 py-3", hasError && "rounded-b-xl")}>
           {block.items.map((item, index) => (
             <div key={`${item.ts}-${index}`} className="space-y-1.5">
@@ -1094,6 +1103,7 @@ function TranscriptEventRow({
   block: Extract<TranscriptBlock, { type: "event" }>;
   density: TranscriptDensity;
 }) {
+  const { isHosted } = useHostedMode();
   const compact = density === "compact";
   const toneClasses =
     block.tone === "error"
@@ -1103,6 +1113,11 @@ function TranscriptEventRow({
         : block.tone === "info"
           ? "text-sky-700 dark:text-sky-300"
           : "text-foreground/75";
+
+  // Hide init event details in hosted mode
+  if (block._hideInHosted && isHosted) {
+    return null;
+  }
 
   return (
     <div className={toneClasses}>
@@ -1132,9 +1147,14 @@ function TranscriptEventRow({
               {block.text ? <span className="ml-2">{block.text}</span> : null}
             </div>
           )}
-          {block.detail && (
+          {block.detail && !block._hideDetailInHosted && (
             <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/75">
               {block.detail}
+            </pre>
+          )}
+          {block.detail && block._hideDetailInHosted && isHosted && (
+            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/75">
+              {/* Token counts and cost metrics hidden in hosted mode */}
             </pre>
           )}
         </div>
@@ -1474,9 +1494,14 @@ export function RunTranscriptView({
   className,
   thinkingClassName,
 }: RunTranscriptViewProps) {
+  const { isHosted } = useHostedMode();
+
+  // In hosted mode, force nice mode to hide raw transcript details
+  const effectiveMode = isHosted ? "nice" : mode;
+
   const blocks = useMemo(
-    () => (mode === "raw" ? [] : normalizeTranscript(entries, streaming)),
-    [entries, mode, streaming],
+    () => (effectiveMode === "raw" ? [] : normalizeTranscript(entries, streaming)),
+    [entries, effectiveMode, streaming],
   );
   const visibleBlocks = limit ? blocks.slice(-limit) : blocks;
   const visibleEntries = limit ? entries.slice(-limit) : entries;
@@ -1489,7 +1514,7 @@ export function RunTranscriptView({
     );
   }
 
-  if (mode === "raw") {
+  if (effectiveMode === "raw") {
     return (
       <div className={className}>
         <RawTranscriptView entries={visibleEntries} density={density} />

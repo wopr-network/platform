@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type ChangeEve
 import { pickTextColorForPillBg } from "@/lib/color-contrast";
 import { Link, useLocation, useNavigate, useNavigationType, useParams } from "@/lib/router";
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { ApiError } from "../api/client";
 import { issuesApi } from "../api/issues";
 import { approvalsApi } from "../api/approvals";
@@ -1273,6 +1274,7 @@ export function IssueDetail() {
   const location = useLocation();
   const { pushToast } = useToastActions();
   const { isMobile } = useSidebar();
+  const { isHosted } = useHostedMode();
   const [moreOpen, setMoreOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
@@ -1481,13 +1483,13 @@ export function IssueDetail() {
   const { data: instanceGeneralSettings } = useQuery({
     queryKey: queryKeys.instance.generalSettings,
     queryFn: () => instanceSettingsApi.getGeneral(),
-    enabled: !!issueId,
+    enabled: !!issueId && !isHosted,
     retry: false,
   });
   const { data: instanceExperimentalSettings } = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
     queryFn: () => instanceSettingsApi.getExperimental(),
-    enabled: !!issueId,
+    enabled: !!issueId && !isHosted,
     retry: false,
   });
   const keyboardShortcutsEnabled = instanceGeneralSettings?.keyboardShortcuts === true;
@@ -1533,14 +1535,14 @@ export function IssueDetail() {
           strategy: "manual",
         },
       }),
-    enabled: treeControlOpen && !!issueId && canManageTreeControl,
+    enabled: treeControlOpen && !!issueId && canManageTreeControl && !isHosted,
     staleTime: 0,
     retry: false,
   });
   const { data: treeControlState } = useQuery({
     queryKey: ["issues", "tree-control-state", issueId ?? "pending"],
     queryFn: () => issuesApi.getTreeControlState(issueId!),
-    enabled: !!issueId && canManageTreeControl,
+    enabled: !!issueId && canManageTreeControl && !isHosted,
     retry: false,
   });
   const { data: activeRootPauseHolds = [] } = useQuery({
@@ -1551,7 +1553,7 @@ export function IssueDetail() {
         mode: "pause",
         includeMembers: true,
       }),
-    enabled: !!issueId && treeControlState?.activePauseHold?.isRoot === true,
+    enabled: !!issueId && treeControlState?.activePauseHold?.isRoot === true && !isHosted,
   });
   const { data: activeCancelHolds = [] } = useQuery({
     queryKey: ["issues", "tree-holds", issueId ?? "pending", "active-cancel"],
@@ -1560,7 +1562,7 @@ export function IssueDetail() {
         status: "active",
         mode: "cancel",
       }),
-    enabled: !!issueId && canManageTreeControl,
+    enabled: !!issueId && canManageTreeControl && !isHosted,
   });
 
   const agentMap = useMemo(() => {
@@ -3457,7 +3459,7 @@ export function IssueDetail() {
           This task is hidden
         </div>
       )}
-      {activePauseHold && (
+      {!isHosted && activePauseHold && (
         <div className="rounded-md border border-amber-500/35 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200">
           {activePauseHold.isRoot ? (
             <div className="space-y-2">
@@ -3477,7 +3479,7 @@ export function IssueDetail() {
                   : `${heldDescendantCount} descendant${heldDescendantCount === 1 ? "" : "s"} held`}
                 {activeRootPauseHold?.createdAt ? ` · started ${relativeTime(activeRootPauseHold.createdAt)}` : ""}
               </div>
-              {canShowSubtreeControls || canResumeLeafWork ? (
+              {!isHosted && (canShowSubtreeControls || canResumeLeafWork) ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     size="sm"
@@ -3712,7 +3714,7 @@ export function IssueDetail() {
                 </Button>
               </PopoverTrigger>
             <PopoverContent className="w-52 p-1" align="end">
-              {canPauseLeafWork ? (
+              {!isHosted && canPauseLeafWork ? (
                 <button
                   className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
                   onClick={() => {
@@ -3726,7 +3728,7 @@ export function IssueDetail() {
                   Pause work...
                 </button>
               ) : null}
-              {canResumeLeafWork ? (
+              {!isHosted && canResumeLeafWork ? (
                 <button
                   className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
                   onClick={() => {
@@ -3740,7 +3742,7 @@ export function IssueDetail() {
                   Resume work
                 </button>
               ) : null}
-              {canShowSubtreeControls ? (
+              {!isHosted && canShowSubtreeControls ? (
                 <>
                   <button
                     className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
@@ -4075,7 +4077,7 @@ export function IssueDetail() {
               onAttachImage={handleCommentAttachImage}
               onInterruptQueued={handleInterruptQueuedRun}
               onDeleteComment={(commentId) => deleteComment.mutateAsync({ commentId }).then(() => undefined)}
-              onPauseWorkRun={canManageTreeControl
+              onPauseWorkRun={canManageTreeControl && !isHosted
                 ? (runId) => pauseIssueWorkRun.mutateAsync({ runId, scope: treeControlScope }).then(() => undefined)
                 : undefined}
               runFinalizationActions={runFinalizationActions}
@@ -4144,6 +4146,7 @@ export function IssueDetail() {
         )}
       </Tabs>
 
+      {!isHosted && (
       <Dialog open={treeControlOpen} onOpenChange={setTreeControlOpen}>
         <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[560px]">
           <DialogHeader className="border-b border-border/60 px-6 pb-4 pr-12 pt-6">
@@ -4294,6 +4297,7 @@ export function IssueDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Mobile properties drawer */}
       <Sheet open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>

@@ -23,6 +23,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Company } from "@paperclipai/shared";
 import { Link, useLocation, useNavigate } from "@/lib/router";
 import { authApi } from "@/api/auth";
+import { useHostedMode } from "@/hooks/useHostedMode";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -135,6 +136,7 @@ export function SidebarCompanyMenu({ open: controlledOpen, onOpenChange }: Sideb
   const { companies, selectedCompany, setSelectedCompanyId } = useCompany();
   const { openOnboarding } = useDialogActions();
   const { isMobile, setSidebarOpen } = useSidebar();
+  const { isHosted } = useHostedMode();
   const location = useLocation();
   const navigate = useNavigate();
   const open = controlledOpen ?? internalOpen;
@@ -241,17 +243,19 @@ export function SidebarCompanyMenu({ open: controlledOpen, onOpenChange }: Sideb
           <DropdownMenuLabel className="p-0 text-[11px] font-semibold uppercase text-muted-foreground">
             Switch workspace
           </DropdownMenuLabel>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              setIsEditingOrder((current) => !current);
-            }}
-            className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            {isEditingOrder ? "Done" : "Edit"}
-          </button>
+          {!isHosted && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsEditingOrder((current) => !current);
+              }}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              {isEditingOrder ? "Done" : "Edit"}
+            </button>
+          )}
         </div>
         <div className="max-h-96 overflow-y-auto">
           <DndContext
@@ -278,48 +282,53 @@ export function SidebarCompanyMenu({ open: controlledOpen, onOpenChange }: Sideb
             <DropdownMenuItem disabled>No workspaces</DropdownMenuItem>
           ) : null}
         </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={addCompany}
-          className="gap-2 py-2 text-muted-foreground"
-          disabled={isEditingOrder}
-        >
-          <Plus className="size-4" />
-          <span>Add company...</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild disabled={isEditingOrder}>
-          <Link
-            to="/company/settings/invites"
-            onClick={(event) => {
-              if (isEditingOrder) {
-                event.preventDefault();
-                return;
-              }
-              closeNavigationChrome();
-            }}
-          >
-            <UserPlus className="size-4" />
-            <span className="truncate">
-              {selectedCompany ? `Invite people to ${selectedCompany.name}` : "Invite people"}
-            </span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild disabled={isEditingOrder}>
-          <Link
-            to="/company/settings"
-            onClick={(event) => {
-              if (isEditingOrder) {
-                event.preventDefault();
-                return;
-              }
-              closeNavigationChrome();
-            }}
-          >
-            <Settings className="size-4" />
-            <span>Company settings</span>
-          </Link>
-        </DropdownMenuItem>
+        {!isHosted && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={addCompany}
+              className="gap-2 py-2 text-muted-foreground"
+              disabled={isEditingOrder}
+            >
+              <Plus className="size-4" />
+              <span>Add company...</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild disabled={isEditingOrder}>
+              <Link
+                to="/company/settings/invites"
+                onClick={(event) => {
+                  if (isEditingOrder) {
+                    event.preventDefault();
+                    return;
+                  }
+                  closeNavigationChrome();
+                }}
+              >
+                <UserPlus className="size-4" />
+                <span className="truncate">
+                  {selectedCompany ? `Invite people to ${selectedCompany.name}` : "Invite people"}
+                </span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild disabled={isEditingOrder}>
+              <Link
+                to="/company/settings"
+                onClick={(event) => {
+                  if (isEditingOrder) {
+                    event.preventDefault();
+                    return;
+                  }
+                  closeNavigationChrome();
+                }}
+              >
+                <Settings className="size-4" />
+                <span>Company settings</span>
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
         {session?.session ? (
           <>
             <DropdownMenuSeparator />

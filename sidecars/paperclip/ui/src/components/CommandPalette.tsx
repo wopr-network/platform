@@ -40,7 +40,11 @@ export function buildFullSearchPath(query: string) {
   return trimmed.length === 0 ? "/search" : `/search?q=${encodeURIComponent(trimmed)}`;
 }
 
-export function CommandPalette() {
+interface CommandPaletteProps {
+  isHosted?: boolean;
+}
+
+export function CommandPalette({ isHosted = false }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
@@ -177,15 +181,17 @@ export function CommandPalette() {
             Create new task
             <span className="ml-auto text-xs text-muted-foreground">C</span>
           </CommandItem>
-          <CommandItem
-            onSelect={() => {
-              setOpen(false);
-              openNewAgent();
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create new agent
-          </CommandItem>
+          {!isHosted && (
+            <CommandItem
+              onSelect={() => {
+                setOpen(false);
+                openNewAgent();
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create new agent
+            </CommandItem>
+          )}
           <CommandItem onSelect={() => go("/projects")}>
             <Plus className="mr-2 h-4 w-4" />
             Create new project

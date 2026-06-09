@@ -4,6 +4,7 @@ import type { AdapterEnvironmentTestResult } from "@paperclipai/shared";
 import { useLocation, useNavigate, useParams } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { companiesApi } from "../api/companies";
 import { goalsApi } from "../api/goals";
 import { agentsApi } from "../api/agents";
@@ -72,6 +73,7 @@ const DEFAULT_TASK_DESCRIPTION = `You are the CEO. You set the direction for the
 export function OnboardingWizard() {
   const { onboardingOpen, onboardingOptions, closeOnboarding } = useDialog();
   const { companies, setSelectedCompanyId, loading: companiesLoading } = useCompany();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -736,87 +738,28 @@ export function OnboardingWizard() {
                   </div>
 
                   {/* Adapter type radio cards */}
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-2 block">
-                      Adapter type
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {recommendedAdapters.map((opt) => (
-                        <button
-                          key={opt.type}
-                          className={cn(
-                            "flex flex-col items-center gap-1.5 rounded-md border p-3 text-xs transition-colors relative",
-                            adapterType === opt.type
-                              ? "border-foreground bg-accent"
-                              : "border-border hover:bg-accent/50"
-                          )}
-                          onClick={() => {
-                            const nextType = opt.type;
-                            setAdapterType(nextType);
-                            if (nextType === "codex_local") {
-                              if (!model) {
-                                setModel(DEFAULT_CODEX_LOCAL_MODEL);
-                              }
-                              return;
-                            }
-                            if (nextType === "opencode_local") {
-                              setModel(DEFAULT_OPENCODE_LOCAL_MODEL);
-                              return;
-                            }
-                            setModel("");
-                          }}
-                        >
-                          {opt.recommended && (
-                            <span className="absolute -top-1.5 right-1.5 bg-green-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
-                              Recommended
-                            </span>
-                          )}
-                          <opt.icon className="h-4 w-4" />
-                          <span className="font-medium">{opt.label}</span>
-                          <span className="text-muted-foreground text-[10px]">
-                            {opt.description}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <button
-                      className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                      onClick={() => setShowMoreAdapters((v) => !v)}
-                    >
-                      <ChevronDown
-                        className={cn(
-                          "h-3 w-3 transition-transform",
-                          showMoreAdapters ? "rotate-0" : "-rotate-90"
-                        )}
-                      />
-                      More Agent Adapter Types
-                    </button>
-
-                    {showMoreAdapters && (
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        {moreAdapters.map((opt) => (
-                           <button
-                             key={opt.type}
-                             disabled={!!opt.comingSoon}
-                             className={cn(
-                               "flex flex-col items-center gap-1.5 rounded-md border p-3 text-xs transition-colors relative",
-                               opt.comingSoon
-                                 ? "border-border opacity-40 cursor-not-allowed"
-                                 : adapterType === opt.type
-                                 ? "border-foreground bg-accent"
-                                 : "border-border hover:bg-accent/50"
-                             )}
-                             onClick={() => {
-                               if (opt.comingSoon) return;
-                               const nextType = opt.type;
+                  {!isHosted && (
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-2 block">
+                        Adapter type
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {recommendedAdapters.map((opt) => (
+                          <button
+                            key={opt.type}
+                            className={cn(
+                              "flex flex-col items-center gap-1.5 rounded-md border p-3 text-xs transition-colors relative",
+                              adapterType === opt.type
+                                ? "border-foreground bg-accent"
+                                : "border-border hover:bg-accent/50"
+                            )}
+                            onClick={() => {
+                              const nextType = opt.type;
                               setAdapterType(nextType);
-                              if (nextType === "gemini_local" && !model) {
-                                setModel(DEFAULT_GEMINI_LOCAL_MODEL);
-                                return;
-                              }
-                              if (nextType === "cursor" && !model) {
-                                setModel(DEFAULT_CURSOR_LOCAL_MODEL);
+                              if (nextType === "codex_local") {
+                                if (!model) {
+                                  setModel(DEFAULT_CODEX_LOCAL_MODEL);
+                                }
                                 return;
                               }
                               if (nextType === "opencode_local") {
@@ -826,21 +769,82 @@ export function OnboardingWizard() {
                               setModel("");
                             }}
                           >
+                            {opt.recommended && (
+                              <span className="absolute -top-1.5 right-1.5 bg-green-500 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded-full leading-none">
+                                Recommended
+                              </span>
+                            )}
                             <opt.icon className="h-4 w-4" />
                             <span className="font-medium">{opt.label}</span>
                             <span className="text-muted-foreground text-[10px]">
-                              {opt.comingSoon
-                                ? opt.disabledLabel ?? "Coming soon"
-                                : opt.description}
+                              {opt.description}
                             </span>
                           </button>
                         ))}
                       </div>
-                    )}
-                  </div>
+
+                      <button
+                        className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setShowMoreAdapters((v) => !v)}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            "h-3 w-3 transition-transform",
+                            showMoreAdapters ? "rotate-0" : "-rotate-90"
+                          )}
+                        />
+                        More Agent Adapter Types
+                      </button>
+
+                      {showMoreAdapters && (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {moreAdapters.map((opt) => (
+                             <button
+                               key={opt.type}
+                               disabled={!!opt.comingSoon}
+                               className={cn(
+                                 "flex flex-col items-center gap-1.5 rounded-md border p-3 text-xs transition-colors relative",
+                                 opt.comingSoon
+                                   ? "border-border opacity-40 cursor-not-allowed"
+                                   : adapterType === opt.type
+                                   ? "border-foreground bg-accent"
+                                   : "border-border hover:bg-accent/50"
+                               )}
+                               onClick={() => {
+                                 if (opt.comingSoon) return;
+                                 const nextType = opt.type;
+                                setAdapterType(nextType);
+                                if (nextType === "gemini_local" && !model) {
+                                  setModel(DEFAULT_GEMINI_LOCAL_MODEL);
+                                  return;
+                                }
+                                if (nextType === "cursor" && !model) {
+                                  setModel(DEFAULT_CURSOR_LOCAL_MODEL);
+                                  return;
+                                }
+                                if (nextType === "opencode_local") {
+                                  setModel(DEFAULT_OPENCODE_LOCAL_MODEL);
+                                  return;
+                                }
+                                setModel("");
+                              }}
+                            >
+                              <opt.icon className="h-4 w-4" />
+                              <span className="font-medium">{opt.label}</span>
+                              <span className="text-muted-foreground text-[10px]">
+                                {opt.comingSoon
+                                  ? opt.disabledLabel ?? "Coming soon"
+                                  : opt.description}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Conditional adapter fields */}
-                  {isLocalAdapter && (
+                  {!isHosted && isLocalAdapter && (
                     <div className="space-y-3">
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">
@@ -942,7 +946,7 @@ export function OnboardingWizard() {
                     </div>
                   )}
 
-                  {isLocalAdapter && (
+                  {!isHosted && isLocalAdapter && (
                     <div className="space-y-2 rounded-md border border-border p-3">
                       <div className="flex items-center justify-between gap-2">
                         <div>
@@ -1060,7 +1064,7 @@ export function OnboardingWizard() {
                     </div>
                   )}
 
-                  {(adapterType === "http" ||
+                  {!isHosted && (adapterType === "http" ||
                     adapterType === "openclaw_gateway") && (
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">

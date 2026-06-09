@@ -9,12 +9,14 @@ import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/ToastContext";
 import { queryKeys } from "@/lib/queryKeys";
+import { useHostedMode } from "@/hooks/useHostedMode";
 
 export function JoinRequestQueue() {
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
+  const { isHosted } = useHostedMode();
   const [status, setStatus] = useState<"pending_approval" | "approved" | "rejected">("pending_approval");
   const [requestType, setRequestType] = useState<"all" | "human" | "agent">("all");
 
@@ -131,7 +133,7 @@ export function JoinRequestQueue() {
                       {request.status.replace("_", " ")}
                     </Badge>
                     <Badge variant="outline">{request.requestType}</Badge>
-                    {request.adapterType ? <Badge variant="outline">{request.adapterType}</Badge> : null}
+                    {!isHosted && request.adapterType ? <Badge variant="outline">{request.adapterType}</Badge> : null}
                   </div>
                   <div>
                     <div className="text-base font-medium">

@@ -1,5 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { Loader2, ShieldCheck, Terminal, TriangleAlert } from "lucide-react";
+import { Navigate } from "react-router-dom";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { BOOTSTRAP_FALLBACK_COMMAND } from "@/bootstrapSetup";
 import { Button } from "@/components/ui/button";
 
@@ -205,6 +207,12 @@ const FIXTURE_BODIES: Record<LabFixtureKey, ReactElement> = {
 };
 
 export function BootstrapSetupUxLab() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="bg-background min-h-screen pb-16">
       <header className="border-b border-border bg-muted/20">

@@ -16,6 +16,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useDialogActions } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useToastActions } from "../context/ToastContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
 import { heartbeatsApi } from "../api/heartbeats";
@@ -109,6 +110,7 @@ function SidebarAgentItem({
   runCount: number;
   setSidebarOpen: (open: boolean) => void;
 }) {
+  const { isHosted } = useHostedMode();
   const routeRef = agentRouteRef(agent);
   const href = activeTab ? `${agentUrl(agent)}/${activeTab}` : agentUrl(agent);
   const editHref = `${agentUrl(agent)}/configuration`;
@@ -183,30 +185,34 @@ function SidebarAgentItem({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-44">
-          <DropdownMenuItem asChild>
-            <Link
-              to={editHref}
-              onClick={() => {
-                if (isMobile) setSidebarOpen(false);
-              }}
-            >
-              <Pencil className="size-4" />
-              <span>Edit agent</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              if (pauseResumeDisabled) return;
-              onPauseResume(agent, isPaused ? "resume" : "pause");
-            }}
-            disabled={pauseResumeDisabled}
-            title={isBudgetPaused ? "Agent was paused by budget limits" : undefined}
-          >
-            {isPaused ? <PlayCircle className="size-4" /> : <PauseCircle className="size-4" />}
-            <span>{pauseResumeDisabledLabel}</span>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
+          {!isHosted && (
+            <>
+              <DropdownMenuItem asChild>
+                <Link
+                  to={editHref}
+                  onClick={() => {
+                    if (isMobile) setSidebarOpen(false);
+                  }}
+                >
+                  <Pencil className="size-4" />
+                  <span>Edit agent</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  if (pauseResumeDisabled) return;
+                  onPauseResume(agent, isPaused ? "resume" : "pause");
+                }}
+                disabled={pauseResumeDisabled}
+                title={isBudgetPaused ? "Agent was paused by budget limits" : undefined}
+              >
+                {isPaused ? <PlayCircle className="size-4" /> : <PauseCircle className="size-4" />}
+                <span>{pauseResumeDisabledLabel}</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem
             onClick={() => {
               if (leaving) return;
@@ -231,6 +237,7 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
   const { openNewAgent } = useDialogActions();
   const { isMobile, setSidebarOpen } = useSidebar();
   const { pushToast } = useToastActions();
+  const { isHosted } = useHostedMode();
   const location = useLocation();
 
   const { data: agents } = useQuery({
@@ -421,14 +428,14 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
     <SidebarSection
       label="Agents"
       collapsible={{ open, onOpenChange: setOpen }}
-      headerAction={{
+      headerAction={!isHosted ? {
         ariaLabel: "New agent",
         icon: Plus,
         onClick: openNewAgent,
-      }}
+      } : undefined}
       menu={{
         ariaLabel: "Agents section actions",
-        actions: [
+        actions: isHosted ? [] : [
           { type: "item", label: "Browse agents", icon: Users, href: "/agents/all" },
           { type: "separator" },
         ],

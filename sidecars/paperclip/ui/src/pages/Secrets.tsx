@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate } from "react-router-dom";
 import {
   AlertCircle,
   AlertTriangle,
@@ -41,6 +42,7 @@ import type {
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { useToastActions } from "../context/ToastContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   secretsApi,
   type CreateSecretInput,
@@ -352,6 +354,12 @@ export function getAwsManagedPathPreview(input: {
 }
 
 export function Secrets() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
+
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();

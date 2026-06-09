@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, FlaskConical, Play, Search } from "lucide-react";
 import type {
@@ -8,6 +9,7 @@ import type {
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,12 +121,17 @@ function RecoveryPreviewDialog({
 }
 
 export function InstanceExperimentalSettings() {
+  const { isHosted } = useHostedMode();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [lookbackHoursDraft, setLookbackHoursDraft] = useState("24");
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [pendingPreview, setPendingPreview] = useState<IssueGraphLivenessAutoRecoveryPreview | null>(null);
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
 
   useEffect(() => {
     setBreadcrumbs([

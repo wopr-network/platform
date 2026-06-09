@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompanyPatternIcon } from "@/components/CompanyPatternIcon";
 import { cn } from "@/lib/utils";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   ArrowRight,
   Check,
@@ -402,6 +404,8 @@ function InviteResultPreview({
   onboardingTextUrl?: string;
   joinedNow?: boolean;
 }) {
+  const { isHosted } = useHostedMode();
+
   return (
     <div className="mx-auto max-w-md border border-zinc-800 bg-zinc-950 p-6 text-zinc-100">
       <div className="flex items-center gap-3">
@@ -432,14 +436,14 @@ function InviteResultPreview({
             </p>
           </>
         )}
-        {claimSecret ? (
+        {!isHosted && claimSecret ? (
           <div className="space-y-1 border border-zinc-800 p-3 text-xs text-zinc-400">
             <div className="text-zinc-200">Claim secret</div>
             <div className="font-mono break-all">{claimSecret}</div>
             <div className="font-mono break-all">POST /api/agents/claim-api-key</div>
           </div>
         ) : null}
-        {onboardingTextUrl ? (
+        {!isHosted && onboardingTextUrl ? (
           <div className="text-xs text-zinc-400">
             Onboarding: <span className="font-mono break-all">{onboardingTextUrl}</span>
           </div>
@@ -695,6 +699,12 @@ function CompanyInvitesPreview() {
 }
 
 export function InviteUxLab() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-[32px] border border-border/70 bg-[linear-gradient(135deg,rgba(8,145,178,0.10),transparent_28%),linear-gradient(180deg,rgba(245,158,11,0.10),transparent_44%),var(--background)] shadow-[0_30px_80px_rgba(15,23,42,0.10)]">
@@ -852,16 +862,18 @@ export function InviteUxLab() {
             right={<AcceptInvitePreview autoAccept />}
           />
 
-          <InviteLandingShell
-            left={
-              <InviteSummaryPanel
-                title="Join Acme Robotics"
-                description="Review the invite details, then submit the agent information below to start the join request."
-                requestedAccess="Agent join request"
-              />
-            }
-            right={<AgentRequestPreview />}
-          />
+          {!isHosted && (
+            <InviteLandingShell
+              left={
+                <InviteSummaryPanel
+                  title="Join Acme Robotics"
+                  description="Review the invite details, then submit the agent information below to start the join request."
+                  requestedAccess="Agent join request"
+                />
+              }
+              right={<AgentRequestPreview />}
+            />
+          )}
 
           <InviteLandingShell
             left={
@@ -914,14 +926,16 @@ export function InviteUxLab() {
         </div>
       </LabSection>
 
-      <LabSection
-        eyebrow="Company settings"
-        title="Company invite management"
-        description="This section captures the board-side invite creation flow, copied-link state, audit table, and the edge states that are otherwise tedious to stage."
-        accentClassName="bg-[linear-gradient(180deg,rgba(244,114,182,0.06),transparent_28%),var(--background)]"
-      >
-        <CompanyInvitesPreview />
-      </LabSection>
+      {!isHosted && (
+        <LabSection
+          eyebrow="Company settings"
+          title="Company invite management"
+          description="This section captures the board-side invite creation flow, copied-link state, audit table, and the edge states that are otherwise tedious to stage."
+          accentClassName="bg-[linear-gradient(180deg,rgba(244,114,182,0.06),transparent_28%),var(--background)]"
+        >
+          <CompanyInvitesPreview />
+        </LabSection>
+      )}
     </div>
   );
 }

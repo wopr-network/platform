@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../../hooks/useHostedMode";
 import {
   AlertCircle,
   AlertTriangle,
@@ -843,6 +844,7 @@ interface SelectStepProps {
 }
 
 function SelectStep(props: SelectStepProps) {
+  const { isHosted } = useHostedMode();
   const {
     awsVaults,
     eligible,
@@ -877,7 +879,7 @@ function SelectStep(props: SelectStepProps) {
         <EmptyState
           icon={Cloud}
           message="No AWS provider vault configured. Add one to import secrets."
-          action={onManageVaults ? "Manage vaults" : undefined}
+          action={!isHosted && onManageVaults ? "Manage vaults" : undefined}
           onAction={onManageVaults}
         />
       </div>
@@ -895,42 +897,44 @@ function SelectStep(props: SelectStepProps) {
             {eligible[0].displayName}
           </span>
         ) : (
-          <Select
-            value={vaultId ?? undefined}
-            onValueChange={onVaultChange}
-          >
-            <SelectTrigger size="sm" className="text-xs" aria-label="Select AWS vault">
-              <SelectValue placeholder="Select an AWS vault" />
-            </SelectTrigger>
-            <SelectContent>
-              {awsVaults.map((vault) => {
-                const blocked = !isAwsSelectable(vault);
-                return (
-                  <SelectItem
-                    key={vault.id}
-                    value={vault.id}
-                    disabled={blocked}
-                    aria-disabled={blocked}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>{vault.displayName}</span>
-                      {vault.isDefault && (
-                        <Badge variant="outline" className="px-1 py-0 text-[10px]">default</Badge>
-                      )}
-                      {vault.status === "warning" && (
-                        <Badge variant="outline" className="px-1 py-0 text-[10px] text-amber-500 border-amber-500/40">warning</Badge>
-                      )}
-                      {blocked && (
-                        <Badge variant="outline" className="px-1 py-0 text-[10px] text-muted-foreground">
-                          {vault.status === "coming_soon" ? "coming soon" : vault.status}
-                        </Badge>
-                      )}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+          !isHosted && (
+            <Select
+              value={vaultId ?? undefined}
+              onValueChange={onVaultChange}
+            >
+              <SelectTrigger size="sm" className="text-xs" aria-label="Select AWS vault">
+                <SelectValue placeholder="Select an AWS vault" />
+              </SelectTrigger>
+              <SelectContent>
+                {awsVaults.map((vault) => {
+                  const blocked = !isAwsSelectable(vault);
+                  return (
+                    <SelectItem
+                      key={vault.id}
+                      value={vault.id}
+                      disabled={blocked}
+                      aria-disabled={blocked}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>{vault.displayName}</span>
+                        {vault.isDefault && (
+                          <Badge variant="outline" className="px-1 py-0 text-[10px]">default</Badge>
+                        )}
+                        {vault.status === "warning" && (
+                          <Badge variant="outline" className="px-1 py-0 text-[10px] text-amber-500 border-amber-500/40">warning</Badge>
+                        )}
+                        {blocked && (
+                          <Badge variant="outline" className="px-1 py-0 text-[10px] text-muted-foreground">
+                            {vault.status === "coming_soon" ? "coming soon" : vault.status}
+                          </Badge>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )
         )}
 
         <div className="relative ml-auto w-64">
