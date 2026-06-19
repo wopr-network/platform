@@ -19,6 +19,11 @@ export type RunDatabaseBackupOptions = {
   retention: BackupRetentionPolicy;
   filenamePrefix?: string;
   connectTimeoutSeconds?: number;
+  /**
+   * @deprecated Migration-journal schemas are included with the normal backup
+   * scope. This option is kept for compatibility and no longer changes backup
+   * engine selection.
+   */
   includeMigrationJournal?: boolean;
   excludeTables?: string[];
   nullifyColumns?: Record<string, string[]>;
@@ -61,8 +66,6 @@ type ExtensionDefinition = {
   schema_name: string;
 };
 
-const DRIZZLE_SCHEMA = "drizzle";
-const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations";
 const DEFAULT_BACKUP_WRITE_BUFFER_BYTES = 1024 * 1024;
 const BACKUP_DATA_CURSOR_ROWS = 100;
 const BACKUP_CLI_STDERR_BYTES = 64 * 1024;
@@ -73,7 +76,9 @@ const STATEMENT_BREAKPOINT = "-- paperclip statement breakpoint 69f6f3f1-42fd-46
 function sanitizeRestoreErrorMessage(error: unknown): string {
   if (error && typeof error === "object") {
     const record = error as Record<string, unknown>;
-    const firstLine = typeof record.message === "string" ? record.message.split(/\r?\n/, 1)[0]?.trim() : "";
+    const firstLine = typeof record.message === "string"
+      ? record.message.split(/\r?\n/, 1)[0]?.trim()
+      : "";
     const detail = typeof record.detail === "string" ? record.detail.trim() : "";
     const severity = typeof record.severity === "string" ? record.severity.trim() : "";
     const message = firstLine || detail || (error instanceof Error ? error.message : String(error));
@@ -190,16 +195,30 @@ function formatSqlLiteral(value: string): string {
 }
 
 function normalizeTableNameSet(values: string[] | undefined): Set<string> {
-  return new Set((values ?? []).map((value) => value.trim()).filter((value) => value.length > 0));
+  return new Set(
+    (values ?? [])
+      .map(normalizeTableSelector)
+      .filter((value) => value.length > 0),
+  );
+}
+
+function normalizeTableSelector(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return "";
+  return trimmed.includes(".") ? trimmed : tableKey("public", trimmed);
 }
 
 function normalizeNullifyColumnMap(values: Record<string, string[]> | undefined): Map<string, Set<string>> {
   const out = new Map<string, Set<string>>();
   if (!values) return out;
   for (const [tableName, columns] of Object.entries(values)) {
-    const normalizedTable = tableName.trim();
+    const normalizedTable = normalizeTableSelector(tableName);
     if (normalizedTable.length === 0) continue;
-    const normalizedColumns = new Set(columns.map((column) => column.trim()).filter((column) => column.length > 0));
+    const normalizedColumns = new Set(
+      columns
+        .map((column) => column.trim())
+        .filter((column) => column.length > 0),
+    );
     if (normalizedColumns.size > 0) {
       out.set(normalizedTable, normalizedColumns);
     }
@@ -208,7 +227,7 @@ function normalizeNullifyColumnMap(values: Record<string, string[]> | undefined)
 }
 
 function quoteIdentifier(value: string): string {
-  return `"${value.replaceAll('"', '""')}"`;
+  return `"${value.replaceAll("\"", "\"\"")}"`;
 }
 
 function quoteQualifiedName(schemaName: string, objectName: string): string {
@@ -219,18 +238,50 @@ function tableKey(schemaName: string, tableName: string): string {
   return `${schemaName}.${tableName}`;
 }
 
+function nonSystemSchemaPredicate(identifier: string): string {
+  // PostgreSQL reserves pg_ prefixes for system schemas, including temp/toast variants.
+  return `${identifier} <> 'information_schema'
+    AND ${identifier} NOT LIKE 'pg\\_%' ESCAPE '\\'`;
+}
+
 function hasBackupTransforms(opts: RunDatabaseBackupOptions): boolean {
-  return opts.includeMigrationJournal === true ||
-    (opts.excludeTables?.length ?? 0) > 0 ||
+  return (opts.excludeTables?.length ?? 0) > 0 ||
     Object.keys(opts.nullifyColumns ?? {}).length > 0;
 }
 
-function formatSqlValue(rawValue: unknown, columnName: string | undefined, nullifiedColumns: Set<string>): string {
+function formatPostgresArrayElement(value: unknown): string {
+  if (value === null || value === undefined) return "NULL";
+  if (Array.isArray(value)) return formatPostgresArrayLiteral(value);
+  const raw = value instanceof Date
+    ? value.toISOString()
+    : typeof value === "object"
+      ? JSON.stringify(value)
+      : String(value);
+  if (raw.length === 0 || /^null$/i.test(raw) || /[{}\s,"\\]/.test(raw)) {
+    return `"${raw.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  }
+  return raw;
+}
+
+function formatPostgresArrayLiteral(value: unknown[]): string {
+  return `{${value.map(formatPostgresArrayElement).join(",")}}`;
+}
+
+function formatSqlValue(
+  rawValue: unknown,
+  columnName: string | undefined,
+  nullifiedColumns: Set<string>,
+  dataType?: string,
+): string {
   const val = columnName && nullifiedColumns.has(columnName) ? null : rawValue;
   if (val === null || val === undefined) return "NULL";
+  if (dataType === "json" || dataType === "jsonb") {
+    return formatSqlLiteral(JSON.stringify(val));
+  }
   if (typeof val === "boolean") return val ? "true" : "false";
   if (typeof val === "number") return String(val);
   if (val instanceof Date) return formatSqlLiteral(val.toISOString());
+  if (Array.isArray(val)) return formatSqlLiteral(formatPostgresArrayLiteral(val));
   if (typeof val === "object") return formatSqlLiteral(JSON.stringify(val));
   return formatSqlLiteral(String(val));
 }
@@ -275,7 +326,6 @@ async function runPgDumpBackup(opts: {
       "--if-exists",
       "--no-owner",
       "--no-privileges",
-      "--schema=public",
     ],
     {
       stdio: ["ignore", "pipe", "pipe"],
@@ -474,7 +524,6 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
   const connectTimeout = Math.max(1, Math.trunc(opts.connectTimeoutSeconds ?? 5));
   const backupEngine = opts.backupEngine ?? "auto";
   const canUsePgDump = !hasBackupTransforms(opts);
-  const includeMigrationJournal = opts.includeMigrationJournal === true;
   const excludedTableNames = normalizeTableNameSet(opts.excludeTables);
   const nullifiedColumnsByTable = normalizeNullifyColumnMap(opts.nullifyColumns);
   let sql = postgres(opts.connectionString, { max: 1, connect_timeout: connectTimeout });
@@ -542,31 +591,24 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       SELECT table_schema AS schema_name, table_name AS tablename
       FROM information_schema.tables
       WHERE table_type = 'BASE TABLE'
-        AND (
-          table_schema = 'public'
-          OR (${includeMigrationJournal}::boolean AND table_schema = ${DRIZZLE_SCHEMA} AND table_name = ${DRIZZLE_MIGRATIONS_TABLE})
-        )
+        AND ${sql.unsafe(nonSystemSchemaPredicate("table_schema"))}
       ORDER BY table_schema, table_name
     `;
     const tables = allTables;
     const includedTableNames = new Set(tables.map(({ schema_name, tablename }) => tableKey(schema_name, tablename)));
+    const includedSchemas = new Set(tables.map(({ schema_name }) => schema_name));
 
     // Get all enums
-    const enums = await sql<{ typname: string; labels: string[] }[]>`
-      SELECT t.typname, array_agg(e.enumlabel ORDER BY e.enumsortorder) AS labels
+    const enums = await sql<{ schema_name: string; typname: string; labels: string[] }[]>`
+      SELECT n.nspname AS schema_name, t.typname, array_agg(e.enumlabel ORDER BY e.enumsortorder) AS labels
       FROM pg_type t
       JOIN pg_enum e ON t.oid = e.enumtypid
       JOIN pg_namespace n ON t.typnamespace = n.oid
-      WHERE n.nspname = 'public'
-      GROUP BY t.typname
-      ORDER BY t.typname
+      WHERE ${sql.unsafe(nonSystemSchemaPredicate("n.nspname"))}
+      GROUP BY n.nspname, t.typname
+      ORDER BY n.nspname, t.typname
     `;
-
-    for (const e of enums) {
-      const labels = e.labels.map((l) => `'${l.replace(/'/g, "''")}'`).join(", ");
-      emitStatement(`CREATE TYPE "public"."${e.typname}" AS ENUM (${labels});`);
-    }
-    if (enums.length > 0) emit("");
+    for (const e of enums) includedSchemas.add(e.schema_name);
 
     const allSequences = await sql<SequenceDefinition[]>`
       SELECT
@@ -588,16 +630,14 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       LEFT JOIN pg_class tbl ON tbl.oid = dep.refobjid
       LEFT JOIN pg_namespace tblns ON tblns.oid = tbl.relnamespace
       LEFT JOIN pg_attribute attr ON attr.attrelid = tbl.oid AND attr.attnum = dep.refobjsubid
-      WHERE s.sequence_schema = 'public'
-         OR (${includeMigrationJournal}::boolean AND s.sequence_schema = ${DRIZZLE_SCHEMA})
+      WHERE ${sql.unsafe(nonSystemSchemaPredicate("s.sequence_schema"))}
       ORDER BY s.sequence_schema, s.sequence_name
     `;
     const sequences = allSequences.filter(
       (seq) => !seq.owner_table || includedTableNames.has(tableKey(seq.owner_schema ?? "public", seq.owner_table)),
     );
 
-    const schemas = new Set<string>();
-    for (const table of tables) schemas.add(table.schema_name);
+    const schemas = new Set<string>(includedSchemas);
     for (const seq of sequences) schemas.add(seq.sequence_schema);
     const extraSchemas = [...schemas].filter((schemaName) => schemaName !== "public");
     if (extraSchemas.length > 0) {
@@ -607,6 +647,12 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       }
       emit("");
     }
+
+    for (const e of enums) {
+      const labels = e.labels.map((l) => `'${l.replace(/'/g, "''")}'`).join(", ");
+      emitStatement(`CREATE TYPE ${quoteQualifiedName(e.schema_name, e.typname)} AS ENUM (${labels});`);
+    }
+    if (enums.length > 0) emit("");
 
     const extensions = await sql<ExtensionDefinition[]>`
       SELECT
@@ -642,19 +688,18 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
     // Get full CREATE TABLE DDL via column info
     for (const { schema_name, tablename } of tables) {
       const qualifiedTableName = quoteQualifiedName(schema_name, tablename);
-      const columns = await sql<
-        {
-          column_name: string;
-          data_type: string;
-          udt_name: string;
-          is_nullable: string;
-          column_default: string | null;
-          character_maximum_length: number | null;
-          numeric_precision: number | null;
-          numeric_scale: number | null;
-        }[]
-      >`
-        SELECT column_name, data_type, udt_name, is_nullable, column_default,
+      const columns = await sql<{
+        column_name: string;
+        data_type: string;
+        udt_schema: string;
+        udt_name: string;
+        is_nullable: string;
+        column_default: string | null;
+        character_maximum_length: number | null;
+        numeric_precision: number | null;
+        numeric_scale: number | null;
+      }[]>`
+        SELECT column_name, data_type, udt_schema, udt_name, is_nullable, column_default,
                character_maximum_length, numeric_precision, numeric_scale
         FROM information_schema.columns
         WHERE table_schema = ${schema_name} AND table_name = ${tablename}
@@ -668,11 +713,16 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       for (const col of columns) {
         let typeStr: string;
         if (col.data_type === "USER-DEFINED") {
-          typeStr = `"${col.udt_name}"`;
+          typeStr = quoteQualifiedName(col.udt_schema, col.udt_name);
         } else if (col.data_type === "ARRAY") {
-          typeStr = `${col.udt_name.replace(/^_/, "")}[]`;
+          const elementType = col.udt_name.replace(/^_/, "");
+          typeStr = col.udt_schema === "pg_catalog"
+            ? `${elementType}[]`
+            : `${quoteQualifiedName(col.udt_schema, elementType)}[]`;
         } else if (col.data_type === "character varying") {
-          typeStr = col.character_maximum_length ? `varchar(${col.character_maximum_length})` : "varchar";
+          typeStr = col.character_maximum_length
+            ? `varchar(${col.character_maximum_length})`
+            : "varchar";
         } else if (col.data_type === "numeric" && col.numeric_precision != null) {
           typeStr =
             col.numeric_scale != null
@@ -722,28 +772,57 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       emit("");
     }
 
-    // Foreign keys (after all tables created)
-    const allForeignKeys = await sql<
-      {
-        constraint_name: string;
-        source_schema: string;
-        source_table: string;
-        source_columns: string[];
-        target_schema: string;
-        target_table: string;
-        target_columns: string[];
-        update_rule: string;
-        delete_rule: string;
-      }[]
-    >`
+    // Unique constraints must exist before foreign keys that reference them.
+    const allUniqueConstraints = await sql<{
+      constraint_name: string;
+      schema_name: string;
+      tablename: string;
+      column_names: string[];
+    }[]>`
+      SELECT c.conname AS constraint_name,
+             n.nspname AS schema_name,
+             t.relname AS tablename,
+             array_agg(a.attname ORDER BY array_position(c.conkey, a.attnum)) AS column_names
+      FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+      JOIN pg_namespace n ON n.oid = t.relnamespace
+      JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(c.conkey)
+      WHERE c.contype = 'u'
+        AND ${sql.unsafe(nonSystemSchemaPredicate("n.nspname"))}
+      GROUP BY c.conname, n.nspname, t.relname
+      ORDER BY n.nspname, t.relname, c.conname
+    `;
+    const uniques = allUniqueConstraints.filter((entry) => includedTableNames.has(tableKey(entry.schema_name, entry.tablename)));
+
+    if (uniques.length > 0) {
+      emit("-- Unique constraints");
+      for (const u of uniques) {
+        const cols = u.column_names.map((c) => `"${c}"`).join(", ");
+        emitStatement(`ALTER TABLE ${quoteQualifiedName(u.schema_name, u.tablename)} ADD CONSTRAINT "${u.constraint_name}" UNIQUE (${cols});`);
+      }
+      emit("");
+    }
+
+    // Foreign keys (after all tables and referenced unique constraints are created)
+    const allForeignKeys = await sql<{
+      constraint_name: string;
+      source_schema: string;
+      source_table: string;
+      source_columns: string[];
+      target_schema: string;
+      target_table: string;
+      target_columns: string[];
+      update_rule: string;
+      delete_rule: string;
+    }[]>`
       SELECT
         c.conname AS constraint_name,
         srcn.nspname AS source_schema,
         src.relname AS source_table,
-        array_agg(sa.attname ORDER BY array_position(c.conkey, sa.attnum)) AS source_columns,
+        array_agg(sa.attname ORDER BY key_columns.ordinal_position) AS source_columns,
         tgtn.nspname AS target_schema,
         tgt.relname AS target_table,
-        array_agg(ta.attname ORDER BY array_position(c.confkey, ta.attnum)) AS target_columns,
+        array_agg(ta.attname ORDER BY key_columns.ordinal_position) AS target_columns,
         CASE c.confupdtype WHEN 'a' THEN 'NO ACTION' WHEN 'r' THEN 'RESTRICT' WHEN 'c' THEN 'CASCADE' WHEN 'n' THEN 'SET NULL' WHEN 'd' THEN 'SET DEFAULT' END AS update_rule,
         CASE c.confdeltype WHEN 'a' THEN 'NO ACTION' WHEN 'r' THEN 'RESTRICT' WHEN 'c' THEN 'CASCADE' WHEN 'n' THEN 'SET NULL' WHEN 'd' THEN 'SET DEFAULT' END AS delete_rule
       FROM pg_constraint c
@@ -751,19 +830,17 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       JOIN pg_namespace srcn ON srcn.oid = src.relnamespace
       JOIN pg_class tgt ON tgt.oid = c.confrelid
       JOIN pg_namespace tgtn ON tgtn.oid = tgt.relnamespace
-      JOIN pg_attribute sa ON sa.attrelid = src.oid AND sa.attnum = ANY(c.conkey)
-      JOIN pg_attribute ta ON ta.attrelid = tgt.oid AND ta.attnum = ANY(c.confkey)
-      WHERE c.contype = 'f' AND (
-        srcn.nspname = 'public'
-        OR (${includeMigrationJournal}::boolean AND srcn.nspname = ${DRIZZLE_SCHEMA})
-      )
+      JOIN LATERAL unnest(c.conkey, c.confkey) WITH ORDINALITY AS key_columns(source_attnum, target_attnum, ordinal_position) ON true
+      JOIN pg_attribute sa ON sa.attrelid = src.oid AND sa.attnum = key_columns.source_attnum
+      JOIN pg_attribute ta ON ta.attrelid = tgt.oid AND ta.attnum = key_columns.target_attnum
+      WHERE c.contype = 'f'
+        AND ${sql.unsafe(nonSystemSchemaPredicate("srcn.nspname"))}
       GROUP BY c.conname, srcn.nspname, src.relname, tgtn.nspname, tgt.relname, c.confupdtype, c.confdeltype
       ORDER BY srcn.nspname, src.relname, c.conname
     `;
     const fks = allForeignKeys.filter(
-      (fk) =>
-        includedTableNames.has(tableKey(fk.source_schema, fk.source_table)) &&
-        includedTableNames.has(tableKey(fk.target_schema, fk.target_table)),
+      (fk) => includedTableNames.has(tableKey(fk.source_schema, fk.source_table))
+        && includedTableNames.has(tableKey(fk.target_schema, fk.target_table)),
     );
 
     if (fks.length > 0) {
@@ -778,53 +855,11 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
       emit("");
     }
 
-    // Unique constraints
-    const allUniqueConstraints = await sql<
-      {
-        constraint_name: string;
-        schema_name: string;
-        tablename: string;
-        column_names: string[];
-      }[]
-    >`
-      SELECT c.conname AS constraint_name,
-             n.nspname AS schema_name,
-             t.relname AS tablename,
-             array_agg(a.attname ORDER BY array_position(c.conkey, a.attnum)) AS column_names
-      FROM pg_constraint c
-      JOIN pg_class t ON t.oid = c.conrelid
-      JOIN pg_namespace n ON n.oid = t.relnamespace
-      JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(c.conkey)
-      WHERE c.contype = 'u' AND (
-        n.nspname = 'public'
-        OR (${includeMigrationJournal}::boolean AND n.nspname = ${DRIZZLE_SCHEMA})
-      )
-      GROUP BY c.conname, n.nspname, t.relname
-      ORDER BY n.nspname, t.relname, c.conname
-    `;
-    const uniques = allUniqueConstraints.filter((entry) =>
-      includedTableNames.has(tableKey(entry.schema_name, entry.tablename)),
-    );
-
-    if (uniques.length > 0) {
-      emit("-- Unique constraints");
-      for (const u of uniques) {
-        const cols = u.column_names.map((c) => `"${c}"`).join(", ");
-        emitStatement(
-          `ALTER TABLE ${quoteQualifiedName(u.schema_name, u.tablename)} ADD CONSTRAINT "${u.constraint_name}" UNIQUE (${cols});`,
-        );
-      }
-      emit("");
-    }
-
     // Indexes (non-primary, non-unique-constraint)
     const allIndexes = await sql<{ schema_name: string; tablename: string; indexdef: string }[]>`
       SELECT schemaname AS schema_name, tablename, indexdef
       FROM pg_indexes
-      WHERE (
-          schemaname = 'public'
-          OR (${includeMigrationJournal}::boolean AND schemaname = ${DRIZZLE_SCHEMA})
-        )
+      WHERE ${sql.unsafe(nonSystemSchemaPredicate("schemaname"))}
         AND indexname NOT IN (
           SELECT conname FROM pg_constraint c
           JOIN pg_namespace n ON n.oid = c.connamespace
@@ -844,9 +879,10 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
 
     // Dump data for each table
     for (const { schema_name, tablename } of tables) {
+      const currentTableKey = tableKey(schema_name, tablename);
       const qualifiedTableName = quoteQualifiedName(schema_name, tablename);
       const count = await sql.unsafe<{ n: number }[]>(`SELECT count(*)::int AS n FROM ${qualifiedTableName}`);
-      if (excludedTableNames.has(tablename) || (count[0]?.n ?? 0) === 0) continue;
+      if (excludedTableNames.has(currentTableKey) || (count[0]?.n ?? 0) === 0) continue;
 
       // Get column info for this table
       const cols = await sql<{ column_name: string; data_type: string }[]>`
@@ -859,7 +895,7 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
 
       emit(`-- Data for: ${schema_name}.${tablename} (${count[0]!.n} rows)`);
 
-      const nullifiedColumns = nullifiedColumnsByTable.get(tablename) ?? new Set<string>();
+      const nullifiedColumns = nullifiedColumnsByTable.get(currentTableKey) ?? new Set<string>();
       if (backupEngine !== "javascript" && nullifiedColumns.size === 0) {
         emit(`COPY ${qualifiedTableName} (${colNames}) FROM stdin;`);
         await writer.writeRaw("\n");
@@ -885,12 +921,12 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
         .values()
         .cursor(BACKUP_DATA_CURSOR_ROWS) as AsyncIterable<unknown[][]>;
       for await (const rows of rowCursor) {
-      for (const row of rows) {
+        for (const row of rows) {
           const values = row.map((rawValue, index) =>
-            formatSqlValue(rawValue, cols[index]?.column_name, nullifiedColumns),
+            formatSqlValue(rawValue, cols[index]?.column_name, nullifiedColumns, cols[index]?.data_type),
           );
-        emitStatement(`INSERT INTO ${qualifiedTableName} (${colNames}) VALUES (${values.join(", ")});`);
-      }
+          emitStatement(`INSERT INTO ${qualifiedTableName} (${colNames}) VALUES (${values.join(", ")});`);
+        }
         await writer.drain();
       }
       emit("");
@@ -904,11 +940,11 @@ export async function runDatabaseBackup(opts: RunDatabaseBackupOptions): Promise
         const val = await sql.unsafe<{ last_value: string; is_called: boolean }[]>(
           `SELECT last_value::text, is_called FROM ${qualifiedSequenceName}`,
         );
-        const skipSequenceValue = seq.owner_table !== null && excludedTableNames.has(seq.owner_table);
+        const skipSequenceValue =
+          seq.owner_table !== null
+            && excludedTableNames.has(seq.owner_table);
         if (val[0] && !skipSequenceValue) {
-          emitStatement(
-            `SELECT setval('${qualifiedSequenceName.replaceAll("'", "''")}', ${val[0].last_value}, ${val[0].is_called ? "true" : "false"});`,
-          );
+          emitStatement(`SELECT setval('${qualifiedSequenceName.replaceAll("'", "''")}', ${val[0].last_value}, ${val[0].is_called ? "true" : "false"});`);
         }
       }
       emit("");
@@ -968,13 +1004,12 @@ export async function runDatabaseRestore(opts: RunDatabaseRestoreOptions): Promi
       await sql.unsafe(statement).execute();
     }
   } catch (error) {
-    const statementPreview =
-      typeof error === "object" && error !== null && typeof (error as Record<string, unknown>).query === "string"
-        ? String((error as Record<string, unknown>).query)
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .find((line) => line.length > 0 && !line.startsWith("--"))
-        : null;
+    const statementPreview = typeof error === "object" && error !== null && typeof (error as Record<string, unknown>).query === "string"
+      ? String((error as Record<string, unknown>).query)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.length > 0 && !line.startsWith("--"))
+      : null;
     throw new Error(
       `Failed to restore ${basename(opts.backupFile)}: ${sanitizeRestoreErrorMessage(error)}${statementPreview ? ` [statement: ${statementPreview.slice(0, 120)}]` : ""}`,
     );

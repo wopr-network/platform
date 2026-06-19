@@ -9,6 +9,7 @@ import {
 } from "@paperclipai/shared";
 import {
   addCommonClientOptions,
+  apiPath,
   formatInlineRecord,
   handleCommandError,
   printOutput,
@@ -58,8 +59,9 @@ export function registerApprovalCommands(program: Command): void {
           if (opts.status) params.set("status", opts.status);
           const query = params.toString();
           const rows =
-            (await ctx.api.get<Approval[]>(`/api/companies/${ctx.companyId}/approvals${query ? `?${query}` : ""}`)) ??
-            [];
+            (await ctx.api.get<Approval[]>(
+              `${apiPath`/api/companies/${ctx.companyId}/approvals`}${query ? `?${query}` : ""}`,
+            )) ?? [];
 
           if (ctx.json) {
             printOutput(rows, { json: true });
@@ -97,7 +99,7 @@ export function registerApprovalCommands(program: Command): void {
       .action(async (approvalId: string, opts: BaseClientOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
-          const row = await ctx.api.get<Approval>(`/api/approvals/${approvalId}`);
+          const row = await ctx.api.get<Approval>(apiPath`/api/approvals/${approvalId}`);
           printOutput(row, { json: ctx.json });
         } catch (err) {
           handleCommandError(err);
@@ -124,7 +126,7 @@ export function registerApprovalCommands(program: Command): void {
             requestedByAgentId: opts.requestedByAgentId,
             issueIds: parseCsv(opts.issueIds),
           });
-          const created = await ctx.api.post<Approval>(`/api/companies/${ctx.companyId}/approvals`, payload);
+          const created = await ctx.api.post<Approval>(apiPath`/api/companies/${ctx.companyId}/approvals`, payload);
           printOutput(created, { json: ctx.json });
         } catch (err) {
           handleCommandError(err);
@@ -147,7 +149,7 @@ export function registerApprovalCommands(program: Command): void {
             decisionNote: opts.decisionNote,
             decidedByUserId: opts.decidedByUserId,
           });
-          const updated = await ctx.api.post<Approval>(`/api/approvals/${approvalId}/approve`, payload);
+          const updated = await ctx.api.post<Approval>(apiPath`/api/approvals/${approvalId}/approve`, payload);
           printOutput(updated, { json: ctx.json });
         } catch (err) {
           handleCommandError(err);
@@ -169,7 +171,7 @@ export function registerApprovalCommands(program: Command): void {
             decisionNote: opts.decisionNote,
             decidedByUserId: opts.decidedByUserId,
           });
-          const updated = await ctx.api.post<Approval>(`/api/approvals/${approvalId}/reject`, payload);
+          const updated = await ctx.api.post<Approval>(apiPath`/api/approvals/${approvalId}/reject`, payload);
           printOutput(updated, { json: ctx.json });
         } catch (err) {
           handleCommandError(err);
@@ -191,7 +193,7 @@ export function registerApprovalCommands(program: Command): void {
             decisionNote: opts.decisionNote,
             decidedByUserId: opts.decidedByUserId,
           });
-          const updated = await ctx.api.post<Approval>(`/api/approvals/${approvalId}/request-revision`, payload);
+          const updated = await ctx.api.post<Approval>(apiPath`/api/approvals/${approvalId}/request-revision`, payload);
           printOutput(updated, { json: ctx.json });
         } catch (err) {
           handleCommandError(err);
@@ -211,7 +213,7 @@ export function registerApprovalCommands(program: Command): void {
           const payload = resubmitApprovalSchema.parse({
             payload: opts.payload ? parseJsonObject(opts.payload, "payload") : undefined,
           });
-          const updated = await ctx.api.post<Approval>(`/api/approvals/${approvalId}/resubmit`, payload);
+          const updated = await ctx.api.post<Approval>(apiPath`/api/approvals/${approvalId}/resubmit`, payload);
           printOutput(updated, { json: ctx.json });
         } catch (err) {
           handleCommandError(err);
@@ -228,7 +230,7 @@ export function registerApprovalCommands(program: Command): void {
       .action(async (approvalId: string, opts: ApprovalCommentOptions) => {
         try {
           const ctx = resolveCommandContext(opts);
-          const created = await ctx.api.post<ApprovalComment>(`/api/approvals/${approvalId}/comments`, {
+          const created = await ctx.api.post<ApprovalComment>(apiPath`/api/approvals/${approvalId}/comments`, {
             body: opts.body,
           });
           printOutput(created, { json: ctx.json });
@@ -241,10 +243,7 @@ export function registerApprovalCommands(program: Command): void {
 
 function parseCsv(value: string | undefined): string[] | undefined {
   if (!value) return undefined;
-  const rows = value
-    .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean);
+  const rows = value.split(",").map((v) => v.trim()).filter(Boolean);
   return rows.length > 0 ? rows : undefined;
 }
 

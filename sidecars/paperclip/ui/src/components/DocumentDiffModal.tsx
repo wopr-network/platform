@@ -3,101 +3,29 @@ import { useQuery } from "@tanstack/react-query";
 import type { DocumentRevision } from "@paperclipai/shared";
 import { issuesApi } from "../api/issues";
 import { queryKeys } from "../lib/queryKeys";
+import { buildLineDiff, type DiffRow } from "../lib/line-diff";
 import { relativeTime } from "../lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 function getRevisionLabel(revision: DocumentRevision) {
-  const actor = revision.createdByUserId ? "board" : revision.createdByAgentId ? "agent" : "system";
+  const actor = revision.createdByUserId
+    ? "board"
+    : revision.createdByAgentId
+      ? "agent"
+      : "system";
   return `rev ${revision.revisionNumber} — ${relativeTime(revision.createdAt)} • ${actor}`;
-}
-
-type DiffRow = {
-  kind: "context" | "removed" | "added";
-  oldLineNumber: number | null;
-  newLineNumber: number | null;
-  text: string;
-};
-
-function buildLineDiff(oldText: string, newText: string): DiffRow[] {
-  const oldLines = oldText.split("\n");
-  const newLines = newText.split("\n");
-  const oldCount = oldLines.length;
-  const newCount = newLines.length;
-  const dp = Array.from({ length: oldCount + 1 }, () => Array<number>(newCount + 1).fill(0));
-
-  for (let i = oldCount - 1; i >= 0; i -= 1) {
-    for (let j = newCount - 1; j >= 0; j -= 1) {
-      dp[i][j] = oldLines[i] === newLines[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-
-  const rows: DiffRow[] = [];
-  let i = 0;
-  let j = 0;
-  let oldLineNumber = 1;
-  let newLineNumber = 1;
-
-  while (i < oldCount && j < newCount) {
-    if (oldLines[i] === newLines[j]) {
-      rows.push({
-        kind: "context",
-        oldLineNumber,
-        newLineNumber,
-        text: oldLines[i],
-      });
-      i += 1;
-      j += 1;
-      oldLineNumber += 1;
-      newLineNumber += 1;
-      continue;
-    }
-
-    if (dp[i + 1][j] >= dp[i][j + 1]) {
-      rows.push({
-        kind: "removed",
-        oldLineNumber,
-        newLineNumber: null,
-        text: oldLines[i],
-      });
-      i += 1;
-      oldLineNumber += 1;
-      continue;
-    }
-
-    rows.push({
-      kind: "added",
-      oldLineNumber: null,
-      newLineNumber,
-      text: newLines[j],
-    });
-    j += 1;
-    newLineNumber += 1;
-  }
-
-  while (i < oldCount) {
-    rows.push({
-      kind: "removed",
-      oldLineNumber,
-      newLineNumber: null,
-      text: oldLines[i],
-    });
-    i += 1;
-    oldLineNumber += 1;
-  }
-
-  while (j < newCount) {
-    rows.push({
-      kind: "added",
-      oldLineNumber: null,
-      newLineNumber,
-      text: newLines[j],
-    });
-    j += 1;
-    newLineNumber += 1;
-  }
-
-  return rows;
 }
 
 export function DocumentDiffModal({
@@ -128,11 +56,13 @@ export function DocumentDiffModal({
   const [leftRevisionId, setLeftRevisionId] = useState<string | null>(null);
   const [rightRevisionId, setRightRevisionId] = useState<string | null>(null);
 
-  const effectiveLeftId =
-    leftRevisionId ?? sortedRevisions.find((r) => r.revisionNumber === latestRevisionNumber - 1)?.id ?? null;
+  const effectiveLeftId = leftRevisionId ?? sortedRevisions.find(
+    (r) => r.revisionNumber === latestRevisionNumber - 1,
+  )?.id ?? null;
 
-  const effectiveRightId =
-    rightRevisionId ?? sortedRevisions.find((r) => r.revisionNumber === latestRevisionNumber)?.id ?? null;
+  const effectiveRightId = rightRevisionId ?? sortedRevisions.find(
+    (r) => r.revisionNumber === latestRevisionNumber,
+  )?.id ?? null;
 
   const leftRevision = sortedRevisions.find((r) => r.id === effectiveLeftId) ?? null;
   const rightRevision = sortedRevisions.find((r) => r.id === effectiveRightId) ?? null;
@@ -165,10 +95,11 @@ export function DocumentDiffModal({
 
           <div className="flex items-center gap-4 shrink-0">
             <div className="flex items-center gap-2">
-              <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-red-400">
-                Old
-              </span>
-              <Select value={effectiveLeftId ?? ""} onValueChange={(value) => setLeftRevisionId(value)}>
+              <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-red-400">Old</span>
+              <Select
+                value={effectiveLeftId ?? ""}
+                onValueChange={(value) => setLeftRevisionId(value)}
+              >
                 <SelectTrigger className="h-7 w-60 text-xs border-border/60">
                   <SelectValue placeholder="Select revision" />
                 </SelectTrigger>
@@ -182,10 +113,11 @@ export function DocumentDiffModal({
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-green-400">
-                New
-              </span>
-              <Select value={effectiveRightId ?? ""} onValueChange={(value) => setRightRevisionId(value)}>
+              <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-green-400">New</span>
+              <Select
+                value={effectiveRightId ?? ""}
+                onValueChange={(value) => setRightRevisionId(value)}
+              >
                 <SelectTrigger className="h-7 w-60 text-xs border-border/60">
                   <SelectValue placeholder="Select revision" />
                 </SelectTrigger>
@@ -227,7 +159,9 @@ export function DocumentDiffModal({
                   <span className="select-none border-r border-border/30 px-3 text-right text-muted-foreground">
                     {row.newLineNumber ?? ""}
                   </span>
-                  <span className="select-none px-3 text-center text-muted-foreground">{markerByKind[row.kind]}</span>
+                  <span className="select-none px-3 text-center text-muted-foreground">
+                    {markerByKind[row.kind]}
+                  </span>
                   <pre className="overflow-x-auto whitespace-pre-wrap break-words px-3 py-0 text-inherit">
                     {row.text.length > 0 ? row.text : " "}
                   </pre>
