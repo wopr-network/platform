@@ -132,6 +132,42 @@ function buildRoutineMutationPayload(input: {
   };
 }
 
+export function sortRoutines(
+  routines: RoutineListItem[],
+  sortField: string,
+  sortDir: "asc" | "desc",
+): RoutineListItem[] {
+  const sorted = [...routines].sort((left, right) => {
+    let leftValue: unknown;
+    let rightValue: unknown;
+
+    if (sortField === "title") {
+      leftValue = left.title;
+      rightValue = right.title;
+    } else if (sortField === "updated") {
+      leftValue = left.updatedAt;
+      rightValue = right.updatedAt;
+    } else if (sortField === "lastRun") {
+      leftValue = left.lastRun?.triggeredAt;
+      rightValue = right.lastRun?.triggeredAt;
+    }
+
+    if (leftValue === undefined || leftValue === null) return 1;
+    if (rightValue === undefined || rightValue === null) return -1;
+
+    let comparison = 0;
+    if (typeof leftValue === "string" && typeof rightValue === "string") {
+      comparison = leftValue.localeCompare(rightValue);
+    } else if (typeof leftValue === "number" && typeof rightValue === "number") {
+      comparison = leftValue - rightValue;
+    }
+
+    return sortDir === "asc" ? comparison : -comparison;
+  });
+
+  return sorted;
+}
+
 export function buildRoutineGroups(
   routines: RoutineListItem[],
   groupByValue: RoutineGroupBy,

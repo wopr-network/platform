@@ -90,6 +90,7 @@ describe("SidebarAccountMenu", () => {
         <QueryClientProvider client={queryClient}>
           <SidebarAccountMenu
             deploymentMode="authenticated"
+            instanceSettingsTarget="/instance/settings"
             version="1.2.3"
           />
         </QueryClientProvider>,

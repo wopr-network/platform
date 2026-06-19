@@ -254,6 +254,7 @@ function NavigationLayoutStories() {
               <div className="absolute bottom-0 left-0 w-72">
                 <SidebarAccountMenu
                   deploymentMode="authenticated"
+                  instanceSettingsTarget="/instance/settings"
                   open
                   onOpenChange={() => undefined}
                   version="0.3.1"

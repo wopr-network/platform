@@ -411,15 +411,15 @@ describe("Routines page", () => {
       }),
     ];
 
-    expect(sortRoutines(routines, "title", "asc").map((routine) => routine.title)).toEqual([
+    expect(sortRoutines(routines, "title", "asc").map((routine: RoutineListItem) => routine.title)).toEqual([
       "Morning sync",
       "Weekly digest",
     ]);
-    expect(sortRoutines(routines, "updated", "desc").map((routine) => routine.id)).toEqual([
+    expect(sortRoutines(routines, "updated", "desc").map((routine: RoutineListItem) => routine.id)).toEqual([
       "routine-2",
       "routine-1",
     ]);
-    expect(sortRoutines(routines, "lastRun", "desc").map((routine) => routine.id)).toEqual([
+    expect(sortRoutines(routines, "lastRun", "desc").map((routine: RoutineListItem) => routine.id)).toEqual([
       "routine-1",
       "routine-2",
     ]);
