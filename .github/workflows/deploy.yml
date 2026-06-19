@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Login to registry
         run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.wopr.bot -u wopr --password-stdin
@@ -104,7 +104,7 @@ jobs:
       # between jobs, scp fails with "No such file or directory" and the
       # entire deploy is skipped. This bit us on #117's deploy.
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Deploy to production
         run: |
