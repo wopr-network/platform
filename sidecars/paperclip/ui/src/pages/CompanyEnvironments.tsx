@@ -9,6 +9,8 @@ import {
 import { environmentsApi } from "@/api/environments";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { secretsApi } from "@/api/secrets";
+import { Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -165,11 +167,16 @@ function summarizeSandboxConfig(config: Record<string, unknown>): string | null 
 }
 
 export function CompanyEnvironments() {
+  const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
   const queryClient = useQueryClient();
   const [environmentDialogOpen, setEnvironmentDialogOpen] = useState(false);
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
   const [editingEnvironmentId, setEditingEnvironmentId] = useState<string | null>(null);
   const [environmentForm, setEnvironmentForm] = useState<EnvironmentFormState>(createEmptyEnvironmentForm);
   const [probeResults, setProbeResults] = useState<Record<string, EnvironmentProbeResult | null>>({});

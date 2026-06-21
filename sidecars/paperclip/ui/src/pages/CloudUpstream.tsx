@@ -24,8 +24,9 @@ import { cloudUpstreamsApi } from "@/api/cloudUpstreams";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { applyCompanyPrefix, extractCompanyPrefixFromPath } from "@/lib/company-routes";
-import { Link, useLocation } from "@/lib/router";
+import { Link, useLocation, Navigate } from "@/lib/router";
 import { queryKeys } from "@/lib/queryKeys";
 
 const PENDING_CONNECTION_KEY = "paperclip-cloud-upstream-pending-connection";
@@ -64,6 +65,7 @@ const ACTIVATION_CATEGORIES: Array<{
 ];
 
 export function CloudUpstream() {
+  const { isHosted } = useHostedMode();
   const { selectedCompany, selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -73,6 +75,10 @@ export function CloudUpstream() {
   const [activeRun, setActiveRun] = useState<CloudUpstreamRun | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
 
   useEffect(() => {
     setBreadcrumbs([

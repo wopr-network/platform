@@ -6,7 +6,9 @@ import type {
   IssueGraphLivenessAutoRecoveryPreview,
   PatchInstanceExperimentalSettings,
 } from "@paperclipai/shared";
+import { Navigate } from "@/lib/router";
 import { instanceSettingsApi } from "@/api/instanceSettings";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
@@ -123,12 +125,17 @@ function RecoveryPreviewDialog({
 }
 
 export function InstanceExperimentalSettings() {
+  const { isHosted } = useHostedMode();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [lookbackHoursDraft, setLookbackHoursDraft] = useState("24");
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [pendingPreview, setPendingPreview] = useState<IssueGraphLivenessAutoRecoveryPreview | null>(null);
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
 
   useEffect(() => {
     setBreadcrumbs([

@@ -13,6 +13,8 @@ import { healthApi } from "@/api/health";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { ModeBadge } from "@/components/access/ModeBadge";
 import { Button } from "../components/ui/button";
+import { Navigate } from "../lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
@@ -21,9 +23,14 @@ import { cn } from "../lib/utils";
 const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "https://paperclip.ing/tos";
 
 export function InstanceGeneralSettings() {
+  const { isHosted } = useHostedMode();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
 
   const signOutMutation = useMutation({
     mutationFn: () => authApi.signOut(),
