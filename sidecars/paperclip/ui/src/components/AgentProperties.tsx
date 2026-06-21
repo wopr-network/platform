@@ -6,7 +6,7 @@ import { useCompany } from "../context/CompanyContext";
 import { useHostedMode } from "../hooks/useHostedMode";
 import { getAdapterLabel } from "../adapters/adapter-display-registry";
 import { queryKeys } from "../lib/queryKeys";
-import { StatusBadge } from "./StatusBadge";
+import { AgentStatusBadge } from "./StatusBadge";
 import { Identity } from "./Identity";
 import { formatDate, agentUrl } from "../lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -30,6 +30,7 @@ function PropertyRow({ label, children }: { label: string; children: React.React
 export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
   const { isHosted } = useHostedMode();
   const { selectedCompanyId } = useCompany();
+  const lastErrorIsActive = agent.status === "error";
 
   const { data: agents } = useQuery({
     queryKey: queryKeys.agents.list(selectedCompanyId!),
@@ -43,8 +44,15 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
     <div className="space-y-4">
       <div className="space-y-1">
         <PropertyRow label="Status">
-          <StatusBadge status={agent.status} />
+          <AgentStatusBadge status={agent.status} />
         </PropertyRow>
+        {lastErrorIsActive && agent.errorReason && (
+          <PropertyRow label="Error reason">
+            <span className="text-xs text-red-600 dark:text-red-400 break-words min-w-0">
+              {agent.errorReason}
+            </span>
+          </PropertyRow>
+        )}
         <PropertyRow label="Role">
           <span className="text-sm">{roleLabels[agent.role] ?? agent.role}</span>
         </PropertyRow>
@@ -71,8 +79,16 @@ export function AgentProperties({ agent, runtimeState }: AgentPropertiesProps) {
           </PropertyRow>
         )}
         {runtimeState?.lastError && (
-          <PropertyRow label="Last error">
-            <span className="text-xs text-red-600 dark:text-red-400 break-words min-w-0">{runtimeState.lastError}</span>
+          <PropertyRow label={lastErrorIsActive ? "Last error" : "Last run error"}>
+            <span
+              className={
+                lastErrorIsActive
+                  ? "text-xs text-red-600 dark:text-red-400 break-words min-w-0"
+                  : "text-xs text-muted-foreground break-words min-w-0"
+              }
+            >
+              {runtimeState.lastError}
+            </span>
           </PropertyRow>
         )}
         {agent.lastHeartbeatAt && (
