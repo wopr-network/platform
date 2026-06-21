@@ -6,6 +6,7 @@ import {
 } from "@paperclipai/shared";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { companiesApi } from "../api/companies";
 import { assetsApi } from "../api/assets";
 import { instanceSettingsApi } from "../api/instanceSettings";
@@ -29,6 +30,7 @@ export function CompanySettings() {
     setSelectedCompanyId
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const queryClient = useQueryClient();
   const { data: experimentalSettings } = useQuery({
     queryKey: queryKeys.instance.experimentalSettings,
@@ -376,7 +378,7 @@ export function CompanySettings() {
             <a href="/org" className="underline hover:text-foreground">Org Chart</a> header.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {cloudSyncEnabled ? (
+            {cloudSyncEnabled && !isHosted ? (
               <Button size="sm" asChild>
                 <a href="/company/settings/cloud-upstream">
                   <CloudUpload className="mr-1.5 h-3.5 w-3.5" />

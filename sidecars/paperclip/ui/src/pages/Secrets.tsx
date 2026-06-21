@@ -40,6 +40,7 @@ import type {
 } from "@paperclipai/shared";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useToastActions } from "../context/ToastContext";
 import {
   secretsApi,
@@ -824,6 +825,8 @@ export function Secrets() {
     );
   }
 
+  const { isHosted } = useHostedMode();
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
       <div className="flex items-center gap-2">
@@ -839,7 +842,7 @@ export function Secrets() {
         <PageTabBar
           items={[
             { value: "secrets", label: "Secrets" },
-            { value: "vaults", label: "Provider vaults" },
+            ...(isHosted ? [] : [{ value: "vaults", label: "Provider vaults" }]),
           ]}
           align="start"
           value={activeTab}
@@ -986,28 +989,30 @@ export function Secrets() {
             )}
           </div>
         </TabsContent>
-        <TabsContent value="vaults" className="min-h-0 flex-1 overflow-y-auto">
-          <ProviderVaultsTab
-            providers={providers}
-            providerConfigs={providerConfigs}
-            loading={providerConfigsQuery.isPending}
-            error={providerConfigsQuery.error}
-            onRetry={() => providerConfigsQuery.refetch()}
-            onCreate={openCreateVault}
-            onEdit={openEditVault}
-            onDisable={(config) => disableVaultMutation.mutate(config.id)}
-            onRemove={(config) => setRemoveVaultConfirm(config)}
-            onSetDefault={(config) => defaultVaultMutation.mutate(config.id)}
-            onHealthCheck={(config) => healthVaultMutation.mutate(config.id)}
-            pendingActionId={
-              disableVaultMutation.variables ??
-              removeVaultMutation.variables ??
-              defaultVaultMutation.variables ??
-              healthVaultMutation.variables ??
-              null
-            }
-          />
-        </TabsContent>
+        {!isHosted && (
+          <TabsContent value="vaults" className="min-h-0 flex-1 overflow-y-auto">
+            <ProviderVaultsTab
+              providers={providers}
+              providerConfigs={providerConfigs}
+              loading={providerConfigsQuery.isPending}
+              error={providerConfigsQuery.error}
+              onRetry={() => providerConfigsQuery.refetch()}
+              onCreate={openCreateVault}
+              onEdit={openEditVault}
+              onDisable={(config) => disableVaultMutation.mutate(config.id)}
+              onRemove={(config) => setRemoveVaultConfirm(config)}
+              onSetDefault={(config) => defaultVaultMutation.mutate(config.id)}
+              onHealthCheck={(config) => healthVaultMutation.mutate(config.id)}
+              pendingActionId={
+                disableVaultMutation.variables ??
+                removeVaultMutation.variables ??
+                defaultVaultMutation.variables ??
+                healthVaultMutation.variables ??
+                null
+              }
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       <Sheet open={Boolean(selectedSecret)} onOpenChange={(open) => !open && setSelectedSecretId(null)}>

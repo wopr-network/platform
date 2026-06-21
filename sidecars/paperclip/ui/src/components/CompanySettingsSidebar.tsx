@@ -25,6 +25,7 @@ import { INSTANCE_SETTINGS_PATH_PREFIX } from "@/lib/instance-settings";
 import { SIDEBAR_SCROLL_RESET_STATE } from "@/lib/navigation-scroll";
 import { queryKeys } from "@/lib/queryKeys";
 import { useCompany } from "@/context/CompanyContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useSidebar } from "@/context/SidebarContext";
 import { usePluginSlots } from "@/plugins/slots";
 import { SidebarNavItem } from "./SidebarNavItem";
@@ -43,6 +44,7 @@ function isSandboxProviderOnly(plugin: PluginRecord): boolean {
 
 export function CompanySettingsSidebar() {
   const { selectedCompany, selectedCompanyId } = useCompany();
+  const { isHosted } = useHostedMode();
   const { isMobile, setSidebarOpen } = useSidebar();
   const { slots: companySettingsPluginSlots } = usePluginSlots({
     slotTypes: ["companySettingsPage"],
@@ -134,77 +136,81 @@ export function CompanySettingsSidebar() {
           <SidebarNavItem to="/company/settings/invites" label="Invites" icon={MailPlus} end />
           <SidebarNavItem to="/company/settings/secrets" label="Secrets" icon={KeyRound} end />
         </div>
-        <div className="mt-5 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Instance settings
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/profile`}
-            label="Profile"
-            icon={UserRoundPen}
-            end
-          />
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/general`}
-            label="General"
-            icon={SlidersHorizontal}
-            end
-          />
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/environments`}
-            label="Environments"
-            icon={MonitorCog}
-            end
-          />
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/access`}
-            label="Access"
-            icon={Shield}
-            end
-          />
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/heartbeats`}
-            label="Heartbeats"
-            icon={Clock3}
-            end
-          />
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/experimental`}
-            label="Experimental"
-            icon={FlaskConical}
-          />
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/plugins`}
-            label="Plugins"
-            icon={Puzzle}
-          />
-          {sidebarPlugins.length > 0 ? (
-            <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border/70 pl-3">
-              {sidebarPlugins.map((plugin) => (
-                <NavLink
-                  key={plugin.id}
-                  to={`${INSTANCE_SETTINGS_PATH_PREFIX}/plugins/${plugin.id}`}
-                  state={SIDEBAR_SCROLL_RESET_STATE}
-                  className={({ isActive }) =>
-                    [
-                      "rounded-md px-2 py-1.5 text-xs transition-colors",
-                      isActive
-                        ? "bg-accent text-foreground"
-                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-                    ].join(" ")
-                  }
-                >
-                  {plugin.manifestJson.displayName ?? plugin.packageName}
-                </NavLink>
-              ))}
+        {!isHosted && (
+          <>
+            <div className="mt-5 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Instance settings
             </div>
-          ) : null}
-          <SidebarNavItem
-            to={`${INSTANCE_SETTINGS_PATH_PREFIX}/adapters`}
-            label="Adapters"
-            icon={Cpu}
-          />
-        </div>
+            <div className="flex flex-col gap-0.5">
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/profile`}
+                label="Profile"
+                icon={UserRoundPen}
+                end
+              />
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/general`}
+                label="General"
+                icon={SlidersHorizontal}
+                end
+              />
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/environments`}
+                label="Environments"
+                icon={MonitorCog}
+                end
+              />
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/access`}
+                label="Access"
+                icon={Shield}
+                end
+              />
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/heartbeats`}
+                label="Heartbeats"
+                icon={Clock3}
+                end
+              />
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/experimental`}
+                label="Experimental"
+                icon={FlaskConical}
+              />
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/plugins`}
+                label="Plugins"
+                icon={Puzzle}
+              />
+              {sidebarPlugins.length > 0 ? (
+                <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border/70 pl-3">
+                  {sidebarPlugins.map((plugin) => (
+                    <NavLink
+                      key={plugin.id}
+                      to={`${INSTANCE_SETTINGS_PATH_PREFIX}/plugins/${plugin.id}`}
+                      state={SIDEBAR_SCROLL_RESET_STATE}
+                      className={({ isActive }) =>
+                        [
+                          "rounded-md px-2 py-1.5 text-xs transition-colors",
+                          isActive
+                            ? "bg-accent text-foreground"
+                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                        ].join(" ")
+                      }
+                    >
+                      {plugin.manifestJson.displayName ?? plugin.packageName}
+                    </NavLink>
+                  ))}
+                </div>
+              ) : null}
+              <SidebarNavItem
+                to={`${INSTANCE_SETTINGS_PATH_PREFIX}/adapters`}
+                label="Adapters"
+                icon={Cpu}
+              />
+            </div>
+          </>
+        )}
       </nav>
     </aside>
   );
