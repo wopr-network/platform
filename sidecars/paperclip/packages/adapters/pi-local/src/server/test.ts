@@ -6,12 +6,18 @@ import type {
 import {
   asString,
   parseObject,
-  ensureAbsoluteDirectory,
-  ensureCommandResolvable,
   ensurePathInEnv,
-  runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
-import { asStringArray } from "@paperclipai/adapter-utils/server-utils";
+import {
+  asStringArray,
+} from "@paperclipai/adapter-utils/server-utils";
+import {
+  ensureAdapterExecutionTargetCommandResolvable,
+  ensureAdapterExecutionTargetDirectory,
+  runAdapterExecutionTargetProcess,
+  describeAdapterExecutionTarget,
+  resolveAdapterExecutionTargetCwd,
+} from "@paperclipai/adapter-utils/execution-target";
 import { discoverPiModelsCached } from "./models.js";
 import { parsePiJsonl } from "./parse.js";
 
@@ -70,14 +76,34 @@ function buildPiModelDiscoveryFailureCheck(message: string): AdapterEnvironmentC
   };
 }
 
-export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promise<AdapterEnvironmentTestResult> {
+export async function testEnvironment(
+  ctx: AdapterEnvironmentTestContext,
+): Promise<AdapterEnvironmentTestResult> {
   const checks: AdapterEnvironmentCheck[] = [];
   const config = parseObject(ctx.config);
   const command = asString(config.command, "pi");
-  const cwd = asString(config.cwd, process.cwd());
+  const target = ctx.executionTarget ?? null;
+  const targetIsRemote = target?.kind === "remote";
+  const cwd = resolveAdapterExecutionTargetCwd(target, asString(config.cwd, ""), process.cwd());
+  const targetLabel = targetIsRemote
+    ? ctx.environmentName ?? describeAdapterExecutionTarget(target)
+    : null;
+  const runId = `pi-envtest-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  if (targetLabel) {
+    checks.push({
+      code: "pi_environment_target",
+      level: "info",
+      message: `Probing inside environment: ${targetLabel}`,
+    });
+  }
 
   try {
-    await ensureAbsoluteDirectory(cwd, { createIfMissing: false });
+    await ensureAdapterExecutionTargetDirectory(runId, target, cwd, {
+      cwd,
+      env: {},
+      createIfMissing: false,
+    });
     checks.push({
       code: "pi_cwd_valid",
       level: "info",
@@ -109,7 +135,7 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
     });
   } else {
     try {
-      await ensureCommandResolvable(command, cwd, runtimeEnv);
+      await ensureAdapterExecutionTargetCommandResolvable(command, target, cwd, runtimeEnv);
       checks.push({
         code: "pi_command_resolvable",
         level: "info",
@@ -125,11 +151,13 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
     }
   }
 
-  const canRunProbe = checks.every(
-    (check) => check.code !== "pi_cwd_invalid" && check.code !== "pi_command_unresolvable",
-  );
+  const canRunProbe =
+    checks.every((check) => check.code !== "pi_cwd_invalid" && check.code !== "pi_command_unresolvable");
 
-  if (canRunProbe) {
+  // Pi model discovery shells out to `pi --list-models` locally; when probing a
+  // remote target we skip discovery and let the remote hello probe surface
+  // model/auth issues directly.
+  if (!targetIsRemote && canRunProbe) {
     try {
       const discovered = await discoverPiModelsCached({ command, cwd, env: runtimeEnv });
       if (discovered.length > 0) {
@@ -147,7 +175,11 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
         });
       }
     } catch (err) {
-      checks.push(buildPiModelDiscoveryFailureCheck(err instanceof Error ? err.message : "Pi model discovery failed."));
+      checks.push(
+        buildPiModelDiscoveryFailureCheck(
+          err instanceof Error ? err.message : "Pi model discovery failed.",
+        ),
+      );
     }
   }
 
@@ -158,6 +190,12 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
       level: "error",
       message: "Pi requires a configured model in provider/model format.",
       hint: "Set adapterConfig.model using an ID from `pi --list-models`.",
+    });
+  } else if (targetIsRemote) {
+    checks.push({
+      code: "pi_model_validation_skipped_remote",
+      level: "info",
+      message: `Skipped local model validation; will be validated by the hello probe inside ${targetLabel}.`,
     });
   } else if (canRunProbe) {
     // Verify model is in the list
@@ -190,7 +228,9 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
 
   if (canRunProbe && configuredModel) {
     // Parse model for probe
-    const provider = configuredModel.includes("/") ? configuredModel.slice(0, configuredModel.indexOf("/")) : "";
+    const provider = configuredModel.includes("/") 
+      ? configuredModel.slice(0, configuredModel.indexOf("/")) 
+      : "";
     const modelId = configuredModel.includes("/")
       ? configuredModel.slice(configuredModel.indexOf("/") + 1)
       : configuredModel;
@@ -209,8 +249,9 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
     if (extraArgs.length > 0) args.push(...extraArgs);
 
     try {
-      const probe = await runChildProcess(
-        `pi-envtest-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      const probe = await runAdapterExecutionTargetProcess(
+        runId,
+        target,
         command,
         args,
         {
@@ -239,7 +280,9 @@ export async function testEnvironment(ctx: AdapterEnvironmentTestContext): Promi
         checks.push({
           code: hasHello ? "pi_hello_probe_passed" : "pi_hello_probe_unexpected_output",
           level: hasHello ? "info" : "warn",
-          message: hasHello ? "Pi hello probe succeeded." : "Pi probe ran but did not return `hello` as expected.",
+          message: hasHello
+            ? "Pi hello probe succeeded."
+            : "Pi probe ran but did not return `hello` as expected.",
           ...(summary ? { detail: summary.replace(/\s+/g, " ").trim().slice(0, 240) } : {}),
           ...(hasHello
             ? {}

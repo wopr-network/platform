@@ -108,15 +108,18 @@ function registerModuleMocks() {
   }));
 
   vi.doMock("../services/index.js", () => ({
-  accessService: () => mockAccessService,
-  agentService: () => mockAgentService,
-  documentService: () => mockDocumentsService,
-  executionWorkspaceService: () => ({}),
-  feedbackService: () => ({}),
-  goalService: () => ({}),
+    companyService: () => ({
+      getById: vi.fn(async () => ({ id: "company-1", attachmentMaxBytes: 10 * 1024 * 1024 })),
+    }),
+    accessService: () => mockAccessService,
+    agentService: () => mockAgentService,
+    documentService: () => mockDocumentsService,
+    executionWorkspaceService: () => ({}),
+    feedbackService: () => ({}),
+    goalService: () => ({}),
     heartbeatService: () => mockHeartbeatService,
     instanceSettingsService: () => mockInstanceSettingsService,
-  issueApprovalService: () => ({}),
+    issueApprovalService: () => ({}),
     issueReferenceService: () => ({
       deleteDocumentSource: async () => undefined,
       diffIssueReferenceSummary: () => ({
@@ -130,13 +133,13 @@ function registerModuleMocks() {
       syncDocument: async () => undefined,
       syncIssue: async () => undefined,
     }),
-  issueService: () => mockIssueService,
+    issueService: () => mockIssueService,
     issueThreadInteractionService: () => mockIssueThreadInteractionService,
-  logActivity: mockLogActivity,
-  projectService: () => ({}),
+    logActivity: mockLogActivity,
+    projectService: () => ({}),
     routineService: () => mockRoutineService,
-  workProductService: () => ({}),
-}));
+    workProductService: () => ({}),
+  }));
 }
 
 async function createApp() {
@@ -301,13 +304,11 @@ describe("issue document revision routes", () => {
         }),
       }),
     );
-    expect(res.body).toEqual(
-      expect.objectContaining({
-        key: "plan",
-        title: "Plan v1",
-        latestRevisionNumber: 3,
-      }),
-    );
+    expect(res.body).toEqual(expect.objectContaining({
+      key: "plan",
+      title: "Plan v1",
+      latestRevisionNumber: 3,
+    }));
   });
 
   it("rejects invalid document keys before attempting restore", async () => {

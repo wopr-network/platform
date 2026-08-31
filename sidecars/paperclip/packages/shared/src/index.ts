@@ -1,6 +1,8 @@
 export { agentAdapterTypeSchema, optionalAgentAdapterTypeSchema } from "./adapter-type.js";
 export {
   COMPANY_STATUSES,
+  DEFAULT_COMPANY_ATTACHMENT_MAX_BYTES,
+  MAX_COMPANY_ATTACHMENT_MAX_BYTES,
   DEPLOYMENT_MODES,
   DEPLOYMENT_EXPOSURES,
   BIND_MODES,
@@ -11,11 +13,14 @@ export {
   AGENT_ROLE_LABELS,
   AGENT_DEFAULT_MAX_CONCURRENT_RUNS,
   WORKSPACE_BRANCH_ROUTINE_VARIABLE,
+  MODEL_PROFILE_KEYS,
   AGENT_ICON_NAMES,
   ISSUE_STATUSES,
   INBOX_MINE_ISSUE_STATUSES,
   INBOX_MINE_ISSUE_STATUS_FILTER,
   ISSUE_PRIORITIES,
+  MAX_ISSUE_REQUEST_DEPTH,
+  clampIssueRequestDepth,
   ISSUE_THREAD_INTERACTION_KINDS,
   ISSUE_THREAD_INTERACTION_STATUSES,
   ISSUE_THREAD_INTERACTION_CONTINUATION_POLICIES,
@@ -114,6 +119,7 @@ export {
   type AgentStatus,
   type AgentAdapterType,
   type AgentRole,
+  type ModelProfileKey,
   type AgentIconName,
   type IssueStatus,
   type IssuePriority,
@@ -265,6 +271,8 @@ export type {
   InstanceExperimentalSettings,
   InstanceGeneralSettings,
   InstanceSettings,
+  IssueGraphLivenessAutoRecoveryPreview,
+  IssueGraphLivenessAutoRecoveryPreviewItem,
   BackupRetentionPolicy,
   Agent,
   AgentAccessState,
@@ -328,6 +336,8 @@ export type {
   IssueBlockerAttention,
   IssueBlockerAttentionReason,
   IssueBlockerAttentionState,
+  IssueProductivityReview,
+  IssueProductivityReviewTrigger,
   IssueReferenceSource,
   IssueRelatedWorkItem,
   IssueRelatedWorkSummary,
@@ -389,6 +399,7 @@ export type {
   BudgetIncidentResolutionInput,
   CostEvent,
   CostSummary,
+  IssueCostSummary,
   CostByAgent,
   CostByProviderModel,
   CostByBiller,
@@ -549,6 +560,9 @@ export {
   WEEKLY_RETENTION_PRESETS,
   MONTHLY_RETENTION_PRESETS,
   DEFAULT_BACKUP_RETENTION,
+  DEFAULT_ISSUE_GRAPH_LIVENESS_AUTO_RECOVERY_LOOKBACK_HOURS,
+  MIN_ISSUE_GRAPH_LIVENESS_AUTO_RECOVERY_LOOKBACK_HOURS,
+  MAX_ISSUE_GRAPH_LIVENESS_AUTO_RECOVERY_LOOKBACK_HOURS,
 } from "./types/instance.js";
 
 export {
@@ -562,7 +576,9 @@ export {
   type PatchInstanceGeneralSettings,
   instanceExperimentalSettingsSchema,
   patchInstanceExperimentalSettingsSchema,
+  issueGraphLivenessAutoRecoveryRequestSchema,
   type PatchInstanceExperimentalSettings,
+  type IssueGraphLivenessAutoRecoveryRequest,
 } from "./validators/index.js";
 
 export {
@@ -658,6 +674,7 @@ export {
   createIssueThreadInteractionSchema,
   acceptIssueThreadInteractionSchema,
   rejectIssueThreadInteractionSchema,
+  cancelIssueThreadInteractionSchema,
   respondIssueThreadInteractionSchema,
   linkIssueApprovalSchema,
   createIssueAttachmentMetadataSchema,
@@ -692,6 +709,7 @@ export {
   type CreateIssueThreadInteraction,
   type AcceptIssueThreadInteraction,
   type RejectIssueThreadInteraction,
+  type CancelIssueThreadInteraction,
   type RespondIssueThreadInteraction,
   type LinkIssueApproval,
   type CreateIssueAttachmentMetadata,
