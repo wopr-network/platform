@@ -41,15 +41,36 @@ function useActiveCompanyPrefix(): string | null {
   return selectedCompany ? normalizeCompanyPrefix(selectedCompany.issuePrefix) : null;
 }
 
+// Re-export everything from react-router-dom with explicit exports for TypeScript
+export {
+  BrowserRouter,
+  Outlet,
+  Route,
+  Routes,
+  useBeforeUnload,
+  useLocation,
+  useNavigationType,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 export * from "react-router-dom";
 
 type CompanyLinkProps = React.ComponentProps<typeof RouterDom.Link> & {
   disableIssueQuicklook?: boolean;
   issuePrefetch?: Issue | null;
+  issueQuicklookSide?: React.ComponentProps<typeof IssueLinkQuicklook>["issueQuicklookSide"];
+  issueQuicklookAlign?: React.ComponentProps<typeof IssueLinkQuicklook>["issueQuicklookAlign"];
 };
 
 export const Link = React.forwardRef<HTMLAnchorElement, CompanyLinkProps>(
-  function CompanyLink({ to, disableIssueQuicklook = false, issuePrefetch = null, ...props }, ref) {
+  function CompanyLink({
+    to,
+    disableIssueQuicklook = false,
+    issuePrefetch = null,
+    issueQuicklookSide,
+    issueQuicklookAlign,
+    ...props
+  }, ref) {
     const companyPrefix = useActiveCompanyPrefix();
     const resolvedTo = resolveTo(to, companyPrefix);
     const issuePathId = parseIssuePathIdFromPath(typeof resolvedTo === "string" ? resolvedTo : resolvedTo.pathname);
@@ -62,6 +83,8 @@ export const Link = React.forwardRef<HTMLAnchorElement, CompanyLinkProps>(
           issuePathId={issuePathId}
           disableIssueQuicklook={disableIssueQuicklook}
           issuePrefetch={issuePrefetch}
+          issueQuicklookSide={issueQuicklookSide}
+          issueQuicklookAlign={issueQuicklookAlign}
           {...props}
         />
       );
