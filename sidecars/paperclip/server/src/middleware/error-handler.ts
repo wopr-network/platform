@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { HttpError } from "../errors.js";
 import { trackErrorHandlerCrash } from "@paperclipai/shared/telemetry";
 import { getTelemetryClient } from "../telemetry.js";
+import { COMPANY_IMPORT_API_PATH } from "../routes/company-import-paths.js";
 
 export interface ErrorContext {
   error: { message: string; stack?: string; name?: string; details?: unknown; raw?: unknown };
@@ -64,5 +65,14 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   const tc = getTelemetryClient();
   if (tc) trackErrorHandlerCrash(tc, { errorCode: rootError.name });
 
-  res.status(500).json({ error: "Internal server error" });
+  res.status(500).json({
+    error: "Internal server error",
+    ...(shouldExposeTrustedCloudTenantImportError(req) ? { message: rootError.message } : {}),
+  });
+}
+
+function shouldExposeTrustedCloudTenantImportError(req: Request) {
+  return req.actor?.source === "cloud_tenant"
+    && req.method === "POST"
+    && req.originalUrl.split("?")[0] === COMPANY_IMPORT_API_PATH;
 }

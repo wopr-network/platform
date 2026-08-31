@@ -41,9 +41,18 @@ export interface AdapterDisplayInfo {
   recommended?: boolean;
   comingSoon?: boolean;
   disabledLabel?: string;
+  experimental?: boolean;
+  hideFromVisualSelection?: boolean;
 }
 
 const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
+  acpx_local: {
+    label: "ACPX",
+    description: "Experimental local ACPX multi-agent adapter",
+    icon: Bot,
+    experimental: true,
+    hideFromVisualSelection: true,
+  },
   claude_local: {
     label: "Claude Code",
     description: "Local Claude agent",
@@ -60,6 +69,11 @@ const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
     label: "Gemini CLI",
     description: "Local Gemini agent",
     icon: Gem,
+  },
+  grok_local: {
+    label: "Grok Build",
+    description: "Local Grok Build agent",
+    icon: Bot,
   },
   opencode_local: {
     label: "OpenCode",
@@ -81,12 +95,18 @@ const adapterDisplayMap: Record<string, AdapterDisplayInfo> = {
     description: "Local Cursor agent",
     icon: MousePointer2,
   },
+  cursor_cloud: {
+    label: "Cursor Cloud",
+    description: "Managed remote Cursor agent",
+    icon: MousePointer2,
+  },
   openclaw_gateway: {
     label: "OpenClaw Gateway",
-    description: "Invoke OpenClaw via gateway protocol",
+    description: "External gateway adapter",
     icon: Bot,
     comingSoon: true,
-    disabledLabel: "Configure OpenClaw within the App",
+    disabledLabel: "Invite external agents from the add-agent modal",
+    hideFromVisualSelection: true,
   },
   process: {
     label: "Process",
