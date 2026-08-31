@@ -96,7 +96,10 @@ export function PluginManager() {
 
   const examplesQuery = useQuery({
     queryKey: queryKeys.plugins.examples,
-    queryFn: () => pluginsApi.listExamples(),
+    queryFn: async () => {
+      const bundled = await pluginsApi.listBundled();
+      return bundled.filter((plugin) => plugin.tag === "example");
+    },
   });
 
   const invalidatePluginQueries = () => {
@@ -239,7 +242,7 @@ export function PluginManager() {
           </div>
         ) : (
           <ul className="divide-y rounded-md border bg-card">
-            {examples.map((example) => {
+            {examples.map((example: typeof examples[number]) => {
               const installedPlugin = installedByPackageName.get(example.packageName);
               const installPending =
                 installMutation.isPending &&
