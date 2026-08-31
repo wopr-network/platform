@@ -37,8 +37,8 @@ import {
   collectAllPaths,
   parseFrontmatter,
   FRONTMATTER_FIELD_LABELS,
-  PackageFileTree,
-} from "../components/PackageFileTree";
+  FileTree,
+} from "../components/FileTree";
 import { readZipArchive } from "../lib/zip";
 import { getPortableFileDataUrl, getPortableFileText, isPortableImageFile } from "../lib/portable-files";
 
@@ -1292,7 +1292,7 @@ export function CompanyImport() {
                 <h2 className="text-base font-semibold">Package files</h2>
               </div>
               <div className="flex-1 overflow-y-auto">
-                <PackageFileTree
+                <FileTree
                   nodes={tree}
                   selectedFile={selectedFile}
                   expandedDirs={expandedDirs}
@@ -1302,6 +1302,7 @@ export function CompanyImport() {
                   onToggleCheck={handleToggleCheck}
                   renderFileExtra={(node, checked) => renderImportFileExtra(node, checked, renameMap)}
                   fileRowClassName={importFileRowClassName}
+                  wrapLabels={false}
                 />
               </div>
             </aside>

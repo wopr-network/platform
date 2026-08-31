@@ -3,15 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/router";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
-import { useHostedMode } from "../hooks/useHostedMode";
 import { agentsApi } from "../api/agents";
 import { adaptersApi } from "../api/adapters";
 import { queryKeys } from "@/lib/queryKeys";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Bot } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listUIAdapters } from "../adapters";
+import { isVisualAdapterChoice } from "../adapters/metadata";
 import { getAdapterDisplay } from "../adapters/adapter-display-registry";
 import { useDisabledAdaptersSync } from "../adapters/use-disabled-adapters";
 
@@ -28,15 +34,9 @@ function isAgentAdapterType(type: string): boolean {
 export function NewAgentDialog() {
   const { newAgentOpen, closeNewAgent, openNewIssue } = useDialog();
   const { selectedCompanyId } = useCompany();
-  const { isHosted } = useHostedMode();
   const navigate = useNavigate();
   const [showAdvancedCards, setShowAdvancedCards] = useState(false);
   const disabledTypes = useDisabledAdaptersSync();
-
-  // Hide dialog in hosted mode
-  if (isHosted && newAgentOpen) {
-    closeNewAgent();
-  }
 
   // Fetch registered adapters from server (syncs disabled store + provides data)
   const { data: serverAdapters } = useQuery({
@@ -57,7 +57,12 @@ export function NewAgentDialog() {
   // Build the adapter grid from the UI registry merged with display metadata.
   // This automatically includes external/plugin adapters.
   const adapterGrid = useMemo(() => {
-    const registered = listUIAdapters().filter((a) => isAgentAdapterType(a.type) && !disabledTypes.has(a.type));
+    const registered = listUIAdapters()
+      .filter((a) =>
+        isAgentAdapterType(a.type) &&
+        !disabledTypes.has(a.type) &&
+        isVisualAdapterChoice(a.type)
+      );
 
     // Sort: recommended first, then alphabetical
     return registered
@@ -109,7 +114,10 @@ export function NewAgentDialog() {
         }
       }}
     >
-      <DialogContent showCloseButton={false} className="sm:max-w-md p-0 gap-0 overflow-hidden">
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-md p-0 gap-0 overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
           <span className="text-sm text-muted-foreground">Add a new agent</span>
@@ -135,8 +143,9 @@ export function NewAgentDialog() {
                   <Bot className="h-6 w-6 text-foreground" />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  We recommend letting your CEO handle agent setup — they know the org structure and can configure
-                  reporting, permissions, and adapters.
+                  We recommend letting your CEO handle agent setup — they know the
+                  org structure and can configure reporting, permissions, and
+                  adapters.
                 </p>
               </div>
 
@@ -165,7 +174,9 @@ export function NewAgentDialog() {
                   <ArrowLeft className="h-3.5 w-3.5" />
                   Back
                 </button>
-                <p className="text-sm text-muted-foreground">Choose your adapter type for advanced setup.</p>
+                <p className="text-sm text-muted-foreground">
+                  Choose your adapter type for advanced setup.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -189,7 +200,9 @@ export function NewAgentDialog() {
                     )}
                     <opt.icon className="h-4 w-4" />
                     <span className="font-medium">{opt.label}</span>
-                    <span className="text-muted-foreground text-[10px]">{opt.desc}</span>
+                    <span className="text-muted-foreground text-[10px]">
+                      {opt.desc}
+                    </span>
                   </button>
                 ))}
               </div>
