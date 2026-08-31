@@ -2,6 +2,32 @@
 
 > Why we made the infrastructure calls we did. Written by the DevOps agent when a significant choice is made.
 
+## 2026-04-23 — nefariousplan.com apex cutover (CF Pages → wopr VPS)
+
+nefariousplan.com moved off Cloudflare Pages and now serves directly from the wopr VPS Caddy, same hostname as the blog subdomain already used. `blog.*` and `www.*` 301 to the apex.
+
+**Why:**
+- The site's backend (MCP routes, auth, admin, dynamic pattern/post pages) needs the Next.js server runtime — static export to CF Pages couldn't host it. blog.nefariousplan.com had been serving the real app from the VPS for weeks as a "QA subdomain" while apex was still on Pages rendering a stale Astro export.
+- Two canonical URLs on the same content is bad: duplicate pages in search, forked social graph, tooling had to pick one (MCP clients were hardcoded to `blog.*` while humans shared `nefariousplan.com` links).
+- The stale-Astro-on-Pages build was also drifting. Cutting over to a single live origin (the VPS) kills the drift at the source.
+
+**What changed:**
+- Caddyfile `ops/core-server/Caddyfile`: added `nefariousplan.com` reverse-proxy block (→ `ops-web-1:3000`, TLS via DNS-01), and a combined `blog.*, www.*` 301 redirect block. Reconciled the previously-hand-edited blog block that had never been committed back.
+- Cloudflare DNS (zone `88666f651e7bf9bb0fe61c3209dfc150`): apex `CNAME → nefariousplan.pages.dev` replaced with `A → 138.68.30.247` (DNS-only); new `A www → 138.68.30.247` (DNS-only); `blog.*` unchanged.
+- nefariousplan repo: `NEXT_PUBLIC_SITE_URL` → `https://nefariousplan.com`.
+- nefariousplan repo: deleted `.github/workflows/scheduled-deploy.yml` (it was a wrangler-action → CF Pages job, now pointing at a dead deploy target). Its daily-rebuild purpose (flipping future-dated posts live on their date) moved to a `schedule:` cron on `build-and-deploy.yml`.
+- MCP consumers retargeted at apex (`NP_API=https://nefariousplan.com`).
+
+**Order that worked (rehearsable):**
+1. Commit Caddyfile change with apex block + 301 for blog/www (DNS-01 TLS so cert can issue before DNS flips)
+2. `scp` + `caddy reload` on VPS — cert issues, site serves via VPS when forced by `--resolve` even though DNS still points at Pages
+3. Flip Cloudflare DNS: delete apex CNAME, add apex A → VPS
+4. Verify via `dig @1.1.1.1` and direct curl (cache-flush Mac DNS first — macOS caches aggressively)
+5. Redeploy nefariousplan web container so `NEXT_PUBLIC_SITE_URL` picks up apex
+6. Push platform + nefariousplan commits
+
+**Bootstrapping pitfall:** first DNS-01 attempt on the apex returned SERVFAIL looking up `_acme-challenge.nefariousplan.com`. Transient; Caddy retries every 60s and the second attempt succeeded. Not a token scope issue (both `caddy_dns_token` and `dns_edit` in `secret/shared/cloudflare` have visibility on all zones in the org including nefariousplan.com, verified via `/user/tokens/verify` + `/zones?name=`).
+
 ## 2026-03-31 — Core server consolidation: 4 platforms → 1
 
 Four product platforms (wopr-platform, paperclip-platform, nemoclaw-platform, holyship engine) collapsed into one core server. platform-core already had all the logic — the platforms were just 4 different ways of writing boot glue + copy-pasted tRPC routers.

@@ -81,3 +81,21 @@ api.holyship.wtf {
 		header_up X-Forwarded-Proto {scheme}
 	}
 }
+
+# nefariousplan — apex canonical, blog.* is a legacy alias that 301s
+nefariousplan.com {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+	reverse_proxy ops-web-1:3000 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+blog.nefariousplan.com, www.nefariousplan.com {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+	redir https://nefariousplan.com{uri} 301
+}
