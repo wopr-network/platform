@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock3, ExternalLink, Settings } from "lucide-react";
+import { Navigate } from "react-router-dom";
 import type { InstanceSchedulerHeartbeatAgent } from "@paperclipai/shared";
-import { Link, Navigate } from "@/lib/router";
-import { useHostedMode } from "../hooks/useHostedMode";
+import { Link } from "@/lib/router";
 import { heartbeatsApi } from "../api/heartbeats";
 import { agentsApi } from "../api/agents";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { EmptyState } from "../components/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,15 +30,19 @@ function buildAgentHref(agent: InstanceSchedulerHeartbeatAgent) {
 
 export function InstanceSettings() {
   const { isHosted } = useHostedMode();
-
-  if (isHosted) return <Navigate to="/" replace />;
-
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // Redirect in hosted mode - this page exposes scheduler heartbeat infrastructure controls
+  if (isHosted) return <Navigate to="/" replace />;
+
   useEffect(() => {
-    setBreadcrumbs([{ label: "Instance Settings" }, { label: "Heartbeats" }]);
+    setBreadcrumbs([
+      { label: "Settings", href: "/company/settings" },
+      { label: "Instance settings", href: "/company/settings/instance/general" },
+      { label: "Heartbeats" },
+    ]);
   }, [setBreadcrumbs]);
 
   const heartbeatsQuery = useQuery({
@@ -122,7 +127,9 @@ export function InstanceSettings() {
         ...Array.from(companies, (companyId) =>
           queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(companyId) }),
         ),
-        ...updatedRows.map((row) => queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(row.id) })),
+        ...updatedRows.map((row) =>
+          queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(row.id) }),
+        ),
       ]);
     },
     onError: (error) => {
@@ -176,16 +183,9 @@ export function InstanceSettings() {
       </div>
 
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span>
-          <span className="font-semibold text-foreground">{activeCount}</span> active
-        </span>
-        <span>
-          <span className="font-semibold text-foreground">{disabledCount}</span> disabled
-        </span>
-        <span>
-          <span className="font-semibold text-foreground">{grouped.length}</span>{" "}
-          {grouped.length === 1 ? "company" : "companies"}
-        </span>
+        <span><span className="font-semibold text-foreground">{activeCount}</span> active</span>
+        <span><span className="font-semibold text-foreground">{disabledCount}</span> disabled</span>
+        <span><span className="font-semibold text-foreground">{grouped.length}</span> {grouped.length === 1 ? "company" : "companies"}</span>
         {anyEnabled && (
           <Button
             variant="destructive"
@@ -212,7 +212,10 @@ export function InstanceSettings() {
       )}
 
       {agents.length === 0 ? (
-        <EmptyState icon={Clock3} message="No scheduler heartbeats match the current criteria." />
+        <EmptyState
+          icon={Clock3}
+          message="No scheduler heartbeats match the current criteria."
+        />
       ) : (
         <div className="space-y-4">
           {grouped.map((group) => (
@@ -225,25 +228,35 @@ export function InstanceSettings() {
                   {group.agents.map((agent) => {
                     const saving = toggleMutation.isPending && toggleMutation.variables?.id === agent.id;
                     return (
-                      <div key={agent.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                      <div
+                        key={agent.id}
+                        className="flex items-center gap-3 px-3 py-2 text-sm"
+                      >
                         <Badge
                           variant={agent.schedulerActive ? "default" : "outline"}
                           className="shrink-0 text-[10px] px-1.5 py-0"
                         >
                           {agent.schedulerActive ? "On" : "Off"}
                         </Badge>
-                        <Link to={buildAgentHref(agent)} className="font-medium truncate hover:underline">
+                        <Link
+                          to={buildAgentHref(agent)}
+                          className="font-medium truncate hover:underline"
+                        >
                           {agent.agentName}
                         </Link>
                         <span className="hidden sm:inline text-muted-foreground truncate">
                           {humanize(agent.title ?? agent.role)}
                         </span>
-                        <span className="text-muted-foreground tabular-nums shrink-0">{agent.intervalSec}s</span>
+                        <span className="text-muted-foreground tabular-nums shrink-0">
+                          {agent.intervalSec}s
+                        </span>
                         <span
                           className="hidden md:inline text-muted-foreground truncate"
                           title={agent.lastHeartbeatAt ? formatDateTime(agent.lastHeartbeatAt) : undefined}
                         >
-                          {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "never"}
+                          {agent.lastHeartbeatAt
+                            ? relativeTime(agent.lastHeartbeatAt)
+                            : "never"}
                         </span>
                         <span className="ml-auto flex items-center gap-1.5 shrink-0">
                           <Link
@@ -260,11 +273,7 @@ export function InstanceSettings() {
                             disabled={saving}
                             onClick={() => toggleMutation.mutate(agent)}
                           >
-                            {saving
-                              ? "..."
-                              : agent.heartbeatEnabled
-                                ? "Disable Timer Heartbeat"
-                                : "Enable Timer Heartbeat"}
+                            {saving ? "..." : agent.heartbeatEnabled ? "Disable Timer Heartbeat" : "Enable Timer Heartbeat"}
                           </Button>
                         </span>
                       </div>

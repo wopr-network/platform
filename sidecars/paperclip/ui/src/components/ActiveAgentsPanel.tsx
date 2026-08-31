@@ -1,17 +1,44 @@
 import { memo, useMemo } from "react";
 import { Link } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
-import type { Issue } from "@paperclipai/shared";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import type { Issue, IssueRecoveryAction } from "@paperclipai/shared";
 import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
 import type { TranscriptEntry } from "../adapters";
 import { issuesApi } from "../api/issues";
 import { queryKeys } from "../lib/queryKeys";
-import { useHostedMode } from "../hooks/useHostedMode";
 import { cn, relativeTime } from "../lib/utils";
+import {
+  deriveActiveRecoveryDisplayState,
+  RECOVERY_CHIP_DEFAULT_TONE,
+} from "../lib/recovery-display";
 import { ExternalLink } from "lucide-react";
 import { Identity } from "./Identity";
 import { RunChatSurface } from "./RunChatSurface";
 import { useLiveRunTranscripts } from "./transcript/useLiveRunTranscripts";
+import { useHostedMode } from "../hooks/useHostedMode";
+
+function RunCardRecoveryChip({ action }: { action: IssueRecoveryAction }) {
+  const state = deriveActiveRecoveryDisplayState(action);
+  if (!state) return null;
+  const tone = RECOVERY_CHIP_DEFAULT_TONE[state];
+  const Icon = tone.icon;
+  return (
+    <span
+      data-testid="active-agent-run-recovery-indicator"
+      data-recovery-state={state}
+      role="status"
+      aria-label={tone.label}
+      title={`${tone.label} — open the source task to act.`}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+        tone.className,
+      )}
+    >
+      <Icon className="h-2.5 w-2.5" aria-hidden />
+      {tone.label}
+    </span>
+  );
+}
 
 const MIN_DASHBOARD_RUNS = 4;
 const DASHBOARD_RUN_CARD_LIMIT = 4;
@@ -49,29 +76,36 @@ export function ActiveAgentsPanel({
   queryScope = "dashboard",
   showMoreLink = true,
 }: ActiveAgentsPanelProps) {
-  const { isHosted } = useHostedMode();
   const { data: liveRuns } = useQuery({
     queryKey: [...queryKeys.liveRuns(companyId), queryScope, { minRunCount, fetchLimit }],
     queryFn: () => heartbeatsApi.liveRunsForCompany(companyId, { minCount: minRunCount, limit: fetchLimit }),
-    enabled: !isHosted,
   });
 
   const runs = liveRuns ?? [];
   const visibleRuns = useMemo(() => runs.slice(0, cardLimit), [cardLimit, runs]);
   const hiddenRunCount = Math.max(0, runs.length - visibleRuns.length);
-  const { data: issues } = useQuery({
-    queryKey: [...queryKeys.issues.list(companyId), "with-routine-executions"],
-    queryFn: () => issuesApi.list(companyId, { includeRoutineExecutions: true }),
-    enabled: visibleRuns.length > 0 && !isHosted,
+  const visibleIssueIds = useMemo(
+    () => [...new Set(visibleRuns.map((run) => run.issueId).filter((issueId): issueId is string => Boolean(issueId)))],
+    [visibleRuns],
+  );
+
+  const issueQueries = useQueries({
+    queries: visibleIssueIds.map((issueId) => ({
+      queryKey: queryKeys.issues.detail(issueId),
+      queryFn: () => issuesApi.get(issueId),
+      staleTime: 30_000,
+      retry: false,
+    })),
   });
 
   const issueById = useMemo(() => {
     const map = new Map<string, Issue>();
-    for (const issue of issues ?? []) {
-      map.set(issue.id, issue);
+    for (const query of issueQueries) {
+      const issue = query.data;
+      if (issue) map.set(issue.id, issue);
     }
     return map;
-  }, [issues]);
+  }, [issueQueries]);
 
   const { transcriptByRun, hasOutputForRun } = useLiveRunTranscripts({
     runs: visibleRuns,
@@ -81,8 +115,6 @@ export function ActiveAgentsPanel({
     logReadLimitBytes: DASHBOARD_LOG_READ_LIMIT_BYTES,
     enableRealtimeUpdates: false,
   });
-
-  if (isHosted) return null;
 
   return (
     <div>
@@ -137,16 +169,16 @@ const AgentRunCard = memo(function AgentRunCard({
   isActive: boolean;
   className?: string;
 }) {
+  const { isHosted } = useHostedMode();
+
   return (
-    <div
-      className={cn(
-        "flex h-[320px] flex-col overflow-hidden rounded-xl border shadow-sm",
-        isActive
-          ? "border-cyan-500/25 bg-cyan-500/[0.04] shadow-[0_16px_40px_rgba(6,182,212,0.08)]"
-          : "border-border bg-background/70",
-        className,
-      )}
-    >
+    <div className={cn(
+      "flex h-[320px] flex-col overflow-hidden rounded-xl border shadow-sm",
+      isActive
+        ? "border-cyan-500/25 bg-cyan-500/[0.04] shadow-[0_16px_40px_rgba(6,182,212,0.08)]"
+        : "border-border bg-background/70",
+      className,
+    )}>
       <div className="border-b border-border/60 px-3 py-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -162,41 +194,50 @@ const AgentRunCard = memo(function AgentRunCard({
               <Identity name={run.agentName} size="sm" className="[&>span:last-child]:!text-[11px]" />
             </div>
             <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-              <span>
-                {isActive
-                  ? "Live now"
-                  : run.finishedAt
-                    ? `Finished ${relativeTime(run.finishedAt)}`
-                    : `Started ${relativeTime(run.createdAt)}`}
-              </span>
+              <span>{isActive ? "Live now" : run.finishedAt ? `Finished ${relativeTime(run.finishedAt)}` : `Started ${relativeTime(run.createdAt)}`}</span>
             </div>
           </div>
 
-          <Link
-            to={`/agents/${run.agentId}/runs/${run.id}`}
-            className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ExternalLink className="h-2.5 w-2.5" />
-          </Link>
+          {!isHosted && (
+            <Link
+              to={`/agents/${run.agentId}/runs/${run.id}`}
+              className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 px-2 py-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <ExternalLink className="h-2.5 w-2.5" />
+            </Link>
+          )}
         </div>
 
         {run.issueId && (
           <div className="mt-3 rounded-lg border border-border/60 bg-background/60 px-2.5 py-2 text-xs">
-            <Link
-              to={`/issues/${issue?.identifier ?? run.issueId}`}
-              className={cn(
-                "line-clamp-2 hover:underline",
-                isActive ? "text-cyan-700 dark:text-cyan-300" : "text-muted-foreground hover:text-foreground",
-              )}
-              title={
-                issue?.title
-                  ? `${issue?.identifier ?? run.issueId.slice(0, 8)} - ${issue.title}`
-                  : (issue?.identifier ?? run.issueId.slice(0, 8))
-              }
-            >
-              {issue?.identifier ?? run.issueId.slice(0, 8)}
-              {issue?.title ? ` - ${issue.title}` : ""}
-            </Link>
+            {!isHosted ? (
+              <Link
+                to={`/issues/${issue?.identifier ?? run.issueId}`}
+                className={cn(
+                  "line-clamp-2 hover:underline",
+                  isActive ? "text-cyan-700 dark:text-cyan-300" : "text-muted-foreground hover:text-foreground",
+                )}
+                title={issue?.title ? `${issue?.identifier ?? run.issueId.slice(0, 8)} - ${issue.title}` : issue?.identifier ?? run.issueId.slice(0, 8)}
+              >
+                {issue?.identifier ?? run.issueId.slice(0, 8)}
+                {issue?.title ? ` - ${issue.title}` : ""}
+              </Link>
+            ) : (
+              <span
+                className={cn(
+                  "line-clamp-2",
+                  isActive ? "text-cyan-700 dark:text-cyan-300" : "text-muted-foreground",
+                )}
+              >
+                {issue?.identifier ?? run.issueId.slice(0, 8)}
+                {issue?.title ? ` - ${issue.title}` : ""}
+              </span>
+            )}
+            {issue?.activeRecoveryAction ? (
+              <div className="mt-1.5">
+                <RunCardRecoveryChip action={issue.activeRecoveryAction} />
+              </div>
+            ) : null}
           </div>
         )}
       </div>

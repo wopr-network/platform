@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { queryKeys } from "../lib/queryKeys";
 import { agentUrl } from "../lib/utils";
 import { Button } from "@/components/ui/button";
@@ -173,6 +174,7 @@ const defaultDotColor = "#a3a3a3";
 export function OrgChart() {
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
+  const { isHosted } = useHostedMode();
   const navigate = useNavigate();
 
   const { data: orgTree, isLoading } = useQuery({
@@ -453,18 +455,22 @@ export function OrgChart() {
   return (
     <div className="flex h-[calc(100dvh-9rem)] min-h-[420px] flex-col md:h-full md:min-h-0">
       <div className="mb-2 flex shrink-0 flex-wrap items-center justify-start gap-2">
-        <Link to="/company/import">
-          <Button variant="outline" size="sm">
-            <Upload className="mr-1.5 h-3.5 w-3.5" />
-            Import company
-          </Button>
-        </Link>
-        <Link to="/company/export">
-          <Button variant="outline" size="sm">
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            Export company
-          </Button>
-        </Link>
+        {!isHosted && (
+          <>
+            <Link to="/company/import">
+              <Button variant="outline" size="sm">
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Import company
+              </Button>
+            </Link>
+            <Link to="/company/export">
+              <Button variant="outline" size="sm">
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Export company
+              </Button>
+            </Link>
+          </>
+        )}
       </div>
       <div
         ref={containerRef}
@@ -607,7 +613,7 @@ export function OrgChart() {
                     <span className="text-[11px] text-muted-foreground leading-tight mt-0.5">
                       {agent?.title ?? roleLabel(node.role)}
                     </span>
-                    {agent && (
+                    {!isHosted && agent && (
                       <span className="text-[10px] text-muted-foreground/60 font-mono leading-tight mt-1">
                         {getAdapterLabel(agent.adapterType)}
                       </span>

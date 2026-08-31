@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
-import { useDialog } from "../context/DialogContext";
+import { useDialogActions } from "../context/DialogContext";
 import { useSidebar } from "../context/SidebarContext";
 import { issuesApi } from "../api/issues";
 import { agentsApi } from "../api/agents";
@@ -28,16 +28,28 @@ import {
   History,
   SquarePen,
   Plus,
+  Search,
 } from "lucide-react";
 import { Identity } from "./Identity";
 import { agentUrl, projectUrl } from "../lib/utils";
 
-export function CommandPalette() {
+const SEARCH_ALL_VALUE = "__paperclip-search-all__";
+
+export function buildFullSearchPath(query: string) {
+  const trimmed = query.trim();
+  return trimmed.length === 0 ? "/search" : `/search?q=${encodeURIComponent(trimmed)}`;
+}
+
+interface CommandPaletteProps {
+  isHosted?: boolean;
+}
+
+export function CommandPalette({ isHosted = false }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
   const { selectedCompanyId } = useCompany();
-  const { openNewIssue, openNewAgent } = useDialog();
+  const { openNewIssue, openNewAgent } = useDialogActions();
   const { isMobile, setSidebarOpen } = useSidebar();
   const searchQuery = query.trim();
 
@@ -80,11 +92,18 @@ export function CommandPalette() {
     queryFn: () => projectsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId && open,
   });
-  const projects = useMemo(() => allProjects.filter((p) => !p.archivedAt), [allProjects]);
+  const projects = useMemo(
+    () => allProjects.filter((p) => !p.archivedAt),
+    [allProjects],
+  );
 
   function go(path: string) {
     setOpen(false);
     navigate(path);
+  }
+
+  function goFullSearch() {
+    go(buildFullSearchPath(searchQuery));
   }
 
   const agentName = (id: string | null) => {
@@ -97,17 +116,59 @@ export function CommandPalette() {
     [issues, searchedIssues, searchQuery],
   );
 
+  const showSearchAll = searchQuery.length > 0;
+  const showEmptyHint = showSearchAll && visibleIssues.length === 0;
+
   return (
-    <CommandDialog
-      open={open}
-      onOpenChange={(v) => {
+    <CommandDialog open={open} onOpenChange={(v) => {
         setOpen(v);
         if (v && isMobile) setSidebarOpen(false);
-      }}
-    >
-      <CommandInput placeholder="Search issues, agents, projects..." value={query} onValueChange={setQuery} />
+      }}>
+      <CommandInput
+        placeholder="Search tasks, agents, projects..."
+        value={query}
+        onValueChange={setQuery}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && showEmptyHint) {
+            event.preventDefault();
+            goFullSearch();
+          }
+        }}
+      />
       <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
+        <CommandEmpty>
+          {showSearchAll ? (
+            <span>
+              No quick task matches. Press{" "}
+              <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]">↵</kbd>{" "}
+              to <span className="font-medium">search all</span> or keep typing to refine.
+            </span>
+          ) : (
+            "No results found."
+          )}
+        </CommandEmpty>
+
+        {showSearchAll ? (
+          <CommandGroup heading="Search">
+            <CommandItem
+              value={`${SEARCH_ALL_VALUE} ${searchQuery}`}
+              onSelect={goFullSearch}
+              className="bg-accent/40 border border-accent data-[selected=true]:bg-accent/60"
+              data-testid="command-search-all"
+            >
+              <Search className="mr-2 h-4 w-4" />
+              <span className="flex-1 truncate">
+                Search all for <span className="font-semibold">&ldquo;{searchQuery}&rdquo;</span>
+              </span>
+              <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <span>open full search</span>
+                <kbd className="rounded border border-border bg-background px-1 py-0.5 text-[10px]">↵</kbd>
+              </span>
+            </CommandItem>
+          </CommandGroup>
+        ) : null}
+
+        {showSearchAll ? <CommandSeparator /> : null}
 
         <CommandGroup heading="Actions">
           <CommandItem
@@ -117,18 +178,20 @@ export function CommandPalette() {
             }}
           >
             <SquarePen className="mr-2 h-4 w-4" />
-            Create new issue
+            Create new task
             <span className="ml-auto text-xs text-muted-foreground">C</span>
           </CommandItem>
-          <CommandItem
-            onSelect={() => {
-              setOpen(false);
-              openNewAgent();
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create new agent
-          </CommandItem>
+          {!isHosted && (
+            <CommandItem
+              onSelect={() => {
+                setOpen(false);
+                openNewAgent();
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create new agent
+            </CommandItem>
+          )}
           <CommandItem onSelect={() => go("/projects")}>
             <Plus className="mr-2 h-4 w-4" />
             Create new project
@@ -148,7 +211,7 @@ export function CommandPalette() {
           </CommandItem>
           <CommandItem onSelect={() => go("/issues")}>
             <CircleDot className="mr-2 h-4 w-4" />
-            Issues
+            Tasks
           </CommandItem>
           <CommandItem onSelect={() => go("/projects")}>
             <Hexagon className="mr-2 h-4 w-4" />
@@ -175,11 +238,15 @@ export function CommandPalette() {
         {visibleIssues.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Issues">
+            <CommandGroup heading="Tasks">
               {visibleIssues.slice(0, 10).map((issue) => (
                 <CommandItem
                   key={issue.id}
-                  value={searchQuery.length > 0 ? `${searchQuery} ${issue.identifier ?? ""} ${issue.title}` : undefined}
+                  value={
+                    searchQuery.length > 0
+                      ? `${searchQuery} ${issue.identifier ?? ""} ${issue.title}`
+                      : undefined
+                  }
                   onSelect={() => go(`/issues/${issue.identifier ?? issue.id}`)}
                 >
                   <CircleDot className="mr-2 h-4 w-4" />
@@ -187,11 +254,10 @@ export function CommandPalette() {
                     {issue.identifier ?? issue.id.slice(0, 8)}
                   </span>
                   <span className="flex-1 truncate">{issue.title}</span>
-                  {issue.assigneeAgentId &&
-                    (() => {
-                      const name = agentName(issue.assigneeAgentId);
-                      return name ? <Identity name={name} size="sm" className="ml-2 hidden sm:inline-flex" /> : null;
-                    })()}
+                  {issue.assigneeAgentId && (() => {
+                    const name = agentName(issue.assigneeAgentId);
+                    return name ? <Identity name={name} size="sm" className="ml-2 hidden sm:inline-flex" /> : null;
+                  })()}
                 </CommandItem>
               ))}
             </CommandGroup>

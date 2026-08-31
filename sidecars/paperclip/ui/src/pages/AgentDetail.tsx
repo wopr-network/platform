@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link, Navigate, useBeforeUnload } from "@/lib/router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   agentsApi,
   type AgentKey,
@@ -15,11 +16,11 @@ import { ApiError } from "../api/client";
 import { ChartCard, RunActivityChart, PriorityChart, IssueStatusChart, SuccessRateChart } from "../components/ActivityCharts";
 import { activityApi } from "../api/activity";
 import { issuesApi } from "../api/issues";
+import { projectsApi } from "../api/projects";
 import { usePanel } from "../context/PanelContext";
 import { useSidebar } from "../context/SidebarContext";
 import { useCompany } from "../context/CompanyContext";
 import { useToastActions } from "../context/ToastContext";
-import { useDialog } from "../context/DialogContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { AgentConfigForm } from "../components/AgentConfigForm";
@@ -27,20 +28,26 @@ import { PageTabBar } from "../components/PageTabBar";
 import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { useAdapterCapabilities } from "@/adapters/use-adapter-capabilities";
+import { redactCommandText as redactCommandSecretText } from "@paperclipai/adapter-utils";
 import { MarkdownEditor } from "../components/MarkdownEditor";
 import { assetsApi } from "../api/assets";
 import { getUIAdapter, buildTranscript, onAdapterChange } from "../adapters";
 import { StatusBadge } from "../components/StatusBadge";
-import { agentStatusDot, agentStatusDotDefault } from "../lib/status-colors";
 import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyText } from "../components/CopyText";
 import { EntityRow } from "../components/EntityRow";
+import { MembershipAction } from "../components/MembershipAction";
 import { Identity } from "../components/Identity";
 import { PageSkeleton } from "../components/PageSkeleton";
-import { RunButton, PauseResumeButton } from "../components/AgentActionButtons";
+import { AgentActionButtons } from "../components/AgentActionButtons";
 import { BudgetPolicyCard } from "../components/BudgetPolicyCard";
-import { PackageFileTree, buildFileTree } from "../components/PackageFileTree";
+import { TrustPresetSection } from "../components/TrustPresetSection";
+import { FileTree, buildFileTree } from "../components/FileTree";
 import { ScrollToBottom } from "../components/ScrollToBottom";
+import { SourceResolvedFoldCallout } from "../components/SourceResolvedFoldCallout";
+import { SourceResolvedFoldBadge } from "../components/SourceResolvedFoldBadge";
+import { readSourceResolvedWatchdogFold } from "../lib/source-resolved-watchdog-fold";
+import { buildSameOriginWebSocketUrl } from "../lib/websocket-url";
 import { formatCents, formatDate, relativeTime, formatTokens, visibleRunCostUsd } from "../lib/utils";
 import { cn } from "../lib/utils";
 import { describeRunRetryState } from "../lib/runRetryState";
@@ -49,12 +56,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  MoreHorizontal,
   CheckCircle2,
   XCircle,
   Clock,
@@ -62,7 +63,6 @@ import {
   Loader2,
   Slash,
   RotateCcw,
-  Trash2,
   Plus,
   Key,
   Eye,
@@ -73,6 +73,7 @@ import {
   ArrowLeft,
   HelpCircle,
   FolderOpen,
+  AlertTriangle,
 } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -92,8 +93,14 @@ import {
   type LiveEvent,
   type WorkspaceOperation,
 } from "@paperclipai/shared";
+import { buildPermissionsForTrustPreset, getTrustPreset } from "../lib/trust-policy-ui";
 import { redactHomePathUserSegments, redactHomePathUserSegmentsInValue } from "@paperclipai/adapter-utils";
 import { agentRouteRef } from "../lib/utils";
+import {
+  resourceMembershipState,
+  useResourceMembershipMutation,
+  useResourceMemberships,
+} from "../hooks/useResourceMemberships";
 import {
   applyAgentSkillSnapshot,
   arraysEqual,
@@ -115,7 +122,14 @@ const RUN_LOG_PAGE_BYTES = 256_000;
 const REDACTED_ENV_VALUE = "***REDACTED***";
 const SECRET_ENV_KEY_RE =
   /(api[-_]?key|access[-_]?token|auth(?:_?token)?|authorization|bearer|secret|passwd|password|credential|jwt|private[-_]?key|cookie|connectionstring)/i;
+const COMMAND_ENV_KEY_RE = /(^command$|^cmd$|command[-_]?line|resolved[-_]?command|PAPERCLIP_RESOLVED_COMMAND)/i;
 const JWT_VALUE_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)?$/;
+
+function formatOrgChainHealthPath(agent: AgentDetailRecord) {
+  return agent.orgChainHealth?.fullChain
+    .map((entry) => `${entry.name}${entry.status !== "active" && entry.status !== "idle" ? ` (${entry.status})` : ""}`)
+    .join(" -> ") ?? agent.name;
+}
 
 function redactPathText(value: string, censorUsernameInLogs: boolean) {
   return redactHomePathUserSegments(value, { enabled: censorUsernameInLogs });
@@ -123,6 +137,10 @@ function redactPathText(value: string, censorUsernameInLogs: boolean) {
 
 function redactPathValue<T>(value: T, censorUsernameInLogs: boolean): T {
   return redactHomePathUserSegmentsInValue(value, { enabled: censorUsernameInLogs });
+}
+
+function redactCommandText(value: string, censorUsernameInLogs: boolean): string {
+  return redactPathText(redactCommandSecretText(value, REDACTED_ENV_VALUE), censorUsernameInLogs);
 }
 
 function shouldRedactSecretValue(key: string, value: unknown): boolean {
@@ -142,6 +160,7 @@ function redactEnvValue(key: string, value: unknown, censorUsernameInLogs: boole
   }
   if (shouldRedactSecretValue(key, value)) return REDACTED_ENV_VALUE;
   if (value === null || value === undefined) return "";
+  if (typeof value === "string" && COMMAND_ENV_KEY_RE.test(key)) return redactCommandText(value, censorUsernameInLogs);
   if (typeof value === "string") return redactPathText(value, censorUsernameInLogs);
   try {
     return JSON.stringify(redactPathValue(value, censorUsernameInLogs));
@@ -302,7 +321,7 @@ export function RunInvocationCard({
   payload: Record<string, unknown>;
   censorUsernameInLogs: boolean;
 }) {
-  const commandLine = [
+  const rawCommandLine = [
     typeof payload.command === "string" ? payload.command : null,
     ...(Array.isArray(payload.commandArgs)
       ? payload.commandArgs.filter((value): value is string => typeof value === "string")
@@ -310,6 +329,7 @@ export function RunInvocationCard({
   ]
     .filter((value): value is string => Boolean(value))
     .join(" ");
+  const commandLine = rawCommandLine ? redactCommandText(rawCommandLine, censorUsernameInLogs) : "";
 
   const hasAdvancedDetails =
     commandLine.length > 0
@@ -618,6 +638,7 @@ function WorkspaceOperationsSection({
 }
 
 export function AgentDetail() {
+  const { isHosted } = useHostedMode();
   const { companyPrefix, agentId, tab: urlTab, runId: urlRunId } = useParams<{
     companyPrefix?: string;
     agentId: string;
@@ -626,12 +647,11 @@ export function AgentDetail() {
   }>();
   const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
   const { closePanel } = usePanel();
-  const { openNewIssue } = useDialog();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [dismissedLeftAgentIds, setDismissedLeftAgentIds] = useState<Set<string>>(() => new Set());
   const activeView = urlRunId ? "runs" as AgentDetailView : parseAgentDetailView(urlTab ?? null);
   const needsDashboardData = activeView === "dashboard";
   const needsRunData = activeView === "runs" || Boolean(urlRunId);
@@ -661,6 +681,11 @@ export function AgentDetail() {
   const canonicalAgentRef = agent ? agentRouteRef(agent) : routeAgentRef;
   const agentLookupRef = agent?.id ?? routeAgentRef;
   const resolvedAgentId = agent?.id ?? null;
+  const membershipsQuery = useResourceMemberships(resolvedCompanyId);
+  const membershipMutation = useResourceMembershipMutation(resolvedCompanyId);
+  const agentMembershipState = resolvedAgentId
+    ? resourceMembershipState(membershipsQuery.data, "agent", resolvedAgentId)
+    : "joined";
 
   const { data: runtimeState } = useQuery({
     queryKey: queryKeys.agents.runtimeState(resolvedAgentId ?? routeAgentRef),
@@ -765,18 +790,17 @@ export function AgentDetail() {
     setSelectedCompanyId(agent.companyId, { source: "route_sync" });
   }, [agent?.companyId, selectedCompanyId, setSelectedCompanyId]);
 
+  // Invoke / pause / resume / terminate / duplicate / reset live in the shared
+  // AgentActionButtons component. The detail header keeps only "approve" here,
+  // which is surfaced via the pending-approval banner below.
   const agentAction = useMutation({
-    mutationFn: async (action: "invoke" | "pause" | "resume" | "approve" | "terminate") => {
+    mutationFn: async (action: "approve") => {
       if (!agentLookupRef) return Promise.reject(new Error("No agent reference"));
-      switch (action) {
-        case "invoke": return agentsApi.invoke(agentLookupRef, resolvedCompanyId ?? undefined);
-        case "pause": return agentsApi.pause(agentLookupRef, resolvedCompanyId ?? undefined);
-        case "resume": return agentsApi.resume(agentLookupRef, resolvedCompanyId ?? undefined);
-        case "approve": return agentsApi.approve(agentLookupRef, resolvedCompanyId ?? undefined);
-        case "terminate": return agentsApi.terminate(agentLookupRef, resolvedCompanyId ?? undefined);
+      if (action === "approve") {
+        return agentsApi.approve(agentLookupRef, resolvedCompanyId ?? undefined);
       }
     },
-    onSuccess: (data, action) => {
+    onSuccess: () => {
       setActionError(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(routeAgentRef) });
       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agentLookupRef) });
@@ -787,9 +811,6 @@ export function AgentDetail() {
         if (agent?.id) {
           queryClient.invalidateQueries({ queryKey: queryKeys.heartbeats(resolvedCompanyId, agent.id) });
         }
-      }
-      if (action === "invoke" && data && typeof data === "object" && "id" in data) {
-        navigate(`/agents/${canonicalAgentRef}/runs/${(data as HeartbeatRun).id}`);
       }
     },
     onError: (err) => {
@@ -823,19 +844,6 @@ export function AgentDetail() {
       if (resolvedCompanyId) {
         queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(resolvedCompanyId) });
       }
-    },
-  });
-
-  const resetTaskSession = useMutation({
-    mutationFn: (taskKey: string | null) =>
-      agentsApi.resetSession(agentLookupRef, taskKey, resolvedCompanyId ?? undefined),
-    onSuccess: () => {
-      setActionError(null);
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.runtimeState(agentLookupRef) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.agents.taskSessions(agentLookupRef) });
-    },
-    onError: (err) => {
-      setActionError(err instanceof Error ? err.message : "Failed to reset session");
     },
   });
 
@@ -889,6 +897,16 @@ export function AgentDetail() {
     return () => closePanel();
   }, [closePanel]);
 
+  useEffect(() => {
+    if (!resolvedAgentId || agentMembershipState !== "joined") return;
+    setDismissedLeftAgentIds((current) => {
+      if (!current.has(resolvedAgentId)) return current;
+      const next = new Set(current);
+      next.delete(resolvedAgentId);
+      return next;
+    });
+  }, [resolvedAgentId, agentMembershipState]);
+
   useBeforeUnload(
     useCallback((event) => {
       if (!configDirty) return;
@@ -904,21 +922,88 @@ export function AgentDetail() {
     return <Navigate to={`/agents/${canonicalAgentRef}/dashboard`} replace />;
   }
   const isPendingApproval = agent.status === "pending_approval";
+  const hasInvalidOrgChain = agent.orgChainHealth?.status === "invalid_org_chain";
   const showConfigActionBar = (activeView === "configuration" || activeView === "instructions") && (configDirty || configSaving);
+  const showLeftAgentNotice = agentMembershipState === "left" && !dismissedLeftAgentIds.has(agent.id);
+  const agentMembershipPending =
+    membershipMutation.isPending &&
+    membershipMutation.variables?.resourceType === "agent" &&
+    membershipMutation.variables.resourceId === agent.id;
 
   return (
     <div className={cn("space-y-6", isMobile && showConfigActionBar && "pb-24")}>
+      {showLeftAgentNotice ? (
+        <div className="flex items-center gap-3 border border-yellow-300/35 bg-yellow-300/10 px-3 py-2 text-sm text-yellow-100">
+          <p className="min-w-0 flex-1">
+            You left this agent. It no longer appears in your sidebar.
+          </p>
+          <MembershipAction
+            compact
+            state="left"
+            pending={agentMembershipPending}
+            pendingState={agentMembershipPending ? membershipMutation.variables?.state : null}
+            resourceName={agent.name}
+            onJoin={() => membershipMutation.mutate({
+              resourceType: "agent",
+              resourceId: agent.id,
+              resourceName: agent.name,
+              state: "joined",
+            })}
+            onLeave={() => membershipMutation.mutate({
+              resourceType: "agent",
+              resourceId: agent.id,
+              resourceName: agent.name,
+              state: "left",
+            })}
+          />
+          <button
+            type="button"
+            className="h-6 w-6 shrink-0 text-yellow-100/70 hover:text-yellow-100"
+            aria-label="Dismiss agent membership notice"
+            onClick={() => setDismissedLeftAgentIds((current) => new Set(current).add(agent.id))}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
+      {hasInvalidOrgChain ? (
+        <div className="flex items-start gap-3 border border-amber-300/35 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 space-y-1">
+            <p className="font-medium">Invalid reporting chain</p>
+            <p className="text-amber-100/90">
+              {agent.name} cannot accept tasks or start runs until its reporting chain is repaired.
+            </p>
+            <p className="break-words font-mono text-xs text-amber-100/80">
+              {formatOrgChainHealthPath(agent)}
+            </p>
+            {agent.orgChainHealth?.repairGuidance ? (
+              <p className="text-amber-100/85">{agent.orgChainHealth.repairGuidance}</p>
+            ) : (
+              <p className="text-amber-100/85">
+                Assign this agent to an active manager/root, or explicitly pause or terminate the affected agent/subtree.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
-          <AgentIconPicker
-            value={agent.icon}
-            onChange={(icon) => updateIcon.mutate(icon)}
-          >
-            <button className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent hover:bg-accent/80 transition-colors">
+          {!isHosted ? (
+            <AgentIconPicker
+              value={agent.icon}
+              onChange={(icon) => updateIcon.mutate(icon)}
+            >
+              <button className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent hover:bg-accent/80 transition-colors">
+                <AgentIcon icon={agent.icon} className="h-6 w-6" />
+              </button>
+            </AgentIconPicker>
+          ) : (
+            <div className="shrink-0 flex items-center justify-center h-12 w-12 rounded-lg bg-accent">
               <AgentIcon icon={agent.icon} className="h-6 w-6" />
-            </button>
-          </AgentIconPicker>
+            </div>
+          )}
           <div className="min-w-0">
             <h2 className="text-2xl font-bold truncate">{agent.name}</h2>
             <p className="text-sm text-muted-foreground truncate">
@@ -927,81 +1012,31 @@ export function AgentDetail() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
+        {!isHosted && (
+          <AgentActionButtons
+            agent={agent}
+            companyId={resolvedCompanyId}
+            assignLabel="Assign Task"
+            runLabel="Run Heartbeat"
+            actionsDisabled={agentAction.isPending}
+            workActionsDisabled={hasInvalidOrgChain}
+            workActionsDisabledReason="Repair this agent's reporting chain before assigning tasks or starting runs"
+            onActionError={setActionError}
           >
-            <Plus className="h-3.5 w-3.5 sm:mr-1" />
-            <span className="hidden sm:inline">Assign Task</span>
-          </Button>
-          <RunButton
-            onClick={() => agentAction.mutate("invoke")}
-            disabled={agentAction.isPending || isPendingApproval}
-            label="Run Heartbeat"
-          />
-          <PauseResumeButton
-            isPaused={agent.status === "paused"}
-            onPause={() => agentAction.mutate("pause")}
-            onResume={() => agentAction.mutate("resume")}
-            disabled={agentAction.isPending || isPendingApproval}
-          />
-          <span className="hidden sm:inline"><StatusBadge status={agent.status} /></span>
-          {mobileLiveRun && (
-            <Link
-              to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
-              className="sm:hidden flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors no-underline"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-              </span>
-              <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
-            </Link>
-          )}
-
-          {/* Overflow menu */}
-          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon-xs">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-44 p-1" align="end">
-              <button
-                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
-                onClick={() => {
-                  navigator.clipboard.writeText(agent.id);
-                  setMoreOpen(false);
-                }}
+            {mobileLiveRun && (
+              <Link
+                to={`/agents/${canonicalAgentRef}/runs/${mobileLiveRun.id}`}
+                className="sm:hidden flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-500/10 hover:bg-blue-500/20 transition-colors no-underline"
               >
-                <Copy className="h-3 w-3" />
-                Copy Agent ID
-              </button>
-              <button
-                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
-                onClick={() => {
-                  resetTaskSession.mutate(null);
-                  setMoreOpen(false);
-                }}
-              >
-                <RotateCcw className="h-3 w-3" />
-                Reset Sessions
-              </button>
-              <button
-                className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 text-destructive"
-                onClick={() => {
-                  agentAction.mutate("terminate");
-                  setMoreOpen(false);
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-                Terminate
-              </button>
-            </PopoverContent>
-          </Popover>
-        </div>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-pulse absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                </span>
+                <span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">Live</span>
+              </Link>
+            )}
+          </AgentActionButtons>
+        )}
       </div>
 
       {!urlRunId && (
@@ -1013,10 +1048,12 @@ export function AgentDetail() {
             items={[
               { value: "dashboard", label: "Dashboard" },
               { value: "instructions", label: "Instructions" },
-              { value: "skills", label: "Skills" },
-              { value: "configuration", label: "Configuration" },
+              ...(!isHosted ? [
+                { value: "skills", label: "Skills" },
+                { value: "configuration", label: "Configuration" },
+              ] : []),
               { value: "runs", label: "Runs" },
-              { value: "budget", label: "Budget" },
+              ...(!isHosted ? [{ value: "budget", label: "Budget" }] : []),
             ]}
             value={activeView}
             onValueChange={(value) => navigate(`/agents/${canonicalAgentRef}/${value}`)}
@@ -1025,7 +1062,7 @@ export function AgentDetail() {
       )}
 
       {actionError && <p className="text-sm text-destructive">{actionError}</p>}
-      {isPendingApproval && (
+      {!isHosted && isPendingApproval && (
         <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/40 dark:bg-amber-950/30 dark:text-amber-200">
           <span>This agent is pending board approval and cannot be invoked yet.</span>
           <Button
@@ -1112,7 +1149,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "configuration" && (
+      {!isHosted && activeView === "configuration" && (
         <AgentConfigurePage
           agent={agent}
           agentId={agent.id}
@@ -1125,7 +1162,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "skills" && (
+      {!isHosted && activeView === "skills" && (
         <AgentSkillsTab
           agent={agent}
           companyId={resolvedCompanyId ?? undefined}
@@ -1144,7 +1181,7 @@ export function AgentDetail() {
         />
       )}
 
-      {activeView === "budget" && resolvedCompanyId ? (
+      {!isHosted && activeView === "budget" && resolvedCompanyId ? (
         <div className="max-w-3xl">
           <BudgetPolicyCard
             summary={agentBudgetSummary}
@@ -1283,10 +1320,10 @@ function AgentOverview({
         <ChartCard title="Run Activity" subtitle="Last 14 days">
           <RunActivityChart runs={runs} />
         </ChartCard>
-        <ChartCard title="Issues by Priority" subtitle="Last 14 days">
+        <ChartCard title="Tasks by Priority" subtitle="Last 14 days">
           <PriorityChart issues={assignedIssues} />
         </ChartCard>
-        <ChartCard title="Issues by Status" subtitle="Last 14 days">
+        <ChartCard title="Tasks by Status" subtitle="Last 14 days">
           <IssueStatusChart issues={assignedIssues} />
         </ChartCard>
         <ChartCard title="Success Rate" subtitle="Last 14 days">
@@ -1297,7 +1334,7 @@ function AgentOverview({
       {/* Recent Issues */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-medium">Recent Issues</h3>
+          <h3 className="text-sm font-medium">Recent Tasks</h3>
           <Link
             to={`/issues?participantAgentId=${agentId}`}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -1306,7 +1343,7 @@ function AgentOverview({
           </Link>
         </div>
         {assignedIssues.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recent issues.</p>
+          <p className="text-sm text-muted-foreground">No recent tasks.</p>
         ) : (
           <div className="border border-border rounded-lg">
             {assignedIssues.slice(0, 10).map((issue) => (
@@ -1320,7 +1357,7 @@ function AgentOverview({
             ))}
             {assignedIssues.length > 10 && (
               <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border">
-                +{assignedIssues.length - 10} more issues
+                +{assignedIssues.length - 10} more tasks
               </div>
             )}
           </div>
@@ -1561,6 +1598,22 @@ function ConfigurationTab({
     enabled: Boolean(companyId),
   });
 
+  const lowTrustSelected = getTrustPreset(agent.permissions) === "low_trust_review";
+
+  const { data: boundaryProjects, isLoading: boundaryProjectsLoading } = useQuery({
+    queryKey: companyId ? queryKeys.projects.list(companyId) : ["projects", "__low-trust-disabled"],
+    queryFn: () => projectsApi.list(companyId!),
+    enabled: Boolean(companyId && lowTrustSelected),
+  });
+
+  const { data: boundaryIssues, isLoading: boundaryIssuesLoading } = useQuery({
+    queryKey: companyId
+      ? [...queryKeys.issues.list(companyId), "low-trust-boundary-candidates"]
+      : ["issues", "__low-trust-disabled"],
+    queryFn: () => issuesApi.list(companyId!, { limit: 100, sortField: "updated", sortDir: "desc" }),
+    enabled: Boolean(companyId && lowTrustSelected),
+  });
+
   const updateAgent = useMutation({
     mutationFn: (data: Record<string, unknown>) => agentsApi.update(agent.id, data, companyId),
     onMutate: () => {
@@ -1607,7 +1660,9 @@ function ConfigurationTab({
         ? "Enabled automatically while this agent can create new agents."
         : taskAssignSource === "explicit_grant"
           ? "Enabled via explicit company permission grant."
-          : "Disabled unless explicitly granted.";
+          : taskAssignSource === "simple_default"
+            ? "Enabled by simple company-wide task assignment defaults."
+            : "Disabled unless explicitly granted.";
 
   return (
     <div className="space-y-6">
@@ -1625,48 +1680,6 @@ function ConfigurationTab({
         hideInstructionsFile={hideInstructionsFile}
         sectionLayout="cards"
       />
-
-      <div>
-        <h3 className="text-sm font-medium mb-3">Permissions</h3>
-        <div className="border border-border rounded-lg p-4 space-y-4">
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <div className="space-y-1">
-              <div>Can create new agents</div>
-              <p className="text-xs text-muted-foreground">
-                Lets this agent create or hire agents and implicitly assign tasks.
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={canCreateAgents}
-              onCheckedChange={() =>
-                updatePermissions.mutate({
-                  canCreateAgents: !canCreateAgents,
-                  canAssignTasks: !canCreateAgents ? true : canAssignTasks,
-                })
-              }
-              disabled={updatePermissions.isPending}
-            />
-          </div>
-          <div className="flex items-center justify-between gap-4 text-sm">
-            <div className="space-y-1">
-              <div>Can assign tasks</div>
-              <p className="text-xs text-muted-foreground">
-                {taskAssignHint}
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={canAssignTasks}
-              onCheckedChange={() =>
-                updatePermissions.mutate({
-                  canCreateAgents,
-                  canAssignTasks: !canAssignTasks,
-                })
-              }
-              disabled={updatePermissions.isPending || taskAssignLocked}
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2268,7 +2281,7 @@ function PromptsTab({
               </div>
             </div>
           )}
-          <PackageFileTree
+          <FileTree
             nodes={fileTree}
             selectedFile={selectedOrEntryFile}
             expandedDirs={expandedDirs}
@@ -2466,7 +2479,7 @@ function PromptEditorSkeleton() {
   );
 }
 
-function AgentSkillsTab({
+export function AgentSkillsTab({
   agent,
   companyId,
 }: {
@@ -2631,6 +2644,14 @@ function AgentSkillsTab({
         })),
     [companySkillKeys, skillSnapshot],
   );
+  const installedSkillRows = useMemo(
+    () => optionalSkillRows.filter((skill) => skillDraft.includes(skill.key)),
+    [optionalSkillRows, skillDraft],
+  );
+  const otherSkillRows = useMemo(
+    () => optionalSkillRows.filter((skill) => !skillDraft.includes(skill.key)),
+    [optionalSkillRows, skillDraft],
+  );
   const desiredOnlyMissingSkills = useMemo(
     () => skillDraft.filter((key) => !companySkillByKey.has(key)),
     [companySkillByKey, skillDraft],
@@ -2649,11 +2670,18 @@ function AgentSkillsTab({
   }, [skillSnapshot?.mode]);
   const unsupportedSkillMessage = useMemo(() => {
     if (skillSnapshot?.mode !== "unsupported") return null;
+    if (
+      agent.adapterType === "acpx_local" &&
+      typeof agent.adapterConfig.agent === "string" &&
+      agent.adapterConfig.agent === "custom"
+    ) {
+      return "Paperclip cannot manage skills for custom ACP commands yet.";
+    }
     if (agent.adapterType === "openclaw_gateway") {
       return "Paperclip cannot manage OpenClaw skills here. Visit your OpenClaw instance to manage this agent's skills.";
     }
     return "Paperclip cannot manage skills for this adapter yet. Manage them in the adapter directly.";
-  }, [agent.adapterType, skillSnapshot?.mode]);
+  }, [agent.adapterConfig.agent, agent.adapterType, skillSnapshot?.mode]);
   const hasUnsavedChanges = !arraysEqual(skillDraft, lastSavedSkills);
   const saveStatusLabel = syncSkills.isPending
     ? "Saving changes..."
@@ -2788,6 +2816,30 @@ function AgentSkillsTab({
               );
             };
 
+            const renderSkillSection = (
+              title: string,
+              rows: SkillRow[],
+              emptyMessage?: string,
+            ) => {
+              if (rows.length === 0 && !emptyMessage) return null;
+              return (
+                <section className="border-y border-border">
+                  <div className="border-b border-border bg-muted/40 px-3 py-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {title}
+                    </span>
+                  </div>
+                  {rows.length > 0 ? (
+                    rows.map(renderSkillRow)
+                  ) : (
+                    <div className="px-3 py-3 text-sm text-muted-foreground">
+                      {emptyMessage}
+                    </div>
+                  )}
+                </section>
+              );
+            };
+
             if (optionalSkillRows.length === 0 && requiredSkillRows.length === 0 && unmanagedSkillRows.length === 0) {
               return (
                 <section className="border-y border-border">
@@ -2800,22 +2852,17 @@ function AgentSkillsTab({
 
             return (
               <>
-                {optionalSkillRows.length > 0 && (
-                  <section className="border-y border-border">
-                    {optionalSkillRows.map(renderSkillRow)}
-                  </section>
-                )}
+                {optionalSkillRows.length > 0
+                  ? renderSkillSection(
+                      "Installed skills",
+                      installedSkillRows,
+                      "No company-library skills installed on this agent.",
+                    )
+                  : null}
 
-                {requiredSkillRows.length > 0 && (
-                  <section className="border-y border-border">
-                    <div className="border-b border-border bg-muted/40 px-3 py-2">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Required by Paperclip
-                      </span>
-                    </div>
-                    {requiredSkillRows.map(renderSkillRow)}
-                  </section>
-                )}
+                {renderSkillSection("Other skills", otherSkillRows)}
+
+                {renderSkillSection("Required by Paperclip", requiredSkillRows)}
 
                 {unmanagedSkillRows.length > 0 && (
                   <section className="border-y border-border">
@@ -2884,6 +2931,7 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
   const summary = run.resultJson
     ? String((run.resultJson as Record<string, unknown>).summary ?? (run.resultJson as Record<string, unknown>).result ?? "")
     : run.error ?? "";
+  const sourceResolvedFold = readSourceResolvedWatchdogFold(run.resultJson);
 
   return (
     <Link
@@ -2907,6 +2955,7 @@ function RunListItem({ run, isSelected, agentId }: { run: HeartbeatRun; isSelect
         )}>
           {sourceLabels[run.invocationSource] ?? run.invocationSource}
         </span>
+        {sourceResolvedFold ? <SourceResolvedFoldBadge showIcon={false} className="shrink-0 text-[10px] py-0" /> : null}
         <span className="ml-auto text-[11px] text-muted-foreground shrink-0">
           {relativeTime(run.createdAt)}
         </span>
@@ -3404,7 +3453,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
                     >
                       {clearSessionsForTouchedIssues.isPending
                         ? "clearing session..."
-                        : "clear session for these issues"}
+                        : "clear session for these tasks"}
                     </button>
                     {clearSessionsForTouchedIssues.isError && (
                       <p className="text-[11px] text-destructive mt-1">
@@ -3424,7 +3473,7 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
       {/* Issues touched by this run */}
       {touchedIssues && touchedIssues.length > 0 && (
         <div className="space-y-2">
-          <span className="text-xs font-medium text-muted-foreground">Issues Touched ({touchedIssues.length})</span>
+          <span className="text-xs font-medium text-muted-foreground">Tasks Touched ({touchedIssues.length})</span>
           <div className="border border-border rounded-lg divide-y divide-border">
             {touchedIssues.map((issue) => (
               <Link
@@ -3458,6 +3507,13 @@ function RunDetail({ run: initialRun, agentRouteId, adapterType, adapterConfig }
           <pre className="bg-neutral-100 dark:bg-neutral-950 rounded-md p-3 text-xs font-mono text-foreground overflow-x-auto whitespace-pre-wrap">{run.stdoutExcerpt}</pre>
         </div>
       )}
+
+      {(() => {
+        const fold = readSourceResolvedWatchdogFold(run.resultJson);
+        if (!fold) return null;
+        if (run.status === "failed" || run.status === "timed_out") return null;
+        return <SourceResolvedFoldCallout fold={fold} finalizedAt={run.finishedAt} />;
+      })()}
 
       {/* Log viewer */}
       <LogViewer run={run} adapterType={adapterType} />
@@ -3741,8 +3797,9 @@ function LogViewer({ run, adapterType }: { run: HeartbeatRun; adapterType: strin
 
     const connect = () => {
       if (closed) return;
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${protocol}://${window.location.host}/api/companies/${encodeURIComponent(run.companyId)}/events/ws`;
+      const url = buildSameOriginWebSocketUrl(
+        `/api/companies/${encodeURIComponent(run.companyId)}/events/ws`,
+      );
       socket = new WebSocket(url);
 
       socket.onopen = () => {

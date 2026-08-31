@@ -3,6 +3,7 @@ import type { TranscriptEntry } from "../adapters";
 import type { LiveRunForIssue } from "../api/heartbeats";
 import { IssueChatThread } from "./IssueChatThread";
 import type { IssueChatLinkedRun } from "../lib/issue-chat-messages";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 const EMPTY_COMMENTS: [] = [];
 const EMPTY_TIMELINE_EVENTS: [] = [];
@@ -27,6 +28,7 @@ export const RunChatSurface = memo(function RunChatSurface({
   hasOutput,
   companyId,
 }: RunChatSurfaceProps) {
+  const { isHosted } = useHostedMode();
   const active = isRunActive(run);
   const liveRuns = useMemo(() => (active ? [run] : EMPTY_LIVE_RUNS), [active, run]);
   const linkedRuns = useMemo<IssueChatLinkedRun[]>(
@@ -65,6 +67,9 @@ export const RunChatSurface = memo(function RunChatSurface({
       transcriptsByRunId={transcriptsByRunId}
       hasOutputForRun={(runId) => runId === run.id && hasOutput}
       includeSucceededRunsWithoutOutput
+      onStopRun={isHosted ? undefined : undefined}
+      runFinalizationActions={isHosted ? undefined : undefined}
+      onVote={isHosted ? undefined : undefined}
     />
   );
 });

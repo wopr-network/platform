@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
+import { Navigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompanyPatternIcon } from "@/components/CompanyPatternIcon";
 import { cn } from "@/lib/utils";
+import { useHostedMode } from "../hooks/useHostedMode";
 import {
   ArrowRight,
   Check,
@@ -23,8 +25,8 @@ const inviteRoleOptions = [
   {
     value: "viewer",
     label: "Viewer",
-    description: "Can view company work and follow along without operational permissions.",
-    gets: "No built-in grants.",
+    description: "Can view company work and follow along.",
+    gets: "View-only company membership.",
   },
   {
     value: "operator",
@@ -41,8 +43,8 @@ const inviteRoleOptions = [
   {
     value: "owner",
     label: "Owner",
-    description: "Full company access, including membership and permission management.",
-    gets: "Everything in Admin, plus managing members and permission grants.",
+    description: "Full company access, including membership management.",
+    gets: "Everything in Admin, plus managing members.",
   },
 ] as const;
 
@@ -371,10 +373,10 @@ function AcceptInvitePreview({
         <h3 className="text-lg font-semibold text-zinc-100">Accept company invite</h3>
         <p className="mt-1 text-sm text-zinc-400">
           {autoAccept
-            ? "Submitting your join request for Acme Robotics."
+            ? "Granting your access to Acme Robotics."
             : isCurrentMember
               ? "This account already belongs to Acme Robotics."
-              : "This will submit or complete your join request for Acme Robotics."}
+              : "This will grant or complete your access to Acme Robotics."}
         </p>
       </div>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
@@ -402,6 +404,8 @@ function InviteResultPreview({
   onboardingTextUrl?: string;
   joinedNow?: boolean;
 }) {
+  const { isHosted } = useHostedMode();
+
   return (
     <div className="mx-auto max-w-md border border-zinc-800 bg-zinc-950 p-6 text-zinc-100">
       <div className="flex items-center gap-3">
@@ -423,8 +427,8 @@ function InviteResultPreview({
           <>
             <div className="border border-zinc-800 p-3">
               <p className="mb-1 text-xs text-zinc-500">Approval page</p>
-              <a className="text-sm text-zinc-200 underline underline-offset-2" href="/company/settings/access">
-                Company Settings → Access
+              <a className="text-sm text-zinc-200 underline underline-offset-2" href="/company/settings/members">
+                Company Settings → Members
               </a>
             </div>
             <p className="text-xs text-zinc-500">
@@ -432,14 +436,14 @@ function InviteResultPreview({
             </p>
           </>
         )}
-        {claimSecret ? (
+        {!isHosted && claimSecret ? (
           <div className="space-y-1 border border-zinc-800 p-3 text-xs text-zinc-400">
             <div className="text-zinc-200">Claim secret</div>
             <div className="font-mono break-all">{claimSecret}</div>
             <div className="font-mono break-all">POST /api/agents/claim-api-key</div>
           </div>
         ) : null}
-        {onboardingTextUrl ? (
+        {!isHosted && onboardingTextUrl ? (
           <div className="text-xs text-zinc-400">
             Onboarding: <span className="font-mono break-all">{onboardingTextUrl}</span>
           </div>
@@ -572,7 +576,7 @@ function CompanyInvitesPreview() {
           </fieldset>
 
           <div className="rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground">
-            Each invite link is single-use. The first successful use consumes the link and creates or reuses the matching join request before approval.
+            Each invite link is single-use. Human invitees get the selected role immediately after sign-in; agent invites still create a join request for approval.
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -695,6 +699,12 @@ function CompanyInvitesPreview() {
 }
 
 export function InviteUxLab() {
+  const { isHosted } = useHostedMode();
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="space-y-6">
       <div className="overflow-hidden rounded-[32px] border border-border/70 bg-[linear-gradient(135deg,rgba(8,145,178,0.10),transparent_28%),linear-gradient(180deg,rgba(245,158,11,0.10),transparent_44%),var(--background)] shadow-[0_30px_80px_rgba(15,23,42,0.10)]">
@@ -852,16 +862,18 @@ export function InviteUxLab() {
             right={<AcceptInvitePreview autoAccept />}
           />
 
-          <InviteLandingShell
-            left={
-              <InviteSummaryPanel
-                title="Join Acme Robotics"
-                description="Review the invite details, then submit the agent information below to start the join request."
-                requestedAccess="Agent join request"
-              />
-            }
-            right={<AgentRequestPreview />}
-          />
+          {!isHosted && (
+            <InviteLandingShell
+              left={
+                <InviteSummaryPanel
+                  title="Join Acme Robotics"
+                  description="Review the invite details, then submit the agent information below to start the join request."
+                  requestedAccess="Agent join request"
+                />
+              }
+              right={<AgentRequestPreview />}
+            />
+          )}
 
           <InviteLandingShell
             left={
@@ -897,7 +909,7 @@ export function InviteUxLab() {
           />
           <InviteResultPreview
             title="Request to join Acme Robotics"
-            description="Ask them to visit Company Settings → Access to approve your request."
+            description="Ask them to visit Company Settings → Members to approve your request."
           />
         </div>
       </LabSection>
@@ -914,14 +926,16 @@ export function InviteUxLab() {
         </div>
       </LabSection>
 
-      <LabSection
-        eyebrow="Company settings"
-        title="Company invite management"
-        description="This section captures the board-side invite creation flow, copied-link state, audit table, and the edge states that are otherwise tedious to stage."
-        accentClassName="bg-[linear-gradient(180deg,rgba(244,114,182,0.06),transparent_28%),var(--background)]"
-      >
-        <CompanyInvitesPreview />
-      </LabSection>
+      {!isHosted && (
+        <LabSection
+          eyebrow="Company settings"
+          title="Company invite management"
+          description="This section captures the board-side invite creation flow, copied-link state, audit table, and the edge states that are otherwise tedious to stage."
+          accentClassName="bg-[linear-gradient(180deg,rgba(244,114,182,0.06),transparent_28%),var(--background)]"
+        >
+          <CompanyInvitesPreview />
+        </LabSection>
+      )}
     </div>
   );
 }

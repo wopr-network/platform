@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 export function OutputFeedbackButtons({
   activeVote,
@@ -30,6 +31,7 @@ export function OutputFeedbackButtons({
   rightSlot?: React.ReactNode;
   inline?: boolean;
 }) {
+  const { isHosted } = useHostedMode();
   const [pendingVote, setPendingVote] = useState<{
     vote: FeedbackVoteValue;
     reason?: string;
@@ -71,7 +73,7 @@ export function OutputFeedbackButtons({
   }
 
   function beginVote(vote: FeedbackVoteValue, reason?: string, behavior?: { keepReasonPromptOpen?: boolean }) {
-    if (sharingPreference === "prompt") {
+    if (sharingPreference === "prompt" && !isHosted) {
       setPendingVote({
         vote,
         ...(reason ? { reason } : {}),
@@ -176,82 +178,84 @@ export function OutputFeedbackButtons({
         </div>
       ) : null}
 
-      <Dialog
-        open={Boolean(pendingVote)}
-        onOpenChange={(open) => {
-          if (!open && !isSaving) {
-            setPendingVote(null);
-            setOptimisticVote(null);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Save your feedback sharing preference</DialogTitle>
-            <DialogDescription>
-              Choose whether voted AI outputs can be shared with Paperclip Labs. This answer becomes the default for
-              future thumbs up and thumbs down votes.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <p>This vote is always saved locally.</p>
-            <p>
-              Choose <span className="font-medium text-foreground">Always allow</span> to share this vote and future
-              voted AI outputs. Choose <span className="font-medium text-foreground">Don't allow</span> to keep this
-              vote and future votes local.
-            </p>
-            <p>You can change this later in Instance Settings &gt; General.</p>
-            {termsUrl ? (
-              <a
-                href={termsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex text-sm text-foreground underline underline-offset-4"
+      {!isHosted && (
+        <Dialog
+          open={Boolean(pendingVote)}
+          onOpenChange={(open) => {
+            if (!open && !isSaving) {
+              setPendingVote(null);
+              setOptimisticVote(null);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Save your feedback sharing preference</DialogTitle>
+              <DialogDescription>
+                Choose whether voted AI outputs can be shared with Paperclip Labs. This answer becomes the default for
+                future thumbs up and thumbs down votes.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>This vote is always saved locally.</p>
+              <p>
+                Choose <span className="font-medium text-foreground">Always allow</span> to share this vote and future
+                voted AI outputs. Choose <span className="font-medium text-foreground">Don't allow</span> to keep this
+                vote and future votes local.
+              </p>
+              <p>You can change this later in Instance Settings &gt; General.</p>
+              {termsUrl ? (
+                <a
+                  href={termsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex text-sm text-foreground underline underline-offset-4"
+                >
+                  Read our terms of service
+                </a>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!pendingVote || isSaving}
+                onClick={() => {
+                  if (!pendingVote) return;
+                  if (pendingVote.vote === "down") {
+                    setDownvoteAllowSharing(false);
+                  }
+                  void submitVote(pendingVote.vote, pendingVote.reason ? { reason: pendingVote.reason } : undefined, {
+                    keepReasonPromptOpen: pendingVote.keepReasonPromptOpen,
+                  });
+                }}
               >
-                Read our terms of service
-              </a>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!pendingVote || isSaving}
-              onClick={() => {
-                if (!pendingVote) return;
-                if (pendingVote.vote === "down") {
-                  setDownvoteAllowSharing(false);
-                }
-                void submitVote(pendingVote.vote, pendingVote.reason ? { reason: pendingVote.reason } : undefined, {
-                  keepReasonPromptOpen: pendingVote.keepReasonPromptOpen,
-                });
-              }}
-            >
-              {isSaving ? "Saving..." : "Don't allow"}
-            </Button>
-            <Button
-              type="button"
-              disabled={!pendingVote || isSaving}
-              onClick={() => {
-                if (!pendingVote) return;
-                if (pendingVote.vote === "down") {
-                  setDownvoteAllowSharing(true);
-                }
-                void submitVote(
-                  pendingVote.vote,
-                  {
-                    allowSharing: true,
-                    ...(pendingVote.reason ? { reason: pendingVote.reason } : {}),
-                  },
-                  { keepReasonPromptOpen: pendingVote.keepReasonPromptOpen },
-                );
-              }}
-            >
-              {isSaving ? "Saving..." : "Always allow"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                {isSaving ? "Saving..." : "Don't allow"}
+              </Button>
+              <Button
+                type="button"
+                disabled={!pendingVote || isSaving}
+                onClick={() => {
+                  if (!pendingVote) return;
+                  if (pendingVote.vote === "down") {
+                    setDownvoteAllowSharing(true);
+                  }
+                  void submitVote(
+                    pendingVote.vote,
+                    {
+                      allowSharing: true,
+                      ...(pendingVote.reason ? { reason: pendingVote.reason } : {}),
+                    },
+                    { keepReasonPromptOpen: pendingVote.keepReasonPromptOpen },
+                  );
+                }}
+              >
+                {isSaving ? "Saving..." : "Always allow"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 }

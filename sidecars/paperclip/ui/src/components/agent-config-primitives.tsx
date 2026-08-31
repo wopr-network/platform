@@ -17,9 +17,10 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import { AGENT_ROLE_LABELS } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 /* ---- Help text for (?) tooltips ---- */
-export const help: Record<string, string> = {
+const fullHelp: Record<string, string> = {
   name: "Display name for this agent.",
   title: "Job title shown in the org chart.",
   role: "Organizational role. Determines position and capabilities.",
@@ -56,8 +57,50 @@ export const help: Record<string, string> = {
   wakeOnDemand: "Allow this agent to be woken by assignments, API calls, UI actions, or automated systems.",
   cooldownSec: "Minimum seconds between consecutive heartbeat runs.",
   maxConcurrentRuns: "Maximum number of heartbeat runs that can execute simultaneously for this agent.",
+  maxTurnContinuationEnabled: "Automatically queue bounded continuation runs when an adapter stops because its per-run turn cap was exhausted.",
+  maxTurnContinuationMaxAttempts: "Maximum automatic continuations after one max-turn stop. This is separate from max turns per run.",
+  maxTurnContinuationDelaySec: "Seconds to wait before starting each max-turn continuation.",
   budgetMonthlyCents: "Monthly spending limit in cents. 0 means no limit.",
 };
+
+// Fields to hide in hosted mode (infrastructure-related)
+const hostedModeHiddenFields = new Set([
+  "adapterType",
+  "model",
+  "thinkingEffort",
+  "chrome",
+  "dangerouslySkipPermissions",
+  "dangerouslyBypassSandbox",
+  "search",
+  "fastMode",
+  "workspaceStrategy",
+  "workspaceBaseRef",
+  "workspaceBranchTemplate",
+  "worktreeParentDir",
+  "runtimeServicesJson",
+  "command",
+  "localCommand",
+  "args",
+  "extraArgs",
+  "cwd",
+  "bootstrapPrompt",
+  "payloadTemplateJson",
+  "webhookUrl",
+]);
+
+export const getHelp = (isHosted: boolean): Record<string, string> => {
+  if (!isHosted) return fullHelp;
+  const filtered: Record<string, string> = {};
+  for (const [key, value] of Object.entries(fullHelp)) {
+    if (!hostedModeHiddenFields.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
+};
+
+// For backwards compatibility, export help as a getter-like object
+export const help = fullHelp;
 
 import { getAdapterLabels } from "../adapters/adapter-display-registry";
 
@@ -383,7 +426,11 @@ export function DraftNumberInput({
  * type the path due to browser security limitations.
  */
 export function ChoosePathButton() {
+  const { isHosted } = useHostedMode();
   const [open, setOpen] = useState(false);
+
+  if (isHosted) return null;
+
   return (
     <>
       <button
