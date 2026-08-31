@@ -5,12 +5,15 @@ import { accessApi } from "@/api/access";
 import { ApiError } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useToast } from "@/context/ToastContext";
 import { queryKeys } from "@/lib/queryKeys";
 
 export function InstanceAccess() {
+  const { isHosted } = useHostedMode();
   const { companies } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const { pushToast } = useToast();
@@ -19,9 +22,14 @@ export function InstanceAccess() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<string>>(new Set());
 
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
+
   useEffect(() => {
     setBreadcrumbs([
-      { label: "Instance Settings", href: "/instance/settings/general" },
+      { label: "Settings", href: "/company/settings" },
+      { label: "Instance settings", href: "/company/settings/instance/general" },
       { label: "Access" },
     ]);
   }, [setBreadcrumbs]);

@@ -8,14 +8,14 @@ import {
   DEFAULT_BACKUP_RETENTION,
 } from "@paperclipai/shared";
 import { LogOut, SlidersHorizontal } from "lucide-react";
-import { Navigate } from "@/lib/router";
 import { authApi } from "@/api/auth";
 import { healthApi } from "@/api/health";
 import { instanceSettingsApi } from "@/api/instanceSettings";
 import { ModeBadge } from "@/components/access/ModeBadge";
 import { Button } from "../components/ui/button";
-import { useBreadcrumbs } from "../context/BreadcrumbContext";
+import { Navigate } from "../lib/router";
 import { useHostedMode } from "../hooks/useHostedMode";
+import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { cn } from "../lib/utils";
@@ -24,13 +24,13 @@ const FEEDBACK_TERMS_URL = import.meta.env.VITE_FEEDBACK_TERMS_URL?.trim() || "h
 
 export function InstanceGeneralSettings() {
   const { isHosted } = useHostedMode();
-
-  // Redirect to home in hosted mode — instance settings are infrastructure
-  if (isHosted) return <Navigate to="/" replace />;
-
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+
+  if (isHosted) {
+    return <Navigate to="/" replace />;
+  }
 
   const signOutMutation = useMutation({
     mutationFn: () => authApi.signOut(),
@@ -43,7 +43,11 @@ export function InstanceGeneralSettings() {
   });
 
   useEffect(() => {
-    setBreadcrumbs([{ label: "Instance Settings" }, { label: "General" }]);
+    setBreadcrumbs([
+      { label: "Settings", href: "/company/settings" },
+      { label: "Instance settings" },
+      { label: "General" },
+    ]);
   }, [setBreadcrumbs]);
 
   const generalQuery = useQuery({
@@ -74,7 +78,9 @@ export function InstanceGeneralSettings() {
   if (generalQuery.error) {
     return (
       <div className="text-sm text-destructive">
-        {generalQuery.error instanceof Error ? generalQuery.error.message : "Failed to load general settings."}
+        {generalQuery.error instanceof Error
+          ? generalQuery.error.message
+          : "Failed to load general settings."}
       </div>
     );
   }
@@ -142,7 +148,8 @@ export function InstanceGeneralSettings() {
             <h2 className="text-sm font-semibold">Censor username in logs</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
               Hide the username segment in home-directory paths and similar operator-visible log output. Standalone
-              username mentions outside of paths are not yet masked in the live transcript view. This is off by default.
+              username mentions outside of paths are not yet masked in the live transcript view. This is off by
+              default.
             </p>
           </div>
           <ToggleSwitch
@@ -159,7 +166,7 @@ export function InstanceGeneralSettings() {
           <div className="space-y-1.5">
             <h2 className="text-sm font-semibold">Keyboard shortcuts</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Enable app keyboard shortcuts, including inbox navigation and global shortcuts like creating issues or
+              Enable app keyboard shortcuts, including inbox navigation and global shortcuts like creating tasks or
               toggling panels. This is off by default.
             </p>
           </div>
@@ -279,8 +286,8 @@ export function InstanceGeneralSettings() {
           <div className="space-y-1.5">
             <h2 className="text-sm font-semibold">AI feedback sharing</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Control whether thumbs up and thumbs down votes can send the voted AI output to Paperclip Labs. Votes are
-              always saved locally.
+              Control whether thumbs up and thumbs down votes can send the voted AI output to
+              Paperclip Labs. Votes are always saved locally.
             </p>
             {FEEDBACK_TERMS_URL ? (
               <a
@@ -295,8 +302,8 @@ export function InstanceGeneralSettings() {
           </div>
           {feedbackDataSharingPreference === "prompt" ? (
             <div className="rounded-lg border border-border/70 bg-accent/20 px-3 py-2 text-sm text-muted-foreground">
-              No default is saved yet. The next thumbs up or thumbs down choice will ask once and then save the answer
-              here.
+              No default is saved yet. The next thumbs up or thumbs down choice will ask once and
+              then save the answer here.
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
@@ -326,20 +333,26 @@ export function InstanceGeneralSettings() {
                   )}
                   onClick={() =>
                     updateGeneralMutation.mutate({
-                      feedbackDataSharingPreference: option.value as "allowed" | "not_allowed",
+                      feedbackDataSharingPreference: option.value as
+                        | "allowed"
+                        | "not_allowed",
                     })
                   }
                 >
                   <div className="text-sm font-medium">{option.label}</div>
-                  <div className="text-xs text-muted-foreground">{option.description}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {option.description}
+                  </div>
                 </button>
               );
             })}
           </div>
           <p className="text-xs text-muted-foreground">
-            To retest the first-use prompt in local dev, remove the <code>feedbackDataSharingPreference</code> key from
-            the <code>instance_settings.general</code> JSON row for this instance, or set it back to{" "}
-            <code>"prompt"</code>. Unset and <code>"prompt"</code> both mean no default has been chosen yet.
+            To retest the first-use prompt in local dev, remove the{" "}
+            <code>feedbackDataSharingPreference</code> key from the{" "}
+            <code>instance_settings.general</code> JSON row for this instance, or set it back to{" "}
+            <code>"prompt"</code>. Unset and <code>"prompt"</code> both mean no default has been
+            chosen yet.
           </p>
         </div>
       </section>
