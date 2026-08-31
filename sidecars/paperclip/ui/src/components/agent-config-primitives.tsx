@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { HelpCircle, ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import { AGENT_ROLE_LABELS } from "@paperclipai/shared";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 /* ---- Help text for (?) tooltips ---- */
 export const help: Record<string, string> = {
@@ -56,6 +57,9 @@ export const help: Record<string, string> = {
   wakeOnDemand: "Allow this agent to be woken by assignments, API calls, UI actions, or automated systems.",
   cooldownSec: "Minimum seconds between consecutive heartbeat runs.",
   maxConcurrentRuns: "Maximum number of heartbeat runs that can execute simultaneously for this agent.",
+  maxTurnContinuationEnabled: "Automatically queue bounded continuation runs when an adapter stops because its per-run turn cap was exhausted.",
+  maxTurnContinuationMaxAttempts: "Maximum automatic continuations after one max-turn stop. This is separate from max turns per run.",
+  maxTurnContinuationDelaySec: "Seconds to wait before starting each max-turn continuation.",
   budgetMonthlyCents: "Monthly spending limit in cents. 0 means no limit.",
 };
 
@@ -107,6 +111,10 @@ export function ToggleField({
   onChange: (v: boolean) => void;
   toggleTestId?: string;
 }) {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
+  if (isHosted) return null;
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1.5">
@@ -383,6 +391,10 @@ export function DraftNumberInput({
  * type the path due to browser security limitations.
  */
 export function ChoosePathButton() {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
+  if (isHosted) return null;
+
   const [open, setOpen] = useState(false);
   return (
     <>

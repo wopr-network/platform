@@ -2,6 +2,7 @@ import type { AdapterConfigFieldsProps } from "../types";
 import { Field, ToggleField, DraftInput, DraftNumberInput, help } from "../../components/agent-config-primitives";
 import { ChoosePathButton } from "../../components/PathInstructionsModal";
 import { LocalWorkspaceRuntimeFields } from "../local-workspace-runtime-fields";
+import { useHostedMode } from "../../hooks/useHostedMode";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
@@ -21,6 +22,8 @@ export function ClaudeLocalConfigFields({
   models,
   hideInstructionsFile,
 }: AdapterConfigFieldsProps) {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
   return (
     <>
       {!hideInstructionsFile && (
@@ -61,6 +64,8 @@ export function ClaudeLocalConfigFields({
 }
 
 export function ClaudeLocalAdvancedFields({ isCreate, values, set, config, eff, mark }: AdapterConfigFieldsProps) {
+  const { isHosted } = useHostedMode();
+  if (isHosted) return null;
   return (
     <>
       <ToggleField

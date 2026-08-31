@@ -8,13 +8,14 @@ import { SIDEBAR_SCROLL_RESET_STATE } from "@/lib/navigation-scroll";
 import { SidebarNavItem } from "./SidebarNavItem";
 
 export function InstanceSidebar() {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
   const { data: plugins } = useQuery({
     queryKey: queryKeys.plugins.all,
     queryFn: () => pluginsApi.list(),
   });
 
   // Hide instance settings sidebar in hosted mode
+  if (!modeKnown) return null;
   if (isHosted) return null;
 
   return (

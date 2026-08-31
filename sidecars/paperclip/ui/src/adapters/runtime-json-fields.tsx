@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AdapterConfigFieldsProps } from "./types";
 import { Field, help } from "../components/agent-config-primitives";
+import { useHostedMode } from "../hooks/useHostedMode";
 
 // TODO(issue-worktree-support): re-enable this UI once the workflow is ready to ship.
 const SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI = false;
@@ -49,6 +50,10 @@ function updateJsonConfig(
 type JsonFieldProps = Pick<AdapterConfigFieldsProps, "isCreate" | "values" | "set" | "config" | "mark">;
 
 export function RuntimeServicesJsonField({ isCreate, values, set, config, mark }: JsonFieldProps) {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (isHosted || !modeKnown) {
+    return null;
+  }
   if (!SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI) {
     return null;
   }
@@ -79,6 +84,10 @@ export function RuntimeServicesJsonField({ isCreate, values, set, config, mark }
 }
 
 export function PayloadTemplateJsonField({ isCreate, values, set, config, mark }: JsonFieldProps) {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (isHosted || !modeKnown) {
+    return null;
+  }
   const existing = formatJsonObject(config.payloadTemplate);
   const [draft, setDraft] = useState(existing);
 

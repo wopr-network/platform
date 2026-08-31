@@ -54,7 +54,8 @@ export function boardMutationGuard(): RequestHandler {
       return;
     }
 
-    // Local-trusted mode and board bearer keys are not browser-session requests.
+    // Local-trusted mode, board bearer keys, and trusted Cloud tenant calls are
+    // not browser-session requests.
     // In these modes, origin/referer headers can be absent; do not block those mutations.
     // In hosted_proxy mode the platform proxies requests — origin headers may not match.
     // Check the x-platform-user-id header (injected by tenant proxy) as the hosted indicator.
@@ -63,7 +64,11 @@ export function boardMutationGuard(): RequestHandler {
       return;
     }
 
-    if (req.actor.source === "local_implicit" || req.actor.source === "board_key") {
+    if (
+      req.actor.source === "local_implicit"
+      || req.actor.source === "board_key"
+      || req.actor.source === "cloud_tenant"
+    ) {
       next();
       return;
     }

@@ -31,7 +31,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogTrigger,
@@ -41,8 +48,18 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -52,7 +69,11 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import {
   Sheet,
   SheetTrigger,
@@ -62,7 +83,11 @@ import {
   SheetDescription,
   SheetFooter,
 } from "@/components/ui/sheet";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Command,
@@ -81,11 +106,15 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Avatar, AvatarFallback, AvatarGroup, AvatarGroupCount } from "@/components/ui/avatar";
-import { StatusBadge } from "@/components/StatusBadge";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+} from "@/components/ui/avatar";
+import { StatusBadge, AgentStatusBadge, AgentStatusCapsule } from "@/components/StatusBadge";
 import { StatusIcon } from "@/components/StatusIcon";
 import { PriorityIcon } from "@/components/PriorityIcon";
-import { agentStatusDot, agentStatusDotDefault } from "@/lib/status-colors";
 import { EntityRow } from "@/components/EntityRow";
 import { EmptyState } from "@/components/EmptyState";
 import { MetricCard } from "@/components/MetricCard";
@@ -94,6 +123,96 @@ import { InlineEditor } from "@/components/InlineEditor";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { Identity } from "@/components/Identity";
 import { IssueReferencePill } from "@/components/IssueReferencePill";
+import { MembershipAction } from "@/components/MembershipAction";
+import { IssueOutputSection } from "@/components/issue-output/IssueOutputSection";
+import {
+  EnvInputsList,
+  ExternalSourcesList,
+  RequiredSkillsList,
+  StepSkillPlan,
+  StepSourcePolicy,
+  TeamCard,
+  TeamHierarchyPreview,
+  TeamRow,
+} from "@/pages/TeamCatalog";
+import {
+  currentInstalledState,
+  onboardingTeams,
+  optionalTeam,
+  outOfDateInstalledState,
+  sampleSkillPreparations,
+  sampleTeam,
+  warnTeam,
+} from "@/pages/TeamCatalog.fixtures";
+import type { IssueWorkProduct } from "@paperclipai/shared";
+
+/* ------------------------------------------------------------------ */
+/*  Sample data for the Issue Output surface showcase                  */
+/* ------------------------------------------------------------------ */
+
+function sampleOutput(
+  id: string,
+  attachmentId: string,
+  contentType: string,
+  filename: string,
+  opts: { byteSize: number; isPrimary?: boolean; createdAt: string },
+): IssueWorkProduct {
+  const contentPath = `/api/attachments/${attachmentId}/content`;
+  return {
+    id,
+    companyId: "demo-company",
+    projectId: null,
+    issueId: "demo-issue",
+    executionWorkspaceId: null,
+    runtimeServiceId: null,
+    type: "artifact",
+    provider: "paperclip",
+    externalId: null,
+    title: filename,
+    url: null,
+    status: "active",
+    reviewState: "none",
+    isPrimary: Boolean(opts.isPrimary),
+    healthStatus: "unknown",
+    summary: null,
+    createdByRunId: null,
+    createdAt: new Date(opts.createdAt),
+    updatedAt: new Date(opts.createdAt),
+    metadata: {
+      attachmentId,
+      contentType,
+      byteSize: opts.byteSize,
+      contentPath,
+      openPath: contentPath,
+      downloadPath: `${contentPath}?download=1`,
+      originalFilename: filename,
+    },
+  } as IssueWorkProduct;
+}
+
+const DESIGN_GUIDE_OUTPUTS: IssueWorkProduct[] = [
+  sampleOutput("wp-vid", "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "video/mp4", "q3-summary.mp4", {
+    byteSize: 19_293_798,
+    isPrimary: true,
+    createdAt: "2026-05-30T12:00:00Z",
+  }),
+  sampleOutput("wp-pdf", "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "application/pdf", "talking-points.pdf", {
+    byteSize: 421_888,
+    createdAt: "2026-05-30T11:52:00Z",
+  }),
+];
+
+const DESIGN_GUIDE_DEGRADED_OUTPUTS: IssueWorkProduct[] = [
+  {
+    ...sampleOutput("wp-broken", "cccccccc-cccc-4ccc-8ccc-cccccccccccc", "video/mp4", "corrupt-output.mp4", {
+      byteSize: 0,
+      isPrimary: true,
+      createdAt: "2026-05-30T12:01:00Z",
+    }),
+    // Strip the path metadata so it fails the shared artifact schema.
+    metadata: { attachmentId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", contentType: "video/mp4" },
+  } as IssueWorkProduct,
+];
 
 /* ------------------------------------------------------------------ */
 /*  Section wrapper                                                    */
@@ -102,7 +221,9 @@ import { IssueReferencePill } from "@/components/IssueReferencePill";
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-4">
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{title}</h3>
+      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+        {title}
+      </h3>
       <Separator />
       {children}
     </section>
@@ -118,6 +239,24 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
   );
 }
 
+// Onboarding seam (design §6 + §12.5): the TeamCard tile in its "Pick a starter
+// team" 3-col grid, with the first defaultInstall tile selected.
+function TeamCardShowcase() {
+  const [selectedId, setSelectedId] = useState(onboardingTeams[0]?.id ?? null);
+  return (
+    <div className="grid max-w-2xl gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {onboardingTeams.map((team) => (
+        <TeamCard
+          key={team.id}
+          team={team}
+          selected={team.id === selectedId}
+          onSelect={() => setSelectedId(team.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Color swatch                                                       */
 /* ------------------------------------------------------------------ */
@@ -125,7 +264,10 @@ function SubSection({ title, children }: { title: string; children: React.ReactN
 function Swatch({ name, cssVar }: { name: string; cssVar: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="h-8 w-8 rounded-md border border-border shrink-0" style={{ backgroundColor: `var(${cssVar})` }} />
+      <div
+        className="h-8 w-8 rounded-md border border-border shrink-0"
+        style={{ backgroundColor: `var(${cssVar})` }}
+      />
       <div>
         <p className="text-xs font-mono">{cssVar}</p>
         <p className="text-xs text-muted-foreground">{name}</p>
@@ -147,19 +289,24 @@ export function DesignGuide() {
   const [inlineText, setInlineText] = useState("Click to edit this text");
   const [inlineTitle, setInlineTitle] = useState("Editable Title");
   const [inlineDesc, setInlineDesc] = useState(
-    "This is an editable description. Click to edit it — the textarea auto-sizes to fit the content without layout shift.",
+    "This is an editable description. Click to edit it — the textarea auto-sizes to fit the content without layout shift."
   );
   const [filters, setFilters] = useState<FilterValue[]>([
     { key: "status", label: "Status", value: "Active" },
     { key: "priority", label: "Priority", value: "High" },
   ]);
+  const [allowExternal, setAllowExternal] = useState(false);
+  const [allowUnpinned, setAllowUnpinned] = useState(false);
+  const [allowLocalPath, setAllowLocalPath] = useState(false);
 
   return (
     <div className="space-y-10 max-w-4xl">
       {/* Page header */}
       <div>
         <h2 className="text-xl font-bold">Design Guide</h2>
-        <p className="text-sm text-muted-foreground mt-1">Every component, style, and pattern used across Paperclip.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Every component, style, and pattern used across Paperclip.
+        </p>
       </div>
 
       {/* ============================================================ */}
@@ -173,27 +320,9 @@ export function DesignGuide() {
           <SubSection title="UI primitives">
             <div className="flex flex-wrap gap-2">
               {[
-                "avatar",
-                "badge",
-                "breadcrumb",
-                "button",
-                "card",
-                "checkbox",
-                "collapsible",
-                "command",
-                "dialog",
-                "dropdown-menu",
-                "input",
-                "label",
-                "popover",
-                "scroll-area",
-                "select",
-                "separator",
-                "sheet",
-                "skeleton",
-                "tabs",
-                "textarea",
-                "tooltip",
+                "avatar", "badge", "breadcrumb", "button", "card", "checkbox", "collapsible",
+                "command", "dialog", "dropdown-menu", "input", "label", "popover", "scroll-area",
+                "select", "separator", "sheet", "skeleton", "tabs", "textarea", "tooltip",
               ].map((name) => (
                 <Badge key={name} variant="outline" className="font-mono text-[10px]">
                   {name}
@@ -204,21 +333,9 @@ export function DesignGuide() {
           <SubSection title="App components">
             <div className="flex flex-wrap gap-2">
               {[
-                "StatusBadge",
-                "StatusIcon",
-                "PriorityIcon",
-                "EntityRow",
-                "EmptyState",
-                "MetricCard",
-                "FilterBar",
-                "InlineEditor",
-                "PageSkeleton",
-                "Identity",
-                "CommentThread",
-                "MarkdownEditor",
-                "PropertiesPanel",
-                "Sidebar",
-                "CommandPalette",
+                "StatusBadge", "StatusIcon", "PriorityIcon", "EntityRow", "EmptyState", "MetricCard",
+                "FilterBar", "InlineEditor", "PageSkeleton", "Identity", "CommentThread", "MarkdownEditor",
+                "PropertiesPanel", "Sidebar", "CommandPalette",
               ].map((name) => (
                 <Badge key={name} variant="ghost" className="font-mono text-[10px]">
                   {name}
@@ -281,8 +398,12 @@ export function DesignGuide() {
           <p className="text-sm font-medium">Card Title — text-sm font-medium</p>
           <p className="text-sm font-semibold">Card Title Alt — text-sm font-semibold</p>
           <p className="text-sm">Body text — text-sm</p>
-          <p className="text-sm text-muted-foreground">Muted description — text-sm text-muted-foreground</p>
-          <p className="text-xs text-muted-foreground">Tiny label — text-xs text-muted-foreground</p>
+          <p className="text-sm text-muted-foreground">
+            Muted description — text-sm text-muted-foreground
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Tiny label — text-xs text-muted-foreground
+          </p>
           <p className="text-sm font-mono text-muted-foreground">
             Mono identifier — text-sm font-mono text-muted-foreground
           </p>
@@ -304,7 +425,10 @@ export function DesignGuide() {
             ["full", "9999px"],
           ].map(([label, radius]) => (
             <div key={label} className="flex flex-col items-center gap-1">
-              <div className="h-12 w-12 bg-primary" style={{ borderRadius: radius }} />
+              <div
+                className="h-12 w-12 bg-primary"
+                style={{ borderRadius: radius }}
+              />
               <span className="text-xs text-muted-foreground">{label}</span>
             </div>
           ))}
@@ -337,44 +461,26 @@ export function DesignGuide() {
 
         <SubSection title="Icon buttons">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="ghost" size="icon-xs">
-              <Search />
-            </Button>
-            <Button variant="ghost" size="icon-sm">
-              <Search />
-            </Button>
-            <Button variant="outline" size="icon">
-              <Search />
-            </Button>
-            <Button variant="outline" size="icon-lg">
-              <Search />
-            </Button>
+            <Button variant="ghost" size="icon-xs"><Search /></Button>
+            <Button variant="ghost" size="icon-sm"><Search /></Button>
+            <Button variant="outline" size="icon"><Search /></Button>
+            <Button variant="outline" size="icon-lg"><Search /></Button>
           </div>
         </SubSection>
 
         <SubSection title="With icons">
           <div className="flex items-center gap-2 flex-wrap">
-            <Button>
-              <Plus /> New Issue
-            </Button>
-            <Button variant="outline">
-              <Upload /> Upload
-            </Button>
-            <Button variant="destructive">
-              <Trash2 /> Delete
-            </Button>
-            <Button size="sm">
-              <Plus /> Add
-            </Button>
+            <Button><Plus /> New Task</Button>
+            <Button variant="outline"><Upload /> Upload</Button>
+            <Button variant="destructive"><Trash2 /> Delete</Button>
+            <Button size="sm"><Plus /> Add</Button>
           </div>
         </SubSection>
 
         <SubSection title="States">
           <div className="flex items-center gap-2 flex-wrap">
             <Button disabled>Disabled</Button>
-            <Button variant="outline" disabled>
-              Disabled Outline
-            </Button>
+            <Button variant="outline" disabled>Disabled Outline</Button>
           </div>
         </SubSection>
       </Section>
@@ -401,31 +507,11 @@ export function DesignGuide() {
         <SubSection title="StatusBadge (all statuses)">
           <div className="flex items-center gap-2 flex-wrap">
             {[
-              "active",
-              "running",
-              "paused",
-              "idle",
-              "archived",
-              "planned",
-              "achieved",
-              "completed",
-              "failed",
-              "timed_out",
-              "succeeded",
-              "error",
-              "pending_approval",
-              "backlog",
-              "todo",
-              "in_progress",
-              "in_review",
-              "blocked",
-              "done",
-              "terminated",
-              "cancelled",
-              "pending",
-              "revision_requested",
-              "approved",
-              "rejected",
+              "active", "running", "paused", "idle", "archived", "planned",
+              "achieved", "completed", "failed", "timed_out", "succeeded", "error",
+              "pending_approval", "backlog", "todo", "in_progress", "in_review", "blocked",
+              "done", "terminated", "cancelled", "pending", "revision_requested",
+              "approved", "rejected",
             ].map((s) => (
               <StatusBadge key={s} status={s} />
             ))}
@@ -434,12 +520,14 @@ export function DesignGuide() {
 
         <SubSection title="StatusIcon (interactive)">
           <div className="flex items-center gap-3 flex-wrap">
-            {["backlog", "todo", "in_progress", "in_review", "done", "cancelled", "blocked"].map((s) => (
-              <div key={s} className="flex items-center gap-1.5">
-                <StatusIcon status={s} />
-                <span className="text-xs text-muted-foreground">{s}</span>
-              </div>
-            ))}
+            {["backlog", "todo", "in_progress", "in_review", "done", "cancelled", "blocked"].map(
+              (s) => (
+                <div key={s} className="flex items-center gap-1.5">
+                  <StatusIcon status={s} />
+                  <span className="text-xs text-muted-foreground">{s}</span>
+                </div>
+              )
+            )}
           </div>
           <div className="flex items-center gap-2 mt-2">
             <StatusIcon status={status} onChange={setStatus} />
@@ -462,16 +550,18 @@ export function DesignGuide() {
           </div>
         </SubSection>
 
-        <SubSection title="Agent status dots">
-          <div className="flex items-center gap-4 flex-wrap">
-            {(["running", "active", "paused", "error", "archived"] as const).map((label) => (
+        <SubSection title="Agent status (capsule + chip)">
+          <p className="text-xs text-muted-foreground mb-3 max-w-prose">
+            The agents section uses a brand heartbeat capsule (8×16) plus a brand
+            <code className="mx-1">.task-chip</code>. Four states only: idle (gray),
+            running (blue, pulses), paused (amber), error (red, blinks). Motion
+            honors <code>prefers-reduced-motion</code>.
+          </p>
+          <div className="flex items-center gap-6 flex-wrap">
+            {(["idle", "running", "paused", "error"] as const).map((label) => (
               <div key={label} className="flex items-center gap-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span
-                    className={`inline-flex h-full w-full rounded-full ${agentStatusDot[label] ?? agentStatusDotDefault}`}
-                  />
-                </span>
-                <span className="text-xs text-muted-foreground">{label}</span>
+                <AgentStatusCapsule status={label} />
+                <AgentStatusBadge status={label} />
               </div>
             ))}
           </div>
@@ -543,11 +633,21 @@ export function DesignGuide() {
             <div className="space-y-4">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Title (single-line)</p>
-                <InlineEditor value={inlineTitle} onSave={setInlineTitle} as="h2" className="text-xl font-bold" />
+                <InlineEditor
+                  value={inlineTitle}
+                  onSave={setInlineTitle}
+                  as="h2"
+                  className="text-xl font-bold"
+                />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Body text (single-line)</p>
-                <InlineEditor value={inlineText} onSave={setInlineText} as="p" className="text-sm" />
+                <InlineEditor
+                  value={inlineText}
+                  onSave={setInlineText}
+                  as="p"
+                  className="text-sm"
+                />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Description (multiline, auto-sizing)</p>
@@ -623,12 +723,15 @@ export function DesignGuide() {
               Open docs
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem checked={menuChecked} onCheckedChange={(value) => setMenuChecked(value === true)}>
-              Watch issue
+            <DropdownMenuCheckboxItem
+              checked={menuChecked}
+              onCheckedChange={(value) => setMenuChecked(value === true)}
+            >
+              Watch task
             </DropdownMenuCheckboxItem>
             <DropdownMenuItem variant="destructive">
               <Trash2 className="h-4 w-4" />
-              Delete issue
+              Delete task
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -640,13 +743,13 @@ export function DesignGuide() {
       <Section title="Popover">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm">
-              Open Popover
-            </Button>
+            <Button variant="outline" size="sm">Open Popover</Button>
           </PopoverTrigger>
           <PopoverContent className="space-y-2">
             <p className="text-sm font-medium">Agent heartbeat</p>
-            <p className="text-xs text-muted-foreground">Last run succeeded 24s ago. Next timer run in 9m.</p>
+            <p className="text-xs text-muted-foreground">
+              Last run succeeded 24s ago. Next timer run in 9m.
+            </p>
             <Button size="xs">Wake now</Button>
           </PopoverContent>
         </Popover>
@@ -677,13 +780,11 @@ export function DesignGuide() {
       <Section title="Sheet">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="sm">
-              Open Side Panel
-            </Button>
+            <Button variant="outline" size="sm">Open Side Panel</Button>
           </SheetTrigger>
           <SheetContent side="right">
             <SheetHeader>
-              <SheetTitle>Issue Properties</SheetTitle>
+              <SheetTitle>Task Properties</SheetTitle>
               <SheetDescription>Edit metadata without leaving the current page.</SheetDescription>
             </SheetHeader>
             <div className="space-y-4 px-4">
@@ -735,7 +836,7 @@ export function DesignGuide() {
                 </CommandItem>
                 <CommandItem>
                   <CircleDot className="h-4 w-4" />
-                  Issues
+                  Tasks
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
@@ -746,7 +847,7 @@ export function DesignGuide() {
                 </CommandItem>
                 <CommandItem>
                   <Plus className="h-4 w-4" />
-                  Create new issue
+                  Create new task
                 </CommandItem>
               </CommandGroup>
             </CommandList>
@@ -769,7 +870,7 @@ export function DesignGuide() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Issue List</BreadcrumbPage>
+              <BreadcrumbPage>Task List</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -790,9 +891,7 @@ export function DesignGuide() {
             </CardContent>
             <CardFooter className="gap-2">
               <Button size="sm">Action</Button>
-              <Button variant="outline" size="sm">
-                Cancel
-              </Button>
+              <Button variant="outline" size="sm">Cancel</Button>
             </CardFooter>
           </Card>
         </SubSection>
@@ -800,7 +899,7 @@ export function DesignGuide() {
         <SubSection title="Metric Cards">
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             <MetricCard icon={Bot} value={12} label="Active Agents" description="+3 this week" />
-            <MetricCard icon={CircleDot} value={48} label="Open Issues" />
+            <MetricCard icon={CircleDot} value={48} label="Open Tasks" />
             <MetricCard icon={DollarSign} value="$1,234" label="Monthly Cost" description="Under budget" />
             <MetricCard icon={Zap} value="99.9%" label="Uptime" />
           </div>
@@ -911,6 +1010,66 @@ export function DesignGuide() {
             selected
           />
         </div>
+        <SubSection title="Membership action">
+          <div className="border border-border rounded-md">
+            <EntityRow
+              title="Joined resource"
+              subtitle="Hover or focus the row to reveal the reserved action slot."
+              className="group"
+              trailing={
+                <MembershipAction
+                  state="joined"
+                  resourceName="Joined resource"
+                  onJoin={() => {}}
+                  onLeave={() => {}}
+                />
+              }
+            />
+            <EntityRow
+              title="Left resource"
+              subtitle="Persistent action with dimmed row content."
+              className="group text-foreground/55"
+              trailing={
+                <MembershipAction
+                  state="left"
+                  resourceName="Left resource"
+                  onJoin={() => {}}
+                  onLeave={() => {}}
+                />
+              }
+            />
+            <EntityRow
+              title="Leaving resource"
+              subtitle="Disabled while the optimistic mutation is pending."
+              className="group text-foreground/55"
+              trailing={
+                <MembershipAction
+                  state="left"
+                  pending
+                  pendingState="left"
+                  resourceName="Leaving resource"
+                  onJoin={() => {}}
+                  onLeave={() => {}}
+                />
+              }
+            />
+            <EntityRow
+              title="Joining resource"
+              subtitle="The target state is visible immediately while the server confirms."
+              className="group"
+              trailing={
+                <MembershipAction
+                  state="joined"
+                  pending
+                  pendingState="joined"
+                  resourceName="Joining resource"
+                  onJoin={() => {}}
+                  onLeave={() => {}}
+                />
+              }
+            />
+          </div>
+        </SubSection>
       </Section>
 
       {/* ============================================================ */}
@@ -944,29 +1103,17 @@ export function DesignGuide() {
       <Section title="Avatars">
         <SubSection title="Sizes">
           <div className="flex items-center gap-3">
-            <Avatar size="sm">
-              <AvatarFallback>SM</AvatarFallback>
-            </Avatar>
-            <Avatar>
-              <AvatarFallback>DF</AvatarFallback>
-            </Avatar>
-            <Avatar size="lg">
-              <AvatarFallback>LG</AvatarFallback>
-            </Avatar>
+            <Avatar size="sm"><AvatarFallback>SM</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>DF</AvatarFallback></Avatar>
+            <Avatar size="lg"><AvatarFallback>LG</AvatarFallback></Avatar>
           </div>
         </SubSection>
 
         <SubSection title="Group">
           <AvatarGroup>
-            <Avatar>
-              <AvatarFallback>A1</AvatarFallback>
-            </Avatar>
-            <Avatar>
-              <AvatarFallback>A2</AvatarFallback>
-            </Avatar>
-            <Avatar>
-              <AvatarFallback>A3</AvatarFallback>
-            </Avatar>
+            <Avatar><AvatarFallback>A1</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>A2</AvatarFallback></Avatar>
+            <Avatar><AvatarFallback>A3</AvatarFallback></Avatar>
             <AvatarGroupCount>+5</AvatarGroupCount>
           </AvatarGroup>
         </SubSection>
@@ -1004,17 +1151,13 @@ export function DesignGuide() {
         <div className="flex items-center gap-4">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm">
-                Hover me
-              </Button>
+              <Button variant="outline" size="sm">Hover me</Button>
             </TooltipTrigger>
             <TooltipContent>This is a tooltip</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm">
-                <Settings />
-              </Button>
+              <Button variant="ghost" size="icon-sm"><Settings /></Button>
             </TooltipTrigger>
             <TooltipContent>Settings</TooltipContent>
           </Tooltip>
@@ -1099,13 +1242,13 @@ export function DesignGuide() {
       {/* ============================================================ */}
       <Section title="Log Viewer">
         <div className="bg-neutral-950 rounded-lg p-3 font-mono text-xs max-h-80 overflow-y-auto">
-          <div className="text-foreground">[12:00:01] INFO Agent started successfully</div>
-          <div className="text-foreground">[12:00:02] INFO Processing task PAP-001</div>
-          <div className="text-yellow-400">[12:00:05] WARN Rate limit approaching (80%)</div>
-          <div className="text-foreground">[12:00:08] INFO Task PAP-001 completed</div>
+          <div className="text-foreground">[12:00:01] INFO  Agent started successfully</div>
+          <div className="text-foreground">[12:00:02] INFO  Processing task PAP-001</div>
+          <div className="text-yellow-400">[12:00:05] WARN  Rate limit approaching (80%)</div>
+          <div className="text-foreground">[12:00:08] INFO  Task PAP-001 completed</div>
           <div className="text-red-400">[12:00:12] ERROR Connection timeout to upstream service</div>
-          <div className="text-blue-300">[12:00:12] SYS Retrying connection in 5s...</div>
-          <div className="text-foreground">[12:00:17] INFO Reconnected successfully</div>
+          <div className="text-blue-300">[12:00:12] SYS   Retrying connection in 5s...</div>
+          <div className="text-foreground">[12:00:17] INFO  Reconnected successfully</div>
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full rounded-full bg-cyan-400 animate-pulse" />
@@ -1132,9 +1275,7 @@ export function DesignGuide() {
           <div className="flex items-center justify-between py-1.5">
             <span className="text-xs text-muted-foreground">Assignee</span>
             <div className="flex items-center gap-1.5">
-              <Avatar size="sm">
-                <AvatarFallback>A</AvatarFallback>
-              </Avatar>
+              <Avatar size="sm"><AvatarFallback>A</AvatarFallback></Avatar>
               <span className="text-xs">Agent Alpha</span>
             </div>
           </div>
@@ -1157,8 +1298,10 @@ export function DesignGuide() {
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground cursor-pointer">
               <CircleDot className="h-4 w-4" />
-              Issues
-              <span className="ml-auto text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">12</span>
+              Tasks
+              <span className="ml-auto text-xs bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">
+                12
+              </span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground cursor-pointer">
               <Bot className="h-4 w-4" />
@@ -1188,7 +1331,7 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  GROUPED LIST (Issues pattern)                                */}
       {/* ============================================================ */}
-      <Section title="Grouped List (Issues pattern)">
+      <Section title="Grouped List (Tasks pattern)">
         <div>
           <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 rounded-t-md">
             <StatusIcon status="in_progress" />
@@ -1318,6 +1461,94 @@ export function DesignGuide() {
       {/* ============================================================ */}
       {/*  ICON REFERENCE                                               */}
       {/* ============================================================ */}
+      {/*  TEAM CATALOG                                                 */}
+      {/* ============================================================ */}
+      <Section title="Team Catalog">
+        <p className="text-sm text-muted-foreground">
+          Components from the Team Catalog browse/install surface (<code className="font-mono text-xs">/teams-catalog</code>).
+          Fixtures are shared with the Storybook stories.
+        </p>
+
+        <SubSection title="TeamRow (browse list)">
+          <div className="w-[28rem] rounded-md border border-border">
+            <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Bundled · 1
+            </div>
+            <TeamRow team={sampleTeam} selected onSelect={() => {}} />
+            <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Optional · 2
+            </div>
+            <TeamRow team={optionalTeam} selected={false} onSelect={() => {}} />
+            <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Installed · 2
+            </div>
+            <TeamRow team={sampleTeam} selected={false} onSelect={() => {}} installed={outOfDateInstalledState} />
+            <TeamRow team={warnTeam} selected={false} onSelect={() => {}} installed={currentInstalledState} />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Installed teams collapse under <code className="font-mono">INSTALLED · N</code>; an out-of-date
+            install (server <code className="font-mono">originHash</code> ≠ catalog <code className="font-mono">contentHash</code>)
+            shows the amber <code className="font-mono">↑</code> badge (PAP-10256).
+          </p>
+        </SubSection>
+
+        <SubSection title="TeamCard (onboarding grid)">
+          <p className="text-xs text-muted-foreground">
+            Square tile for the onboarding &ldquo;Pick a starter team&rdquo; grid. Selected tile gets{" "}
+            <code className="font-mono">ring-2 ring-ring</code>. Drives the{" "}
+            <code className="font-mono">useInstallTeamCatalogEntry</code> simplified flow.
+          </p>
+          <TeamCardShowcase />
+        </SubSection>
+
+        <SubSection title="TeamHierarchyPreview">
+          <div className="max-w-md">
+            <TeamHierarchyPreview team={sampleTeam} />
+          </div>
+        </SubSection>
+
+        <SubSection title="RequiredSkillsList">
+          <div className="max-w-xl">
+            <RequiredSkillsList skills={sampleTeam.requiredSkills} />
+          </div>
+        </SubSection>
+
+        <SubSection title="EnvInputsList">
+          <div className="max-w-xl">
+            <EnvInputsList inputs={sampleTeam.envInputs} />
+          </div>
+        </SubSection>
+
+        <SubSection title="ExternalSourcesList">
+          <div className="max-w-xl">
+            <ExternalSourcesList sources={sampleTeam.sourceRefs} />
+          </div>
+        </SubSection>
+
+        <SubSection title="Source policy step (StepSourcePolicy)">
+          <div className="max-w-xl rounded-md border border-border p-4">
+            <StepSourcePolicy
+              team={warnTeam}
+              allowExternalSources={allowExternal}
+              allowUnpinnedOptionalSources={allowUnpinned}
+              allowLocalPathSources={allowLocalPath}
+              onChange={(key, value) => {
+                if (key === "external") setAllowExternal(value);
+                if (key === "unpinned") setAllowUnpinned(value);
+                if (key === "localPath") setAllowLocalPath(value);
+              }}
+            />
+          </div>
+        </SubSection>
+
+        <SubSection title="Skill plan step (StepSkillPlan)">
+          <div className="max-w-xl rounded-md border border-border p-4">
+            <StepSkillPlan team={sampleTeam} preparations={sampleSkillPreparations} />
+          </div>
+        </SubSection>
+      </Section>
+
+      {/* ============================================================ */}
       <Section title="Common Icons (Lucide)">
         <div className="grid grid-cols-4 md:grid-cols-6 gap-4">
           {[
@@ -1357,7 +1588,7 @@ export function DesignGuide() {
         <div className="border border-border rounded-md divide-y divide-border text-sm">
           {[
             ["Cmd+K / Ctrl+K", "Open Command Palette"],
-            ["C", "New Issue (outside inputs)"],
+            ["C", "New Task (outside inputs)"],
             ["[", "Toggle Sidebar"],
             ["]", "Toggle Properties Panel"],
 
@@ -1365,10 +1596,27 @@ export function DesignGuide() {
           ].map(([key, desc]) => (
             <div key={key} className="flex items-center justify-between px-4 py-2">
               <span className="text-muted-foreground">{desc}</span>
-              <kbd className="px-2 py-0.5 text-xs font-mono bg-muted rounded border border-border">{key}</kbd>
+              <kbd className="px-2 py-0.5 text-xs font-mono bg-muted rounded border border-border">
+                {key}
+              </kbd>
             </div>
           ))}
         </div>
+      </Section>
+
+      <Section title="Task Output Surface">
+        <SubSection title="Multiple outputs (primary video + 'Also produced')">
+          <IssueOutputSection workProducts={DESIGN_GUIDE_OUTPUTS} />
+        </SubSection>
+        <SubSection title="Degraded output (invalid / failed attachment metadata)">
+          <IssueOutputSection workProducts={DESIGN_GUIDE_DEGRADED_OUTPUTS} />
+        </SubSection>
+        <SubSection title="Empty state">
+          <p className="text-xs text-muted-foreground">
+            When a task has produced no artifact work products, the Output section renders nothing
+            at all (no placeholder card).
+          </p>
+        </SubSection>
       </Section>
     </div>
   );

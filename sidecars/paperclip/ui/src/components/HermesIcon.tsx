@@ -12,9 +12,10 @@ interface HermesIconProps {
  * ⚕️ inspired but as the proper caduceus (Hermes' symbol): staff + two snakes + wings.
  */
 export function HermesIcon({ className }: HermesIconProps) {
-  const { isHosted } = useHostedMode();
+  const { isHosted, modeKnown } = useHostedMode();
 
   // Hide infrastructure-specific adapter icon in hosted mode
+  if (!modeKnown) return null;
   if (isHosted) return null;
   return (
     <svg

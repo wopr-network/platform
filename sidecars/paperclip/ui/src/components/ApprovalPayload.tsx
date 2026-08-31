@@ -1,4 +1,5 @@
 import { UserPlus, Lightbulb, ShieldAlert, ShieldCheck } from "lucide-react";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { formatCents } from "../lib/utils";
 
 export const typeLabel: Record<string, string> = {
@@ -72,7 +73,7 @@ function SkillList({ values }: { values: unknown }) {
   );
 }
 
-export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
+function HireAgentPayloadContent({ payload }: { payload: Record<string, unknown> }) {
   return (
     <div className="mt-3 space-y-1.5 text-sm">
       <div className="flex items-center gap-2">
@@ -97,6 +98,34 @@ export function HireAgentPayload({ payload }: { payload: Record<string, unknown>
       <SkillList values={payload.desiredSkills} />
     </div>
   );
+}
+
+export function HireAgentPayload({ payload }: { payload: Record<string, unknown> }) {
+  const { isHosted, modeKnown } = useHostedMode();
+  // Don't render until deployment mode is known to prevent UI flashing
+  if (!modeKnown) return null;
+  // Hide adapter type in hosted mode
+  if (isHosted) {
+    return (
+      <div className="mt-3 space-y-1.5 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs">Name</span>
+          <span className="font-medium">{String(payload.name ?? "—")}</span>
+        </div>
+        <PayloadField label="Role" value={payload.role} />
+        <PayloadField label="Title" value={payload.title} />
+        <PayloadField label="Icon" value={payload.icon} />
+        {!!payload.capabilities && (
+          <div className="flex items-start gap-2">
+            <span className="text-muted-foreground w-20 sm:w-24 shrink-0 text-xs pt-0.5">Capabilities</span>
+            <span className="text-muted-foreground">{String(payload.capabilities)}</span>
+          </div>
+        )}
+        <SkillList values={payload.desiredSkills} />
+      </div>
+    );
+  }
+  return <HireAgentPayloadContent payload={payload} />;
 }
 
 export function CeoStrategyPayload({ payload }: { payload: Record<string, unknown> }) {

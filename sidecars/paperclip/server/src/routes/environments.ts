@@ -1,5 +1,6 @@
 import { Router, type Request } from "express";
 import type { Db } from "@paperclipai/db";
+import type { DeploymentMode } from "@paperclipai/shared";
 import {
   AGENT_ADAPTER_TYPES,
   createEnvironmentSchema,
@@ -7,8 +8,9 @@ import {
   probeEnvironmentConfigSchema,
   updateEnvironmentSchema,
 } from "@paperclipai/shared";
-import { forbidden } from "../errors.js";
+import { conflict, forbidden } from "../errors.js";
 import { validate } from "../middleware/validate.js";
+import { hostedModeGuard } from "../middleware/index.js";
 import {
   accessService,
   agentService,
@@ -17,6 +19,7 @@ import {
   projectService,
 } from "../services/index.js";
 import {
+  collectEnvironmentSecretRefs,
   normalizeEnvironmentConfigForPersistence,
   normalizeEnvironmentConfigForProbe,
   parseEnvironmentDriverConfig,
@@ -26,6 +29,7 @@ import {
 import { probeEnvironment } from "../services/environment-probe.js";
 import { secretService } from "../services/secrets.js";
 import { listReadyPluginEnvironmentDrivers } from "../services/plugin-environment-driver.js";
+import { getConfiguredSecretProvider } from "../secrets/configured-provider.js";
 import { assertCompanyAccess, getActorInfo } from "./authz.js";
 import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
 import { environmentService } from "../services/environments.js";
@@ -33,7 +37,7 @@ import { executionWorkspaceService } from "../services/execution-workspaces.js";
 
 export function environmentRoutes(
   db: Db,
-  options: { pluginWorkerManager?: PluginWorkerManager } = {},
+  options: { pluginWorkerManager?: PluginWorkerManager; deploymentMode?: DeploymentMode } = {},
 ) {
   const router = Router();
   const agents = agentService(db);
@@ -191,9 +195,19 @@ export function environmentRoutes(
     ));
   });
 
-  router.post("/companies/:companyId/environments", validate(createEnvironmentSchema), async (req, res) => {
+  router.post(
+    "/companies/:companyId/environments",
+    hostedModeGuard({ operation: "Environment creation" }),
+    validate(createEnvironmentSchema),
+    async (req, res) => {
     const companyId = req.params.companyId as string;
     await assertCanMutateEnvironments(req, companyId);
+    if (req.body.driver === "local") {
+      const existingLocal = await svc.list(companyId, { driver: "local" });
+      if (existingLocal.length > 0) {
+        throw conflict("A local environment already exists for this company.");
+      }
+    }
     const actor = getActorInfo(req);
     const input = {
       ...req.body,
@@ -202,6 +216,7 @@ export function environmentRoutes(
         companyId,
         environmentName: req.body.name,
         driver: req.body.driver,
+        secretProvider: getConfiguredSecretProvider(),
         config: req.body.config,
         actor: {
           agentId: actor.agentId,
@@ -211,6 +226,11 @@ export function environmentRoutes(
       }),
     };
     const environment = await svc.create(companyId, input);
+    await secrets.syncSecretRefsForTarget(
+      companyId,
+      { targetType: "environment", targetId: environment.id },
+      await collectEnvironmentSecretRefs({ db, environment }),
+    );
     await logActivity(db, {
       companyId,
       actorType: actor.actorType,
@@ -275,7 +295,11 @@ export function environmentRoutes(
     res.json(lease);
   });
 
-  router.patch("/environments/:id", validate(updateEnvironmentSchema), async (req, res) => {
+  router.patch(
+    "/environments/:id",
+    hostedModeGuard({ operation: "Environment update" }),
+    validate(updateEnvironmentSchema),
+    async (req, res) => {
     const existing = await svc.getById(req.params.id as string);
     if (!existing) {
       res.status(404).json({ error: "Environment not found" });
@@ -305,6 +329,7 @@ export function environmentRoutes(
               companyId: existing.companyId,
               environmentName: nextName,
               driver: nextDriver,
+              secretProvider: getConfiguredSecretProvider(),
               config: configSource,
               actor: {
                 agentId: actor.agentId,
@@ -320,6 +345,13 @@ export function environmentRoutes(
       res.status(404).json({ error: "Environment not found" });
       return;
     }
+    if (patch.config !== undefined || patch.driver !== undefined) {
+      await secrets.syncSecretRefsForTarget(
+        environment.companyId,
+        { targetType: "environment", targetId: environment.id },
+        await collectEnvironmentSecretRefs({ db, environment }),
+      );
+    }
     await logActivity(db, {
       companyId: environment.companyId,
       actorType: actor.actorType,
@@ -334,7 +366,10 @@ export function environmentRoutes(
     res.json(environment);
   });
 
-  router.delete("/environments/:id", async (req, res) => {
+  router.delete(
+    "/environments/:id",
+    hostedModeGuard({ operation: "Environment deletion" }),
+    async (req, res) => {
     const existing = await svc.getById(req.params.id as string);
     if (!existing) {
       res.status(404).json({ error: "Environment not found" });
@@ -374,7 +409,7 @@ export function environmentRoutes(
     res.json(removed);
   });
 
-  router.post("/environments/:id/probe", async (req, res) => {
+  router.post("/environments/:id/probe", hostedModeGuard({ operation: "Environment probing" }), async (req, res) => {
     const environment = await svc.getById(req.params.id as string);
     if (!environment) {
       res.status(404).json({ error: "Environment not found" });
@@ -405,6 +440,7 @@ export function environmentRoutes(
 
   router.post(
     "/companies/:companyId/environments/probe-config",
+    hostedModeGuard({ operation: "Environment probe configuration" }),
     validate(probeEnvironmentConfigSchema),
     async (req, res) => {
       const companyId = req.params.companyId as string;

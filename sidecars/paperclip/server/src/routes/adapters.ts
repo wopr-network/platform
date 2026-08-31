@@ -18,7 +18,9 @@ import fs from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { Router } from "express";
+import { Router, type Express } from "express";
+import type { DeploymentMode } from "@paperclipai/shared";
+import { forbidden } from "../errors.js";
 import {
   listServerAdapters,
   findServerAdapter,
@@ -43,6 +45,7 @@ import type { AdapterPluginRecord } from "../services/adapter-plugin-store.js";
 import type { ServerAdapterModule, AdapterConfigSchema } from "../adapters/types.js";
 import { loadExternalAdapterPackage, getUiParserSource, getOrExtractUiParserSource, reloadExternalAdapter } from "../adapters/plugin-loader.js";
 import { logger } from "../middleware/logger.js";
+import { hostedModeGuard } from "../middleware/index.js";
 import { assertBoardOrgAccess, assertInstanceAdmin } from "./authz.js";
 import { BUILTIN_ADAPTER_TYPES } from "../adapters/builtin-adapter-types.js";
 
@@ -66,6 +69,7 @@ interface AdapterCapabilities {
   supportsSkills: boolean;
   supportsLocalAgentJwt: boolean;
   requiresMaterializedRuntimeSkills: boolean;
+  supportsModelProfiles: boolean;
 }
 
 interface AdapterInfo {
@@ -119,6 +123,7 @@ function buildAdapterCapabilities(adapter: ServerAdapterModule): AdapterCapabili
     supportsSkills: Boolean(adapter.listSkills || adapter.syncSkills),
     supportsLocalAgentJwt: adapter.supportsLocalAgentJwt ?? false,
     requiresMaterializedRuntimeSkills: adapter.requiresMaterializedRuntimeSkills ?? false,
+    supportsModelProfiles: Boolean(adapter.modelProfiles?.length || adapter.listModelProfiles),
   };
 }
 
@@ -185,7 +190,7 @@ function registerWithSessionManagement(adapter: ServerAdapterModule): void {
 // Router
 // ---------------------------------------------------------------------------
 
-export function adapterRoutes() {
+export function adapterRoutes(opts?: { deploymentMode?: DeploymentMode }) {
   const router = Router();
 
   /**
@@ -224,7 +229,7 @@ export function adapterRoutes() {
    * - isLocalPath?: boolean (default false)
    * - version?: string — target version for npm packages
    */
-  router.post("/adapters/install", async (req, res) => {
+  router.post("/adapters/install", hostedModeGuard({ operation: "Adapter installation" }), async (req, res) => {
     assertInstanceAdmin(req);
 
     const { packageName, isLocalPath = false, version } = req.body as AdapterInstallRequest;
@@ -348,6 +353,21 @@ export function adapterRoutes() {
     }
   });
 
+  router.get("/adapters/:type", async (req, res) => {
+    assertBoardOrgAccess(req);
+
+    const adapterType = req.params.type;
+    const adapter = findServerAdapter(adapterType);
+    if (!adapter) {
+      res.status(404).json({ error: `Adapter "${adapterType}" is not registered.` });
+      return;
+    }
+
+    const externalRecord = getAdapterPluginByType(adapterType);
+    const disabledSet = new Set(getDisabledAdapterTypes());
+    res.json(buildAdapterInfo(adapter, externalRecord, disabledSet));
+  });
+
   /**
    * PATCH /api/adapters/:type
    *
@@ -356,7 +376,7 @@ export function adapterRoutes() {
    *
    * Request body: { "disabled": boolean }
    */
-  router.patch("/adapters/:type", async (req, res) => {
+  router.patch("/adapters/:type", hostedModeGuard({ operation: "Adapter configuration" }), async (req, res) => {
     assertInstanceAdmin(req);
 
     const adapterType = req.params.type;
@@ -391,7 +411,7 @@ export function adapterRoutes() {
    * (execute, listModels, config schema, etc.).  Already-running sessions
    * keep the adapter they started with.
    */
-  router.patch("/adapters/:type/override", async (req, res) => {
+  router.patch("/adapters/:type/override", hostedModeGuard({ operation: "Adapter override control" }), async (req, res) => {
     assertInstanceAdmin(req);
 
     const adapterType = req.params.type;
@@ -419,7 +439,7 @@ export function adapterRoutes() {
    *
    * Unregister an external adapter. Built-in adapters cannot be removed.
    */
-  router.delete("/adapters/:type", async (req, res) => {
+  router.delete("/adapters/:type", hostedModeGuard({ operation: "Adapter deletion" }), async (req, res) => {
     assertInstanceAdmin(req);
 
     const adapterType = req.params.type;
@@ -494,7 +514,7 @@ export function adapterRoutes() {
    *
    * Cannot be used on built-in adapter types.
    */
-  router.post("/adapters/:type/reload", async (req, res) => {
+  router.post("/adapters/:type/reload", hostedModeGuard({ operation: "Adapter reload" }), async (req, res) => {
     assertInstanceAdmin(req);
 
     const type = req.params.type;
@@ -546,7 +566,7 @@ export function adapterRoutes() {
   //
   // This is a convenience shortcut for remove + install with the same
   // package name, but without the risk of losing the store record.
-  router.post("/adapters/:type/reinstall", async (req, res) => {
+  router.post("/adapters/:type/reinstall", hostedModeGuard({ operation: "Adapter reinstall" }), async (req, res) => {
     assertInstanceAdmin(req);
 
     const type = req.params.type;

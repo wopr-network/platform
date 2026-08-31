@@ -92,6 +92,7 @@ type DatabaseMode = "embedded-postgres" | "postgres";
 export interface Config {
   deploymentMode: DeploymentMode;
   deploymentExposure: DeploymentExposure;
+  hostedMode: boolean;
   bind: BindMode;
   customBindHost: string | undefined;
   host: string;
@@ -158,9 +159,6 @@ export function loadConfig(): Config {
   const fileDatabaseBackup = fileConfig?.database.backup;
   const fileSecrets = fileConfig?.secrets;
   const fileStorage = fileConfig?.storage;
-  const strictModeFromEnv = process.env.PAPERCLIP_SECRETS_STRICT_MODE;
-  const secretsStrictMode =
-    strictModeFromEnv !== undefined ? strictModeFromEnv === "true" : (fileSecrets?.strictMode ?? false);
 
   const providerFromEnvRaw = process.env.PAPERCLIP_SECRETS_PROVIDER;
   const providerFromEnv =
@@ -214,9 +212,20 @@ export function loadConfig(): Config {
     deploymentModeFromEnvRaw && DEPLOYMENT_MODES.includes(deploymentModeFromEnvRaw as DeploymentMode)
       ? (deploymentModeFromEnvRaw as DeploymentMode)
       : null;
+  // HOSTED MODE GUARD: In hosted mode, force deploymentMode to 'hosted_proxy' to ensure all traffic
+  // routes through the platform's proxy layer for authentication and request coordination.
   const deploymentMode: DeploymentMode = hostedMode
     ? "hosted_proxy"
     : (deploymentModeFromInstance ?? fileConfig?.server.deploymentMode ?? deploymentModeFromEnv ?? "local_trusted");
+
+  const strictModeFromEnv = process.env.PAPERCLIP_SECRETS_STRICT_MODE;
+  // HOSTED MODE GUARD: In hosted mode, enforce strict mode for secrets to ensure all secret access
+  // goes through the platform's managed secret provider. This prevents accidental exposure of unmanaged secrets.
+  const secretsStrictMode = hostedMode
+    ? true
+    : (strictModeFromEnv !== undefined
+      ? strictModeFromEnv === "true"
+      : (fileSecrets?.strictMode ?? deploymentMode === "authenticated"));
 
   const deploymentExposureFromInstance =
     instanceConfig.deploymentExposure &&
@@ -228,10 +237,13 @@ export function loadConfig(): Config {
     deploymentExposureFromEnvRaw && DEPLOYMENT_EXPOSURES.includes(deploymentExposureFromEnvRaw as DeploymentExposure)
       ? (deploymentExposureFromEnvRaw as DeploymentExposure)
       : null;
-  const deploymentExposure: DeploymentExposure =
-    deploymentMode === "local_trusted"
+  // HOSTED MODE GUARD: In hosted mode, force deploymentExposure to 'private' to ensure the proxy layer
+  // manages all external access and authentication. Hosted instances should never expose services directly.
+  const deploymentExposure: DeploymentExposure = hostedMode
+    ? "private"
+    : (deploymentMode === "local_trusted"
       ? "private"
-      : (deploymentExposureFromInstance ?? fileConfig?.server.exposure ?? deploymentExposureFromEnv ?? "private");
+      : (deploymentExposureFromInstance ?? fileConfig?.server.exposure ?? deploymentExposureFromEnv ?? "private"));
   const bindFromEnvRaw = process.env.PAPERCLIP_BIND;
   const bindFromEnv =
     bindFromEnvRaw && BIND_MODES.includes(bindFromEnvRaw as BindMode)
@@ -257,11 +269,18 @@ export function loadConfig(): Config {
     publicUrlFromEnv ??
     fileConfig?.auth?.publicBaseUrl;
   const authPublicBaseUrl = authPublicBaseUrlRaw?.trim() || undefined;
-  const authBaseUrlMode: AuthBaseUrlMode =
-    authBaseUrlModeFromEnv ?? fileConfig?.auth?.baseUrlMode ?? (authPublicBaseUrl ? "explicit" : "auto");
+  // HOSTED MODE GUARD: In hosted mode, force authBaseUrlMode to 'auto' to allow the platform's proxy
+  // to dynamically determine the public base URL from request headers. This ensures auth URLs are
+  // correctly routed through the platform's proxy layer.
+  const authBaseUrlMode: AuthBaseUrlMode = hostedMode
+    ? "auto"
+    : (authBaseUrlModeFromEnv ?? fileConfig?.auth?.baseUrlMode ?? (authPublicBaseUrl ? "explicit" : "auto"));
   const disableSignUpFromEnv = process.env.PAPERCLIP_AUTH_DISABLE_SIGN_UP;
-  const authDisableSignUp: boolean =
-    disableSignUpFromEnv !== undefined ? disableSignUpFromEnv === "true" : (fileConfig?.auth?.disableSignUp ?? false);
+  // HOSTED MODE GUARD: In hosted mode, sign-up is managed by the platform's provision endpoint
+  // and should respect the hosted configuration. Force disable sign-up to prevent self-registration.
+  const authDisableSignUp: boolean = hostedMode
+    ? true
+    : (disableSignUpFromEnv !== undefined ? disableSignUpFromEnv === "true" : (fileConfig?.auth?.disableSignUp ?? false));
   const allowedHostnamesFromEnvRaw = process.env.PAPERCLIP_ALLOWED_HOSTNAMES;
   const allowedHostnamesFromEnv = allowedHostnamesFromEnvRaw
     ? allowedHostnamesFromEnvRaw
@@ -289,23 +308,43 @@ export function loadConfig(): Config {
     ),
   );
   const companyDeletionEnvRaw = process.env.PAPERCLIP_ENABLE_COMPANY_DELETION;
+  // HOSTED MODE GUARD: In hosted mode, company deletion should be disabled as the platform manages
+  // company lifecycle through the provision protocol. This operation is restricted to the
+  // provision endpoint (see routes/provision.ts).
   const companyDeletionEnabled =
-    companyDeletionEnvRaw !== undefined ? companyDeletionEnvRaw === "true" : deploymentMode === "local_trusted";
+    hostedMode ? false : (companyDeletionEnvRaw !== undefined ? companyDeletionEnvRaw === "true" : deploymentMode === "local_trusted");
+  // HOSTED MODE GUARD: In hosted mode, database backups must be disabled as the platform manages
+  // infrastructure backups centrally through the provision protocol. This operation is restricted to the
+  // provision endpoint (see routes/provision.ts).
   const databaseBackupEnabled =
-    process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
-      ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
-      : (fileDatabaseBackup?.enabled ?? true);
-  const databaseBackupIntervalMinutes = Math.max(
-    1,
-    Number(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) || fileDatabaseBackup?.intervalMinutes || 60,
-  );
-  const databaseBackupRetentionDays = Math.max(
-    1,
-    Number(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) || fileDatabaseBackup?.retentionDays || 30,
-  );
-  const databaseBackupDir = resolveHomeAwarePath(
-    process.env.PAPERCLIP_DB_BACKUP_DIR ?? fileDatabaseBackup?.dir ?? resolveDefaultBackupDir(),
-  );
+    hostedMode
+      ? false
+      : (process.env.PAPERCLIP_DB_BACKUP_ENABLED !== undefined
+          ? process.env.PAPERCLIP_DB_BACKUP_ENABLED === "true"
+          : (fileDatabaseBackup?.enabled ?? true));
+  // HOSTED MODE GUARD: In hosted mode, backup interval configuration is ignored and forced to a
+  // safe default. The platform's central scheduler manages backup timing.
+  const databaseBackupIntervalMinutes = hostedMode
+    ? 60
+    : Math.max(
+        1,
+        Number(process.env.PAPERCLIP_DB_BACKUP_INTERVAL_MINUTES) || fileDatabaseBackup?.intervalMinutes || 60,
+      );
+  // HOSTED MODE GUARD: In hosted mode, backup retention configuration is ignored and forced to a
+  // safe default. The platform manages backup retention centrally.
+  const databaseBackupRetentionDays = hostedMode
+    ? 30
+    : Math.max(
+        1,
+        Number(process.env.PAPERCLIP_DB_BACKUP_RETENTION_DAYS) || fileDatabaseBackup?.retentionDays || 30,
+      );
+  // HOSTED MODE GUARD: In hosted mode, a default backup directory is used. Backups are disabled
+  // and this is not actively used, but a valid path is required.
+  const databaseBackupDir = hostedMode
+    ? resolveHomeAwarePath(resolveDefaultBackupDir())
+    : resolveHomeAwarePath(
+        process.env.PAPERCLIP_DB_BACKUP_DIR ?? fileDatabaseBackup?.dir ?? resolveDefaultBackupDir(),
+      );
   const bindValidationErrors = validateConfiguredBindMode({
     deploymentMode,
     deploymentExposure,
@@ -326,9 +365,18 @@ export function loadConfig(): Config {
     throw new Error(resolvedBind.errors[0]);
   }
 
+  // Validate hosted mode configuration constraints
+  if (hostedMode && deploymentMode !== "hosted_proxy") {
+    throw new Error(
+      `When hostedMode=true, deploymentMode MUST be 'hosted_proxy' (got '${deploymentMode}'). ` +
+        "Hosted instances must use proxy deployment for platform routing and authentication."
+    );
+  }
+
   return {
     deploymentMode,
     deploymentExposure,
+    hostedMode,
     bind: resolvedBind.bind,
     customBindHost: resolvedBind.customBindHost,
     host: resolvedBind.host,
@@ -367,8 +415,13 @@ export function loadConfig(): Config {
     storageS3ForcePathStyle,
     feedbackExportBackendUrl,
     feedbackExportBackendToken,
-    heartbeatSchedulerEnabled: process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false",
-    heartbeatSchedulerIntervalMs: Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
+    // HOSTED MODE GUARD: In hosted mode, heartbeat scheduling must be disabled as the platform coordinates
+    // scheduling through its central scheduler. Hosted instances should not maintain
+    // independent agent scheduling. This prevents duplicate/conflicting task scheduling.
+    heartbeatSchedulerEnabled: hostedMode ? false : (process.env.HEARTBEAT_SCHEDULER_ENABLED !== "false"),
+    // HOSTED MODE GUARD: In hosted mode, a safe default interval is enforced (not actively used since scheduling is disabled).
+    // The platform's central scheduler manages heartbeat timing.
+    heartbeatSchedulerIntervalMs: hostedMode ? 30000 : Math.max(10000, Number(process.env.HEARTBEAT_SCHEDULER_INTERVAL_MS) || 30000),
     companyDeletionEnabled,
     telemetryEnabled: fileConfig?.telemetry?.enabled ?? true,
   };

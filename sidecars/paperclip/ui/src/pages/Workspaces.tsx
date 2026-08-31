@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { Link, Navigate } from "@/lib/router";
+import { useHostedMode } from "../hooks/useHostedMode";
 import { useQuery } from "@tanstack/react-query";
 import type { ExecutionWorkspace, Issue, Project } from "@paperclipai/shared";
 import { executionWorkspacesApi } from "../api/execution-workspaces";
@@ -72,6 +73,10 @@ function buildProjectWorkspaceGroups(input: {
 }
 
 export function Workspaces() {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (!modeKnown) return null;
+  if (isHosted) return <Navigate to="/dashboard" replace />;
+
   const { selectedCompanyId } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const experimentalSettingsQuery = useQuery({

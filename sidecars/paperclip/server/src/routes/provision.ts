@@ -16,6 +16,8 @@ import {
   type CreatedAgent,
 } from "@wopr-network/provision-server";
 import { ROLE_PERMISSIONS } from "@paperclipai/shared";
+import { forbidden } from "../errors.js";
+import { hostedModeGuard } from "../middleware/hosted-mode-guard.js";
 import {
   companyService,
   agentService,
@@ -479,28 +481,34 @@ function createMemberRouter(db: Db): Router {
   });
 
   // POST /members/remove
-  router.post("/members/remove", requireProvisionSecret, async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { companyId, userId } = req.body as { companyId: string; userId: string };
+  router.post(
+    "/members/remove",
+    requireProvisionSecret,
+    hostedModeGuard({ operation: "Member removal" }),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { companyId, userId } = req.body as { companyId: string; userId: string };
 
-      await access.ensureMembership(companyId, "user", userId, "member", "suspended");
+        await access.ensureMembership(companyId, "user", userId, "member", "suspended");
 
-      // Demote from instance_admin if user has no remaining company memberships
-      const remaining = await access.listUserCompanyAccess(userId);
-      if (remaining.length === 0) {
-        await access.demoteInstanceAdmin(userId);
+        // Demote from instance_admin if user has no remaining company memberships
+        const remaining = await access.listUserCompanyAccess(userId);
+        if (remaining.length === 0) {
+          await access.demoteInstanceAdmin(userId);
+        }
+
+        res.json({ ok: true });
+      } catch (err) {
+        next(err);
       }
-
-      res.json({ ok: true });
-    } catch (err) {
-      next(err);
-    }
-  });
+    },
+  );
 
   // POST /members/change-role
   router.post(
     "/members/change-role",
     requireProvisionSecret,
+    hostedModeGuard({ operation: "Member role change" }),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { companyId, userId, role } = req.body as {
@@ -544,6 +552,9 @@ function createMemberRouter(db: Db): Router {
  *   POST   /members/add        — add a member to a company
  *   POST   /members/remove     — remove a member from a company
  *   POST   /members/change-role — change a member's role
+ *
+ * In hosted mode, infrastructure management operations (member removal)
+ * are blocked since the platform controls provisioning and deprovisioning.
  */
 export function provisionRoutes(db: Db): Router {
   const router = Router();

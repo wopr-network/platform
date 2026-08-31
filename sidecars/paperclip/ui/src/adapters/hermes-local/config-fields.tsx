@@ -1,6 +1,7 @@
 import type { AdapterConfigFieldsProps } from "../types";
 import { Field, DraftInput } from "../../components/agent-config-primitives";
 import { ChoosePathButton } from "../../components/PathInstructionsModal";
+import { useHostedMode } from "../../hooks/useHostedMode";
 
 const inputClass =
   "w-full rounded-md border border-border px-2.5 py-1.5 bg-transparent outline-none text-sm font-mono placeholder:text-muted-foreground/40";
@@ -16,6 +17,8 @@ export function HermesLocalConfigFields({
   mark,
   hideInstructionsFile,
 }: AdapterConfigFieldsProps) {
+  const { isHosted, modeKnown } = useHostedMode();
+  if (isHosted || !modeKnown) return null;
   if (hideInstructionsFile) return null;
   return (
     <Field label="Agent instructions file" hint={instructionsFileHint}>

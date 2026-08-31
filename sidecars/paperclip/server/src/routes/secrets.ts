@@ -1,31 +1,282 @@
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
+import type { DeploymentMode } from "@paperclipai/shared";
 import {
-  SECRET_PROVIDERS,
-  type SecretProvider,
+  createSecretProviderConfigSchema,
   createSecretSchema,
+  remoteSecretImportPreviewSchema,
+  remoteSecretImportSchema,
   rotateSecretSchema,
+  secretProviderConfigDiscoveryPreviewSchema,
+  updateSecretProviderConfigSchema,
   updateSecretSchema,
 } from "@paperclipai/shared";
-import { validate } from "../middleware/validate.js";
+import { validate, hostedModeGuard } from "../middleware/index.js";
 import { assertBoard, assertCompanyAccess } from "./authz.js";
 import { logActivity, secretService } from "../services/index.js";
+import { getConfiguredSecretProvider } from "../secrets/configured-provider.js";
 
-export function secretRoutes(db: Db) {
+export function secretRoutes(db: Db, opts?: { deploymentMode?: DeploymentMode }) {
   const router = Router();
   const svc = secretService(db);
-  const configuredDefaultProvider = process.env.PAPERCLIP_SECRETS_PROVIDER;
-  const defaultProvider = (
-    configuredDefaultProvider && SECRET_PROVIDERS.includes(configuredDefaultProvider as SecretProvider)
-      ? configuredDefaultProvider
-      : "local_encrypted"
-  ) as SecretProvider;
+  const defaultProvider = getConfiguredSecretProvider();
 
   router.get("/companies/:companyId/secret-providers", (req, res) => {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
     res.json(svc.listProviders());
+  });
+
+  router.get("/companies/:companyId/secret-providers/health", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    const checks = await svc.checkProviders();
+    res.json({ providers: checks });
+  });
+
+  router.get("/companies/:companyId/secret-provider-configs", async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    res.json(await svc.listProviderConfigs(companyId));
+  });
+
+  router.post(
+    "/companies/:companyId/secret-provider-configs/discovery/preview",
+    validate(secretProviderConfigDiscoveryPreviewSchema),
+    async (req, res) => {
+      assertBoard(req);
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const preview = await svc.previewProviderConfigDiscovery(companyId, {
+        provider: req.body.provider,
+        config: req.body.config,
+        query: req.body.query,
+        nextToken: req.body.nextToken,
+        pageSize: req.body.pageSize,
+      });
+
+      await logActivity(db, {
+        companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "secret_provider_config.discovery_previewed",
+        entityType: "secret_provider_config_discovery",
+        entityId: companyId,
+        details: {
+          provider: preview.provider,
+          candidateCount: preview.candidates.length,
+          sampledSecretCount: preview.sampledSecretCount,
+          warningCount: preview.warnings.length,
+        },
+      });
+
+      res.json(preview);
+    },
+  );
+
+  router.post(
+    "/companies/:companyId/secret-provider-configs",
+    hostedModeGuard({ operation: "Secret provider config creation" }),
+    validate(createSecretProviderConfigSchema),
+    async (req, res) => {
+    assertBoard(req);
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+
+    const created = await svc.createProviderConfig(
+      companyId,
+      {
+        provider: req.body.provider,
+        displayName: req.body.displayName,
+        status: req.body.status,
+        isDefault: req.body.isDefault,
+        config: req.body.config,
+      },
+      { userId: req.actor.userId ?? "board", agentId: null },
+    );
+
+    await logActivity(db, {
+      companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret_provider_config.created",
+      entityType: "secret_provider_config",
+      entityId: created.id,
+      details: {
+        provider: created.provider,
+        displayName: created.displayName,
+        status: created.status,
+        isDefault: created.isDefault,
+      },
+    });
+
+    res.status(201).json(created);
+  }
+  );
+
+  router.get("/secret-provider-configs/:id", async (req, res) => {
+    assertBoard(req);
+    const existing = await svc.getProviderConfigById(req.params.id as string);
+    if (!existing) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    res.json(existing);
+  });
+
+  router.patch(
+    "/secret-provider-configs/:id",
+    hostedModeGuard({ operation: "Secret provider config modification" }),
+    validate(updateSecretProviderConfigSchema),
+    async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getProviderConfigById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const updated = await svc.updateProviderConfig(id, {
+      displayName: req.body.displayName,
+      status: req.body.status,
+      isDefault: req.body.isDefault,
+      config: req.body.config,
+    });
+    if (!updated) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: updated.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret_provider_config.updated",
+      entityType: "secret_provider_config",
+      entityId: updated.id,
+      details: {
+        provider: updated.provider,
+        displayName: updated.displayName,
+        status: updated.status,
+        isDefault: updated.isDefault,
+      },
+    });
+
+    res.json(updated);
+  }
+  );
+
+  router.delete(
+    "/secret-provider-configs/:id",
+    hostedModeGuard({ operation: "Secret provider config deletion" }),
+    async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getProviderConfigById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const removed = await svc.removeProviderConfig(id);
+    if (!removed) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: removed.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret_provider_config.removed",
+      entityType: "secret_provider_config",
+      entityId: removed.id,
+      details: {
+        provider: removed.provider,
+        displayName: removed.displayName,
+        remoteDeleted: false,
+      },
+    });
+
+    res.json(removed);
+  }
+  );
+
+  router.post(
+    "/secret-provider-configs/:id/default",
+    hostedModeGuard({ operation: "Secret provider config default assignment" }),
+    async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getProviderConfigById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const updated = await svc.setDefaultProviderConfig(id);
+    if (!updated) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: updated.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret_provider_config.default_set",
+      entityType: "secret_provider_config",
+      entityId: updated.id,
+      details: {
+        provider: updated.provider,
+        displayName: updated.displayName,
+        isDefault: updated.isDefault,
+      },
+    });
+
+    res.json(updated);
+  });
+
+  router.post("/secret-provider-configs/:id/health", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getProviderConfigById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+
+    const health = await svc.checkProviderConfigHealth(id);
+    if (!health) {
+      res.status(404).json({ error: "Provider vault not found" });
+      return;
+    }
+
+    await logActivity(db, {
+      companyId: existing.companyId,
+      actorType: "user",
+      actorId: req.actor.userId ?? "board",
+      action: "secret_provider_config.health_checked",
+      entityType: "secret_provider_config",
+      entityId: existing.id,
+      details: {
+        provider: existing.provider,
+        status: health.status,
+        code: health.details.code,
+      },
+    });
+
+    res.json(health);
   });
 
   router.get("/companies/:companyId/secrets", async (req, res) => {
@@ -36,7 +287,11 @@ export function secretRoutes(db: Db) {
     res.json(secrets);
   });
 
-  router.post("/companies/:companyId/secrets", validate(createSecretSchema), async (req, res) => {
+  router.post(
+    "/companies/:companyId/secrets",
+    hostedModeGuard({ operation: "Secret creation" }),
+    validate(createSecretSchema),
+    async (req, res) => {
     assertBoard(req);
     const companyId = req.params.companyId as string;
     assertCompanyAccess(req, companyId);
@@ -45,10 +300,15 @@ export function secretRoutes(db: Db) {
       companyId,
       {
         name: req.body.name,
+        key: req.body.key,
         provider: req.body.provider ?? defaultProvider,
+        providerConfigId: req.body.providerConfigId,
+        managedMode: req.body.managedMode,
         value: req.body.value,
         description: req.body.description,
         externalRef: req.body.externalRef,
+        providerVersionRef: req.body.providerVersionRef,
+        providerMetadata: req.body.providerMetadata,
       },
       { userId: req.actor.userId ?? "board", agentId: null },
     );
@@ -64,9 +324,87 @@ export function secretRoutes(db: Db) {
     });
 
     res.status(201).json(created);
-  });
+  }
+  );
 
-  router.post("/secrets/:id/rotate", validate(rotateSecretSchema), async (req, res) => {
+  router.post(
+    "/companies/:companyId/secrets/remote-import/preview",
+    hostedModeGuard({ operation: "Remote secret import preview" }),
+    validate(remoteSecretImportPreviewSchema),
+    async (req, res) => {
+      assertBoard(req);
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const preview = await svc.previewRemoteImport(companyId, {
+        providerConfigId: req.body.providerConfigId,
+        query: req.body.query,
+        nextToken: req.body.nextToken,
+        pageSize: req.body.pageSize,
+      });
+
+      await logActivity(db, {
+        companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "secret.remote_import.previewed",
+        entityType: "secret_provider_config",
+        entityId: preview.providerConfigId,
+        details: {
+          provider: preview.provider,
+          candidateCount: preview.candidates.length,
+          readyCount: preview.candidates.filter((candidate) => candidate.status === "ready").length,
+          duplicateCount: preview.candidates.filter((candidate) => candidate.status === "duplicate").length,
+          conflictCount: preview.candidates.filter((candidate) => candidate.status === "conflict").length,
+        },
+      });
+
+      res.json(preview);
+    },
+  );
+
+  router.post(
+    "/companies/:companyId/secrets/remote-import",
+    hostedModeGuard({ operation: "Remote secret import" }),
+    validate(remoteSecretImportSchema),
+    async (req, res) => {
+      assertBoard(req);
+      const companyId = req.params.companyId as string;
+      assertCompanyAccess(req, companyId);
+
+      const result = await svc.importRemoteSecrets(
+        companyId,
+        {
+          providerConfigId: req.body.providerConfigId,
+          secrets: req.body.secrets,
+        },
+        { userId: req.actor.userId ?? "board", agentId: null },
+      );
+
+      await logActivity(db, {
+        companyId,
+        actorType: "user",
+        actorId: req.actor.userId ?? "board",
+        action: "secret.remote_import.completed",
+        entityType: "secret_provider_config",
+        entityId: result.providerConfigId,
+        details: {
+          provider: result.provider,
+          importedCount: result.importedCount,
+          skippedCount: result.skippedCount,
+          errorCount: result.errorCount,
+        },
+      });
+
+      res.json(result);
+    },
+  );
+
+  router.post(
+    "/secrets/:id/rotate",
+    hostedModeGuard({ operation: "Secret rotation" }),
+    validate(rotateSecretSchema),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -75,12 +413,18 @@ export function secretRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    if (existing.status === "deleted") {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
 
     const rotated = await svc.rotate(
       id,
       {
         value: req.body.value,
         externalRef: req.body.externalRef,
+        providerVersionRef: req.body.providerVersionRef,
+        providerConfigId: req.body.providerConfigId,
       },
       { userId: req.actor.userId ?? "board", agentId: null },
     );
@@ -98,7 +442,11 @@ export function secretRoutes(db: Db) {
     res.json(rotated);
   });
 
-  router.patch("/secrets/:id", validate(updateSecretSchema), async (req, res) => {
+  router.patch(
+    "/secrets/:id",
+    hostedModeGuard({ operation: "Secret modification" }),
+    validate(updateSecretSchema),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);
@@ -107,11 +455,19 @@ export function secretRoutes(db: Db) {
       return;
     }
     assertCompanyAccess(req, existing.companyId);
+    if (existing.status === "deleted") {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
 
     const updated = await svc.update(id, {
       name: req.body.name,
+      key: req.body.key,
+      status: req.body.status,
+      providerConfigId: req.body.providerConfigId,
       description: req.body.description,
       externalRef: req.body.externalRef,
+      providerMetadata: req.body.providerMetadata,
     });
 
     if (!updated) {
@@ -132,7 +488,36 @@ export function secretRoutes(db: Db) {
     res.json(updated);
   });
 
-  router.delete("/secrets/:id", async (req, res) => {
+  router.get("/secrets/:id/usage", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    const bindings = await svc.listBindingReferences(existing.companyId, existing.id);
+    res.json({ secretId: existing.id, bindings });
+  });
+
+  router.get("/secrets/:id/access-events", async (req, res) => {
+    assertBoard(req);
+    const id = req.params.id as string;
+    const existing = await svc.getById(id);
+    if (!existing) {
+      res.status(404).json({ error: "Secret not found" });
+      return;
+    }
+    assertCompanyAccess(req, existing.companyId);
+    const events = await svc.listAccessEvents(existing.companyId, existing.id);
+    res.json(events);
+  });
+
+  router.delete(
+    "/secrets/:id",
+    hostedModeGuard({ operation: "Secret deletion" }),
+    async (req, res) => {
     assertBoard(req);
     const id = req.params.id as string;
     const existing = await svc.getById(id);

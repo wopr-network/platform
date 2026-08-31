@@ -1,0 +1,305 @@
+{
+  "summary": "Infrastructure elements requiring hostedMode guards in Paperclip UI",
+  "sourceFile": "sidecars/paperclip/ui/src/hooks/useHostedMode.ts",
+  "hostedModeCheck": {
+    "hook": "useHostedMode()",
+    "returns": {
+      "isHosted": "boolean - true when deploymentMode === 'hosted_proxy'",
+      "modeKnown": "boolean - true once deployment mode is determined"
+    }
+  },
+  "infrastructureElementsRequiringGuards": {
+    "fullPageRedirects": {
+      "description": "Pages that must be completely inaccessible in hosted mode - redirect to dashboard or home",
+      "elements": [
+        {
+          "file": "pages/InstanceGeneralSettings.tsx",
+          "type": "Instance Settings - General",
+          "infraElement": "Instance configuration, deployment mode, and general settings",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "Instance-level infrastructure is managed centrally in hosted mode"
+        },
+        {
+          "file": "pages/InstanceSettings.tsx",
+          "type": "Instance Settings - Root",
+          "infraElement": "Instance settings sidebar and navigation",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "All instance configuration is infrastructure-only"
+        },
+        {
+          "file": "pages/InstanceAccess.tsx",
+          "type": "Instance Access Control",
+          "infraElement": "Instance-level user access and permission management",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Access control at instance level is handled by platform in hosted mode"
+        },
+        {
+          "file": "pages/InstanceExperimentalSettings.tsx",
+          "type": "Instance Experimental Features",
+          "infraElement": "Experimental instance configuration and feature flags",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Infrastructure experimentation is controlled centrally"
+        },
+        {
+          "file": "pages/PluginSettings.tsx",
+          "type": "Plugin Configuration",
+          "infraElement": "Individual plugin configuration, health checks, status, logs, webhook management",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Plugin infrastructure is managed centrally in hosted mode"
+        },
+        {
+          "file": "pages/PluginManager.tsx",
+          "type": "Plugin Manager",
+          "infraElement": "Plugin installation, removal, enabling/disabling",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Plugin ecosystem is managed by platform, not self-hosted"
+        },
+        {
+          "file": "pages/AdapterManager.tsx",
+          "type": "Adapter Manager",
+          "infraElement": "Adapter installation, configuration, enabling/disabling, reloading, reinstalling",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "Adapters (model providers, execution engines) are managed centrally"
+        },
+        {
+          "file": "pages/Secrets.tsx",
+          "type": "Secret Management",
+          "infraElement": "Secret creation, vault configuration, provider setup (AWS, Azure, HashiCorp Vault, etc.)",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Secrets and credential providers are infrastructure-only"
+        },
+        {
+          "file": "pages/CompanyEnvironments.tsx",
+          "type": "Company Environments",
+          "infraElement": "Environment configuration (SSH hosts, sandbox providers, local execution)",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "Execution environments are managed by platform in hosted mode"
+        },
+        {
+          "file": "pages/CompanyImport.tsx",
+          "type": "Company Import",
+          "infraElement": "Bulk import of company data, agents, configurations",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "Data import is infrastructure-level operation"
+        },
+        {
+          "file": "pages/CompanySettings.tsx",
+          "type": "Company Settings",
+          "infraElement": "Company-level configuration and metadata",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "Company configuration managed at platform level"
+        },
+        {
+          "file": "pages/CompanyAccess.tsx",
+          "type": "Company Access Control",
+          "infraElement": "Company-level user access and role management",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Access control delegated to platform"
+        },
+        {
+          "file": "pages/TeamCatalog.tsx",
+          "type": "Team Catalog",
+          "infraElement": "Team/department structure configuration and management",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Organizational structure managed at platform level"
+        },
+        {
+          "file": "pages/OrgChart.tsx",
+          "type": "Organization Chart",
+          "infraElement": "Organization hierarchy and reporting relationships",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Org structure is platform-managed in hosted mode"
+        },
+        {
+          "file": "pages/Agents.tsx",
+          "type": "Agents - Root",
+          "infraElement": "Agent creation and management (self-hosted agents only)",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "Self-hosted agents not applicable in hosted mode"
+        },
+        {
+          "file": "pages/NewAgent.tsx",
+          "type": "Create New Agent",
+          "infraElement": "Agent creation (self-hosted only)",
+          "guardPattern": "if (isHosted) return <Navigate to='/' replace />;",
+          "reason": "Agent creation is infrastructure-level operation"
+        },
+        {
+          "file": "pages/AgentDetail.tsx",
+          "type": "Agent Detail",
+          "infraElement": "Agent detail page with infrastructure controls",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Agent management restricted in hosted mode"
+        },
+        {
+          "file": "pages/PluginPage.tsx",
+          "type": "Plugin Page",
+          "infraElement": "Plugin-specific pages and controls",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Plugin pages not accessible in hosted mode"
+        },
+        {
+          "file": "pages/CompanySkills.tsx",
+          "type": "Company Skills",
+          "infraElement": "Skill management and custom skill creation",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Skill management is infrastructure-level"
+        },
+        {
+          "file": "pages/Workspaces.tsx",
+          "type": "Workspaces",
+          "infraElement": "Workspace management and configuration",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Workspace infrastructure managed centrally"
+        },
+        {
+          "file": "pages/ProfileSettings.tsx",
+          "type": "Profile Settings",
+          "infraElement": "Instance profile and instance-level user settings",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "Instance-level profile not applicable in hosted mode"
+        },
+        {
+          "file": "pages/JoinRequestQueue.tsx",
+          "type": "Join Request Queue",
+          "infraElement": "User join request management (instance-level)",
+          "guardPattern": "if (isHosted) return <Navigate to='/dashboard' replace />;",
+          "reason": "User onboarding handled at platform level"
+        }
+      ]
+    },
+    "componentLevelGuards": {
+      "description": "Components that conditionally render based on hostedMode",
+      "elements": [
+        {
+          "file": "components/InstanceSidebar.tsx",
+          "type": "Component - Full Hide",
+          "infraElement": "Instance settings navigation sidebar",
+          "guardPattern": "if (isHosted) return null;",
+          "reason": "Entire sidebar is infrastructure-only navigation"
+        },
+        {
+          "file": "components/LiveRunWidget.tsx",
+          "type": "Component - Conditional Render",
+          "infraElement": "Live run heartbeat monitoring and visualization",
+          "guardPattern": "if (isHosted) return null; + enabled: !isHosted in useQuery",
+          "reason": "Heartbeat system is self-hosted infrastructure feature"
+        },
+        {
+          "file": "components/HermesIcon.tsx",
+          "type": "Component - Conditional Render",
+          "infraElement": "Hermes AI icon/integration display",
+          "guardPattern": "if (isHosted) return null;",
+          "reason": "Self-hosted specific feature"
+        },
+        {
+          "file": "components/Layout.tsx",
+          "type": "Component - Conditional Render",
+          "infraElement": "Company Rail (infrastructure navigation)",
+          "guardPattern": "{!isHosted && <CompanyRail />}",
+          "reason": "Company-level infrastructure controls hidden in hosted mode"
+        },
+        {
+          "file": "components/AgentProperties.tsx",
+          "type": "Component - Conditional Field",
+          "infraElement": "Agent adapter type display",
+          "guardPattern": "{!isHosted && <PropertyRow label='Adapter'>...}",
+          "reason": "Adapter selection is infrastructure-only in self-hosted"
+        },
+        {
+          "file": "components/ProjectProperties.tsx",
+          "type": "Component - Conditional Section",
+          "infraElement": "Project infrastructure properties",
+          "guardPattern": "{!isHosted && (...infrastructure section...)}",
+          "reason": "Project-level infrastructure controls"
+        },
+        {
+          "file": "components/EmbeddedBridge.tsx",
+          "type": "Component - Configuration",
+          "infraElement": "Embedded bridge project visibility",
+          "guardPattern": "showProjects: modeKnown && !isHosted",
+          "reason": "Projects (self-hosted) not shown in hosted mode"
+        },
+        {
+          "file": "components/NewIssueDialog.tsx",
+          "type": "Component - Conditional Feature",
+          "infraElement": "Assignee override controls",
+          "guardPattern": "{supportsAssigneeOverrides && !isHosted && (...)}",
+          "reason": "Assignee overrides are self-hosted specific"
+        }
+      ]
+    },
+    "queryHookGuards": {
+      "description": "React Query hooks that disable in hosted mode",
+      "elements": [
+        {
+          "file": "components/LiveRunWidget.tsx",
+          "queryFunction": "heartbeatsApi.liveRunsForIssue()",
+          "guardPattern": "enabled: !!issueId && !isHosted",
+          "infraElement": "Live run polling and heartbeat monitoring",
+          "reason": "Heartbeat infrastructure not applicable in hosted mode"
+        },
+        {
+          "file": "components/LiveRunWidget.tsx",
+          "queryFunction": "heartbeatsApi.activeRunForIssue()",
+          "guardPattern": "enabled: !!issueId && !isHosted, refetchInterval: isHosted ? false : 3000",
+          "infraElement": "Active run tracking and polling",
+          "reason": "Active run monitoring is self-hosted only"
+        }
+      ]
+    }
+  },
+  "infrastructureCategoryMapping": {
+    "instanceManagement": [
+      "InstanceGeneralSettings.tsx",
+      "InstanceSettings.tsx",
+      "InstanceAccess.tsx",
+      "InstanceExperimentalSettings.tsx"
+    ],
+    "pluginAndAdapterManagement": [
+      "PluginSettings.tsx",
+      "PluginManager.tsx",
+      "PluginPage.tsx",
+      "AdapterManager.tsx",
+      "InstanceSidebar.tsx (navigation)"
+    ],
+    "secretsAndCredentials": [
+      "Secrets.tsx"
+    ],
+    "executionEnvironments": [
+      "CompanyEnvironments.tsx"
+    ],
+    "agentManagement": [
+      "Agents.tsx",
+      "NewAgent.tsx",
+      "AgentDetail.tsx"
+    ],
+    "companyInfrastructure": [
+      "CompanyImport.tsx",
+      "CompanySettings.tsx",
+      "CompanyAccess.tsx",
+      "TeamCatalog.tsx",
+      "OrgChart.tsx",
+      "CompanySkills.tsx",
+      "Workspaces.tsx",
+      "JoinRequestQueue.tsx"
+    ],
+    "userManagement": [
+      "ProfileSettings.tsx"
+    ],
+    "heartbeatAndMonitoring": [
+      "LiveRunWidget.tsx"
+    ]
+  },
+  "deploymentModeContext": {
+    "hostedProxyMode": "deploymentMode === 'hosted_proxy' - Platform provides infrastructure, users cannot manage plugins, adapters, or execution environments",
+    "selfHostedMode": "deploymentMode !== 'hosted_proxy' - Users have full infrastructure control"
+  },
+  "implementationNotes": {
+    "modeKnownImportance": "Use modeKnown flag to avoid flashing hidden UI on first paint. Components should remain hidden until modeKnown is true for better UX.",
+    "navigationTargets": "Most redirects go to '/dashboard' (company/billing view) or '/' (home/main view). Choose based on context.",
+    "componentVsPageGuards": "Full-page guards use <Navigate>, component guards use conditional rendering with && or ternary operators.",
+    "queryDisabling": "Don't make unnecessary API calls in hosted mode. Use 'enabled' flag in useQuery to prevent polling infrastructure APIs.",
+    "hostedOnlyBehavior": "LiveRunWidget completely hidden in hosted mode - heartbeat system is self-hosted infrastructure."
+  }
+}
